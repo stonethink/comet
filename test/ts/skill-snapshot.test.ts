@@ -138,21 +138,13 @@ describe('Skill snapshots', () => {
     );
   });
 
-  it('rejects script Tool symlinks that escape the Skill package', async (context) => {
+  it('rejects script Tool symlinks that escape the Skill package', async () => {
     const value = withScriptTool(path.join(root, 'skill'));
-    const outside = path.join(root, 'outside.sh');
-    const source = path.join(value.root, 'scripts', 'build.sh');
-    await fs.mkdir(path.dirname(source), { recursive: true });
-    await fs.writeFile(outside, 'echo outside\n');
-    try {
-      await fs.symlink(outside, source, 'file');
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'EPERM') {
-        context.skip();
-        return;
-      }
-      throw error;
-    }
+    const outside = path.join(root, 'outside');
+    const scripts = path.join(value.root, 'scripts');
+    await fs.mkdir(outside);
+    await fs.writeFile(path.join(outside, 'build.sh'), 'echo outside\n');
+    await fs.symlink(outside, scripts, process.platform === 'win32' ? 'junction' : 'dir');
 
     await expect(createSkillSnapshot(value, changeDir)).rejects.toThrow(
       'Script tool build resolves outside the Skill package',
