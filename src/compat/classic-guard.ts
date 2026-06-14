@@ -4,7 +4,9 @@ import { existsSync, promises as fs, readFileSync } from 'fs';
 import path from 'path';
 import { parseDocument } from 'yaml';
 import type { ClassicCommandHandler, ClassicCommandResult } from './classic-cli.js';
-import { classicStateCommand } from './classic-state-command.js';
+import { ensureClassicRuntimeRun, transitionClassicRuntimeRun } from './classic-runtime-run.js';
+import type { ClassicRunContext } from './classic-migrate.js';
+import type { ClassicState } from './classic-state.js';
 import { classicValidateCommand } from './classic-validate-command.js';
 
 const GREEN = '[32m';
@@ -463,7 +465,7 @@ async function designDocFrontmatterHas(
   field: string,
   expected: string,
 ): Promise<boolean> {
-  const source = (await fs.readFile(designDoc, 'utf8')).replace(/^﻿/u, '');
+  const source = (await fs.readFile(designDoc, 'utf8')).replace(/^\uFEFF/u, '');
   let inFrontmatter = false;
   for (const line of source.split(/\r?\n/u)) {
     if (!inFrontmatter) {
@@ -706,20 +708,56 @@ async function guardArchiveChecks(output: GuardOutput, changeDir: string): Promi
 async function applyStateUpdate(
   output: GuardOutput,
   changeDir: string,
-  change: string,
   phase: string,
+  context: ClassicRunContext,
 ): Promise<void> {
   const event = TRANSITION_EVENT[phase];
   if (!event) return;
-  const result = await classicStateCommand(['transition', change, event], { json: false });
-  if (result.stderr) {
-    for (const line of result.stderr.split('\n').slice(0, -1)) output.stderr.push(line);
+
+  const changed: Array<[keyof ClassicState, unknown]> = [];
+  const classic: ClassicState = { ...context.classic };
+  const set = <K extends keyof ClassicState>(field: K, value: ClassicState[K]) => {
+    classic[field] = value;
+    changed.push([field, value]);
+  };
+  if (phase === 'open') {
+    set('phase', classic.workflow === 'full' ? 'design' : 'build');
+  } else if (phase === 'design') {
+    set('phase', 'build');
+  } else if (phase === 'build') {
+    const preserveEvidence = classic.verifyResult === 'fail';
+    set('phase', 'verify');
+    set('verifyResult', 'pending');
+    if (!preserveEvidence) {
+      set('verificationReport', null);
+      set('branchStatus', 'pending');
+    }
+  } else if (phase === 'verify') {
+    set('verifyResult', 'pass');
+    set('phase', 'archive');
+    set('verifiedAt', new Date().toISOString().slice(0, 10));
   }
+
+  await transitionClassicRuntimeRun(changeDir, classic, context.run, {
+    event,
+    phase,
+  });
+
+  const wireNames: Partial<Record<keyof ClassicState, string>> = {
+    phase: 'phase',
+    verifyResult: 'verify_result',
+    verificationReport: 'verification_report',
+    branchStatus: 'branch_status',
+    verifiedAt: 'verified_at',
+  };
+  for (const [field, value] of changed) {
+    output.stderr.push(
+      green(`[SET] ${wireNames[field]}=${value === null ? 'null' : String(value)}`),
+    );
+  }
+  output.stderr.push(green(`[TRANSITION] ${event}`));
   const template = APPLY_MESSAGE[phase];
-  const message =
-    phase === 'open'
-      ? template.replace('PLACEHOLDER', await readField(changeDir, 'phase'))
-      : template;
+  const message = phase === 'open' ? template.replace('PLACEHOLDER', classic.phase) : template;
   output.stderr.push(green(message));
 }
 
@@ -735,6 +773,7 @@ export const classicGuardCommand: ClassicCommandHandler = async (args) => {
     }
     const changeDir = await resolveChangeDir(change);
     await preflight(changeDir, change);
+    const runContext = await ensureClassicRuntimeRun(changeDir);
     output.stderr.push(PHASE_HEADER[phase]);
 
     let blocked: boolean;
@@ -752,7 +791,7 @@ export const classicGuardCommand: ClassicCommandHandler = async (args) => {
     output.stderr.push('');
     output.stderr.push(green('ALL CHECKS PASSED — ready for next phase'));
     if (flag === '--apply') {
-      await applyStateUpdate(output, changeDir, change, phase);
+      await applyStateUpdate(output, changeDir, phase, runContext);
     }
     return output.toResult(0);
   } catch (error) {

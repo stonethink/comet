@@ -143,23 +143,22 @@ async function createFakeOpenSpecArchive(tmpDir: string, archiveDateScript = 'da
 const describeShell = bashCommand ? describe : describe.skip;
 
 describe('comet shell script contracts', () => {
-  it('keeps state, validation, and guard scripts as runtime-only facades', async () => {
+  it('keeps state, validation, guard, handoff, and archive scripts as runtime-only facades', async () => {
     const envSource = await fs.readFile(path.join(scriptsDir, 'comet-env.sh'), 'utf-8');
-    const stateSource = await fs.readFile(path.join(scriptsDir, 'comet-state.sh'), 'utf-8');
-    const validateSource = await fs.readFile(
-      path.join(scriptsDir, 'comet-yaml-validate.sh'),
-      'utf-8',
-    );
-    const guardSource = await fs.readFile(path.join(scriptsDir, 'comet-guard.sh'), 'utf-8');
+    const sources: Record<string, string> = {
+      state: await fs.readFile(path.join(scriptsDir, 'comet-state.sh'), 'utf-8'),
+      validate: await fs.readFile(path.join(scriptsDir, 'comet-yaml-validate.sh'), 'utf-8'),
+      guard: await fs.readFile(path.join(scriptsDir, 'comet-guard.sh'), 'utf-8'),
+      handoff: await fs.readFile(path.join(scriptsDir, 'comet-handoff.sh'), 'utf-8'),
+      archive: await fs.readFile(path.join(scriptsDir, 'comet-archive.sh'), 'utf-8'),
+    };
 
-    expect(stateSource).toContain('exec node "$COMET_RUNTIME" state "$@"');
-    expect(validateSource).toContain('exec node "$COMET_RUNTIME" validate "$@"');
-    expect(guardSource).toContain('exec node "$COMET_RUNTIME" guard "$@"');
-    expect(envSource).toContain('export COMET_RUNTIME=');
-    expect(envSource).not.toContain('BASH_SOURCE[0]');
-    for (const source of [stateSource, validateSource, guardSource]) {
+    for (const [command, source] of Object.entries(sources)) {
+      expect(source).toContain(`exec node "$COMET_RUNTIME" ${command} "$@"`);
       expect(source).not.toMatch(/grep|awk|sed|yaml_field|KNOWN_KEYS|cmd_transition/u);
     }
+    expect(envSource).toContain('export COMET_RUNTIME=');
+    expect(envSource).not.toContain('BASH_SOURCE[0]');
   });
 });
 
@@ -2114,16 +2113,6 @@ describeShell('comet shell scripts', () => {
     }
   });
 
-  it('keeps optional YAML field reads safe under pipefail', async () => {
-    // comet-state.sh, comet-guard.sh, and comet-yaml-validate.sh are runtime
-    // facades (structured parser, no grep). comet-handoff.sh and comet-archive.sh
-    // still read YAML via grep until their migration, so guard their pipefail safety.
-    for (const name of ['comet-handoff.sh', 'comet-archive.sh']) {
-      const content = await fs.readFile(path.join(tmpDir, 'scripts', name), 'utf-8');
-
-      expect(content).toMatch(/grep "\^\$\{field\}:" "\$[a-zA-Z_]+".*\|\| true\)/);
-    }
-  });
 
   it('guards bash uname detection when bash cannot be spawned', async () => {
     const files = [

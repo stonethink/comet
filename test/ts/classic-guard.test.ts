@@ -3,6 +3,7 @@ import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { parse } from 'yaml';
 
 const runtime = path.resolve('assets', 'skills', 'comet', 'scripts', 'comet-runtime.mjs');
 const temporary: string[] = [];
@@ -38,6 +39,12 @@ describe('Classic guard command', () => {
 
     // A blocked guard must not mutate state.
     expect(run(dir, 'state', 'get', 'demo', 'phase').stdout.trim()).toBe('open');
+
+    const stateFile = path.join(dir, 'openspec', 'changes', 'demo', '.comet.yaml');
+    const migrated = await fs.readFile(stateFile, 'utf8');
+    const second = run(dir, 'guard', 'demo', 'open');
+    expect(second.status).toBe(1);
+    expect(await fs.readFile(stateFile, 'utf8')).toBe(migrated);
   });
 
   it('passes the open guard and applies the transition when artifacts exist', async () => {
@@ -53,6 +60,25 @@ describe('Classic guard command', () => {
     expect(result.stderr).toContain('ALL CHECKS PASSED — ready for next phase');
     expect(result.stderr).toContain('[APPLY] .comet.yaml updated: phase=build');
     expect(run(dir, 'state', 'get', 'demo', 'phase').stdout.trim()).toBe('build');
+
+    const state = parse(await fs.readFile(path.join(changeDir, '.comet.yaml'), 'utf8')) as Record<
+      string,
+      unknown
+    >;
+    expect(state).toMatchObject({
+      classic_profile: 'hotfix',
+      classic_migration: 1,
+      skill: 'comet-classic',
+      current_step: 'hotfix.build.complete',
+      iteration: 1,
+    });
+    const trajectory = (
+      await fs.readFile(path.join(changeDir, String(state.trajectory_ref)), 'utf8')
+    )
+      .trim()
+      .split(/\r?\n/u)
+      .map((line) => JSON.parse(line) as { type: string });
+    expect(trajectory.filter((event) => event.type === 'state_transitioned')).toHaveLength(1);
   });
 
   it('fails closed for an unknown phase without running checks', async () => {

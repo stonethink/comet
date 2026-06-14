@@ -188,6 +188,44 @@ async function observeGuard(
   };
 }
 
+interface HandoffObservation {
+  status: number | null;
+  stdout: string;
+  stderr: string;
+  yaml: Record<string, unknown>;
+}
+
+async function observeHandoff(
+  sourceScripts: string,
+  profile: 'full' | 'hotfix' | 'tweak',
+): Promise<HandoffObservation> {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), `comet-handoff-${profile}-`));
+  temporaryRoots.push(root);
+  const scripts = path.join(root, 'scripts');
+  await copyScripts(sourceScripts, scripts);
+
+  const name = `${profile}-handoff`;
+  runScript(root, scripts, 'comet-state.sh', ['init', name, profile]);
+  // Drive into design and seed the required OpenSpec artifacts.
+  runScript(root, scripts, 'comet-state.sh', ['transition', name, 'open-complete']);
+  const changeDir = path.join(root, 'openspec', 'changes', name);
+  await fs.writeFile(path.join(changeDir, 'proposal.md'), 'proposal\n');
+  await fs.writeFile(path.join(changeDir, 'design.md'), 'design\n');
+  await fs.writeFile(path.join(changeDir, 'tasks.md'), '- [x] seed task\n');
+
+  const result = runScript(root, scripts, 'comet-handoff.sh', [name, 'design', '--write']);
+  const yaml = parse(
+    await fs.readFile(path.join(changeDir, '.comet.yaml'), 'utf8'),
+  ) as Record<string, unknown>;
+
+  return {
+    status: result.status,
+    stdout: normalizeOutput(result.stdout, root),
+    stderr: normalizeOutput(result.stderr, root),
+    yaml: legacyProjection(yaml),
+  };
+}
+
 afterEach(async () => {
   await Promise.all(
     temporaryRoots
@@ -240,4 +278,10 @@ describeBash('Classic 0.3.8 differential contract', () => {
       );
     });
   }
+
+  it('preserves design handoff generation for the full workflow', async () => {
+    expect(await observeHandoff(activeScripts, 'full')).toEqual(
+      await observeHandoff(referenceScripts, 'full'),
+    );
+  });
 });

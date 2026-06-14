@@ -63,9 +63,9 @@ describe('Classic runtime CLI adapter', () => {
       exitCode: 64,
       stderr: expect.stringContaining('Unknown Classic command'),
     });
-    // guard/state/validate are implemented; archive/handoff/hook-guard still
-    // await handlers (Tasks 12-13), so they return the "not implemented" code.
-    await expect(runClassicCli(['archive'])).resolves.toMatchObject({
+    // state/validate/guard/handoff/archive are implemented; hook-guard still
+    // awaits a handler (Task 13), so it returns the "not implemented" code.
+    await expect(runClassicCli(['hook-guard'])).resolves.toMatchObject({
       exitCode: 70,
       stderr: expect.stringContaining('not implemented'),
     });

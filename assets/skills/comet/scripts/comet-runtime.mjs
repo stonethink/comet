@@ -114,17 +114,17 @@ var require_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    function visit_(key, node, visitor, path4) {
-      const ctrl = callVisitor(key, node, visitor, path4);
+    function visit_(key, node, visitor, path14) {
+      const ctrl = callVisitor(key, node, visitor, path14);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path4, ctrl);
-        return visit_(key, ctrl, visitor, path4);
+        replaceNode(key, path14, ctrl);
+        return visit_(key, ctrl, visitor, path14);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
-          path4 = Object.freeze(path4.concat(node));
+          path14 = Object.freeze(path14.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
-            const ci = visit_(i, node.items[i], visitor, path4);
+            const ci = visit_(i, node.items[i], visitor, path14);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -135,13 +135,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path4 = Object.freeze(path4.concat(node));
-          const ck = visit_("key", node.key, visitor, path4);
+          path14 = Object.freeze(path14.concat(node));
+          const ck = visit_("key", node.key, visitor, path14);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node.key = null;
-          const cv = visit_("value", node.value, visitor, path4);
+          const cv = visit_("value", node.value, visitor, path14);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -162,17 +162,17 @@ var require_visit = __commonJS({
     visitAsync.BREAK = BREAK;
     visitAsync.SKIP = SKIP;
     visitAsync.REMOVE = REMOVE;
-    async function visitAsync_(key, node, visitor, path4) {
-      const ctrl = await callVisitor(key, node, visitor, path4);
+    async function visitAsync_(key, node, visitor, path14) {
+      const ctrl = await callVisitor(key, node, visitor, path14);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path4, ctrl);
-        return visitAsync_(key, ctrl, visitor, path4);
+        replaceNode(key, path14, ctrl);
+        return visitAsync_(key, ctrl, visitor, path14);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
-          path4 = Object.freeze(path4.concat(node));
+          path14 = Object.freeze(path14.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
-            const ci = await visitAsync_(i, node.items[i], visitor, path4);
+            const ci = await visitAsync_(i, node.items[i], visitor, path14);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -183,13 +183,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path4 = Object.freeze(path4.concat(node));
-          const ck = await visitAsync_("key", node.key, visitor, path4);
+          path14 = Object.freeze(path14.concat(node));
+          const ck = await visitAsync_("key", node.key, visitor, path14);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node.key = null;
-          const cv = await visitAsync_("value", node.value, visitor, path4);
+          const cv = await visitAsync_("value", node.value, visitor, path14);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -216,23 +216,23 @@ var require_visit = __commonJS({
       }
       return visitor;
     }
-    function callVisitor(key, node, visitor, path4) {
+    function callVisitor(key, node, visitor, path14) {
       if (typeof visitor === "function")
-        return visitor(key, node, path4);
+        return visitor(key, node, path14);
       if (identity.isMap(node))
-        return visitor.Map?.(key, node, path4);
+        return visitor.Map?.(key, node, path14);
       if (identity.isSeq(node))
-        return visitor.Seq?.(key, node, path4);
+        return visitor.Seq?.(key, node, path14);
       if (identity.isPair(node))
-        return visitor.Pair?.(key, node, path4);
+        return visitor.Pair?.(key, node, path14);
       if (identity.isScalar(node))
-        return visitor.Scalar?.(key, node, path4);
+        return visitor.Scalar?.(key, node, path14);
       if (identity.isAlias(node))
-        return visitor.Alias?.(key, node, path4);
+        return visitor.Alias?.(key, node, path14);
       return void 0;
     }
-    function replaceNode(key, path4, node) {
-      const parent = path4[path4.length - 1];
+    function replaceNode(key, path14, node) {
+      const parent = path14[path14.length - 1];
       if (identity.isCollection(parent)) {
         parent.items[key] = node;
       } else if (identity.isPair(parent)) {
@@ -842,10 +842,10 @@ var require_Collection = __commonJS({
     var createNode = require_createNode();
     var identity = require_identity();
     var Node = require_Node();
-    function collectionFromPath(schema, path4, value) {
+    function collectionFromPath(schema, path14, value) {
       let v = value;
-      for (let i = path4.length - 1; i >= 0; --i) {
-        const k = path4[i];
+      for (let i = path14.length - 1; i >= 0; --i) {
+        const k = path14[i];
         if (typeof k === "number" && Number.isInteger(k) && k >= 0) {
           const a = [];
           a[k] = v;
@@ -864,7 +864,7 @@ var require_Collection = __commonJS({
         sourceObjects: /* @__PURE__ */ new Map()
       });
     }
-    var isEmptyPath = (path4) => path4 == null || typeof path4 === "object" && !!path4[Symbol.iterator]().next().done;
+    var isEmptyPath = (path14) => path14 == null || typeof path14 === "object" && !!path14[Symbol.iterator]().next().done;
     var Collection = class extends Node.NodeBase {
       constructor(type, schema) {
         super(type);
@@ -894,11 +894,11 @@ var require_Collection = __commonJS({
        * be a Pair instance or a `{ key, value }` object, which may not have a key
        * that already exists in the map.
        */
-      addIn(path4, value) {
-        if (isEmptyPath(path4))
+      addIn(path14, value) {
+        if (isEmptyPath(path14))
           this.add(value);
         else {
-          const [key, ...rest] = path4;
+          const [key, ...rest] = path14;
           const node = this.get(key, true);
           if (identity.isCollection(node))
             node.addIn(rest, value);
@@ -912,8 +912,8 @@ var require_Collection = __commonJS({
        * Removes a value from the collection.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path4) {
-        const [key, ...rest] = path4;
+      deleteIn(path14) {
+        const [key, ...rest] = path14;
         if (rest.length === 0)
           return this.delete(key);
         const node = this.get(key, true);
@@ -927,8 +927,8 @@ var require_Collection = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path4, keepScalar) {
-        const [key, ...rest] = path4;
+      getIn(path14, keepScalar) {
+        const [key, ...rest] = path14;
         const node = this.get(key, true);
         if (rest.length === 0)
           return !keepScalar && identity.isScalar(node) ? node.value : node;
@@ -946,8 +946,8 @@ var require_Collection = __commonJS({
       /**
        * Checks if the collection includes a value with the key `key`.
        */
-      hasIn(path4) {
-        const [key, ...rest] = path4;
+      hasIn(path14) {
+        const [key, ...rest] = path14;
         if (rest.length === 0)
           return this.has(key);
         const node = this.get(key, true);
@@ -957,8 +957,8 @@ var require_Collection = __commonJS({
        * Sets a value in this collection. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path4, value) {
-        const [key, ...rest] = path4;
+      setIn(path14, value) {
+        const [key, ...rest] = path14;
         if (rest.length === 0) {
           this.set(key, value);
         } else {
@@ -3410,7 +3410,7 @@ var require_Document = __commonJS({
     var applyReviver = require_applyReviver();
     var createNode = require_createNode();
     var directives = require_directives();
-    var Document2 = class _Document {
+    var Document3 = class _Document {
       constructor(value, replacer, options) {
         this.commentBefore = null;
         this.comment = null;
@@ -3473,9 +3473,9 @@ var require_Document = __commonJS({
           this.contents.add(value);
       }
       /** Adds a value to the document. */
-      addIn(path4, value) {
+      addIn(path14, value) {
         if (assertCollection(this.contents))
-          this.contents.addIn(path4, value);
+          this.contents.addIn(path14, value);
       }
       /**
        * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
@@ -3550,14 +3550,14 @@ var require_Document = __commonJS({
        * Removes a value from the document.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path4) {
-        if (Collection.isEmptyPath(path4)) {
+      deleteIn(path14) {
+        if (Collection.isEmptyPath(path14)) {
           if (this.contents == null)
             return false;
           this.contents = null;
           return true;
         }
-        return assertCollection(this.contents) ? this.contents.deleteIn(path4) : false;
+        return assertCollection(this.contents) ? this.contents.deleteIn(path14) : false;
       }
       /**
        * Returns item at `key`, or `undefined` if not found. By default unwraps
@@ -3572,10 +3572,10 @@ var require_Document = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path4, keepScalar) {
-        if (Collection.isEmptyPath(path4))
+      getIn(path14, keepScalar) {
+        if (Collection.isEmptyPath(path14))
           return !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents;
-        return identity.isCollection(this.contents) ? this.contents.getIn(path4, keepScalar) : void 0;
+        return identity.isCollection(this.contents) ? this.contents.getIn(path14, keepScalar) : void 0;
       }
       /**
        * Checks if the document includes a value with the key `key`.
@@ -3586,10 +3586,10 @@ var require_Document = __commonJS({
       /**
        * Checks if the document includes a value at `path`.
        */
-      hasIn(path4) {
-        if (Collection.isEmptyPath(path4))
+      hasIn(path14) {
+        if (Collection.isEmptyPath(path14))
           return this.contents !== void 0;
-        return identity.isCollection(this.contents) ? this.contents.hasIn(path4) : false;
+        return identity.isCollection(this.contents) ? this.contents.hasIn(path14) : false;
       }
       /**
        * Sets a value in this document. For `!!set`, `value` needs to be a
@@ -3606,13 +3606,13 @@ var require_Document = __commonJS({
        * Sets a value in this document. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path4, value) {
-        if (Collection.isEmptyPath(path4)) {
+      setIn(path14, value) {
+        if (Collection.isEmptyPath(path14)) {
           this.contents = value;
         } else if (this.contents == null) {
-          this.contents = Collection.collectionFromPath(this.schema, Array.from(path4), value);
+          this.contents = Collection.collectionFromPath(this.schema, Array.from(path14), value);
         } else if (assertCollection(this.contents)) {
-          this.contents.setIn(path4, value);
+          this.contents.setIn(path14, value);
         }
       }
       /**
@@ -3700,7 +3700,7 @@ var require_Document = __commonJS({
         return true;
       throw new Error("Expected a YAML collection as document contents");
     }
-    exports.Document = Document2;
+    exports.Document = Document3;
   }
 });
 
@@ -5064,13 +5064,13 @@ var require_compose_node = __commonJS({
 var require_compose_doc = __commonJS({
   "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-doc.js"(exports) {
     "use strict";
-    var Document2 = require_Document();
+    var Document3 = require_Document();
     var composeNode = require_compose_node();
     var resolveEnd = require_resolve_end();
     var resolveProps = require_resolve_props();
     function composeDoc(options, directives, { offset, start, value, end }, onError) {
       const opts = Object.assign({ _directives: directives }, options);
-      const doc = new Document2.Document(void 0, opts);
+      const doc = new Document3.Document(void 0, opts);
       const ctx = {
         atKey: false,
         atRoot: true,
@@ -5109,7 +5109,7 @@ var require_composer = __commonJS({
     "use strict";
     var node_process = __require("process");
     var directives = require_directives();
-    var Document2 = require_Document();
+    var Document3 = require_Document();
     var errors = require_errors();
     var identity = require_identity();
     var composeDoc = require_compose_doc();
@@ -5298,7 +5298,7 @@ ${end.comment}` : end.comment;
           this.doc = null;
         } else if (forceDoc) {
           const opts = Object.assign({ _directives: this.directives }, this.options);
-          const doc = new Document2.Document(void 0, opts);
+          const doc = new Document3.Document(void 0, opts);
           if (this.atDirectives)
             this.onError(endOffset, "MISSING_CHAR", "Missing directives-end indicator line");
           doc.range = [0, endOffset, endOffset];
@@ -5572,10 +5572,10 @@ var require_cst_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    visit.itemAtPath = (cst, path4) => {
+    visit.itemAtPath = (cst, path14) => {
       let item = cst;
-      for (const [field, index] of path4) {
-        const tok = item?.[field];
+      for (const [field2, index] of path14) {
+        const tok = item?.[field2];
         if (tok && "items" in tok) {
           item = tok.items[index];
         } else
@@ -5583,23 +5583,23 @@ var require_cst_visit = __commonJS({
       }
       return item;
     };
-    visit.parentCollection = (cst, path4) => {
-      const parent = visit.itemAtPath(cst, path4.slice(0, -1));
-      const field = path4[path4.length - 1][0];
-      const coll = parent?.[field];
+    visit.parentCollection = (cst, path14) => {
+      const parent = visit.itemAtPath(cst, path14.slice(0, -1));
+      const field2 = path14[path14.length - 1][0];
+      const coll = parent?.[field2];
       if (coll && "items" in coll)
         return coll;
       throw new Error("Parent collection not found");
     };
-    function _visit(path4, item, visitor) {
-      let ctrl = visitor(item, path4);
+    function _visit(path14, item, visitor) {
+      let ctrl = visitor(item, path14);
       if (typeof ctrl === "symbol")
         return ctrl;
-      for (const field of ["key", "value"]) {
-        const token = item[field];
+      for (const field2 of ["key", "value"]) {
+        const token = item[field2];
         if (token && "items" in token) {
           for (let i = 0; i < token.items.length; ++i) {
-            const ci = _visit(Object.freeze(path4.concat([[field, i]])), token.items[i], visitor);
+            const ci = _visit(Object.freeze(path14.concat([[field2, i]])), token.items[i], visitor);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -5609,11 +5609,11 @@ var require_cst_visit = __commonJS({
               i -= 1;
             }
           }
-          if (typeof ctrl === "function" && field === "key")
-            ctrl = ctrl(item, path4);
+          if (typeof ctrl === "function" && field2 === "key")
+            ctrl = ctrl(item, path14);
         }
       }
-      return typeof ctrl === "function" ? ctrl(item, path4) : ctrl;
+      return typeof ctrl === "function" ? ctrl(item, path14) : ctrl;
     }
     exports.visit = visit;
   }
@@ -6915,14 +6915,14 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs4 = this.flowScalar(this.type);
+              const fs13 = this.flowScalar(this.type);
               if (atNextItem || it.value) {
-                map.items.push({ start, key: fs4, sep: [] });
+                map.items.push({ start, key: fs13, sep: [] });
                 this.onKeyLine = true;
               } else if (it.sep) {
-                this.stack.push(fs4);
+                this.stack.push(fs13);
               } else {
-                Object.assign(it, { key: fs4, sep: [] });
+                Object.assign(it, { key: fs13, sep: [] });
                 this.onKeyLine = true;
               }
               return;
@@ -7050,13 +7050,13 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs4 = this.flowScalar(this.type);
+              const fs13 = this.flowScalar(this.type);
               if (!it || it.value)
-                fc.items.push({ start: [], key: fs4, sep: [] });
+                fc.items.push({ start: [], key: fs13, sep: [] });
               else if (it.sep)
-                this.stack.push(fs4);
+                this.stack.push(fs13);
               else
-                Object.assign(it, { key: fs4, sep: [] });
+                Object.assign(it, { key: fs13, sep: [] });
               return;
             }
             case "flow-map-end":
@@ -7220,7 +7220,7 @@ var require_public_api = __commonJS({
   "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/public-api.js"(exports) {
     "use strict";
     var composer = require_composer();
-    var Document2 = require_Document();
+    var Document3 = require_Document();
     var errors = require_errors();
     var log = require_log();
     var identity = require_identity();
@@ -7245,7 +7245,7 @@ var require_public_api = __commonJS({
         return docs;
       return Object.assign([], { empty: true }, composer$1.streamInfo());
     }
-    function parseDocument4(source, options = {}) {
+    function parseDocument6(source, options = {}) {
       const { lineCounter: lineCounter2, prettyErrors } = parseOptions(options);
       const parser$1 = new parser.Parser(lineCounter2?.addNewLine);
       const composer$1 = new composer.Composer(options);
@@ -7264,14 +7264,14 @@ var require_public_api = __commonJS({
       }
       return doc;
     }
-    function parse2(src, reviver, options) {
+    function parse3(src, reviver, options) {
       let _reviver = void 0;
       if (typeof reviver === "function") {
         _reviver = reviver;
       } else if (options === void 0 && reviver && typeof reviver === "object") {
         options = reviver;
       }
-      const doc = parseDocument4(src, options);
+      const doc = parseDocument6(src, options);
       if (!doc)
         return null;
       doc.warnings.forEach((warning) => log.warn(doc.options.logLevel, warning));
@@ -7303,11 +7303,11 @@ var require_public_api = __commonJS({
       }
       if (identity.isDocument(value) && !_replacer)
         return value.toString(options);
-      return new Document2.Document(value, _replacer, options).toString(options);
+      return new Document3.Document(value, _replacer, options).toString(options);
     }
-    exports.parse = parse2;
+    exports.parse = parse3;
     exports.parseAllDocuments = parseAllDocuments;
-    exports.parseDocument = parseDocument4;
+    exports.parseDocument = parseDocument6;
     exports.stringify = stringify2;
   }
 });
@@ -7317,7 +7317,7 @@ var require_dist = __commonJS({
   "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/index.js"(exports) {
     "use strict";
     var composer = require_composer();
-    var Document2 = require_Document();
+    var Document3 = require_Document();
     var Schema = require_Schema();
     var errors = require_errors();
     var Alias = require_Alias();
@@ -7333,7 +7333,7 @@ var require_dist = __commonJS({
     var publicApi = require_public_api();
     var visit = require_visit();
     exports.Composer = composer.Composer;
-    exports.Document = Document2.Document;
+    exports.Document = Document3.Document;
     exports.Schema = Schema.Schema;
     exports.YAMLError = errors.YAMLError;
     exports.YAMLParseError = errors.YAMLParseError;
@@ -7367,24 +7367,313 @@ var require_dist = __commonJS({
 // src/compat/classic-cli.ts
 import { pathToFileURL } from "url";
 
-// src/compat/classic-guard.ts
-var import_yaml4 = __toESM(require_dist(), 1);
-import { spawnSync as spawnSync2 } from "child_process";
-import { createHash } from "crypto";
-import { existsSync as existsSync2, promises as fs3, readFileSync } from "fs";
-import path3 from "path";
-
-// src/compat/classic-state-command.ts
-var import_yaml2 = __toESM(require_dist(), 1);
+// src/compat/classic-archive.ts
+import { createHash as createHash3 } from "crypto";
 import { spawnSync } from "child_process";
-import { randomUUID } from "crypto";
-import { existsSync, promises as fs } from "fs";
+import { promises as fs8 } from "fs";
+import path9 from "path";
+
+// src/compat/classic-runtime-run.ts
+import { promises as fs7 } from "fs";
+import path8 from "path";
+import { fileURLToPath } from "url";
+
+// src/compat/classic-evidence.ts
+import { promises as fs } from "fs";
 import path from "path";
+async function fileExists(file) {
+  try {
+    return (await fs.stat(file)).isFile();
+  } catch (error) {
+    if (error.code === "ENOENT") return false;
+    throw error;
+  }
+}
+function projectRootFor(changeDir) {
+  let cursor = path.resolve(changeDir);
+  while (path.dirname(cursor) !== cursor) {
+    if (path.basename(cursor) === "openspec") return path.dirname(cursor);
+    cursor = path.dirname(cursor);
+  }
+  throw new Error(`Classic change is not inside an openspec directory: ${changeDir}`);
+}
+function relativeSource(projectRoot, file) {
+  return path.relative(projectRoot, file).split(path.sep).join("/");
+}
+async function linkedFileEvidence(projectRoot, code, relativePath2) {
+  if (!relativePath2) return { code, satisfied: false };
+  const file = path.resolve(projectRoot, relativePath2);
+  return {
+    code,
+    satisfied: await fileExists(file),
+    source: relativeSource(projectRoot, file)
+  };
+}
+async function directFileEvidence(projectRoot, code, file) {
+  return {
+    code,
+    satisfied: await fileExists(file),
+    source: relativeSource(projectRoot, file)
+  };
+}
+async function deltaSpecEvidence(projectRoot, changeDir) {
+  const specsDir = path.join(changeDir, "specs");
+  let entries;
+  try {
+    entries = await fs.readdir(specsDir);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return { code: "openspec.delta-spec", satisfied: false };
+    }
+    throw error;
+  }
+  const candidates = entries.map((entry2) => path.join(specsDir, entry2, "spec.md"));
+  const existing = (await Promise.all(candidates.map(async (file) => await fileExists(file) ? file : null))).filter((file) => file !== null);
+  return {
+    code: "openspec.delta-spec",
+    satisfied: existing.length > 0,
+    source: existing[0] ? relativeSource(projectRoot, existing[0]) : void 0,
+    detail: `${existing.length} delta spec${existing.length === 1 ? "" : "s"}`
+  };
+}
+async function taskEvidence(projectRoot, tasksFile) {
+  let source;
+  try {
+    source = await fs.readFile(tasksFile, "utf8");
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return { code: "build.tasks-complete", satisfied: false };
+    }
+    throw error;
+  }
+  const tasks = [...source.matchAll(/^\s*[-*]\s+\[([ xX])\]\s+/gmu)];
+  const complete = tasks.filter((match) => match[1].toLowerCase() === "x").length;
+  return {
+    code: "build.tasks-complete",
+    satisfied: tasks.length > 0 && complete === tasks.length,
+    source: relativeSource(projectRoot, tasksFile),
+    detail: `${complete} of ${tasks.length} tasks complete`
+  };
+}
+function evidenceSatisfied(evidence, code) {
+  return evidence.some((item) => item.code === code && item.satisfied);
+}
+async function collectClassicEvidence(changeDir, projection) {
+  const projectRoot = projectRootFor(changeDir);
+  const classic = projection.classic;
+  const proposal = path.join(changeDir, "proposal.md");
+  const design = path.join(changeDir, "design.md");
+  const tasks = path.join(changeDir, "tasks.md");
+  const checkpoint = projection.run ? path.resolve(changeDir, projection.run.checkpointRef) : path.join(changeDir, ".comet", "checkpoint.json");
+  const evidence = await Promise.all([
+    directFileEvidence(projectRoot, "openspec.proposal", proposal),
+    directFileEvidence(projectRoot, "openspec.design", design),
+    directFileEvidence(projectRoot, "openspec.tasks", tasks),
+    deltaSpecEvidence(projectRoot, changeDir),
+    linkedFileEvidence(projectRoot, "design.document", classic?.designDoc ?? null),
+    linkedFileEvidence(projectRoot, "build.plan", classic?.plan ?? null),
+    taskEvidence(projectRoot, tasks),
+    linkedFileEvidence(projectRoot, "verification.report", classic?.verificationReport ?? null),
+    linkedFileEvidence(projectRoot, "design.handoff", classic?.handoffContext ?? null),
+    directFileEvidence(projectRoot, "run.checkpoint", checkpoint)
+  ]);
+  const handoff = evidence.find((item) => item.code === "design.handoff");
+  if (handoff && !classic?.handoffHash) {
+    handoff.satisfied = false;
+    handoff.detail = "handoff hash is missing";
+  }
+  return evidence;
+}
+
+// src/compat/classic-migrate.ts
+import { createHash as createHash2, randomUUID as randomUUID4 } from "crypto";
+import { promises as fs5 } from "fs";
+import path6 from "path";
+
+// src/compat/classic-resolver.ts
+function profileFor(classic) {
+  return classic.classicProfile ?? classic.workflow;
+}
+function fullBuildConfigured(classic) {
+  if (!classic.buildMode || !classic.tddMode || !classic.isolation || !classic.verifyMode) {
+    return false;
+  }
+  if (classic.buildMode === "subagent-driven-development") {
+    return classic.subagentDispatch === "confirmed";
+  }
+  if (classic.buildMode === "direct") return classic.directOverride === true;
+  return true;
+}
+function presetBuildConfigured(classic) {
+  return Boolean(
+    classic.buildMode === "direct" && classic.tddMode === "direct" && classic.isolation === "branch" && classic.verifyMode === "light"
+  );
+}
+function resolveBuild(profile, classic, evidence) {
+  if (classic.verifyResult === "fail") {
+    return profile === "full" ? "full.build.fix" : `${profile}.build.execute`;
+  }
+  if (profile === "full") {
+    if (!evidenceSatisfied(evidence, "build.plan")) return "full.build.plan";
+    if (classic.buildPause === "plan-ready") return "full.build.plan-ready";
+    if (!fullBuildConfigured(classic)) return "full.build.configure";
+  } else if (!presetBuildConfigured(classic)) {
+    throw new Error(`${profile} build configuration is incomplete`);
+  }
+  return evidenceSatisfied(evidence, "build.tasks-complete") ? `${profile}.build.complete` : `${profile}.build.execute`;
+}
+function resolveVerify(profile, classic, evidence) {
+  if (classic.verifyResult !== "pass" || !evidenceSatisfied(evidence, "verification.report")) {
+    return `${profile}.verify.run`;
+  }
+  return `${profile}.verify.branch`;
+}
+function resolveArchive(profile, classic, evidence) {
+  if (classic.verifyResult !== "pass") {
+    throw new Error("archive requires verify_result=pass");
+  }
+  return evidenceSatisfied(evidence, "archive.confirmed") ? `${profile}.archive.execute` : `${profile}.archive.confirm`;
+}
+function resolveClassicStepId(classic, evidence) {
+  const profile = profileFor(classic);
+  if (classic.archived && classic.phase !== "archive") {
+    throw new Error("archived=true requires phase=archive");
+  }
+  if (classic.archived) return "completed";
+  if (profile !== "full" && classic.phase === "design") {
+    throw new Error(`${profile} workflow cannot enter design`);
+  }
+  switch (classic.phase) {
+    case "open":
+      return `${profile}.open`;
+    case "design":
+      return evidenceSatisfied(evidence, "design.handoff") ? "full.design.document" : "full.design.handoff";
+    case "build":
+      return resolveBuild(profile, classic, evidence);
+    case "verify":
+      return resolveVerify(profile, classic, evidence);
+    case "archive":
+      return resolveArchive(profile, classic, evidence);
+  }
+}
+
+// src/compat/classic-store.ts
+var import_yaml2 = __toESM(require_dist(), 1);
+import { randomUUID } from "crypto";
+import { promises as fs2 } from "fs";
+import path3 from "path";
 
 // src/engine/state.ts
 var import_yaml = __toESM(require_dist(), 1);
+import path2 from "path";
+var field = (doc, key) => {
+  const value = doc[key];
+  return value === null || value === void 0 ? null : String(value);
+};
+function requiredString(doc, key) {
+  const value = doc[key];
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`Invalid Run state: ${key} must be a non-empty string`);
+  }
+  return value;
+}
+function requiredRunReference(doc, key) {
+  const value = requiredString(doc, key);
+  if (path2.isAbsolute(value) || /^(?:[A-Za-z]:|[\\/]|~)/u.test(value) || value.split(/[\\/]/u).includes("..")) {
+    throw new Error(`Invalid Run state: ${key} must stay inside the change directory`);
+  }
+  return value;
+}
+function retries(doc) {
+  const raw = doc.run_retries ?? "{}";
+  let value;
+  try {
+    value = typeof raw === "string" ? JSON.parse(raw) : raw;
+  } catch (error) {
+    throw new Error("Invalid Run state: run_retries must be a JSON object", { cause: error });
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Invalid Run state: run_retries must be a JSON object");
+  }
+  for (const count of Object.values(value)) {
+    if (!Number.isInteger(count) || Number(count) < 0) {
+      throw new Error("Invalid Run state: retry counts must be non-negative integers");
+    }
+  }
+  return value;
+}
+function runStateFromDocument(doc) {
+  if (!doc.run_id) return null;
+  const runId = requiredString(doc, "run_id");
+  const skill = requiredString(doc, "skill");
+  const skillVersion = requiredString(doc, "skill_version");
+  const skillHash = requiredString(doc, "skill_hash");
+  const pendingRef = requiredRunReference(doc, "pending_ref");
+  const trajectoryRef = requiredRunReference(doc, "trajectory_ref");
+  const contextRef = requiredRunReference(doc, "context_ref");
+  const artifactsRef = requiredRunReference(doc, "artifacts_ref");
+  const checkpointRef = requiredRunReference(doc, "checkpoint_ref");
+  const iteration = Number(doc.iteration);
+  if (!Number.isInteger(iteration) || iteration < 0) {
+    throw new Error("Invalid Run state: iteration must be a non-negative integer");
+  }
+  if (doc.orchestration !== "deterministic" && doc.orchestration !== "adaptive") {
+    throw new Error("Invalid Run state: orchestration must be deterministic or adaptive");
+  }
+  if (doc.run_status !== "running" && doc.run_status !== "waiting" && doc.run_status !== "completed" && doc.run_status !== "failed") {
+    throw new Error("Invalid Run state: run_status is invalid");
+  }
+  return {
+    runId,
+    skill,
+    skillVersion,
+    skillHash,
+    orchestration: doc.orchestration,
+    currentStep: field(doc, "current_step"),
+    iteration,
+    pending: field(doc, "pending"),
+    pendingRef,
+    trajectoryRef,
+    contextRef,
+    artifactsRef,
+    checkpointRef,
+    status: doc.run_status,
+    retries: retries(doc)
+  };
+}
+function applyRunStateToDocument(doc, state) {
+  Object.assign(doc, {
+    run_id: state.runId,
+    skill: state.skill,
+    skill_version: state.skillVersion,
+    skill_hash: state.skillHash,
+    orchestration: state.orchestration,
+    current_step: state.currentStep,
+    iteration: state.iteration,
+    pending: state.pending,
+    pending_ref: state.pendingRef,
+    trajectory_ref: state.trajectoryRef,
+    context_ref: state.contextRef,
+    artifacts_ref: state.artifactsRef,
+    checkpoint_ref: state.checkpointRef,
+    run_status: state.status,
+    run_retries: JSON.stringify(state.retries)
+  });
+}
 
 // src/compat/classic-state.ts
+var CLASSIC_PROFILES = ["full", "hotfix", "tweak"];
+var CLASSIC_MIGRATION_VERSION = 1;
+var PHASES = ["open", "design", "build", "verify", "archive"];
+var CONTEXT_COMPRESSION = ["off", "beta"];
+var BUILD_MODES = ["subagent-driven-development", "executing-plans", "direct"];
+var BUILD_PAUSES = ["plan-ready"];
+var SUBAGENT_DISPATCH = ["confirmed"];
+var TDD_MODES = ["tdd", "direct"];
+var ISOLATIONS = ["branch", "worktree"];
+var VERIFY_MODES = ["light", "full"];
+var VERIFY_RESULTS = ["pending", "pass", "fail"];
+var BRANCH_STATUSES = ["pending", "handled"];
 var CLASSIC_WIRE_KEYS = [
   "workflow",
   "phase",
@@ -7431,80 +7720,950 @@ var RUN_WIRE_KEYS = [
   "run_retries"
 ];
 var KNOWN_KEYS = /* @__PURE__ */ new Set([...CLASSIC_WIRE_KEYS, ...RUN_WIRE_KEYS]);
+var REQUIRED_CLASSIC_KEYS = [
+  "workflow",
+  "phase",
+  "design_doc",
+  "plan",
+  "build_mode",
+  "isolation",
+  "verify_mode",
+  "verify_result",
+  "verified_at",
+  "archived"
+];
+function has(doc, key) {
+  return Object.prototype.hasOwnProperty.call(doc, key);
+}
+function nullableString(doc, key) {
+  const value = doc[key];
+  if (value === null || value === void 0 || value === "") return null;
+  if (typeof value !== "string") {
+    throw new Error(`Invalid Classic state: ${key} must be a string or null`);
+  }
+  return value;
+}
+function enumValue(doc, key, values, nullable = true) {
+  const value = doc[key];
+  if (value === null || value === void 0 || value === "") {
+    if (nullable) return null;
+    throw new Error(`Invalid Classic state: ${key} is required`);
+  }
+  if (typeof value !== "string" || !values.includes(value)) {
+    throw new Error(
+      `Invalid Classic state: ${key} must be one of ${values.join(", ")}${nullable ? " or null" : ""}`
+    );
+  }
+  return value;
+}
+function booleanValue(doc, key, nullable = true) {
+  const value = doc[key];
+  if (value === null || value === void 0 || value === "") {
+    if (nullable) return null;
+    throw new Error(`Invalid Classic state: ${key} is required`);
+  }
+  if (typeof value !== "boolean") {
+    throw new Error(`Invalid Classic state: ${key} must be true or false`);
+  }
+  return value;
+}
+function relativePath(doc, key) {
+  const value = nullableString(doc, key);
+  if (value === null) return null;
+  if (/^(?:[A-Za-z]:|[\\/]|~)/u.test(value) || value.split(/[\\/]/u).includes("..")) {
+    throw new Error(`Invalid Classic state: ${key} must be a relative repository path`);
+  }
+  return value;
+}
+function sha256(doc, key) {
+  const value = nullableString(doc, key);
+  if (value !== null && !/^[a-f0-9]{64}$/u.test(value)) {
+    throw new Error(`Invalid Classic state: ${key} must be a sha256 hex digest`);
+  }
+  return value;
+}
+function migrationVersion(doc) {
+  const value = doc.classic_migration;
+  if (value === null || value === void 0 || value === "") return null;
+  if (value !== CLASSIC_MIGRATION_VERSION) {
+    throw new Error(
+      `Invalid Classic state: classic_migration must be ${CLASSIC_MIGRATION_VERSION}`
+    );
+  }
+  return value;
+}
+function classicStateFromDocument(doc) {
+  const hasClassicProjection = CLASSIC_WIRE_KEYS.some((key) => has(doc, key));
+  if (!hasClassicProjection) return null;
+  for (const key of REQUIRED_CLASSIC_KEYS) {
+    if (!has(doc, key)) {
+      throw new Error(`Invalid Classic state: missing required field ${key}`);
+    }
+  }
+  return {
+    workflow: enumValue(doc, "workflow", CLASSIC_PROFILES, false),
+    phase: enumValue(doc, "phase", PHASES, false),
+    contextCompression: enumValue(doc, "context_compression", CONTEXT_COMPRESSION),
+    buildMode: enumValue(doc, "build_mode", BUILD_MODES),
+    buildPause: enumValue(doc, "build_pause", BUILD_PAUSES),
+    subagentDispatch: enumValue(doc, "subagent_dispatch", SUBAGENT_DISPATCH),
+    tddMode: enumValue(doc, "tdd_mode", TDD_MODES),
+    isolation: enumValue(doc, "isolation", ISOLATIONS),
+    verifyMode: enumValue(doc, "verify_mode", VERIFY_MODES),
+    autoTransition: booleanValue(doc, "auto_transition"),
+    baseRef: nullableString(doc, "base_ref"),
+    designDoc: relativePath(doc, "design_doc"),
+    plan: relativePath(doc, "plan"),
+    verifyResult: enumValue(doc, "verify_result", VERIFY_RESULTS, false),
+    verificationReport: relativePath(doc, "verification_report"),
+    branchStatus: enumValue(doc, "branch_status", BRANCH_STATUSES),
+    createdAt: nullableString(doc, "created_at"),
+    verifiedAt: nullableString(doc, "verified_at"),
+    archived: booleanValue(doc, "archived", false),
+    directOverride: booleanValue(doc, "direct_override"),
+    buildCommand: nullableString(doc, "build_command"),
+    verifyCommand: nullableString(doc, "verify_command"),
+    handoffContext: relativePath(doc, "handoff_context"),
+    handoffHash: sha256(doc, "handoff_hash"),
+    classicProfile: enumValue(doc, "classic_profile", CLASSIC_PROFILES),
+    classicMigration: migrationVersion(doc)
+  };
+}
+function parseClassicStateDocument(doc) {
+  let run;
+  try {
+    run = runStateFromDocument(doc);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(message.replace(/^Invalid Run state:/u, "Invalid Classic state:"), {
+      cause: error
+    });
+  }
+  return {
+    classic: classicStateFromDocument(doc),
+    run,
+    unknownKeys: Object.keys(doc).filter((key) => !KNOWN_KEYS.has(key))
+  };
+}
+function classicStateToDocument(state) {
+  return {
+    workflow: state.workflow,
+    phase: state.phase,
+    context_compression: state.contextCompression,
+    build_mode: state.buildMode,
+    build_pause: state.buildPause,
+    subagent_dispatch: state.subagentDispatch,
+    tdd_mode: state.tddMode,
+    isolation: state.isolation,
+    verify_mode: state.verifyMode,
+    auto_transition: state.autoTransition,
+    base_ref: state.baseRef,
+    design_doc: state.designDoc,
+    plan: state.plan,
+    verify_result: state.verifyResult,
+    verification_report: state.verificationReport,
+    branch_status: state.branchStatus,
+    created_at: state.createdAt,
+    verified_at: state.verifiedAt,
+    archived: state.archived,
+    direct_override: state.directOverride,
+    build_command: state.buildCommand,
+    verify_command: state.verifyCommand,
+    handoff_context: state.handoffContext,
+    handoff_hash: state.handoffHash,
+    classic_profile: state.classicProfile,
+    classic_migration: state.classicMigration
+  };
+}
 
-// src/compat/classic-state-command.ts
+// src/compat/classic-store.ts
+function documentRecord(document) {
+  const value = document.toJS();
+  if (value === null) return {};
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Invalid Classic state document: root must be a mapping");
+  }
+  return value;
+}
+function setIfChanged(document, key, value) {
+  if (document.get(key) !== value) document.set(key, value);
+}
+function applyProjection(document, projection) {
+  if (projection.classic) {
+    for (const [key, value] of Object.entries(classicStateToDocument(projection.classic))) {
+      setIfChanged(document, key, value);
+    }
+  } else {
+    for (const key of CLASSIC_WIRE_KEYS) document.delete(key);
+  }
+  if (projection.run) {
+    const runDocument = {};
+    applyRunStateToDocument(runDocument, projection.run);
+    for (const [key, value] of Object.entries(runDocument)) {
+      setIfChanged(document, key, value);
+    }
+  } else {
+    for (const key of RUN_WIRE_KEYS) document.delete(key);
+  }
+}
+async function readDocument(file) {
+  let source;
+  try {
+    source = await fs2.readFile(file, "utf8");
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+    return new import_yaml2.Document({});
+  }
+  const document = (0, import_yaml2.parseDocument)(source);
+  if (document.errors.length > 0) {
+    throw new Error(`Invalid Classic state document: ${document.errors[0].message}`);
+  }
+  documentRecord(document);
+  return document;
+}
+async function readClassicState(changeDir) {
+  const document = await readDocument(path3.join(changeDir, ".comet.yaml"));
+  return parseClassicStateDocument(documentRecord(document));
+}
+async function writeClassicState(changeDir, projection) {
+  const file = path3.join(changeDir, ".comet.yaml");
+  const document = await readDocument(file);
+  applyProjection(document, {
+    ...projection,
+    unknownKeys: projection.unknownKeys ?? []
+  });
+  parseClassicStateDocument(documentRecord(document));
+  await fs2.mkdir(changeDir, { recursive: true });
+  const temporary = path3.join(changeDir, `.comet.yaml.${randomUUID()}.tmp`);
+  try {
+    await fs2.writeFile(temporary, document.toString(), "utf8");
+    await fs2.rename(temporary, file);
+  } catch (error) {
+    await fs2.rm(temporary, { force: true });
+    throw error;
+  }
+}
+
+// src/engine/loop.ts
+function startRun(pkg, runId, skillHash) {
+  return {
+    runId,
+    skill: pkg.definition.metadata.name,
+    skillVersion: pkg.definition.metadata.version,
+    skillHash,
+    orchestration: pkg.definition.orchestration.mode,
+    currentStep: pkg.definition.orchestration.entry ?? null,
+    iteration: 0,
+    pending: null,
+    pendingRef: ".comet/pending-action.json",
+    trajectoryRef: ".comet/trajectory.jsonl",
+    contextRef: ".comet/context.md",
+    artifactsRef: ".comet/artifacts.json",
+    checkpointRef: ".comet/checkpoint.json",
+    status: "running",
+    retries: {}
+  };
+}
+
+// src/engine/run-store.ts
+import { randomUUID as randomUUID2 } from "crypto";
+import { promises as fs3 } from "fs";
+import path4 from "path";
+function resolveRunPath(changeDir, relativePath2) {
+  if (path4.isAbsolute(relativePath2))
+    throw new Error("Run path must stay inside the change directory");
+  const root = path4.resolve(changeDir);
+  const target = path4.resolve(root, relativePath2);
+  if (target !== root && !target.startsWith(root + path4.sep)) {
+    throw new Error("Run path must stay inside the change directory");
+  }
+  return target;
+}
+async function atomicWrite(file, content) {
+  await fs3.mkdir(path4.dirname(file), { recursive: true });
+  const temporary = `${file}.${randomUUID2()}.tmp`;
+  await fs3.writeFile(temporary, content, "utf8");
+  await fs3.rename(temporary, file);
+}
+async function readOptionalText(file) {
+  try {
+    return await fs3.readFile(file, "utf8");
+  } catch (error) {
+    if (error.code === "ENOENT") return null;
+    throw error;
+  }
+}
+async function appendTrajectory(changeDir, relativePath2, event) {
+  const file = resolveRunPath(changeDir, relativePath2);
+  await fs3.mkdir(path4.dirname(file), { recursive: true });
+  await fs3.appendFile(file, JSON.stringify(event) + "\n", "utf8");
+}
+async function readTrajectory(changeDir, relativePath2) {
+  const raw = await readOptionalText(resolveRunPath(changeDir, relativePath2));
+  if (raw === null) return [];
+  return raw.split(/\r?\n/).map((line, index) => ({ line, number: index + 1 })).filter(({ line }) => line.length > 0).map(({ line, number }) => {
+    try {
+      return JSON.parse(line);
+    } catch (error) {
+      throw new Error(`Invalid Trajectory event at line ${number}`, { cause: error });
+    }
+  });
+}
+async function readArtifacts(changeDir, relativePath2) {
+  try {
+    return JSON.parse(await fs3.readFile(resolveRunPath(changeDir, relativePath2), "utf8"));
+  } catch (error) {
+    if (error.code === "ENOENT") return {};
+    throw error;
+  }
+}
+async function writeArtifacts(changeDir, relativePath2, artifacts) {
+  await atomicWrite(
+    resolveRunPath(changeDir, relativePath2),
+    JSON.stringify(artifacts, null, 2) + "\n"
+  );
+}
+async function writeContext(changeDir, relativePath2, context) {
+  await atomicWrite(resolveRunPath(changeDir, relativePath2), context);
+}
+async function readContext(changeDir, relativePath2) {
+  return readOptionalText(resolveRunPath(changeDir, relativePath2));
+}
+async function writePendingAction(changeDir, relativePath2, action) {
+  await atomicWrite(
+    resolveRunPath(changeDir, relativePath2),
+    JSON.stringify(action, null, 2) + "\n"
+  );
+}
+async function readPendingAction(changeDir, relativePath2) {
+  try {
+    return JSON.parse(await fs3.readFile(resolveRunPath(changeDir, relativePath2), "utf8"));
+  } catch (error) {
+    if (error.code === "ENOENT") return null;
+    throw error;
+  }
+}
+async function clearPendingAction(changeDir, relativePath2) {
+  try {
+    await fs3.unlink(resolveRunPath(changeDir, relativePath2));
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+}
+async function writeCheckpoint(changeDir, relativePath2, checkpoint) {
+  await atomicWrite(
+    resolveRunPath(changeDir, relativePath2),
+    JSON.stringify(checkpoint, null, 2) + "\n"
+  );
+}
+async function readCheckpoint(changeDir, relativePath2) {
+  const raw = await readOptionalText(resolveRunPath(changeDir, relativePath2));
+  return raw === null ? null : JSON.parse(raw);
+}
+
+// src/skill/snapshot.ts
+import { createHash, randomUUID as randomUUID3 } from "crypto";
+import { promises as fs4 } from "fs";
+import path5 from "path";
+function stable(value) {
+  if (Array.isArray(value)) return value.map(stable);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).sort(([left], [right]) => left.localeCompare(right)).map(([key, item]) => [key, stable(item)])
+    );
+  }
+  return value;
+}
+function packageDocument(pkg) {
+  return stable({ definition: pkg.definition, guardrails: pkg.guardrails, evals: pkg.evals });
+}
+function normalizedRelativePath(source) {
+  return path5.posix.normalize(source.replaceAll("\\", "/"));
+}
+function assertInside(parent, target, label) {
+  const relative = path5.relative(parent, target);
+  if (relative === "" || !path5.isAbsolute(relative) && !relative.startsWith(`..${path5.sep}`)) {
+    return;
+  }
+  throw new Error(`${label} resolves outside the Skill package`);
+}
+async function readPackageFile(root, relativePath2, label) {
+  const normalized = normalizedRelativePath(relativePath2);
+  if (path5.posix.isAbsolute(normalized) || normalized === ".." || normalized.startsWith("../")) {
+    throw new Error(`${label} resolves outside the Skill package`);
+  }
+  const target = path5.resolve(root, ...normalized.split("/"));
+  assertInside(root, target, label);
+  let realTarget;
+  try {
+    realTarget = await fs4.realpath(target);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      throw new Error(`${label} does not exist: ${relativePath2}`, { cause: error });
+    }
+    throw error;
+  }
+  assertInside(root, realTarget, label);
+  if (!(await fs4.stat(realTarget)).isFile()) {
+    throw new Error(`${label} is not a file: ${relativePath2}`);
+  }
+  return { path: normalized, content: await fs4.readFile(realTarget) };
+}
+async function snapshotFiles(pkg) {
+  const root = await fs4.realpath(pkg.root);
+  const files = [await readPackageFile(root, "SKILL.md", "SKILL.md")];
+  for (const tool of pkg.definition.tools) {
+    if (tool.kind !== "script") continue;
+    files.push(await readPackageFile(root, tool.source, `Script tool ${tool.id}`));
+  }
+  return files.sort((left, right) => left.path.localeCompare(right.path));
+}
+function hashSnapshot(document, files) {
+  const fileDigests = files.map((file) => ({
+    path: file.path,
+    sha256: createHash("sha256").update(file.content).digest("hex")
+  }));
+  return createHash("sha256").update(JSON.stringify(stable({ package: document, files: fileDigests }))).digest("hex");
+}
+function packageJson(document) {
+  return JSON.stringify(document, null, 2) + "\n";
+}
+async function snapshotMaterial(pkg) {
+  const document = packageDocument(pkg);
+  const files = await snapshotFiles(pkg);
+  return { document, files, hash: hashSnapshot(document, files) };
+}
+async function hashSkillPackage(pkg) {
+  return (await snapshotMaterial(pkg)).hash;
+}
+async function pathExists(target) {
+  try {
+    await fs4.access(target);
+    return true;
+  } catch (error) {
+    if (error.code === "ENOENT") return false;
+    throw error;
+  }
+}
+async function verifyPublishedSnapshot(snapshotDir, material) {
+  try {
+    const storedHash = (await fs4.readFile(path5.join(snapshotDir, "sha256"), "utf8")).trim();
+    if (storedHash !== material.hash) throw new Error("hash mismatch");
+    const storedPackage = await fs4.readFile(path5.join(snapshotDir, "package.json"), "utf8");
+    if (storedPackage !== packageJson(material.document)) throw new Error("package mismatch");
+    for (const file of material.files) {
+      const stored = await fs4.readFile(path5.join(snapshotDir, ...file.path.split("/")));
+      if (!stored.equals(file.content)) throw new Error(`file mismatch: ${file.path}`);
+    }
+  } catch (error) {
+    throw new Error(`Existing Skill snapshot is invalid: ${material.hash}`, { cause: error });
+  }
+}
+async function createSkillSnapshot(pkg, changeDir) {
+  const material = await snapshotMaterial(pkg);
+  const snapshotsRoot = path5.resolve(changeDir, ".comet", "skill-snapshots");
+  const snapshotDir = path5.join(snapshotsRoot, material.hash);
+  await fs4.mkdir(snapshotsRoot, { recursive: true });
+  if (await pathExists(snapshotDir)) {
+    await verifyPublishedSnapshot(snapshotDir, material);
+    return { hash: material.hash, snapshotDir };
+  }
+  const temporaryDir = path5.join(snapshotsRoot, `.tmp-${randomUUID3()}`);
+  assertInside(snapshotsRoot, temporaryDir, "Temporary snapshot");
+  assertInside(snapshotsRoot, snapshotDir, "Published snapshot");
+  try {
+    await fs4.mkdir(temporaryDir);
+    for (const file of material.files) {
+      const destination = path5.join(temporaryDir, ...file.path.split("/"));
+      assertInside(temporaryDir, destination, `Snapshot file ${file.path}`);
+      await fs4.mkdir(path5.dirname(destination), { recursive: true });
+      await fs4.writeFile(destination, file.content);
+    }
+    await fs4.writeFile(path5.join(temporaryDir, "package.json"), packageJson(material.document));
+    await fs4.writeFile(path5.join(temporaryDir, "sha256"), material.hash + "\n");
+    await fs4.rename(temporaryDir, snapshotDir);
+  } catch (error) {
+    if (await pathExists(snapshotDir)) {
+      try {
+        await verifyPublishedSnapshot(snapshotDir, material);
+      } finally {
+        await fs4.rm(temporaryDir, { recursive: true, force: true });
+      }
+      return { hash: material.hash, snapshotDir };
+    }
+    await fs4.rm(temporaryDir, { recursive: true, force: true });
+    throw error;
+  }
+  return { hash: material.hash, snapshotDir };
+}
+
+// src/compat/classic-migrate.ts
+async function pathExists2(target) {
+  try {
+    await fs5.access(target);
+    return true;
+  } catch (error) {
+    if (error.code === "ENOENT") return false;
+    throw error;
+  }
+}
+function projectRootFor2(changeDir) {
+  let cursor = path6.resolve(changeDir);
+  while (path6.dirname(cursor) !== cursor) {
+    if (path6.basename(cursor) === "openspec") return path6.dirname(cursor);
+    cursor = path6.dirname(cursor);
+  }
+  throw new Error(`Classic change is not inside an openspec directory: ${changeDir}`);
+}
+function sha2562(content) {
+  return createHash2("sha256").update(content).digest("hex");
+}
+function artifactHash(artifacts) {
+  return sha2562(
+    JSON.stringify(
+      Object.fromEntries(
+        Object.entries(artifacts).sort(([left], [right]) => left.localeCompare(right))
+      )
+    )
+  );
+}
+function artifactKey(code) {
+  return code.replaceAll(".", "_").replaceAll("-", "_");
+}
+async function migrationArtifacts(changeDir, evidence) {
+  const projectRoot = projectRootFor2(changeDir);
+  const artifacts = Object.fromEntries(
+    evidence.filter((item) => item.satisfied && item.source).map((item) => [artifactKey(item.code), item.source])
+  );
+  const progress = path6.join(changeDir, "subagent-progress.md");
+  if (await pathExists2(progress)) {
+    artifacts.subagent_progress = path6.relative(projectRoot, progress).split(path6.sep).join("/");
+  }
+  const handoff = evidence.find((item) => item.code === "design.handoff" && item.satisfied);
+  if (handoff?.source) artifacts.handoff_context = handoff.source;
+  return artifacts;
+}
+function migrationEvents(run, profile, timestamp) {
+  return [
+    {
+      sequence: 1,
+      timestamp,
+      type: "run_started",
+      runId: run.runId,
+      data: {
+        skill: run.skill,
+        skillVersion: run.skillVersion,
+        skillHash: run.skillHash
+      }
+    },
+    {
+      sequence: 2,
+      timestamp,
+      type: "state_migrated",
+      runId: run.runId,
+      data: {
+        kind: "classic",
+        migrationVersion: CLASSIC_MIGRATION_VERSION,
+        profile,
+        source: "0.3.8"
+      }
+    }
+  ];
+}
+async function removeCreatedFiles(files) {
+  await Promise.all(files.map((file) => fs5.rm(file, { recursive: true, force: true })));
+}
+async function ensureClassicRun(changeDir, options) {
+  const projection = await readClassicState(changeDir);
+  if (!projection.classic) {
+    throw new Error("Classic migration requires a legacy state projection");
+  }
+  const classic = projection.classic;
+  const profile = classic.classicProfile ?? classic.workflow;
+  if (projection.run) {
+    if (classic.classicMigration !== CLASSIC_MIGRATION_VERSION) {
+      throw new Error("Classic Run exists without a supported classic_migration marker");
+    }
+    if (projection.run.skill !== options.skillPackage.definition.metadata.name) {
+      throw new Error(
+        `Classic Run skill mismatch: expected ${options.skillPackage.definition.metadata.name}, got ${projection.run.skill}`
+      );
+    }
+    const snapshot = await createSkillSnapshot(options.skillPackage, changeDir);
+    if (snapshot.hash !== projection.run.skillHash) {
+      throw new Error("Classic Run snapshot hash does not match the installed Skill package");
+    }
+    return {
+      classic,
+      run: projection.run,
+      evidence: await collectClassicEvidence(changeDir, projection),
+      migrated: false,
+      snapshotDir: snapshot.snapshotDir
+    };
+  }
+  const evidence = await collectClassicEvidence(changeDir, projection);
+  const step = resolveClassicStepId(classic, evidence);
+  if (!options.skillPackage.definition.orchestration.steps?.some((item) => item.id === step)) {
+    throw new Error(`Classic Skill package does not define resolved step: ${step}`);
+  }
+  const expectedHash = await hashSkillPackage(options.skillPackage);
+  const expectedSnapshotDir = path6.join(changeDir, ".comet", "skill-snapshots", expectedHash);
+  const snapshotExisted = await pathExists2(expectedSnapshotDir);
+  const createdFiles = [];
+  try {
+    const snapshot = await createSkillSnapshot(options.skillPackage, changeDir);
+    const run = startRun(options.skillPackage, options.runId?.() ?? randomUUID4(), snapshot.hash);
+    run.currentStep = step;
+    if (step === "completed") run.status = "completed";
+    const migratedClassic = {
+      ...classic,
+      classicProfile: profile,
+      classicMigration: CLASSIC_MIGRATION_VERSION
+    };
+    const artifacts = await migrationArtifacts(changeDir, evidence);
+    const projectRoot = projectRootFor2(changeDir);
+    const handoff = evidence.find((item) => item.code === "design.handoff" && item.satisfied);
+    let context = null;
+    if (handoff?.source) {
+      context = await fs5.readFile(path6.resolve(projectRoot, handoff.source), "utf8");
+      await writeContext(changeDir, run.contextRef, context);
+      createdFiles.push(path6.resolve(changeDir, run.contextRef));
+    }
+    await writeArtifacts(changeDir, run.artifactsRef, artifacts);
+    createdFiles.push(path6.resolve(changeDir, run.artifactsRef));
+    const timestamp = (options.now?.() ?? /* @__PURE__ */ new Date()).toISOString();
+    const checkpoint = {
+      runId: run.runId,
+      stateVersion: 1,
+      trajectoryOffset: 2,
+      contextHash: context === null ? null : sha2562(context),
+      artifactsHash: artifactHash(artifacts),
+      createdAt: timestamp
+    };
+    await writeCheckpoint(changeDir, run.checkpointRef, checkpoint);
+    createdFiles.push(path6.resolve(changeDir, run.checkpointRef));
+    createdFiles.push(path6.resolve(changeDir, run.trajectoryRef));
+    for (const event of migrationEvents(run, profile, timestamp)) {
+      await appendTrajectory(changeDir, run.trajectoryRef, event);
+    }
+    await writeClassicState(changeDir, {
+      classic: migratedClassic,
+      run,
+      unknownKeys: projection.unknownKeys
+    });
+    return {
+      classic: migratedClassic,
+      run,
+      evidence,
+      migrated: true,
+      snapshotDir: snapshot.snapshotDir
+    };
+  } catch (error) {
+    await removeCreatedFiles(createdFiles);
+    if (!snapshotExisted) await fs5.rm(expectedSnapshotDir, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+// src/skill/load.ts
+var import_yaml3 = __toESM(require_dist(), 1);
+import { promises as fs6 } from "fs";
+import path7 from "path";
+var ACTION_TYPES = ["invoke_skill", "call_tool", "handoff", "ask_user", "checkpoint"];
+var ORCHESTRATION_MODES = ["deterministic", "adaptive"];
+var TOOL_KINDS = ["function", "mcp", "script", "agent"];
+var TOOL_SIDE_EFFECTS = ["none", "read", "write", "external"];
+var EVAL_SCOPES = ["progress", "step", "completion"];
+var EVAL_TYPES = ["artifact_exists", "state_equals"];
+function invalidDocument(filePath, fieldPath, message) {
+  return new Error(`${filePath}: ${fieldPath} ${message}`);
+}
+function assertObject(value, filePath, fieldPath = "document") {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw invalidDocument(filePath, fieldPath, "must be an object");
+  }
+}
+function assertArray(value, filePath, fieldPath) {
+  if (!Array.isArray(value)) {
+    throw invalidDocument(filePath, fieldPath, "must be an array");
+  }
+}
+function assertString(value, filePath, fieldPath) {
+  if (typeof value !== "string") {
+    throw invalidDocument(filePath, fieldPath, "must be a string");
+  }
+}
+function assertOptionalString(document, field2, filePath, objectPath) {
+  if (field2 in document) {
+    assertString(document[field2], filePath, `${objectPath}.${field2}`);
+  }
+}
+function assertOptionalBoolean(document, field2, filePath, objectPath) {
+  if (field2 in document && typeof document[field2] !== "boolean") {
+    throw invalidDocument(filePath, `${objectPath}.${field2}`, "must be a boolean");
+  }
+}
+function assertEnum(value, values, filePath, fieldPath) {
+  if (typeof value !== "string" || !values.includes(value)) {
+    throw invalidDocument(filePath, fieldPath, `must be one of ${values.join(", ")}`);
+  }
+}
+function assertStringArray(value, filePath, fieldPath) {
+  assertArray(value, filePath, fieldPath);
+  value.forEach((entry2, index) => {
+    assertString(entry2, filePath, `${fieldPath}[${index}]`);
+  });
+}
+function validateNamedContract(value, filePath, fieldPath) {
+  assertObject(value, filePath, fieldPath);
+  assertString(value.name, filePath, `${fieldPath}.name`);
+  assertString(value.description, filePath, `${fieldPath}.description`);
+  assertOptionalBoolean(value, "required", filePath, fieldPath);
+}
+function validateSkillReference(value, filePath, fieldPath) {
+  assertObject(value, filePath, fieldPath);
+  assertString(value.id, filePath, `${fieldPath}.id`);
+  assertOptionalString(value, "source", filePath, fieldPath);
+  assertOptionalString(value, "version", filePath, fieldPath);
+}
+function validateAgent(value, filePath, fieldPath) {
+  assertObject(value, filePath, fieldPath);
+  assertString(value.id, filePath, `${fieldPath}.id`);
+  assertString(value.role, filePath, `${fieldPath}.role`);
+  assertOptionalString(value, "instructions", filePath, fieldPath);
+}
+function validateTool(value, filePath, fieldPath) {
+  assertObject(value, filePath, fieldPath);
+  assertString(value.id, filePath, `${fieldPath}.id`);
+  assertEnum(value.kind, TOOL_KINDS, filePath, `${fieldPath}.kind`);
+  assertString(value.source, filePath, `${fieldPath}.source`);
+  assertEnum(value.sideEffect, TOOL_SIDE_EFFECTS, filePath, `${fieldPath}.sideEffect`);
+  assertOptionalBoolean(value, "requiresConfirmation", filePath, fieldPath);
+}
+function validateAction(value, filePath, fieldPath) {
+  assertObject(value, filePath, fieldPath);
+  assertEnum(value.type, ACTION_TYPES, filePath, `${fieldPath}.type`);
+  assertOptionalString(value, "ref", filePath, fieldPath);
+  assertOptionalString(value, "prompt", filePath, fieldPath);
+  assertOptionalString(value, "question", filePath, fieldPath);
+  if ("options" in value) {
+    assertStringArray(value.options, filePath, `${fieldPath}.options`);
+  }
+}
+function validateStep(value, filePath, fieldPath) {
+  assertObject(value, filePath, fieldPath);
+  assertString(value.id, filePath, `${fieldPath}.id`);
+  validateAction(value.action, filePath, `${fieldPath}.action`);
+  assertOptionalString(value, "next", filePath, fieldPath);
+  if ("completionEvals" in value) {
+    assertStringArray(value.completionEvals, filePath, `${fieldPath}.completionEvals`);
+  }
+}
+function validateGoal(value, filePath) {
+  const fieldPath = "goal";
+  assertObject(value, filePath, fieldPath);
+  assertString(value.statement, filePath, `${fieldPath}.statement`);
+  assertArray(value.inputs, filePath, `${fieldPath}.inputs`);
+  value.inputs.forEach((entry2, index) => {
+    validateNamedContract(entry2, filePath, `${fieldPath}.inputs[${index}]`);
+  });
+  assertArray(value.outputs, filePath, `${fieldPath}.outputs`);
+  value.outputs.forEach((entry2, index) => {
+    validateNamedContract(entry2, filePath, `${fieldPath}.outputs[${index}]`);
+  });
+  assertStringArray(value.success, filePath, `${fieldPath}.success`);
+}
+function validateOrchestration(value, filePath) {
+  const fieldPath = "orchestration";
+  assertObject(value, filePath, fieldPath);
+  assertEnum(value.mode, ORCHESTRATION_MODES, filePath, `${fieldPath}.mode`);
+  assertOptionalString(value, "entry", filePath, fieldPath);
+  if ("steps" in value) {
+    assertArray(value.steps, filePath, `${fieldPath}.steps`);
+    value.steps.forEach((entry2, index) => {
+      validateStep(entry2, filePath, `${fieldPath}.steps[${index}]`);
+    });
+  }
+}
+function narrowSkillDefinition(document, filePath) {
+  assertObject(document, filePath);
+  assertEnum(document.apiVersion, ["comet/v1alpha1"], filePath, "apiVersion");
+  assertEnum(document.kind, ["Skill"], filePath, "kind");
+  assertObject(document.metadata, filePath, "metadata");
+  assertString(document.metadata.name, filePath, "metadata.name");
+  assertString(document.metadata.version, filePath, "metadata.version");
+  assertString(document.metadata.description, filePath, "metadata.description");
+  validateGoal(document.goal, filePath);
+  validateOrchestration(document.orchestration, filePath);
+  assertArray(document.skills, filePath, "skills");
+  document.skills.forEach((entry2, index) => {
+    validateSkillReference(entry2, filePath, `skills[${index}]`);
+  });
+  assertArray(document.agents, filePath, "agents");
+  document.agents.forEach((entry2, index) => {
+    validateAgent(entry2, filePath, `agents[${index}]`);
+  });
+  assertArray(document.tools, filePath, "tools");
+  document.tools.forEach((entry2, index) => {
+    validateTool(entry2, filePath, `tools[${index}]`);
+  });
+  return document;
+}
+function narrowGuardrails(document, filePath) {
+  assertObject(document, filePath);
+  for (const field2 of [
+    "allowedSkills",
+    "allowedAgents",
+    "allowedTools",
+    "confirmationRequiredFor"
+  ]) {
+    if (field2 in document) {
+      assertStringArray(document[field2], filePath, field2);
+    }
+  }
+  for (const field2 of ["maxIterations", "maxRetriesPerAction"]) {
+    if (field2 in document && (typeof document[field2] !== "number" || !Number.isFinite(document[field2]))) {
+      throw invalidDocument(filePath, field2, "must be a finite number");
+    }
+  }
+  return document;
+}
+function narrowEvalDocument(document, filePath) {
+  assertObject(document, filePath);
+  if ("runtime" in document) {
+    assertArray(document.runtime, filePath, "runtime");
+    document.runtime.forEach((entry2, index) => {
+      const fieldPath = `runtime[${index}]`;
+      assertObject(entry2, filePath, fieldPath);
+      assertString(entry2.id, filePath, `${fieldPath}.id`);
+      assertEnum(entry2.scope, EVAL_SCOPES, filePath, `${fieldPath}.scope`);
+      assertEnum(entry2.type, EVAL_TYPES, filePath, `${fieldPath}.type`);
+      assertOptionalString(entry2, "artifact", filePath, fieldPath);
+      assertOptionalString(entry2, "field", filePath, fieldPath);
+      assertOptionalString(entry2, "equals", filePath, fieldPath);
+    });
+  }
+  return document;
+}
+async function readYaml(filePath) {
+  const source = await fs6.readFile(filePath, "utf8");
+  try {
+    return (0, import_yaml3.parse)(source);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw invalidDocument(filePath, "document", message);
+  }
+}
+async function readOptionalYaml(filePath) {
+  try {
+    return await readYaml(filePath);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return null;
+    }
+    throw error;
+  }
+}
+async function loadSkillPackage(root) {
+  const packageRoot = path7.resolve(root);
+  const cometRoot = path7.join(packageRoot, "comet");
+  await fs6.access(path7.join(packageRoot, "SKILL.md"));
+  const skillPath = path7.join(cometRoot, "skill.yaml");
+  const guardrailsPath = path7.join(cometRoot, "guardrails.yaml");
+  const evalsPath = path7.join(cometRoot, "evals.yaml");
+  const definition = narrowSkillDefinition(await readYaml(skillPath), skillPath);
+  const rawGuardrails = await readOptionalYaml(guardrailsPath);
+  const guardrailDocument = rawGuardrails === null ? null : narrowGuardrails(rawGuardrails, guardrailsPath);
+  const rawEvals = await readOptionalYaml(evalsPath);
+  const evalDocument = rawEvals === null ? null : narrowEvalDocument(rawEvals, evalsPath);
+  const defaultGuardrails = {
+    allowedSkills: definition.skills.map((skill) => skill.id),
+    allowedAgents: definition.agents.map((agent) => agent.id),
+    allowedTools: definition.tools.map((tool) => tool.id),
+    maxIterations: 50,
+    maxRetriesPerAction: 3,
+    confirmationRequiredFor: definition.tools.filter((tool) => tool.requiresConfirmation).map((tool) => tool.id)
+  };
+  return {
+    root: packageRoot,
+    definition,
+    guardrails: {
+      ...defaultGuardrails,
+      ...guardrailDocument
+    },
+    evals: evalDocument?.runtime ?? []
+  };
+}
+
+// src/compat/classic-runtime-run.ts
+async function directoryExists(directory) {
+  try {
+    return (await fs7.stat(directory)).isDirectory();
+  } catch (error) {
+    if (error.code === "ENOENT") return false;
+    throw error;
+  }
+}
+async function classicSkillRoot() {
+  const runtimeDirectory = path8.dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    process.env.COMET_CLASSIC_SKILL_ROOT,
+    path8.resolve(runtimeDirectory, "..", "..", "comet-classic"),
+    path8.resolve("assets", "skills", "comet-classic")
+  ].filter((candidate) => Boolean(candidate));
+  for (const candidate of candidates) {
+    if (await directoryExists(candidate)) return candidate;
+  }
+  throw new Error("Comet Classic internal Skill package is not installed");
+}
+async function ensureClassicRuntimeRun(changeDir) {
+  return ensureClassicRun(changeDir, {
+    skillPackage: await loadSkillPackage(await classicSkillRoot())
+  });
+}
+async function transitionClassicRuntimeRun(changeDir, classic, run, data) {
+  const projection = await readClassicState(changeDir);
+  if (!projection.classic || !projection.run) {
+    throw new Error("Classic transition requires synchronized Classic and Run projections");
+  }
+  const evidence = await collectClassicEvidence(changeDir, {
+    classic,
+    run,
+    unknownKeys: projection.unknownKeys
+  });
+  const currentStep = resolveClassicStepId(classic, evidence);
+  const nextRun = {
+    ...run,
+    currentStep,
+    iteration: run.iteration + 1,
+    status: currentStep === "completed" ? "completed" : "running"
+  };
+  await writeClassicState(changeDir, {
+    classic,
+    run: nextRun,
+    unknownKeys: projection.unknownKeys
+  });
+  const trajectory = await readTrajectory(changeDir, nextRun.trajectoryRef);
+  await appendTrajectory(changeDir, nextRun.trajectoryRef, {
+    sequence: trajectory.length + 1,
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    type: "state_transitioned",
+    runId: nextRun.runId,
+    data: {
+      kind: "classic",
+      fromStep: run.currentStep,
+      toStep: currentStep,
+      ...data
+    }
+  });
+  return nextRun;
+}
+
+// src/compat/classic-archive.ts
 var GREEN = "\x1B[32m";
 var RED = "\x1B[31m";
 var YELLOW = "\x1B[33m";
 var RESET = "\x1B[0m";
-var PROFILES = ["full", "hotfix", "tweak"];
-var PHASES = ["open", "design", "build", "verify", "archive"];
-var EVENTS = [
-  "open-complete",
-  "design-complete",
-  "build-complete",
-  "verify-pass",
-  "verify-fail",
-  "archive-reopen",
-  "archived"
-];
-var SETTABLE_FIELDS = /* @__PURE__ */ new Set([
-  ...CLASSIC_WIRE_KEYS,
-  ...RUN_WIRE_KEYS,
-  "direct_override",
-  "build_command",
-  "verify_command",
-  "base_ref"
-]);
-var FIELD_ENUMS = {
-  workflow: PROFILES,
-  phase: PHASES,
-  context_compression: ["off", "beta"],
-  build_mode: ["subagent-driven-development", "executing-plans", "direct"],
-  build_pause: ["null", "plan-ready"],
-  subagent_dispatch: ["null", "confirmed"],
-  tdd_mode: ["tdd", "direct"],
-  isolation: ["branch", "worktree"],
-  verify_mode: ["light", "full"],
-  auto_transition: ["true", "false"],
-  verify_result: ["pending", "pass", "fail"],
-  branch_status: ["pending", "handled"],
-  archived: ["true", "false"],
-  direct_override: ["true", "false"],
-  orchestration: ["deterministic", "adaptive"],
-  run_status: ["running", "waiting", "completed", "failed"],
-  classic_profile: PROFILES,
-  classic_migration: ["1"]
-};
-var PATH_FIELDS = /* @__PURE__ */ new Set([
-  "design_doc",
-  "plan",
-  "verification_report",
-  "handoff_context",
-  "pending_ref",
-  "trajectory_ref",
-  "context_ref",
-  "artifacts_ref",
-  "checkpoint_ref"
-]);
-var CommandFailure = class extends Error {
-  constructor(message, exitCode = 1) {
-    super(message);
-    this.exitCode = exitCode;
-  }
-  exitCode;
-};
-var CommandOutput = class {
-  stdout = [];
-  stderr = [];
-  result(exitCode = 0) {
-    return {
-      exitCode,
-      ...this.stdout.length > 0 ? { stdout: this.stdout.join("\n") + "\n" } : {},
-      ...this.stderr.length > 0 ? { stderr: this.stderr.join("\n") } : {}
-    };
-  }
-};
 function green(message) {
   return `${GREEN}${message}${RESET}`;
 }
@@ -7514,646 +8673,382 @@ function red(message) {
 function yellow(message) {
   return `${YELLOW}${message}${RESET}`;
 }
-function fail(message) {
-  throw new CommandFailure(message);
-}
-function validateChangeName(name) {
-  if (!name) fail("ERROR: Change name cannot be empty");
-  if (!/^[a-zA-Z0-9_-]+$/u.test(name)) {
-    fail(`ERROR: Invalid change name: '${name}'
-Valid characters: a-z, A-Z, 0-9, -, _`);
+var ArchiveFailure = class extends Error {
+  constructor(message, exitCode = 1) {
+    super(message);
+    this.exitCode = exitCode;
   }
-  if (name.includes(".."))
-    fail("ERROR: Change name cannot contain '..' (path traversal not allowed)");
-}
-function validateEnum(value, values) {
-  if (!values.includes(value)) {
-    fail(`ERROR: Invalid value: '${value}'
-Valid values: ${values.join(" ")}`);
+  exitCode;
+};
+var ArchiveOutput = class {
+  stderr = [];
+  stepsOk = 0;
+  stepsTotal = 0;
+  toResult(exitCode = 0) {
+    return {
+      exitCode,
+      ...this.stderr.length > 0 ? { stderr: this.stderr.join("\n") + "\n" } : {}
+    };
   }
-}
-function validateRelativePath(value, field) {
-  if (!value || value === "null") return;
-  if (/^(?:[A-Za-z]:|[\\/]|~)/u.test(value)) {
-    fail(`ERROR: ${field} must be a relative path within the repo: '${value}'`);
-  }
-  if (value.split(/[\\/]/u).includes("..")) {
-    fail(`ERROR: ${field} cannot contain '..' (path traversal not allowed): '${value}'`);
-  }
-}
-function filesystemPath(relativePath) {
-  return path.resolve(...relativePath.split("/"));
-}
+};
 async function exists(file) {
   try {
-    await fs.access(file);
+    await fs8.access(file);
     return true;
   } catch (error) {
     if (error.code === "ENOENT") return false;
     throw error;
   }
 }
-async function nonempty(file) {
-  try {
-    return (await fs.stat(file)).size > 0;
-  } catch (error) {
-    if (error.code === "ENOENT") return false;
-    throw error;
-  }
-}
-async function changeDirectory(name) {
-  const active = `openspec/changes/${name}`;
-  const archived = `openspec/changes/archive/${name}`;
-  if (await exists(filesystemPath(active)))
-    return { label: active, directory: filesystemPath(active) };
-  if (await exists(filesystemPath(archived))) {
-    return { label: archived, directory: filesystemPath(archived) };
-  }
-  return { label: active, directory: filesystemPath(active) };
-}
-async function readDocument(file) {
-  let source;
-  try {
-    source = await fs.readFile(file, "utf8");
-  } catch (error) {
-    if (error.code === "ENOENT") {
-      fail(
-        `ERROR: .comet.yaml not found at ${path.relative(process.cwd(), file).replaceAll("\\", "/")}`
-      );
-    }
-    throw error;
-  }
-  const document = (0, import_yaml2.parseDocument)(source, { uniqueKeys: false });
-  if (document.errors.length > 0) fail(`ERROR: Invalid .comet.yaml: ${document.errors[0].message}`);
-  return document;
-}
-async function atomicWrite(file, content) {
-  await fs.mkdir(path.dirname(file), { recursive: true });
-  const temporary = `${file}.${randomUUID()}.tmp`;
-  try {
-    await fs.writeFile(temporary, content, "utf8");
-    await fs.rename(temporary, file);
-  } catch (error) {
-    await fs.rm(temporary, { force: true });
-    throw error;
-  }
-}
-function scalar(value) {
-  if (value === null) return "null";
-  if (value === void 0) return "";
-  if (typeof value === "object") return JSON.stringify(value);
-  return String(value);
-}
-async function projectConfigValue(field) {
-  const file = path.resolve(".comet", "config.yaml");
-  if (!await exists(file)) return null;
-  const document = await readDocument(file);
-  const value = document.get(field);
-  return value === null || value === void 0 ? null : scalar(value);
-}
-async function contextCompression() {
-  const value = process.env.COMET_CONTEXT_COMPRESSION ?? await projectConfigValue("context_compression") ?? "off";
-  if (!["off", "beta"].includes(value)) {
-    fail(`ERROR: Invalid context_compression: '${value}'
-Valid values: off, beta`);
-  }
-  return value;
-}
-async function autoTransition() {
-  const value = process.env.COMET_AUTO_TRANSITION ?? await projectConfigValue("auto_transition") ?? "true";
-  if (!["true", "false"].includes(value)) {
-    fail(`ERROR: Invalid auto_transition: '${value}'
-Valid values: true, false`);
-  }
-  return value;
-}
-function gitOutput(args) {
-  const result = spawnSync("git", args, { encoding: "utf8" });
-  return result.status === 0 ? result.stdout.trim() : null;
-}
-async function stateFile(name) {
-  const change = await changeDirectory(name);
-  return {
-    ...change,
-    file: path.join(change.directory, ".comet.yaml")
-  };
-}
-async function readField(name, field) {
-  const { file } = await stateFile(name);
-  const document = await readDocument(file);
-  const record = document.toJS();
-  const value = record[field];
-  if (field === "auto_transition" && (value === null || value === void 0 || value === "")) {
-    return autoTransition();
-  }
-  return scalar(value);
-}
-function parsedValue(field, value) {
-  const document = (0, import_yaml2.parseDocument)(`${field}: ${value}
-`);
-  if (document.errors.length > 0) fail(`ERROR: Invalid value: '${value}'`);
-  return document.get(field);
-}
-function validateSetValue(field, value) {
-  const enumValues = FIELD_ENUMS[field];
-  if (enumValues) validateEnum(value, enumValues);
-  if (PATH_FIELDS.has(field)) validateRelativePath(value, field);
-  if ((field === "skill_hash" || field === "handoff_hash") && !/^[a-f0-9]{64}$/u.test(value)) {
-    fail(`ERROR: ${field} must be a sha256 hex digest`);
-  }
-  if (field === "iteration" && !/^[0-9]+$/u.test(value)) {
-    fail("ERROR: iteration must be a non-negative integer");
-  }
-}
-async function setField(output, name, field, value) {
-  if (!SETTABLE_FIELDS.has(field)) {
-    fail(`ERROR: Unknown field: '${field}'`);
-  }
-  validateSetValue(field, value);
-  const { file } = await stateFile(name);
-  const document = await readDocument(file);
-  document.set(field, parsedValue(field, value));
-  await atomicWrite(file, document.toString());
-  if (field === "phase") {
-    output.stderr.push(
-      yellow("WARNING: Setting 'phase' directly bypasses state machine constraints."),
-      yellow("  Consider using: comet-state.sh transition <change-name> <event>")
+function validateChangeName(name) {
+  if (!name) throw new ArchiveFailure(red("FATAL: Change name cannot be empty"));
+  if (!/^[a-zA-Z0-9_-]+$/u.test(name)) {
+    throw new ArchiveFailure(
+      [
+        red(`FATAL: Invalid change name: '${name}'`),
+        red("Valid characters: a-z, A-Z, 0-9, -, _")
+      ].join("\n")
     );
   }
-  output.stderr.push(green(`[SET] ${field}=${value}`));
+  if (name.includes("..")) throw new ArchiveFailure(red("FATAL: Change name cannot contain '..'"));
 }
-async function init(output, name, workflow) {
-  validateChangeName(name);
-  validateEnum(workflow, PROFILES);
-  const { file, label, directory } = await stateFile(name);
-  if (await exists(file)) fail(`ERROR: .comet.yaml already exists at ${label}/.comet.yaml`);
-  await fs.mkdir(directory, { recursive: true });
-  const preset = workflow !== "full";
-  const document = new import_yaml2.Document({
-    workflow,
-    phase: "open",
-    context_compression: await contextCompression(),
-    build_mode: preset ? "direct" : null,
-    build_pause: null,
-    subagent_dispatch: null,
-    tdd_mode: preset ? "direct" : null,
-    isolation: preset ? "branch" : null,
-    verify_mode: preset ? "light" : null,
-    auto_transition: await autoTransition() === "true",
-    base_ref: gitOutput(["rev-parse", "--verify", "HEAD"]),
-    design_doc: null,
-    plan: null,
-    verify_result: "pending",
-    verification_report: null,
-    branch_status: "pending",
-    created_at: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10),
-    verified_at: null,
-    archived: false
-  });
-  await atomicWrite(file, document.toString());
-  output.stderr.push(green(`Initialized: ${label}/.comet.yaml (workflow=${workflow})`));
+function hashText(content) {
+  return createHash3("sha256").update(content).digest("hex");
 }
-async function requirePhase(name, expected) {
-  const actual = await readField(name, "phase");
-  if (actual !== expected) {
-    fail(`ERROR: Cannot transition '${name}': expected phase ${expected}, got ${actual}`);
-  }
+function artifactsHash(artifacts) {
+  return hashText(
+    JSON.stringify(
+      Object.fromEntries(
+        Object.entries(artifacts).sort(([left], [right]) => left.localeCompare(right))
+      )
+    )
+  );
 }
-async function requireBuildDecisions(name) {
-  const workflow = await readField(name, "workflow");
-  const buildMode = await readField(name, "build_mode");
-  const isolation = await readField(name, "isolation");
-  const directOverride = await readField(name, "direct_override");
-  const subagentDispatch = await readField(name, "subagent_dispatch");
-  const tddMode = await readField(name, "tdd_mode");
-  if (!["branch", "worktree"].includes(isolation)) {
-    fail(
-      `ERROR: Cannot transition '${name}': isolation must be branch or worktree, got '${isolation || "null"}'`
-    );
+async function findArchiveDir(change, preferred) {
+  if (await exists(preferred)) return preferred;
+  const archiveRoot = "openspec/changes/archive";
+  if (!await exists(archiveRoot)) return null;
+  for (const entry2 of (await fs8.readdir(archiveRoot)).sort()) {
+    if (!entry2.endsWith(`-${change}`)) continue;
+    const candidate = `${archiveRoot}/${entry2}`;
+    if ((await fs8.stat(candidate)).isDirectory()) return candidate;
   }
-  if (!["subagent-driven-development", "executing-plans", "direct"].includes(buildMode)) {
-    fail(
-      `ERROR: Cannot transition '${name}': build_mode must be selected before leaving build, got '${buildMode || "null"}'`
-    );
-  }
-  if (buildMode === "direct" && !["hotfix", "tweak"].includes(workflow) && directOverride !== "true") {
-    fail(
-      `ERROR: Cannot transition '${name}': build_mode=direct is only allowed for hotfix/tweak unless direct_override=true`
-    );
-  }
-  if (buildMode === "subagent-driven-development" && subagentDispatch !== "confirmed") {
-    fail(
-      `ERROR: Cannot transition '${name}': subagent_dispatch must be confirmed before using build_mode=subagent-driven-development`
-    );
-  }
-  if (workflow === "full" && (!tddMode || tddMode === "null")) {
-    fail(
-      `ERROR: Cannot transition '${name}': tdd_mode must be selected before leaving build (full workflow)`
-    );
-  }
+  return null;
 }
-async function transition(output, name, event) {
-  validateChangeName(name);
-  validateEnum(event, EVENTS);
-  if (event === "open-complete") {
-    await requirePhase(name, "open");
-    await setField(
-      output,
-      name,
-      "phase",
-      await readField(name, "workflow") === "full" ? "design" : "build"
-    );
-  } else if (event === "design-complete") {
-    await requirePhase(name, "design");
-    await setField(output, name, "phase", "build");
-  } else if (event === "build-complete") {
-    await requirePhase(name, "build");
-    await requireBuildDecisions(name);
-    const current = await readField(name, "verify_result");
-    await setField(output, name, "phase", "verify");
-    await setField(output, name, "verify_result", "pending");
-    if (current !== "fail") {
-      await setField(output, name, "verification_report", "null");
-      await setField(output, name, "branch_status", "pending");
-    }
-  } else if (event === "verify-pass") {
-    await requirePhase(name, "verify");
-    const report = await readField(name, "verification_report");
-    if (!report || !await exists(path.resolve(report))) {
-      fail(
-        `ERROR: Cannot transition '${name}': verification_report must point to an existing report file`
-      );
-    }
-    if (await readField(name, "branch_status") !== "handled") {
-      fail(`ERROR: Cannot transition '${name}': branch_status must be handled`);
-    }
-    await setField(output, name, "verify_result", "pass");
-    await setField(output, name, "phase", "archive");
-    await setField(output, name, "verified_at", (/* @__PURE__ */ new Date()).toISOString().slice(0, 10));
-  } else if (event === "verify-fail") {
-    await requirePhase(name, "verify");
-    await setField(output, name, "verify_result", "fail");
-    await setField(output, name, "phase", "build");
-  } else if (event === "archive-reopen") {
-    await requirePhase(name, "archive");
-    if (await readField(name, "archived") === "true") {
-      fail(`ERROR: Cannot transition '${name}': already archived`);
-    }
-    await setField(output, name, "verify_result", "pending");
-    await setField(output, name, "phase", "verify");
-    await setField(output, name, "verified_at", "null");
-  } else {
-    await requirePhase(name, "archive");
-    await setField(output, name, "archived", "true");
-  }
-  output.stderr.push(green(`[TRANSITION] ${event}`));
-}
-async function next(output, name) {
-  validateChangeName(name);
-  const { file, label } = await stateFile(name);
-  if (!await exists(file)) fail(`ERROR: .comet.yaml not found at ${label}/.comet.yaml`);
-  const phase = await readField(name, "phase");
-  const workflow = await readField(name, "workflow");
-  const automatic = await readField(name, "auto_transition");
-  if (await readField(name, "archived") === "true") {
-    output.stdout.push("NEXT: done");
+async function appendRecoveryEvent(changeDir, run, actionId) {
+  const trajectory = await readTrajectory(changeDir, run.trajectoryRef);
+  if (trajectory.some(
+    (event) => event.type === "recovery_reconciled" && event.data.kind === "classic-archive" && event.data.actionId === actionId
+  )) {
     return;
   }
-  const skill = phase === "open" ? "comet-open" : phase === "design" ? "comet-design" : phase === "verify" ? "comet-verify" : phase === "archive" ? "comet-archive" : phase === "build" ? workflow === "hotfix" ? "comet-hotfix" : workflow === "tweak" ? "comet-tweak" : "comet-build" : null;
-  if (!skill) {
-    fail(`ERROR: Cannot resolve next step for '${name}': unknown phase '${phase || "null"}'`);
-  }
-  output.stdout.push(`NEXT: ${automatic === "false" ? "manual" : "auto"}`, `SKILL: ${skill}`);
-  if (automatic === "false") {
-    output.stdout.push(`HINT: phase is '${phase}'; run /${skill} manually to continue`);
-  }
+  await appendTrajectory(changeDir, run.trajectoryRef, {
+    sequence: trajectory.length + 1,
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    type: "recovery_reconciled",
+    runId: run.runId,
+    data: {
+      kind: "classic-archive",
+      actionId
+    }
+  });
 }
-async function taskCheckoff(output, taskFile, taskText) {
-  validateRelativePath(taskFile, "task file");
-  if (!taskText) fail("ERROR: Task text cannot be empty");
-  const file = path.resolve(taskFile);
-  if (!await exists(file)) fail(`ERROR: Task file not found: ${taskFile}`);
-  const lines = (await fs.readFile(file, "utf8")).split(/\r?\n/u);
-  const matches = lines.filter(
-    (line) => [`- [ ] ${taskText}`, `- [x] ${taskText}`, `- [X] ${taskText}`].includes(line)
-  );
-  const checked = matches.filter((line) => /^- \[[xX]\] /u.test(line));
-  if (matches.length !== 1) {
-    fail(
-      `ERROR: task text must appear exactly once in ${taskFile} (found ${matches.length}): ${taskText}`
-    );
+async function annotateFrontmatter(output, file, archiveName, extraFields, dryRun) {
+  if (!await exists(file)) return;
+  if (dryRun) {
+    output.stderr.push(yellow(`  [DRY-RUN] Would annotate: ${file}`));
+    output.stepsOk += 1;
+    output.stepsTotal += 1;
+    return;
   }
-  if (checked.length !== 1) fail(`ERROR: task is not checked in ${taskFile}: ${taskText}`);
-  output.stdout.push("TASK_CHECKOFF: PASS", `FILE: ${taskFile}`, `TASK: ${taskText}`);
-}
-async function check(output, name, phase) {
-  validateChangeName(name);
-  validateEnum(phase, PHASES);
-  const { file, directory, label } = await stateFile(name);
-  output.stdout.push(`=== Entry Check: comet-${phase} ===`);
-  if (!await exists(file)) fail(`ERROR: .comet.yaml not found at ${label}/.comet.yaml`);
-  let blocked = false;
-  const pass2 = (message) => output.stdout.push(`  ${green("[PASS]")} ${message}`);
-  const reject = (message) => {
-    output.stdout.push(`  ${red("[FAIL]")} ${message}`);
-    blocked = true;
-  };
-  const expectField = async (field, expected) => {
-    const actual = await readField(name, field);
-    (actual === expected ? pass2 : reject)(`${field}=${actual} (expected: ${expected})`);
-  };
-  pass2(".comet.yaml exists");
-  await expectField("phase", phase);
-  if (phase === "design") {
-    await expectField("workflow", "full");
-    const designDoc = await readField(name, "design_doc");
-    (!designDoc || designDoc === "null" ? pass2 : reject)(
-      designDoc ? `design_doc=${designDoc} (expected: empty/null)` : "design_doc is empty/null"
-    );
-    for (const artifact of ["proposal.md", "design.md", "tasks.md"]) {
-      (await nonempty(path.join(directory, artifact)) ? pass2 : reject)(
-        `${artifact} ${await nonempty(path.join(directory, artifact)) ? "non-empty" : "missing or empty"}`
-      );
-    }
-  } else if (phase === "build") {
-    const workflow = await readField(name, "workflow");
-    const designDoc = await readField(name, "design_doc");
-    if (workflow === "full") {
-      (designDoc && designDoc !== "null" && await exists(path.resolve(designDoc)) ? pass2 : reject)(`design_doc=${designDoc} (expected: non-null and file exists)`);
-    } else {
-      pass2(`workflow=${workflow} (design_doc not required)`);
-    }
-    for (const artifact of ["proposal.md", "tasks.md"]) {
-      (await nonempty(path.join(directory, artifact)) ? pass2 : reject)(
-        `${artifact} ${await nonempty(path.join(directory, artifact)) ? "non-empty" : "missing or empty"}`
-      );
-    }
-  } else if (phase === "verify") {
-    const value = await readField(name, "verify_result");
-    (["", "null", "pending"].includes(value) ? pass2 : reject)(
-      `verify_result=${value} (expected: pending or null)`
-    );
-  } else if (phase === "archive") {
-    await expectField("verify_result", "pass");
-    const archived = await readField(name, "archived");
-    (archived !== "true" ? pass2 : reject)(`archived=${archived} (expected: not true)`);
-  }
-  output.stdout.push("");
-  if (blocked) {
-    output.stderr.push(red("BLOCKED — fix failing checks before proceeding"));
-    throw new CommandFailure("", 1);
-  }
-  output.stderr.push(green("ALL CHECKS PASSED — ready to proceed"));
-}
-function fieldStatus(field, value, file) {
-  if (!value || value === "null") return `  - ${field}: PENDING`;
-  if (file && !existsSync(path.resolve(file))) {
-    return `  - ${field}: BROKEN (path ${value} does not exist)`;
-  }
-  return `  - ${field}: DONE (${value})`;
-}
-async function recover(output, name) {
-  validateChangeName(name);
-  const { file, directory, label } = await stateFile(name);
-  if (!await exists(file)) fail(`ERROR: .comet.yaml not found at ${label}/.comet.yaml`);
-  const phase = await readField(name, "phase");
-  const workflow = await readField(name, "workflow");
-  output.stdout.push(
-    `=== Recovery Context: ${name} ===`,
-    `Phase: ${phase}`,
-    `Workflow: ${workflow}`,
-    "",
-    "State fields:"
-  );
-  if (phase === "open") {
-    output.stdout.push("  Artifacts:");
-    let complete = 0;
-    for (const artifact of ["proposal.md", "design.md", "tasks.md"]) {
-      const done = await nonempty(path.join(directory, artifact));
-      if (done) complete += 1;
-      output.stdout.push(`  - ${artifact}: ${done ? "DONE" : "PENDING"}`);
-    }
-    output.stdout.push(
-      "",
-      complete === 3 ? "Recovery action: All artifacts complete. Run /comet-open user confirmation, then guard to transition." : complete === 0 ? "Recovery action: No artifacts created yet. Start from /comet-open Step 1 (explore and clarify)." : "Recovery action: Some artifacts incomplete. Resume /comet-open from the first missing artifact."
-    );
-  } else if (phase === "design") {
-    output.stdout.push("  Artifacts:");
-    for (const artifact of ["proposal.md", "design.md", "tasks.md"]) {
-      output.stdout.push(
-        `  - ${artifact}: ${await nonempty(path.join(directory, artifact)) ? "DONE" : "MISSING (unexpected in design phase)"}`
-      );
-    }
-    const handoff = await readField(name, "handoff_context");
-    const hash = await readField(name, "handoff_hash");
-    const design = await readField(name, "design_doc");
-    output.stdout.push(
-      "",
-      "  Design progress:",
-      fieldStatus("handoff_context", handoff, handoff),
-      fieldStatus("handoff_hash", hash),
-      fieldStatus("design_doc", design, design),
-      ""
-    );
-    if (design && design !== "null" && await exists(path.resolve(design))) {
-      output.stdout.push(
-        "Recovery action: Design Doc already created and linked. Run guard to transition to build."
-      );
-    } else if (handoff && handoff !== "null" && await exists(path.resolve(handoff))) {
-      output.stdout.push(
-        "Recovery action: Handoff generated but Design Doc not yet created. Resume from brainstorming confirmation (Step 1c)."
-      );
-    } else {
-      output.stdout.push(
-        "Recovery action: No handoff generated yet. Start from Step 1a (generate handoff package)."
-      );
-    }
-  } else if (phase === "build") {
-    const isolation = await readField(name, "isolation");
-    const buildMode = await readField(name, "build_mode");
-    const pause = await readField(name, "build_pause");
-    const subagentDispatch = await readField(name, "subagent_dispatch");
-    const tdd = await readField(name, "tdd_mode");
-    const plan = await readField(name, "plan");
-    const decisions = [
-      "  Build decisions:",
-      fieldStatus("isolation", isolation),
-      fieldStatus("build_mode", buildMode),
-      fieldStatus("build_pause", pause),
-      fieldStatus("tdd_mode", tdd)
-    ];
-    if (buildMode === "subagent-driven-development" || subagentDispatch && subagentDispatch !== "null") {
-      decisions.push(fieldStatus("subagent_dispatch", subagentDispatch));
-    }
-    output.stdout.push(...decisions, "", "  Plan:", fieldStatus("plan", plan, plan), "");
-    const tasks = path.join(directory, "tasks.md");
-    if (!await exists(tasks)) {
-      output.stdout.push(
-        "  Tasks: tasks.md MISSING",
-        "",
-        "Recovery action: tasks.md missing. Verify change directory integrity."
-      );
-    } else {
-      const lines = (await fs.readFile(tasks, "utf8")).split(/\r?\n/u);
-      const total = lines.filter((line) => /^\s*- \[[ xX]\] /u.test(line)).length;
-      const done = lines.filter((line) => /^\s*- \[[xX]\] /u.test(line)).length;
-      const pending = total - done;
-      let planTotal = 0;
-      let planDone = 0;
-      if (plan && plan !== "null" && await exists(path.resolve(plan))) {
-        const planLines = (await fs.readFile(path.resolve(plan), "utf8")).split(/\r?\n/u);
-        planTotal = planLines.filter((line) => /^\s*- \[[ xX]\] /u.test(line)).length;
-        planDone = planLines.filter((line) => /^\s*- \[[xX]\] /u.test(line)).length;
-      }
-      const planPending = planTotal - planDone;
-      output.stdout.push(`  Tasks: ${done}/${total} done, ${pending} pending`);
-      if (planTotal > 0) {
-        output.stdout.push(`  Plan tasks: ${planDone}/${planTotal} done, ${planPending} pending`);
-      }
-      output.stdout.push("");
-      let action;
-      if (pause === "plan-ready" && plan && plan !== "null" && await exists(path.resolve(plan)) && (!isolation || isolation === "null" || !buildMode || buildMode === "null")) {
-        action = "Recovery action: Plan-ready pause detected. Ask the user whether to continue, then choose isolation and build mode without regenerating the plan.";
-      } else if (pause === "plan-ready" && (!plan || plan === "null" || !await exists(path.resolve(plan)))) {
-        action = "Recovery action: Plan-ready pause is recorded, but the plan file is missing. Restore the plan file or rerun writing-plans before choosing execution.";
-      } else if (pause === "plan-ready") {
-        if (buildMode === "subagent-driven-development" && (pending > 0 || planPending > 0)) {
-          action = subagentDispatch === "confirmed" ? "Recovery action: Plan-ready pause is stale because build decisions are already selected. Clear build_pause to null, then inspect the first unchecked task (OpenSpec or plan additions) against recent git history/diff. If implemented, check it off; otherwise dispatch a real background subagent. Do not execute the pending task directly in the main window." : "Recovery action: Plan-ready pause is stale and subagent dispatch is not confirmed. Confirm a real background subagent/Task/multi-agent dispatcher and set subagent_dispatch to confirmed, or set build_mode to executing-plans before continuing.";
-        } else if (pending > 0 || planPending > 0) {
-          action = "Recovery action: Plan-ready pause is stale because build decisions are already selected. Clear build_pause to null, then continue from the first unchecked task.";
-        } else {
-          action = "Recovery action: Plan-ready pause is stale and all tasks are done. Clear build_pause to null, then run guard to transition to verify.";
+  const original = await fs8.readFile(file, "utf8");
+  const firstLine = original.split(/\r?\n/u)[0] ?? "";
+  let updated;
+  if (firstLine === "---") {
+    const lines = original.split(/\r?\n/u);
+    const out = [];
+    let sawFirst = false;
+    for (const line of lines) {
+      if (/^archived-with:/u.test(line)) continue;
+      if (line === "---") {
+        if (!sawFirst) {
+          out.push(line);
+          sawFirst = true;
+          continue;
         }
-      } else if (!isolation || isolation === "null") {
-        action = "Recovery action: Isolation not selected. Use the current platform's user confirmation mechanism to ask user for branch/worktree choice.";
-      } else if (!buildMode || buildMode === "null") {
-        action = "Recovery action: Build mode not selected. Use the current platform's user confirmation mechanism to ask user for execution method.";
-      } else if (!tdd || tdd === "null") {
-        action = "Recovery action: TDD mode not selected. Use the current platform's user confirmation mechanism to ask user for tdd or direct.";
-      } else if (pending > 0) {
-        action = buildMode === "subagent-driven-development" ? subagentDispatch === "confirmed" ? "Recovery action: Read tasks.md and the Superpowers plan (which may include additions beyond OpenSpec), then inspect the first unchecked task against recent git history/diff. If implemented, check it off; otherwise dispatch a real background subagent. Do not execute the pending task directly in the main window." : "Recovery action: Subagent dispatch is not confirmed. Confirm a real background subagent/Task/multi-agent dispatcher and set subagent_dispatch to confirmed, or set build_mode to executing-plans before continuing." : "Recovery action: Read tasks.md and continue from first unchecked task.";
-      } else if (planPending > 0) {
-        action = buildMode === "subagent-driven-development" ? subagentDispatch === "confirmed" ? "Recovery action: Read the Superpowers plan, then inspect the first unchecked Superpowers plan task against recent git history/diff. If implemented, check it off; otherwise dispatch a real background subagent. Do not execute the pending task directly in the main window." : "Recovery action: Subagent dispatch is not confirmed. Confirm a real background subagent/Task/multi-agent dispatcher and set subagent_dispatch to confirmed, or set build_mode to executing-plans before continuing." : "Recovery action: Read the Superpowers plan and continue from the first unchecked plan task.";
+        out.push(`archived-with: ${archiveName}`);
+        if (extraFields) out.push(extraFields);
+        out.push(line);
       } else {
-        action = "Recovery action: All tasks done. Run guard to transition to verify.";
+        out.push(line);
       }
-      output.stdout.push(action);
     }
-  } else if (phase === "verify") {
-    const result = await readField(name, "verify_result");
-    const mode = await readField(name, "verify_mode");
-    const report = await readField(name, "verification_report");
-    const branch = await readField(name, "branch_status");
-    output.stdout.push(
-      "  Verification:",
-      fieldStatus("verify_result", result),
-      fieldStatus("verify_mode", mode),
-      fieldStatus("verification_report", report, report),
-      fieldStatus("branch_status", branch),
-      "",
-      result === "pass" && branch === "handled" ? "Recovery action: Verification complete. Run guard to transition to archive." : result === "fail" ? "Recovery action: Verification failed and rolled back to build. Resume from /comet-build." : "Recovery action: Verification not yet started or in progress. Run scale assessment then verify."
-    );
-  } else if (phase === "archive") {
-    output.stdout.push(
-      "  Archive:",
-      fieldStatus("verify_result", await readField(name, "verify_result")),
-      fieldStatus("archived", await readField(name, "archived")),
-      "",
-      "Recovery action: Run /comet-archive to complete archiving."
-    );
+    updated = `${out.join("\n")}
+`;
   } else {
-    fail(`ERROR: Unknown phase: ${phase}`);
+    const header = ["---", `archived-with: ${archiveName}`];
+    if (extraFields) header.push(extraFields);
+    header.push("status: final", "---");
+    updated = `${header.join("\n")}
+${original}`;
+    if (!updated.endsWith("\n")) updated += "\n";
   }
-  output.stdout.push("", "=== End Recovery Context ===");
+  await fs8.writeFile(file, updated);
+  output.stderr.push(green(`  [OK] Annotated: ${file}`));
+  output.stepsOk += 1;
+  output.stepsTotal += 1;
 }
-async function scale(output, name) {
-  validateChangeName(name);
-  const { file, directory, label } = await stateFile(name);
-  if (!await exists(file)) fail(`ERROR: .comet.yaml not found at ${label}/.comet.yaml`);
-  const tasksFile = path.join(directory, "tasks.md");
-  const taskCount = await exists(tasksFile) ? (await fs.readFile(tasksFile, "utf8")).split(/\r?\n/u).filter((line) => /^- \[/u.test(line)).length : 0;
-  const specs = path.join(directory, "specs");
-  let deltaSpecs = 0;
-  if (await exists(specs)) {
-    for (const entry2 of await fs.readdir(specs)) {
-      if (await exists(path.join(specs, entry2, "spec.md"))) deltaSpecs += 1;
+async function verifyMainSpecsClean() {
+  const specsRoot = "openspec/specs";
+  if (!await exists(specsRoot)) return;
+  let found = false;
+  for (const entry2 of await fs8.readdir(specsRoot)) {
+    const specFile = `${specsRoot}/${entry2}/spec.md`;
+    if (!await exists(specFile)) continue;
+    const matches = (await fs8.readFile(specFile, "utf8")).split(/\r?\n/u).map((line, index) => ({ line, number: index + 1 })).filter((item) => /^## (ADDED|MODIFIED|REMOVED|RENAMED) Requirements$/u.test(item.line));
+    if (matches.length > 0) {
+      found = true;
+      process.stderr.write(
+        red(`FATAL: delta-only section heading leaked into main spec: ${specFile}`) + "\n"
+      );
+      for (const match of matches) process.stderr.write(`${match.number}:${match.line}
+`);
     }
   }
-  const plan = await readField(name, "plan");
-  let baseRef = "";
-  if (plan && plan !== "null" && await exists(path.resolve(plan))) {
-    const match = (await fs.readFile(path.resolve(plan), "utf8")).match(/^base-ref:\s*(.+)$/mu);
-    baseRef = match?.[1].trim() ?? "";
-  }
-  if (!baseRef) baseRef = await readField(name, "base_ref");
-  const changed = gitOutput([
-    "diff",
-    "--name-only",
-    ...baseRef && baseRef !== "null" ? [`${baseRef}...HEAD`] : ["HEAD"]
-  ]);
-  const changedFiles = changed ? changed.split(/\r?\n/u).filter(Boolean).length : 0;
-  const result = taskCount > 3 || deltaSpecs > 1 || changedFiles > 4 ? "full" : "light";
-  await setField(new CommandOutput(), name, "verify_mode", result);
-  output.stderr.push(
-    `=== Scale Assessment: ${name} ===`,
-    `  Tasks: ${taskCount} (threshold: 3)`,
-    `  Delta specs: ${deltaSpecs} capabilities (threshold: 1)`,
-    `  Changed files: ${changedFiles} (threshold: 4)`,
-    `  → Result: ${result}`,
-    green(`[SCALE] verify_mode=${result}`)
-  );
+  if (found) throw new ArchiveFailure("");
 }
-function required(args, count, usage) {
-  if (args.length < count) fail(usage);
-}
-var classicStateCommand = async (args) => {
-  const output = new CommandOutput();
+var classicArchiveCommand = async (args) => {
+  const output = new ArchiveOutput();
+  const change = args[0];
+  const dryRun = args[1] === "--dry-run";
   try {
-    const [subcommand, ...rest] = args;
-    if (subcommand === "init") {
-      required(rest, 2, "Usage: comet-state.sh init <change-name> <workflow>");
-      await init(output, rest[0], rest[1]);
-    } else if (subcommand === "get") {
-      required(rest, 2, "Usage: comet-state.sh get <change-name> <field>");
-      validateChangeName(rest[0]);
-      output.stdout.push(await readField(rest[0], rest[1]));
-    } else if (subcommand === "set") {
-      required(rest, 3, "Usage: comet-state.sh set <change-name> <field> <value>");
-      validateChangeName(rest[0]);
-      await setField(output, rest[0], rest[1], rest[2]);
-    } else if (subcommand === "transition") {
-      required(rest, 2, "Usage: comet-state.sh transition <change-name> <event>");
-      await transition(output, rest[0], rest[1]);
-    } else if (subcommand === "check") {
-      required(rest, 2, "Usage: comet-state.sh check <change-name> <phase> [--recover]");
-      if (rest[2] === "--recover") await recover(output, rest[0]);
-      else await check(output, rest[0], rest[1]);
-    } else if (subcommand === "scale") {
-      required(rest, 1, "Usage: comet-state.sh scale <change-name>");
-      await scale(output, rest[0]);
-    } else if (subcommand === "task-checkoff") {
-      required(rest, 2, "Usage: comet-state.sh task-checkoff <file> <task-text>");
-      await taskCheckoff(output, rest[0], rest[1]);
-    } else if (subcommand === "next") {
-      required(rest, 1, "Usage: comet-state.sh next <change-name>");
-      await next(output, rest[0]);
+    validateChangeName(change);
+    const activeDir = `openspec/changes/${change}`;
+    const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    let archiveName = `${today}-${change}`;
+    let archiveDir = `openspec/changes/archive/${archiveName}`;
+    const openspec = process.env.COMET_OPENSPEC || "openspec";
+    output.stderr.push(`=== Comet Archive: ${change} ===`);
+    const activeExists = await exists(`${activeDir}/.comet.yaml`);
+    const recoveredArchive = activeExists ? null : await findArchiveDir(change, archiveDir);
+    const changeDir = activeExists ? activeDir : recoveredArchive;
+    if (!changeDir || !await exists(`${changeDir}/.comet.yaml`)) {
+      throw new ArchiveFailure(red(`FATAL: .comet.yaml not found in ${activeDir}/`));
+    }
+    if (recoveredArchive) {
+      archiveDir = recoveredArchive;
+      archiveName = path9.basename(recoveredArchive);
+    }
+    const projection = await readClassicState(changeDir);
+    if (!projection.classic) {
+      throw new ArchiveFailure(red("FATAL: archive requires Classic state"));
+    }
+    const classic = projection.classic;
+    const designDoc = classic.designDoc;
+    const planPath = classic.plan;
+    if (classic.phase !== "archive") {
+      throw new ArchiveFailure(red(`FATAL: phase is '${classic.phase}', expected 'archive'`));
+    }
+    if (classic.verifyResult !== "pass") {
+      throw new ArchiveFailure(
+        red(
+          `FATAL: verify_result is '${classic.verifyResult}', expected 'pass'. Run comet-verify first.`
+        )
+      );
+    }
+    output.stderr.push(green("  [OK] Entry state verified"));
+    output.stepsOk += 1;
+    output.stepsTotal += 1;
+    if (activeExists && await exists(archiveDir)) {
+      throw new ArchiveFailure(red(`FATAL: archive target already exists: ${archiveDir}`));
+    }
+    output.stderr.push(green("  [OK] Archive target available"));
+    output.stepsOk += 1;
+    output.stepsTotal += 1;
+    if (dryRun) {
+      output.stderr.push(yellow(`  [DRY-RUN] Would run OpenSpec archive: ${change}`));
+      output.stepsOk += 1;
+      output.stepsTotal += 1;
+    } else if (!classic.archived || projection.run?.pending) {
+      const runtime = await ensureClassicRuntimeRun(changeDir);
+      const actionId = `classic-archive:${change}`;
+      const pendingAction = await readPendingAction(changeDir, runtime.run.pendingRef);
+      const recovering = Boolean(recoveredArchive) || pendingAction?.id === actionId && pendingAction.type === "checkpoint" && pendingAction.ref === change;
+      if (runtime.run.pending && runtime.run.pending !== actionId) {
+        throw new ArchiveFailure(red(`FATAL: another action is pending: ${runtime.run.pending}`));
+      }
+      if (!recovering) {
+        const action = {
+          id: actionId,
+          stepId: runtime.run.currentStep,
+          type: "checkpoint",
+          ref: change
+        };
+        await writePendingAction(changeDir, runtime.run.pendingRef, action);
+        await writeClassicState(changeDir, {
+          classic: runtime.classic,
+          run: {
+            ...runtime.run,
+            pending: actionId,
+            status: "waiting"
+          },
+          unknownKeys: (await readClassicState(changeDir)).unknownKeys
+        });
+      }
+      if (!recoveredArchive) {
+        const archiveRun = spawnSync(openspec, ["archive", change, "--yes"], {
+          encoding: "utf8",
+          shell: process.platform === "win32"
+        });
+        if (archiveRun.stdout) process.stderr.write(archiveRun.stdout);
+        if (archiveRun.stderr) process.stderr.write(archiveRun.stderr);
+        if (archiveRun.error && archiveRun.error.code === "ENOENT") {
+          throw new ArchiveFailure(
+            [
+              red(`FATAL: OpenSpec CLI not found: ${openspec}`),
+              red("Install OpenSpec or set COMET_OPENSPEC to the openspec executable.")
+            ].join("\n")
+          );
+        }
+        if (archiveRun.status !== 0) {
+          throw new ArchiveFailure("", archiveRun.status ?? 1);
+        }
+      }
+      const resolvedArchive = await findArchiveDir(change, archiveDir);
+      if (!resolvedArchive) {
+        output.stderr.push(red("  [FAIL] OpenSpec archive output not found"));
+        output.stepsTotal += 1;
+        output.stderr.push("");
+        output.stderr.push(
+          green(`Archive complete. ${output.stepsOk}/${output.stepsTotal} steps succeeded.`)
+        );
+        return output.toResult(1);
+      }
+      archiveDir = resolvedArchive;
+      archiveName = path9.basename(resolvedArchive);
+      output.stderr.push(green(`  [OK] OpenSpec archive completed: ${archiveDir}`));
+      output.stepsOk += 1;
+      output.stepsTotal += 1;
+      await verifyMainSpecsClean();
+      output.stderr.push(green("  [OK] Main specs verified clean"));
+      output.stepsOk += 1;
+      output.stepsTotal += 1;
+      if (designDoc) {
+        await annotateFrontmatter(output, designDoc, archiveName, "status: final", false);
+      }
+      if (planPath) {
+        await annotateFrontmatter(output, planPath, archiveName, "", false);
+      }
+      const archivedProjection = await readClassicState(archiveDir);
+      if (!archivedProjection.classic || !archivedProjection.run) {
+        throw new ArchiveFailure(red("  [FAIL] archived state projection is incomplete"));
+      }
+      const artifacts = {
+        ...await readArtifacts(archiveDir, archivedProjection.run.artifactsRef),
+        archive_directory: archiveDir
+      };
+      await writeArtifacts(archiveDir, archivedProjection.run.artifactsRef, artifacts);
+      const archivedClassic = {
+        ...archivedProjection.classic,
+        phase: "archive",
+        archived: true
+      };
+      let transitionedRun = archivedProjection.run;
+      if (archivedProjection.run.currentStep !== "completed" || archivedProjection.run.status !== "completed") {
+        transitionedRun = await transitionClassicRuntimeRun(
+          archiveDir,
+          archivedClassic,
+          archivedProjection.run,
+          {
+            actionId,
+            archiveDirectory: archiveDir
+          }
+        );
+      }
+      if (recovering) {
+        await appendRecoveryEvent(archiveDir, transitionedRun, actionId);
+      }
+      const trajectory = await readTrajectory(archiveDir, transitionedRun.trajectoryRef);
+      const context = await readContext(archiveDir, transitionedRun.contextRef);
+      const checkpoint = {
+        runId: transitionedRun.runId,
+        stateVersion: transitionedRun.iteration,
+        trajectoryOffset: trajectory.length,
+        contextHash: context === null ? null : hashText(context),
+        artifactsHash: artifactsHash(artifacts),
+        createdAt: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      await writeCheckpoint(archiveDir, transitionedRun.checkpointRef, checkpoint);
+      const completedRun = {
+        ...transitionedRun,
+        pending: null,
+        status: "completed"
+      };
+      await writeClassicState(archiveDir, {
+        classic: archivedClassic,
+        run: completedRun,
+        unknownKeys: archivedProjection.unknownKeys
+      });
+      await clearPendingAction(archiveDir, completedRun.pendingRef);
+      output.stderr.push(green("  [OK] archived: true"));
+      output.stepsOk += 1;
+      output.stepsTotal += 1;
     } else {
-      fail(`Unknown subcommand: ${subcommand ?? ""}`);
+      if (!projection.run) {
+        throw new ArchiveFailure(
+          red("FATAL: archived Classic state is missing its Run projection")
+        );
+      }
+      output.stderr.push(green(`  [OK] OpenSpec archive completed: ${archiveDir}`));
+      output.stepsOk += 1;
+      output.stepsTotal += 1;
+      output.stderr.push(green("  [OK] Main specs verified clean"));
+      output.stepsOk += 1;
+      output.stepsTotal += 1;
+      output.stderr.push(green("  [OK] archived: true"));
+      output.stepsOk += 1;
+      output.stepsTotal += 1;
     }
-    return output.result();
+    if (dryRun) {
+      if (designDoc) {
+        await annotateFrontmatter(output, designDoc, archiveName, "status: final", true);
+      }
+      if (planPath) {
+        await annotateFrontmatter(output, planPath, archiveName, "", true);
+      }
+      output.stderr.push(
+        yellow(`  [DRY-RUN] Would set archived: true in ${archiveDir}/.comet.yaml`)
+      );
+      output.stepsOk += 1;
+      output.stepsTotal += 1;
+    }
+    output.stderr.push("");
+    output.stderr.push(
+      dryRun ? yellow(`Dry run complete. ${output.stepsOk}/${output.stepsTotal} steps would succeed.`) : green(`Archive complete. ${output.stepsOk}/${output.stepsTotal} steps succeeded.`)
+    );
+    return output.toResult(output.stepsOk < output.stepsTotal ? 1 : 0);
   } catch (error) {
-    if (!(error instanceof CommandFailure)) throw error;
-    if (error.message) {
-      for (const line of error.message.split("\n")) output.stderr.push(red(line));
+    if (error instanceof ArchiveFailure) {
+      if (error.message) {
+        for (const line of error.message.split("\n")) output.stderr.push(line);
+      }
+      return output.toResult(error.exitCode);
     }
-    return output.result(error.exitCode);
+    throw error;
   }
 };
 
+// src/compat/classic-guard.ts
+var import_yaml5 = __toESM(require_dist(), 1);
+import { spawnSync as spawnSync2 } from "child_process";
+import { createHash as createHash4 } from "crypto";
+import { existsSync, promises as fs10, readFileSync } from "fs";
+import path11 from "path";
+
 // src/compat/classic-validate-command.ts
-var import_yaml3 = __toESM(require_dist(), 1);
-import { promises as fs2 } from "fs";
-import path2 from "path";
+var import_yaml4 = __toESM(require_dist(), 1);
+import { promises as fs9 } from "fs";
+import path10 from "path";
 var GREEN2 = "\x1B[32m";
 var RED2 = "\x1B[31m";
 var YELLOW2 = "\x1B[33m";
@@ -8208,7 +9103,7 @@ function color(code, message) {
 }
 async function exists2(file) {
   try {
-    await fs2.access(file);
+    await fs9.access(file);
     return true;
   } catch (error) {
     if (error.code === "ENOENT") return false;
@@ -8232,11 +9127,11 @@ var classicValidateCommand = async (args) => {
   }
   const activeLabel = `openspec/changes/${name}`;
   const archiveLabel = `openspec/changes/archive/${name}`;
-  const active = path2.resolve(...activeLabel.split("/"));
-  const archived = path2.resolve(...archiveLabel.split("/"));
+  const active = path10.resolve(...activeLabel.split("/"));
+  const archived = path10.resolve(...archiveLabel.split("/"));
   const directory = await exists2(active) ? active : await exists2(archived) ? archived : active;
   const label = directory === archived ? archiveLabel : activeLabel;
-  const yamlFile = path2.join(directory, ".comet.yaml");
+  const yamlFile = path10.join(directory, ".comet.yaml");
   const lines = [`[VALIDATE] ${label}/.comet.yaml`];
   let errors = 0;
   let warnings = 0;
@@ -8250,7 +9145,7 @@ var classicValidateCommand = async (args) => {
   };
   let source;
   try {
-    source = await fs2.readFile(yamlFile, "utf8");
+    source = await fs9.readFile(yamlFile, "utf8");
   } catch (error) {
     if (error.code === "ENOENT") {
       fail3(".comet.yaml does not exist");
@@ -8259,56 +9154,56 @@ var classicValidateCommand = async (args) => {
     }
     throw error;
   }
-  const document = (0, import_yaml3.parseDocument)(source);
-  if (document.errors.length > 0 || !(0, import_yaml3.isMap)(document.contents)) {
+  const document = (0, import_yaml4.parseDocument)(source);
+  if (document.errors.length > 0 || !(0, import_yaml4.isMap)(document.contents)) {
     for (const error of document.errors) fail3(error.message);
-    if (!(0, import_yaml3.isMap)(document.contents)) fail3("document root must be a mapping");
+    if (!(0, import_yaml4.isMap)(document.contents)) fail3("document root must be a mapping");
     lines.push("", color(RED2, `${errors} error(s), ${warnings} warning(s) — validation FAILED`));
     return { exitCode: 1, stderr: lines.join("\n") };
   }
   const record = document.toJS();
-  for (const field of REQUIRED) {
-    if (!Object.prototype.hasOwnProperty.call(record, field)) {
-      fail3(`missing required field '${field}'`);
+  for (const field2 of REQUIRED) {
+    if (!Object.prototype.hasOwnProperty.call(record, field2)) {
+      fail3(`missing required field '${field2}'`);
     }
   }
-  for (const [field, values] of Object.entries(ENUMS)) {
-    if (!Object.prototype.hasOwnProperty.call(record, field)) continue;
-    const value = text(record[field]);
+  for (const [field2, values] of Object.entries(ENUMS)) {
+    if (!Object.prototype.hasOwnProperty.call(record, field2)) continue;
+    const value = text(record[field2]);
     if (!value) {
-      if (field === "auto_transition") {
-        fail3(`${field}='' is not valid. Expected: ${values.join(" ")}`);
+      if (field2 === "auto_transition") {
+        fail3(`${field2}='' is not valid. Expected: ${values.join(" ")}`);
       }
       continue;
     }
     if (!values.includes(value)) {
-      fail3(`${field}='${value}' is not valid. Expected: ${values.join(" ")}`);
+      fail3(`${field2}='${value}' is not valid. Expected: ${values.join(" ")}`);
     }
   }
-  for (const field of ["design_doc", "plan", "handoff_context"]) {
-    const value = text(record[field]);
-    if (value && !await exists2(path2.resolve(value))) {
-      fail3(`${field}='${value}' does not exist on disk`);
+  for (const field2 of ["design_doc", "plan", "handoff_context"]) {
+    const value = text(record[field2]);
+    if (value && !await exists2(path10.resolve(value))) {
+      fail3(`${field2}='${value}' does not exist on disk`);
     }
   }
-  for (const field of ["handoff_hash", "skill_hash"]) {
-    const value = text(record[field]);
+  for (const field2 of ["handoff_hash", "skill_hash"]) {
+    const value = text(record[field2]);
     if (value && !/^[a-f0-9]{64}$/u.test(value)) {
-      fail3(`${field}='${value}' is not a sha256 hex digest`);
+      fail3(`${field2}='${value}' is not a sha256 hex digest`);
     }
   }
   const iteration = text(record.iteration);
   if (iteration && !/^[0-9]+$/u.test(iteration)) {
     fail3(`iteration='${iteration}' is not a non-negative integer`);
   }
-  for (const field of RUN_REFS) {
-    const value = text(record[field]);
+  for (const field2 of RUN_REFS) {
+    const value = text(record[field2]);
     if (value && !validRelativePath(value)) {
-      fail3(`${field}='${value}' must be a relative path within the repo`);
+      fail3(`${field2}='${value}' must be a relative path within the repo`);
     }
   }
-  for (const field of Object.keys(record)) {
-    if (!KNOWN_KEYS2.has(field)) warn(`unknown field '${field}' found`);
+  for (const field2 of Object.keys(record)) {
+    if (!KNOWN_KEYS2.has(field2)) warn(`unknown field '${field2}' found`);
   }
   lines.push("");
   if (errors > 0) {
@@ -8371,16 +9266,16 @@ var GuardOutput = class {
 };
 async function exists3(file) {
   try {
-    await fs3.access(file);
+    await fs10.access(file);
     return true;
   } catch (error) {
     if (error.code === "ENOENT") return false;
     throw error;
   }
 }
-async function nonempty2(file) {
+async function nonempty(file) {
   try {
-    return (await fs3.stat(file)).size > 0;
+    return (await fs10.stat(file)).size > 0;
   } catch (error) {
     if (error.code === "ENOENT") return false;
     throw error;
@@ -8434,27 +9329,27 @@ function stripWrappingQuotes(value) {
   if (value.length >= 2 && value.startsWith("'") && value.endsWith("'")) return value.slice(1, -1);
   return value;
 }
-async function readField2(changeDir, field) {
-  const file = path3.join(changeDir, ".comet.yaml");
-  const document = (0, import_yaml4.parseDocument)(await fs3.readFile(file, "utf8"), { uniqueKeys: false });
+async function readField(changeDir, field2) {
+  const file = path11.join(changeDir, ".comet.yaml");
+  const document = (0, import_yaml5.parseDocument)(await fs10.readFile(file, "utf8"), { uniqueKeys: false });
   if (document.errors.length > 0) {
     throw new GuardFailure(`ERROR: Invalid .comet.yaml: ${document.errors[0].message}`);
   }
   const record = document.toJS();
-  const value = record[field];
+  const value = record[field2];
   if (value === null || value === void 0) return "";
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);
 }
-async function projectConfigValue2(field, changeDir) {
-  const changeValue = await readField2(changeDir, field);
+async function projectConfigValue(field2, changeDir) {
+  const changeValue = await readField(changeDir, field2);
   if (changeValue && changeValue !== "null") return changeValue;
   for (const config of [".comet.yaml", "comet.yaml", ".comet.yml", "comet.yml"]) {
     if (!await exists3(config)) continue;
-    for (const line of (await fs3.readFile(config, "utf8")).split(/\r?\n/u)) {
-      if (new RegExp(`^${field}:`, "u").test(line)) {
+    for (const line of (await fs10.readFile(config, "utf8")).split(/\r?\n/u)) {
+      if (new RegExp(`^${field2}:`, "u").test(line)) {
         const value = stripWrappingQuotes(
-          stripInlineComment(line.replace(new RegExp(`^${field}:\\s*`, "u"), ""))
+          stripInlineComment(line.replace(new RegExp(`^${field2}:\\s*`, "u"), ""))
         );
         if (value && value !== "null") return value;
       }
@@ -8486,13 +9381,13 @@ ${red2(
 ${combined}` };
 }
 function hashFile(file) {
-  return createHash("sha256").update(readFileSync(file)).digest("hex");
+  return createHash4("sha256").update(readFileSync(file)).digest("hex");
 }
 async function handoffSourceFiles(changeDir) {
   const files = [`${changeDir}/proposal.md`, `${changeDir}/design.md`, `${changeDir}/tasks.md`];
   const specs = `${changeDir}/specs`;
   if (await exists3(specs)) {
-    for (const entry2 of (await fs3.readdir(specs)).sort()) {
+    for (const entry2 of (await fs10.readdir(specs)).sort()) {
       const spec = `${specs}/${entry2}/spec.md`;
       if (await exists3(spec)) files.push(spec);
     }
@@ -8506,13 +9401,13 @@ async function computeHandoffHash(changeDir) {
       lines.push(`path:${file}`, `sha256:${hashFile(file)}`);
     }
   }
-  return createHash("sha256").update(lines.join("\n")).digest("hex");
+  return createHash4("sha256").update(lines.join("\n")).digest("hex");
 }
 async function preflight(changeDir, name) {
   if (!await exists3(changeDir)) {
     throw new GuardFailure(red2(`FATAL: change directory not found: ${changeDir}`));
   }
-  if (!await exists3(path3.join(changeDir, ".comet.yaml"))) {
+  if (!await exists3(path11.join(changeDir, ".comet.yaml"))) {
     throw new GuardFailure(red2(`FATAL: .comet.yaml not found in ${changeDir}`));
   }
   const result = await classicValidateCommand([name], { json: false });
@@ -8533,7 +9428,7 @@ function pushCheck(output, outcome) {
     }
   }
 }
-function check2(description, run) {
+function check(description, run) {
   return async () => {
     try {
       const result = await run();
@@ -8554,7 +9449,7 @@ function check2(description, run) {
 function pass() {
   return { passed: true };
 }
-function fail2(detail) {
+function fail(detail) {
   return { passed: false, detail };
 }
 async function runChecks(output, builders) {
@@ -8575,13 +9470,13 @@ function runInferred(command) {
 }
 async function buildPasses(changeDir) {
   if (process.env.COMET_SKIP_BUILD === "1") return { status: 0, output: "" };
-  const configured = await projectConfigValue2("build_command", changeDir);
+  const configured = await projectConfigValue("build_command", changeDir);
   if (configured) return runCommandString(configured);
-  if (await exists3("package.json") && /"build"/u.test(await fs3.readFile("package.json", "utf8"))) {
+  if (await exists3("package.json") && /"build"/u.test(await fs10.readFile("package.json", "utf8"))) {
     return runInferred("npm run build");
   }
   if (await exists3("pom.xml")) {
-    if (existsSync2("mvnw")) return runInferred("./mvnw compile -q");
+    if (existsSync("mvnw")) return runInferred("./mvnw compile -q");
     if (isWindowsBash()) {
       const mvnCmd = spawnSync2(resolveBash(), ["-lc", "command -v mvn.cmd"], { encoding: "utf8" });
       if (mvnCmd.status === 0 && mvnCmd.stdout.trim()) return runInferred("mvn.cmd compile -q");
@@ -8593,27 +9488,27 @@ async function buildPasses(changeDir) {
 }
 async function verificationCommandPasses(changeDir) {
   if (process.env.COMET_SKIP_BUILD === "1") return { status: 0, output: "" };
-  const configured = await projectConfigValue2("verify_command", changeDir);
+  const configured = await projectConfigValue("verify_command", changeDir);
   if (configured) return runCommandString(configured);
   return buildPasses(changeDir);
 }
 async function tasksAllDone(changeDir) {
-  const tasks = path3.join(changeDir, "tasks.md");
+  const tasks = path11.join(changeDir, "tasks.md");
   if (!await exists3(tasks)) {
-    return fail2(
+    return fail(
       `tasks.md is missing at ${tasks}
 Next: restore or create tasks.md for this change before leaving build.`
     );
   }
-  const source = await fs3.readFile(tasks, "utf8");
+  const source = await fs10.readFile(tasks, "utf8");
   if (!/- \[x\]/u.test(source)) {
-    return fail2(
+    return fail(
       "tasks.md has no completed tasks.\nNext: complete implementation tasks and mark them with '- [x]'."
     );
   }
   const unfinished = source.split(/\r?\n/u).map((line, index) => ({ line, number: index + 1 })).filter((entry2) => /^- \[ \]/u.test(entry2.line));
   if (unfinished.length > 0) {
-    return fail2(
+    return fail(
       `Unfinished tasks:
 ${unfinished.map((entry2) => `${entry2.number}:${entry2.line}`).join("\n")}
 Next: complete or explicitly remove unfinished tasks, then mark tasks.md with '- [x]'.`
@@ -8622,23 +9517,23 @@ Next: complete or explicitly remove unfinished tasks, then mark tasks.md with '-
   return pass();
 }
 async function tasksHasAny(changeDir) {
-  const tasks = path3.join(changeDir, "tasks.md");
+  const tasks = path11.join(changeDir, "tasks.md");
   if (!await exists3(tasks)) return false;
-  return /- \[/u.test(await fs3.readFile(tasks, "utf8"));
+  return /- \[/u.test(await fs10.readFile(tasks, "utf8"));
 }
 async function planTasksAllDone(changeDir) {
-  const plan = await readField2(changeDir, "plan");
+  const plan = await readField(changeDir, "plan");
   if (!plan || plan === "null") return pass();
   if (!await exists3(plan)) {
-    return fail2(
+    return fail(
       `plan file is missing at ${plan}
 Next: restore the Superpowers plan file or update .comet.yaml plan before leaving build.`
     );
   }
-  const source = await fs3.readFile(plan, "utf8");
+  const source = await fs10.readFile(plan, "utf8");
   const unfinished = source.split(/\r?\n/u).map((line, index) => ({ line, number: index + 1 })).filter((entry2) => /^\s*- \[ \]/u.test(entry2.line));
   if (unfinished.length > 0) {
-    return fail2(
+    return fail(
       `Unfinished Superpowers plan tasks:
 ${unfinished.map((entry2) => `${entry2.number}:${entry2.line}`).join("\n")}
 Next: check off corresponding completed plan tasks, then commit the plan update.`
@@ -8647,41 +9542,41 @@ Next: check off corresponding completed plan tasks, then commit the plan update.
   return pass();
 }
 async function isolationSelected(changeDir, change) {
-  const isolation = await readField2(changeDir, "isolation");
+  const isolation = await readField(changeDir, "isolation");
   if (isolation === "branch" || isolation === "worktree") return pass();
-  return fail2(
+  return fail(
     `isolation must be branch or worktree, got '${isolation || "null"}'
 Next: ask the user to choose branch or worktree, create the chosen isolation, then run:
   "$COMET_BASH" "$COMET_STATE" set ${change} isolation <branch|worktree>`
   );
 }
 async function buildModeSelected(changeDir, change) {
-  const buildMode = await readField2(changeDir, "build_mode");
+  const buildMode = await readField(changeDir, "build_mode");
   if (["subagent-driven-development", "executing-plans", "direct"].includes(buildMode))
     return pass();
-  return fail2(
+  return fail(
     `build_mode must be selected before leaving build, got '${buildMode || "null"}'
 Next: ask the user to choose an execution mode, then run:
   "$COMET_BASH" "$COMET_STATE" set ${change} build_mode <subagent-driven-development|executing-plans>`
   );
 }
 async function buildModeAllowedForWorkflow(changeDir) {
-  const workflow = await readField2(changeDir, "workflow");
-  const buildMode = await readField2(changeDir, "build_mode");
-  const directOverride = await readField2(changeDir, "direct_override");
+  const workflow = await readField(changeDir, "workflow");
+  const buildMode = await readField(changeDir, "build_mode");
+  const directOverride = await readField(changeDir, "direct_override");
   if (buildMode !== "direct") return pass();
   if (workflow === "hotfix" || workflow === "tweak") return pass();
   if (directOverride === "true") return pass();
-  return fail2(
+  return fail(
     "build_mode=direct is only allowed for hotfix/tweak unless direct_override: true is recorded\nNext: choose executing-plans or subagent-driven-development, or stop and ask the user for an explicit direct override."
   );
 }
 async function subagentDispatchConfirmed(changeDir, change) {
-  const buildMode = await readField2(changeDir, "build_mode");
-  const subagentDispatch = await readField2(changeDir, "subagent_dispatch");
+  const buildMode = await readField(changeDir, "build_mode");
+  const subagentDispatch = await readField(changeDir, "subagent_dispatch");
   if (buildMode !== "subagent-driven-development") return pass();
   if (subagentDispatch === "confirmed") return pass();
-  return fail2(
+  return fail(
     `subagent_dispatch must be confirmed before using build_mode=subagent-driven-development
 Next: confirm the current platform has a real background subagent/Task/multi-agent dispatcher, then run:
   "$COMET_BASH" "$COMET_STATE" set ${change} subagent_dispatch confirmed
@@ -8690,28 +9585,28 @@ Or ask the user to switch to executing-plans and run:
   );
 }
 async function tddModeSelected(changeDir, change) {
-  const workflow = await readField2(changeDir, "workflow");
+  const workflow = await readField(changeDir, "workflow");
   if (workflow === "hotfix" || workflow === "tweak") return pass();
-  const tddMode = await readField2(changeDir, "tdd_mode");
+  const tddMode = await readField(changeDir, "tdd_mode");
   if (tddMode === "tdd" || tddMode === "direct") return pass();
-  return fail2(
+  return fail(
     `tdd_mode must be tdd or direct for full workflow, got '${tddMode || "null"}'
 Next: ask the user to choose TDD enforcement level, then run:
   "$COMET_BASH" "$COMET_STATE" set ${change} tdd_mode <tdd|direct>`
   );
 }
 async function verificationReportExists(changeDir) {
-  const report = await readField2(changeDir, "verification_report");
-  return Boolean(report) && report !== "null" && existsSync2(report);
+  const report = await readField(changeDir, "verification_report");
+  return Boolean(report) && report !== "null" && existsSync(report);
 }
 async function branchStatusHandled(changeDir) {
-  return await readField2(changeDir, "branch_status") === "handled";
+  return await readField(changeDir, "branch_status") === "handled";
 }
 async function archivedIsTrue(changeDir) {
-  return await readField2(changeDir, "archived") === "true";
+  return await readField(changeDir, "archived") === "true";
 }
-async function designDocFrontmatterHas(designDoc, field, expected) {
-  const source = (await fs3.readFile(designDoc, "utf8")).replace(/^﻿/u, "");
+async function designDocFrontmatterHas(designDoc, field2, expected) {
+  const source = (await fs10.readFile(designDoc, "utf8")).replace(/^\uFEFF/u, "");
   let inFrontmatter = false;
   for (const line of source.split(/\r?\n/u)) {
     if (!inFrontmatter) {
@@ -8719,42 +9614,42 @@ async function designDocFrontmatterHas(designDoc, field, expected) {
       continue;
     }
     if (line === "---") break;
-    if (new RegExp(`^${field}: ['"]?${expected}['"]?\\s*$`, "u").test(line)) return true;
+    if (new RegExp(`^${field2}: ['"]?${expected}['"]?\\s*$`, "u").test(line)) return true;
   }
   return false;
 }
 async function designDocRecorded(changeDir, change) {
-  const designDoc = await readField2(changeDir, "design_doc");
-  if (designDoc && designDoc !== "null" && existsSync2(designDoc)) return pass();
-  return fail2(
+  const designDoc = await readField(changeDir, "design_doc");
+  if (designDoc && designDoc !== "null" && existsSync(designDoc)) return pass();
+  return fail(
     `design_doc must point to an existing Superpowers Design Doc for full workflow before leaving design.
 Next: create the Design Doc and run: "$COMET_BASH" "$COMET_STATE" set ${change} design_doc <path>`
   );
 }
 async function designHandoffContextValid(changeDir, change) {
-  const context = await readField2(changeDir, "handoff_context");
-  const recordedHash = await readField2(changeDir, "handoff_hash");
+  const context = await readField(changeDir, "handoff_context");
+  const recordedHash = await readField(changeDir, "handoff_hash");
   if (!context || context === "null") {
-    return fail2(
+    return fail(
       `handoff_context is missing from .comet.yaml
 Next: run "$COMET_BASH" "$COMET_HANDOFF" ${change} design --write before invoking Superpowers.`
     );
   }
-  if (!await nonempty2(context)) {
-    return fail2(
+  if (!await nonempty(context)) {
+    return fail(
       `handoff_context does not point to a non-empty file: ${context}
 Next: regenerate the design handoff with comet-handoff.sh.`
     );
   }
   if (!/^[a-f0-9]{64}$/u.test(recordedHash)) {
-    return fail2(
+    return fail(
       `handoff_hash is missing or invalid: ${recordedHash || "null"}
 Next: regenerate the design handoff with comet-handoff.sh.`
     );
   }
   const actualHash = await computeHandoffHash(changeDir);
   if (actualHash !== recordedHash) {
-    return fail2(
+    return fail(
       `OpenSpec artifacts changed after handoff was generated.
 Expected handoff_hash: ${recordedHash}
 Actual handoff_hash:   ${actualHash}
@@ -8762,8 +9657,8 @@ Next: rerun comet-handoff.sh so Superpowers receives the current OpenSpec contex
     );
   }
   const markdown = `${context.replace(/\.json$/u, "")}.md`;
-  if (!await nonempty2(markdown)) {
-    return fail2(
+  if (!await nonempty(markdown)) {
+    return fail(
       `design handoff markdown is missing or empty: ${markdown}
 Next: regenerate the design handoff with comet-handoff.sh.`
     );
@@ -8771,12 +9666,12 @@ Next: regenerate the design handoff with comet-handoff.sh.`
   return pass();
 }
 async function designHandoffMarkdownTraceable(changeDir) {
-  const context = await readField2(changeDir, "handoff_context");
-  if (!context || context === "null") return fail2("handoff_context is missing from .comet.yaml");
+  const context = await readField(changeDir, "handoff_context");
+  if (!context || context === "null") return fail("handoff_context is missing from .comet.yaml");
   const markdown = `${context.replace(/\.json$/u, "")}.md`;
-  if (!await nonempty2(markdown))
-    return fail2(`design handoff markdown is missing or empty: ${markdown}`);
-  const source = await fs3.readFile(markdown, "utf8");
+  if (!await nonempty(markdown))
+    return fail(`design handoff markdown is missing or empty: ${markdown}`);
+  const source = await fs10.readFile(markdown, "utf8");
   const problems = [];
   if (!/^Generated-by: comet-handoff\.sh$/mu.test(source)) {
     problems.push("handoff markdown is missing Generated-by marker");
@@ -8793,17 +9688,17 @@ async function designHandoffMarkdownTraceable(changeDir) {
       problems.push(`handoff markdown is missing current sha256 for: ${file}`);
     }
   }
-  return problems.length === 0 ? pass() : fail2(problems.join("\n"));
+  return problems.length === 0 ? pass() : fail(problems.join("\n"));
 }
 async function contextCompressionMode(changeDir) {
-  return await readField2(changeDir, "context_compression") || "off";
+  return await readField(changeDir, "context_compression") || "off";
 }
 async function betaSpecJsonStructurallyValid(changeDir) {
   if (await contextCompressionMode(changeDir) !== "beta") return pass();
-  const context = await readField2(changeDir, "handoff_context");
-  if (!context || context === "null") return fail2("handoff_context is missing from .comet.yaml");
-  if (!await nonempty2(context)) return fail2(`spec-context.json is missing or empty: ${context}`);
-  const source = await fs3.readFile(context, "utf8");
+  const context = await readField(changeDir, "handoff_context");
+  if (!context || context === "null") return fail("handoff_context is missing from .comet.yaml");
+  if (!await nonempty(context)) return fail(`spec-context.json is missing or empty: ${context}`);
+  const source = await fs10.readFile(context, "utf8");
   const problems = [];
   if (!source.includes('"change"')) problems.push("spec-context.json missing 'change' field");
   if (!source.includes('"phase"')) problems.push("spec-context.json missing 'phase' field");
@@ -8816,50 +9711,50 @@ async function betaSpecJsonStructurallyValid(changeDir) {
     if (!source.includes(file))
       problems.push(`spec-context.json missing source file reference: ${file}`);
   }
-  return problems.length === 0 ? pass() : fail2(problems.join("\n"));
+  return problems.length === 0 ? pass() : fail(problems.join("\n"));
 }
 async function guardOpenChecks(output, changeDir) {
   return runChecks(output, [
-    check2(
+    check(
       "proposal.md exists and non-empty",
-      async () => await nonempty2(path3.join(changeDir, "proposal.md")) ? pass() : fail2("")
+      async () => await nonempty(path11.join(changeDir, "proposal.md")) ? pass() : fail("")
     ),
-    check2(
+    check(
       "design.md exists and non-empty",
-      async () => await nonempty2(path3.join(changeDir, "design.md")) ? pass() : fail2("")
+      async () => await nonempty(path11.join(changeDir, "design.md")) ? pass() : fail("")
     ),
-    check2(
+    check(
       "tasks.md exists and non-empty",
-      async () => await nonempty2(path3.join(changeDir, "tasks.md")) ? pass() : fail2("")
+      async () => await nonempty(path11.join(changeDir, "tasks.md")) ? pass() : fail("")
     ),
-    check2(
+    check(
       "tasks.md has at least one task",
-      async () => await tasksHasAny(changeDir) ? pass() : fail2("")
+      async () => await tasksHasAny(changeDir) ? pass() : fail("")
     )
   ]);
 }
 async function guardDesignChecks(output, changeDir, change) {
-  const designDoc = await readField2(changeDir, "design_doc");
-  const workflow = await readField2(changeDir, "workflow");
+  const designDoc = await readField(changeDir, "design_doc");
+  const workflow = await readField(changeDir, "workflow");
   const builders = [
-    check2(
+    check(
       "proposal.md exists",
-      async () => await nonempty2(path3.join(changeDir, "proposal.md")) ? pass() : fail2("")
+      async () => await nonempty(path11.join(changeDir, "proposal.md")) ? pass() : fail("")
     ),
-    check2(
+    check(
       "design.md exists",
-      async () => await nonempty2(path3.join(changeDir, "design.md")) ? pass() : fail2("")
+      async () => await nonempty(path11.join(changeDir, "design.md")) ? pass() : fail("")
     ),
-    check2(
+    check(
       "tasks.md exists",
-      async () => await nonempty2(path3.join(changeDir, "tasks.md")) ? pass() : fail2("")
+      async () => await nonempty(path11.join(changeDir, "tasks.md")) ? pass() : fail("")
     ),
-    check2("design handoff context exists", () => designHandoffContextValid(changeDir, change)),
-    check2("design handoff markdown is traceable", () => designHandoffMarkdownTraceable(changeDir))
+    check("design handoff context exists", () => designHandoffContextValid(changeDir, change)),
+    check("design handoff markdown is traceable", () => designHandoffMarkdownTraceable(changeDir))
   ];
   if (await contextCompressionMode(changeDir) === "beta") {
     builders.push(
-      check2(
+      check(
         "beta spec-context.json is structurally valid",
         () => betaSpecJsonStructurallyValid(changeDir)
       )
@@ -8867,27 +9762,27 @@ async function guardDesignChecks(output, changeDir, change) {
   }
   if (workflow === "full") {
     builders.push(
-      check2("design_doc is recorded for full workflow", () => designDocRecorded(changeDir, change))
+      check("design_doc is recorded for full workflow", () => designDocRecorded(changeDir, change))
     );
   }
   let blocked = await runChecks(output, builders);
   if (designDoc && designDoc !== "null") {
     blocked = await runChecks(output, [
-      check2(
+      check(
         `Design Doc (${designDoc}) exists`,
-        async () => await nonempty2(designDoc) ? pass() : fail2("")
+        async () => await nonempty(designDoc) ? pass() : fail("")
       ),
-      check2("Design Doc frontmatter links current change", async () => {
-        if (!await nonempty2(designDoc)) return fail2("");
-        return await designDocFrontmatterHas(designDoc, "comet_change", change) ? pass() : fail2("");
+      check("Design Doc frontmatter links current change", async () => {
+        if (!await nonempty(designDoc)) return fail("");
+        return await designDocFrontmatterHas(designDoc, "comet_change", change) ? pass() : fail("");
       }),
-      check2("Design Doc declares technical design role", async () => {
-        if (!await nonempty2(designDoc)) return fail2("");
-        return await designDocFrontmatterHas(designDoc, "role", "technical-design") ? pass() : fail2("");
+      check("Design Doc declares technical design role", async () => {
+        if (!await nonempty(designDoc)) return fail("");
+        return await designDocFrontmatterHas(designDoc, "role", "technical-design") ? pass() : fail("");
       }),
-      check2("Design Doc declares OpenSpec as canonical spec", async () => {
-        if (!await nonempty2(designDoc)) return fail2("");
-        return await designDocFrontmatterHas(designDoc, "canonical_spec", "openspec") ? pass() : fail2("");
+      check("Design Doc declares OpenSpec as canonical spec", async () => {
+        if (!await nonempty(designDoc)) return fail("");
+        return await designDocFrontmatterHas(designDoc, "canonical_spec", "openspec") ? pass() : fail("");
       })
     ]) || blocked;
   } else if (workflow !== "full") {
@@ -8900,64 +9795,100 @@ async function guardDesignChecks(output, changeDir, change) {
 async function guardBuildChecks(output, changeDir, change) {
   const buildResult = await buildPasses(changeDir);
   return runChecks(output, [
-    check2("isolation selected", () => isolationSelected(changeDir, change)),
-    check2("build_mode selected", () => buildModeSelected(changeDir, change)),
-    check2("build_mode allowed for workflow", () => buildModeAllowedForWorkflow(changeDir)),
-    check2("subagent dispatch confirmed", () => subagentDispatchConfirmed(changeDir, change)),
-    check2("tdd_mode selected", () => tddModeSelected(changeDir, change)),
-    check2("tasks.md all tasks checked", () => tasksAllDone(changeDir)),
-    check2("Superpowers plan all tasks checked", () => planTasksAllDone(changeDir)),
-    check2(
+    check("isolation selected", () => isolationSelected(changeDir, change)),
+    check("build_mode selected", () => buildModeSelected(changeDir, change)),
+    check("build_mode allowed for workflow", () => buildModeAllowedForWorkflow(changeDir)),
+    check("subagent dispatch confirmed", () => subagentDispatchConfirmed(changeDir, change)),
+    check("tdd_mode selected", () => tddModeSelected(changeDir, change)),
+    check("tasks.md all tasks checked", () => tasksAllDone(changeDir)),
+    check("Superpowers plan all tasks checked", () => planTasksAllDone(changeDir)),
+    check(
       "proposal.md exists",
-      async () => await nonempty2(path3.join(changeDir, "proposal.md")) ? pass() : fail2("")
+      async () => await nonempty(path11.join(changeDir, "proposal.md")) ? pass() : fail("")
     ),
-    check2(
+    check(
       "Build passes",
-      async () => buildResult.status === 0 ? pass() : fail2(buildResult.output)
+      async () => buildResult.status === 0 ? pass() : fail(buildResult.output)
     )
   ]);
 }
 async function guardVerifyChecks(output, changeDir) {
   const verifyResult = await verificationCommandPasses(changeDir);
   return runChecks(output, [
-    check2("tasks.md all tasks checked", () => tasksAllDone(changeDir)),
-    check2(
+    check("tasks.md all tasks checked", () => tasksAllDone(changeDir)),
+    check(
       "Build passes",
-      async () => verifyResult.status === 0 ? pass() : fail2(verifyResult.output)
+      async () => verifyResult.status === 0 ? pass() : fail(verifyResult.output)
     ),
-    check2(
+    check(
       "verification_report exists",
-      async () => await verificationReportExists(changeDir) ? pass() : fail2("")
+      async () => await verificationReportExists(changeDir) ? pass() : fail("")
     ),
-    check2(
+    check(
       "branch_status=handled",
-      async () => await branchStatusHandled(changeDir) ? pass() : fail2("")
+      async () => await branchStatusHandled(changeDir) ? pass() : fail("")
     )
   ]);
 }
 async function guardArchiveChecks(output, changeDir) {
   return runChecks(output, [
-    check2("archived is true", async () => await archivedIsTrue(changeDir) ? pass() : fail2("")),
-    check2(
+    check("archived is true", async () => await archivedIsTrue(changeDir) ? pass() : fail("")),
+    check(
       "proposal.md exists",
-      async () => await nonempty2(path3.join(changeDir, "proposal.md")) ? pass() : fail2("")
+      async () => await nonempty(path11.join(changeDir, "proposal.md")) ? pass() : fail("")
     ),
-    check2(
+    check(
       "design.md exists",
-      async () => await nonempty2(path3.join(changeDir, "design.md")) ? pass() : fail2("")
+      async () => await nonempty(path11.join(changeDir, "design.md")) ? pass() : fail("")
     ),
-    check2("tasks.md all tasks checked", () => tasksAllDone(changeDir))
+    check("tasks.md all tasks checked", () => tasksAllDone(changeDir))
   ]);
 }
-async function applyStateUpdate(output, changeDir, change, phase) {
+async function applyStateUpdate(output, changeDir, phase, context) {
   const event = TRANSITION_EVENT[phase];
   if (!event) return;
-  const result = await classicStateCommand(["transition", change, event], { json: false });
-  if (result.stderr) {
-    for (const line of result.stderr.split("\n").slice(0, -1)) output.stderr.push(line);
+  const changed = [];
+  const classic = { ...context.classic };
+  const set = (field2, value) => {
+    classic[field2] = value;
+    changed.push([field2, value]);
+  };
+  if (phase === "open") {
+    set("phase", classic.workflow === "full" ? "design" : "build");
+  } else if (phase === "design") {
+    set("phase", "build");
+  } else if (phase === "build") {
+    const preserveEvidence = classic.verifyResult === "fail";
+    set("phase", "verify");
+    set("verifyResult", "pending");
+    if (!preserveEvidence) {
+      set("verificationReport", null);
+      set("branchStatus", "pending");
+    }
+  } else if (phase === "verify") {
+    set("verifyResult", "pass");
+    set("phase", "archive");
+    set("verifiedAt", (/* @__PURE__ */ new Date()).toISOString().slice(0, 10));
   }
+  await transitionClassicRuntimeRun(changeDir, classic, context.run, {
+    event,
+    phase
+  });
+  const wireNames = {
+    phase: "phase",
+    verifyResult: "verify_result",
+    verificationReport: "verification_report",
+    branchStatus: "branch_status",
+    verifiedAt: "verified_at"
+  };
+  for (const [field2, value] of changed) {
+    output.stderr.push(
+      green2(`[SET] ${wireNames[field2]}=${value === null ? "null" : String(value)}`)
+    );
+  }
+  output.stderr.push(green2(`[TRANSITION] ${event}`));
   const template = APPLY_MESSAGE[phase];
-  const message = phase === "open" ? template.replace("PLACEHOLDER", await readField2(changeDir, "phase")) : template;
+  const message = phase === "open" ? template.replace("PLACEHOLDER", classic.phase) : template;
   output.stderr.push(green2(message));
 }
 var classicGuardCommand = async (args) => {
@@ -8973,6 +9904,7 @@ Valid phases: open, design, build, verify, archive`
     }
     const changeDir = await resolveChangeDir(change);
     await preflight(changeDir, change);
+    const runContext = await ensureClassicRuntimeRun(changeDir);
     output.stderr.push(PHASE_HEADER[phase]);
     let blocked;
     if (phase === "open") blocked = await guardOpenChecks(output, changeDir);
@@ -8988,7 +9920,7 @@ Valid phases: open, design, build, verify, archive`
     output.stderr.push("");
     output.stderr.push(green2("ALL CHECKS PASSED — ready for next phase"));
     if (flag === "--apply") {
-      await applyStateUpdate(output, changeDir, change, phase);
+      await applyStateUpdate(output, changeDir, phase, runContext);
     }
     return output.toResult(0);
   } catch (error) {
@@ -8997,6 +9929,1213 @@ Valid phases: open, design, build, verify, archive`
       return output.toResult(error.exitCode);
     }
     throw error;
+  }
+};
+
+// src/compat/classic-handoff.ts
+var import_yaml6 = __toESM(require_dist(), 1);
+import { createHash as createHash5 } from "crypto";
+import { promises as fs11, readFileSync as readFileSync2 } from "fs";
+import path12 from "path";
+var GREEN4 = "\x1B[32m";
+var RED4 = "\x1B[31m";
+var YELLOW4 = "\x1B[33m";
+var RESET4 = "\x1B[0m";
+function green3(message) {
+  return `${GREEN4}${message}${RESET4}`;
+}
+function red3(message) {
+  return `${RED4}${message}${RESET4}`;
+}
+function yellow3(message) {
+  return `${YELLOW4}${message}${RESET4}`;
+}
+var HandoffFailure = class extends Error {
+  constructor(message, exitCode = 1) {
+    super(message);
+    this.exitCode = exitCode;
+  }
+  exitCode;
+};
+var HandoffOutput = class {
+  stdout = [];
+  stderr = [];
+  toResult(exitCode = 0) {
+    return {
+      exitCode,
+      ...this.stdout.length > 0 ? { stdout: this.stdout.join("\n") + "\n" } : {},
+      ...this.stderr.length > 0 ? { stderr: this.stderr.join("\n") + "\n" } : {}
+    };
+  }
+};
+async function exists4(file) {
+  try {
+    await fs11.access(file);
+    return true;
+  } catch (error) {
+    if (error.code === "ENOENT") return false;
+    throw error;
+  }
+}
+async function nonempty2(file) {
+  try {
+    return (await fs11.stat(file)).size > 0;
+  } catch (error) {
+    if (error.code === "ENOENT") return false;
+    throw error;
+  }
+}
+function validateChangeName3(name) {
+  if (!name) throw new HandoffFailure(red3("ERROR: Change name cannot be empty"));
+  if (!/^[a-zA-Z0-9_-]+$/u.test(name)) {
+    throw new HandoffFailure(
+      [
+        red3(`ERROR: Invalid change name: '${name}'`),
+        red3("Valid characters: a-z, A-Z, 0-9, -, _")
+      ].join("\n")
+    );
+  }
+  if (name.includes("..")) {
+    throw new HandoffFailure(
+      red3("ERROR: Change name cannot contain '..' (path traversal not allowed)")
+    );
+  }
+}
+function hashFile2(file) {
+  return createHash5("sha256").update(readFileSync2(file)).digest("hex");
+}
+function hashText2(content) {
+  return createHash5("sha256").update(content).digest("hex");
+}
+function artifactsHash2(artifacts) {
+  return hashText2(
+    JSON.stringify(
+      Object.fromEntries(
+        Object.entries(artifacts).sort(([left], [right]) => left.localeCompare(right))
+      )
+    )
+  );
+}
+async function handoffSourceFiles2(changeDir) {
+  const files = [`${changeDir}/proposal.md`, `${changeDir}/design.md`, `${changeDir}/tasks.md`];
+  const specs = `${changeDir}/specs`;
+  if (await exists4(specs)) {
+    for (const entry2 of (await fs11.readdir(specs)).sort()) {
+      const spec = `${specs}/${entry2}/spec.md`;
+      if (await exists4(spec)) files.push(spec);
+    }
+  }
+  return files;
+}
+async function computeContextHash(changeDir) {
+  const lines = [];
+  for (const file of await handoffSourceFiles2(changeDir)) {
+    if (await exists4(file)) {
+      lines.push(`path:${file}`, `sha256:${hashFile2(file)}`);
+    }
+  }
+  return createHash5("sha256").update(lines.join("\n")).digest("hex");
+}
+function jsonEscape(value) {
+  return value.replace(/\\/gu, "\\\\").replace(/"/gu, '\\"');
+}
+function lineCount(content) {
+  return (content.match(/\n/gu) ?? []).length;
+}
+function firstLines(content, max) {
+  let count = 0;
+  for (let i = 0; i < content.length; i += 1) {
+    if (content[i] === "\n") {
+      count += 1;
+      if (count === max) return content.slice(0, i + 1);
+    }
+  }
+  return content;
+}
+async function writeMarkdownContext(changeDir, change, mode, contextHash, output) {
+  const lines = [
+    "# Comet Design Handoff",
+    "",
+    `- Change: ${change}`,
+    "- Phase: design",
+    `- Mode: ${mode}`,
+    `- Context hash: ${contextHash}`,
+    "",
+    "Generated-by: comet-handoff.sh",
+    "",
+    "OpenSpec remains the canonical capability spec. This handoff is a deterministic, source-traceable context pack, not an agent-authored summary.",
+    ""
+  ];
+  for (const file of await handoffSourceFiles2(changeDir)) {
+    if (!await exists4(file)) continue;
+    const content = await fs11.readFile(file, "utf8");
+    const total = lineCount(content);
+    lines.push(
+      `## ${file}`,
+      "",
+      `- Source: ${file}`,
+      `- Lines: 1-${total}`,
+      `- SHA256: ${hashFile2(file)}`,
+      ""
+    );
+    if (mode === "full" || total <= 80) {
+      lines.push("```md", content, "```");
+    } else {
+      lines.push(
+        "[TRUNCATED]",
+        "",
+        "```md",
+        firstLines(content, 80),
+        "```",
+        "",
+        `Full source: ${file}`
+      );
+    }
+    lines.push("");
+  }
+  await fs11.writeFile(output, lines.join("\n"));
+}
+async function writeJsonContext(changeDir, change, mode, contextHash, output) {
+  const entries = [];
+  for (const file of await handoffSourceFiles2(changeDir)) {
+    if (!await exists4(file)) continue;
+    entries.push(`    { "path": "${jsonEscape(file)}", "sha256": "${hashFile2(file)}" }`);
+  }
+  const filesBlock = entries.join(",\n");
+  const document = [
+    "{",
+    `  "change": "${jsonEscape(change)}",`,
+    '  "phase": "design",',
+    `  "mode": "${mode}",`,
+    '  "canonical_spec": "openspec",',
+    '  "generated_by": "comet-handoff.sh",',
+    `  "context_hash": "${contextHash}",`,
+    '  "files": [',
+    filesBlock,
+    "  ]",
+    "}",
+    ""
+  ].join("\n");
+  await fs11.writeFile(output, document);
+}
+async function writeSpecProjectionForFile(file, content) {
+  return [
+    `## ${file}`,
+    "",
+    `- Source: ${file}`,
+    `- Lines: 1-${lineCount(content)}`,
+    `- SHA256: ${hashFile2(file)}`,
+    "",
+    "```md",
+    content,
+    "```",
+    ""
+  ];
+}
+async function writeSpecMarkdownContext(changeDir, change, contextHash, output) {
+  const lines = [
+    "# Comet Spec Context",
+    "",
+    `- Change: ${change}`,
+    "- Phase: design",
+    "- Mode: beta",
+    `- Context hash: ${contextHash}`,
+    "",
+    "Generated-by: comet-handoff.sh",
+    "",
+    "OpenSpec remains the canonical capability spec. This beta context pack verbatim-projects spec files and references supporting artifacts by hash, not an agent-authored summary.",
+    "",
+    "## Source References",
+    ""
+  ];
+  for (const file of await handoffSourceFiles2(changeDir)) {
+    if (!await exists4(file)) continue;
+    lines.push(`- Source: ${file}`, `- SHA256: ${hashFile2(file)}`);
+  }
+  lines.push("", "## Acceptance Projection", "");
+  const specs = `${changeDir}/specs`;
+  let projected = false;
+  if (await exists4(specs)) {
+    for (const entry2 of (await fs11.readdir(specs)).sort()) {
+      const spec = `${specs}/${entry2}/spec.md`;
+      if (!await exists4(spec)) continue;
+      projected = true;
+      lines.push(...await writeSpecProjectionForFile(spec, await fs11.readFile(spec, "utf8")));
+    }
+  }
+  if (!projected) {
+    lines.push("No delta spec files found.", "");
+  }
+  lines.push(
+    "Full source files remain canonical. If a required heading or scenario is missing here, regenerate the handoff or read the source spec directly. Supporting files (proposal, design, tasks) are referenced by hash only."
+  );
+  await fs11.writeFile(output, lines.join("\n"));
+}
+async function writeSpecJsonContext(changeDir, change, contextHash, output) {
+  const entries = [];
+  for (const file of await handoffSourceFiles2(changeDir)) {
+    if (!await exists4(file)) continue;
+    const role = /\/specs\/[^/]+\/spec\.md$/u.test(file) ? "spec" : "supporting";
+    entries.push(
+      `    { "path": "${jsonEscape(file)}", "sha256": "${hashFile2(file)}", "role": "${role}" }`
+    );
+  }
+  const filesBlock = entries.join(",\n");
+  const document = [
+    "{",
+    `  "change": "${jsonEscape(change)}",`,
+    '  "phase": "design",',
+    '  "mode": "beta",',
+    '  "canonical_spec": "openspec",',
+    '  "generated_by": "comet-handoff.sh",',
+    `  "context_hash": "${contextHash}",`,
+    '  "files": [',
+    filesBlock,
+    "  ]",
+    "}",
+    ""
+  ].join("\n");
+  await fs11.writeFile(output, document);
+}
+async function readField2(changeDir, field2) {
+  const file = path12.join(changeDir, ".comet.yaml");
+  const document = (0, import_yaml6.parseDocument)(await fs11.readFile(file, "utf8"), { uniqueKeys: false });
+  if (document.errors.length > 0) {
+    throw new HandoffFailure(`ERROR: Invalid .comet.yaml: ${document.errors[0].message}`);
+  }
+  const record = document.toJS();
+  const value = record[field2];
+  if (value === null || value === void 0) return "";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+async function appendRecoveryEvent2(changeDir, run, actionId) {
+  const trajectory = await readTrajectory(changeDir, run.trajectoryRef);
+  const alreadyRecorded = trajectory.some(
+    (event) => event.type === "recovery_reconciled" && event.data.kind === "classic-handoff" && event.data.actionId === actionId
+  );
+  if (alreadyRecorded) return;
+  await appendTrajectory(changeDir, run.trajectoryRef, {
+    sequence: trajectory.length + 1,
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    type: "recovery_reconciled",
+    runId: run.runId,
+    data: {
+      kind: "classic-handoff",
+      actionId
+    }
+  });
+}
+async function completedHandoffIsCurrent(changeDir, run, contextHash, contextJson, contextMd) {
+  const [context, artifacts, checkpoint] = await Promise.all([
+    readContext(changeDir, run.contextRef),
+    readArtifacts(changeDir, run.artifactsRef),
+    readCheckpoint(changeDir, run.checkpointRef)
+  ]);
+  if (!await exists4(contextJson) || !await exists4(contextMd)) return false;
+  if (context !== await fs11.readFile(contextMd, "utf8")) return false;
+  if (artifacts.handoff_context !== contextJson || artifacts.handoff_markdown !== contextMd) {
+    return false;
+  }
+  return checkpoint?.runId === run.runId && checkpoint.contextHash === (context === null ? null : hashText2(context)) && checkpoint.artifactsHash === artifactsHash2(artifacts) && contextHash.length === 64;
+}
+var classicHandoffCommand = async (args) => {
+  const output = new HandoffOutput();
+  const [change, phase, mode, fullFlag] = args;
+  try {
+    validateChangeName3(change);
+    const changeDir = `openspec/changes/${change}`;
+    if (phase === "--hash-only") {
+      if (!await exists4(changeDir)) {
+        throw new HandoffFailure(red3(`ERROR: change directory not found: ${changeDir}`));
+      }
+      for (const required2 of ["proposal.md", "design.md", "tasks.md"]) {
+        if (!await nonempty2(`${changeDir}/${required2}`)) {
+          throw new HandoffFailure(
+            red3(`ERROR: required file missing or empty: ${changeDir}/${required2}`)
+          );
+        }
+      }
+      output.stdout.push(await computeContextHash(changeDir));
+      return output.toResult(0);
+    }
+    if (phase !== "design" || mode !== "--write") {
+      throw new HandoffFailure(
+        red3("Usage: comet-handoff.sh <change-name> design --write [--full]")
+      );
+    }
+    let handoffMode;
+    if (fullFlag === void 0 || fullFlag === "") handoffMode = "compact";
+    else if (fullFlag === "--full") handoffMode = "full";
+    else
+      throw new HandoffFailure(
+        red3("Usage: comet-handoff.sh <change-name> design --write [--full]")
+      );
+    const yaml = `${changeDir}/.comet.yaml`;
+    if (!await exists4(changeDir)) {
+      throw new HandoffFailure(red3(`ERROR: change directory not found: ${changeDir}`));
+    }
+    if (!await exists4(yaml)) {
+      throw new HandoffFailure(red3(`ERROR: .comet.yaml not found at ${yaml}`));
+    }
+    if (await readField2(changeDir, "phase") !== "design") {
+      throw new HandoffFailure(red3("ERROR: design handoff requires phase: design"));
+    }
+    for (const required2 of ["proposal.md", "design.md", "tasks.md"]) {
+      if (!await nonempty2(`${changeDir}/${required2}`)) {
+        throw new HandoffFailure(
+          red3(`ERROR: required OpenSpec artifact missing or empty: ${changeDir}/${required2}`)
+        );
+      }
+    }
+    const handoffDir = `${changeDir}/.comet/handoff`;
+    const contextCompression2 = await readField2(changeDir, "context_compression") || "off";
+    let contextJson;
+    let contextMd;
+    if (contextCompression2 === "off") {
+      contextJson = `${handoffDir}/design-context.json`;
+      contextMd = `${handoffDir}/design-context.md`;
+    } else if (contextCompression2 === "beta") {
+      if (handoffMode === "full") {
+        output.stderr.push(
+          yellow3("[HANDOFF] --full is ignored in beta mode; spec files are projected verbatim")
+        );
+      }
+      handoffMode = "beta";
+      contextJson = `${handoffDir}/spec-context.json`;
+      contextMd = `${handoffDir}/spec-context.md`;
+    } else {
+      throw new HandoffFailure(
+        [
+          red3(`ERROR: invalid context_compression: ${contextCompression2}`),
+          red3("Valid values: off, beta")
+        ].join("\n")
+      );
+    }
+    const contextHash = await computeContextHash(changeDir);
+    const actionId = `classic-handoff:${contextHash}`;
+    const initialProjection = await readClassicState(changeDir);
+    if (!initialProjection.classic) {
+      throw new HandoffFailure(red3("ERROR: design handoff requires Classic state"));
+    }
+    const initialPending = initialProjection.run ? await readPendingAction(changeDir, initialProjection.run.pendingRef) : null;
+    const recovering = initialPending?.id === actionId && initialPending.type === "handoff" && initialPending.ref === contextHash;
+    if (initialProjection.classic.handoffHash && initialProjection.classic.handoffHash !== contextHash && !recovering) {
+      throw new HandoffFailure(
+        red3(
+          `ERROR: stale handoff detected: source hash ${contextHash} does not match completed hash ${initialProjection.classic.handoffHash}`
+        )
+      );
+    }
+    const runtime = await ensureClassicRuntimeRun(changeDir);
+    const pendingAction = await readPendingAction(changeDir, runtime.run.pendingRef);
+    const resumesPending = pendingAction?.id === actionId && pendingAction.type === "handoff" && pendingAction.ref === contextHash;
+    if (runtime.run.pending && runtime.run.pending !== actionId) {
+      throw new HandoffFailure(red3(`ERROR: another action is pending: ${runtime.run.pending}`));
+    }
+    if (runtime.classic.handoffHash === contextHash && runtime.classic.handoffContext === contextJson && !runtime.run.pending && !pendingAction && await completedHandoffIsCurrent(changeDir, runtime.run, contextHash, contextJson, contextMd)) {
+      output.stderr.push(green3(`[HANDOFF] wrote ${contextJson}`));
+      output.stderr.push(green3(`[HANDOFF] wrote ${contextMd}`));
+      output.stderr.push(green3(`[HANDOFF] handoff_hash=${contextHash}`));
+      return output.toResult(0);
+    }
+    const action = {
+      id: actionId,
+      stepId: runtime.run.currentStep,
+      type: "handoff",
+      ref: contextHash
+    };
+    await writePendingAction(changeDir, runtime.run.pendingRef, action);
+    const pendingRun = {
+      ...runtime.run,
+      pending: actionId,
+      status: "waiting"
+    };
+    await writeClassicState(changeDir, {
+      classic: runtime.classic,
+      run: pendingRun,
+      unknownKeys: (await readClassicState(changeDir)).unknownKeys
+    });
+    await fs11.mkdir(handoffDir, { recursive: true });
+    if (handoffMode === "beta") {
+      await writeSpecMarkdownContext(changeDir, change, contextHash, contextMd);
+      await writeSpecJsonContext(changeDir, change, contextHash, contextJson);
+    } else {
+      await writeMarkdownContext(changeDir, change, handoffMode, contextHash, contextMd);
+      await writeJsonContext(changeDir, change, handoffMode, contextHash, contextJson);
+    }
+    const context = await fs11.readFile(contextMd, "utf8");
+    await writeContext(changeDir, pendingRun.contextRef, context);
+    const artifacts = {
+      ...await readArtifacts(changeDir, pendingRun.artifactsRef),
+      handoff_context: contextJson,
+      handoff_markdown: contextMd
+    };
+    await writeArtifacts(changeDir, pendingRun.artifactsRef, artifacts);
+    const trajectory = await readTrajectory(changeDir, pendingRun.trajectoryRef);
+    const checkpoint = {
+      runId: pendingRun.runId,
+      stateVersion: pendingRun.iteration + 1,
+      trajectoryOffset: trajectory.length,
+      contextHash: hashText2(context),
+      artifactsHash: artifactsHash2(artifacts),
+      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    await writeCheckpoint(changeDir, pendingRun.checkpointRef, checkpoint);
+    const completedClassic = {
+      ...runtime.classic,
+      handoffContext: contextJson,
+      handoffHash: contextHash
+    };
+    const completedRun = {
+      ...pendingRun,
+      pending: null,
+      status: "running"
+    };
+    await writeClassicState(changeDir, {
+      classic: completedClassic,
+      run: completedRun,
+      unknownKeys: (await readClassicState(changeDir)).unknownKeys
+    });
+    await clearPendingAction(changeDir, completedRun.pendingRef);
+    if (recovering || resumesPending) {
+      await appendRecoveryEvent2(changeDir, completedRun, actionId);
+    }
+    output.stderr.push(green3(`[SET] handoff_context=${contextJson}`));
+    output.stderr.push(green3(`[SET] handoff_hash=${contextHash}`));
+    output.stderr.push(green3(`[HANDOFF] wrote ${contextJson}`));
+    output.stderr.push(green3(`[HANDOFF] wrote ${contextMd}`));
+    output.stderr.push(green3(`[HANDOFF] handoff_hash=${contextHash}`));
+    return output.toResult(0);
+  } catch (error) {
+    if (error instanceof HandoffFailure) {
+      for (const line of error.message.split("\n")) output.stderr.push(line);
+      return output.toResult(error.exitCode);
+    }
+    throw error;
+  }
+};
+
+// src/compat/classic-state-command.ts
+var import_yaml7 = __toESM(require_dist(), 1);
+import { spawnSync as spawnSync3 } from "child_process";
+import { randomUUID as randomUUID5 } from "crypto";
+import { existsSync as existsSync2, promises as fs12 } from "fs";
+import path13 from "path";
+var GREEN5 = "\x1B[32m";
+var RED5 = "\x1B[31m";
+var YELLOW5 = "\x1B[33m";
+var RESET5 = "\x1B[0m";
+var PROFILES = ["full", "hotfix", "tweak"];
+var PHASES3 = ["open", "design", "build", "verify", "archive"];
+var EVENTS = [
+  "open-complete",
+  "design-complete",
+  "build-complete",
+  "verify-pass",
+  "verify-fail",
+  "archive-reopen",
+  "archived"
+];
+var SETTABLE_FIELDS = /* @__PURE__ */ new Set([
+  ...CLASSIC_WIRE_KEYS,
+  ...RUN_WIRE_KEYS,
+  "direct_override",
+  "build_command",
+  "verify_command",
+  "base_ref"
+]);
+var FIELD_ENUMS = {
+  workflow: PROFILES,
+  phase: PHASES3,
+  context_compression: ["off", "beta"],
+  build_mode: ["subagent-driven-development", "executing-plans", "direct"],
+  build_pause: ["null", "plan-ready"],
+  subagent_dispatch: ["null", "confirmed"],
+  tdd_mode: ["tdd", "direct"],
+  isolation: ["branch", "worktree"],
+  verify_mode: ["light", "full"],
+  auto_transition: ["true", "false"],
+  verify_result: ["pending", "pass", "fail"],
+  branch_status: ["pending", "handled"],
+  archived: ["true", "false"],
+  direct_override: ["true", "false"],
+  orchestration: ["deterministic", "adaptive"],
+  run_status: ["running", "waiting", "completed", "failed"],
+  classic_profile: PROFILES,
+  classic_migration: ["1"]
+};
+var PATH_FIELDS = /* @__PURE__ */ new Set([
+  "design_doc",
+  "plan",
+  "verification_report",
+  "handoff_context",
+  "pending_ref",
+  "trajectory_ref",
+  "context_ref",
+  "artifacts_ref",
+  "checkpoint_ref"
+]);
+var CommandFailure = class extends Error {
+  constructor(message, exitCode = 1) {
+    super(message);
+    this.exitCode = exitCode;
+  }
+  exitCode;
+};
+var CommandOutput = class {
+  stdout = [];
+  stderr = [];
+  result(exitCode = 0) {
+    return {
+      exitCode,
+      ...this.stdout.length > 0 ? { stdout: this.stdout.join("\n") + "\n" } : {},
+      ...this.stderr.length > 0 ? { stderr: this.stderr.join("\n") } : {}
+    };
+  }
+};
+function green4(message) {
+  return `${GREEN5}${message}${RESET5}`;
+}
+function red4(message) {
+  return `${RED5}${message}${RESET5}`;
+}
+function yellow4(message) {
+  return `${YELLOW5}${message}${RESET5}`;
+}
+function fail2(message) {
+  throw new CommandFailure(message);
+}
+function validateChangeName4(name) {
+  if (!name) fail2("ERROR: Change name cannot be empty");
+  if (!/^[a-zA-Z0-9_-]+$/u.test(name)) {
+    fail2(`ERROR: Invalid change name: '${name}'
+Valid characters: a-z, A-Z, 0-9, -, _`);
+  }
+  if (name.includes(".."))
+    fail2("ERROR: Change name cannot contain '..' (path traversal not allowed)");
+}
+function validateEnum(value, values) {
+  if (!values.includes(value)) {
+    fail2(`ERROR: Invalid value: '${value}'
+Valid values: ${values.join(" ")}`);
+  }
+}
+function validateRelativePath(value, field2) {
+  if (!value || value === "null") return;
+  if (/^(?:[A-Za-z]:|[\\/]|~)/u.test(value)) {
+    fail2(`ERROR: ${field2} must be a relative path within the repo: '${value}'`);
+  }
+  if (value.split(/[\\/]/u).includes("..")) {
+    fail2(`ERROR: ${field2} cannot contain '..' (path traversal not allowed): '${value}'`);
+  }
+}
+function filesystemPath(relativePath2) {
+  return path13.resolve(...relativePath2.split("/"));
+}
+async function exists5(file) {
+  try {
+    await fs12.access(file);
+    return true;
+  } catch (error) {
+    if (error.code === "ENOENT") return false;
+    throw error;
+  }
+}
+async function nonempty3(file) {
+  try {
+    return (await fs12.stat(file)).size > 0;
+  } catch (error) {
+    if (error.code === "ENOENT") return false;
+    throw error;
+  }
+}
+async function changeDirectory(name) {
+  const active = `openspec/changes/${name}`;
+  const archived = `openspec/changes/archive/${name}`;
+  if (await exists5(filesystemPath(active)))
+    return { label: active, directory: filesystemPath(active) };
+  if (await exists5(filesystemPath(archived))) {
+    return { label: archived, directory: filesystemPath(archived) };
+  }
+  return { label: active, directory: filesystemPath(active) };
+}
+async function readDocument2(file) {
+  let source;
+  try {
+    source = await fs12.readFile(file, "utf8");
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      fail2(
+        `ERROR: .comet.yaml not found at ${path13.relative(process.cwd(), file).replaceAll("\\", "/")}`
+      );
+    }
+    throw error;
+  }
+  const document = (0, import_yaml7.parseDocument)(source, { uniqueKeys: false });
+  if (document.errors.length > 0) fail2(`ERROR: Invalid .comet.yaml: ${document.errors[0].message}`);
+  return document;
+}
+async function atomicWrite2(file, content) {
+  await fs12.mkdir(path13.dirname(file), { recursive: true });
+  const temporary = `${file}.${randomUUID5()}.tmp`;
+  try {
+    await fs12.writeFile(temporary, content, "utf8");
+    await fs12.rename(temporary, file);
+  } catch (error) {
+    await fs12.rm(temporary, { force: true });
+    throw error;
+  }
+}
+function scalar(value) {
+  if (value === null) return "null";
+  if (value === void 0) return "";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+async function projectConfigValue2(field2) {
+  const file = path13.resolve(".comet", "config.yaml");
+  if (!await exists5(file)) return null;
+  const document = await readDocument2(file);
+  const value = document.get(field2);
+  return value === null || value === void 0 ? null : scalar(value);
+}
+async function contextCompression() {
+  const value = process.env.COMET_CONTEXT_COMPRESSION ?? await projectConfigValue2("context_compression") ?? "off";
+  if (!["off", "beta"].includes(value)) {
+    fail2(`ERROR: Invalid context_compression: '${value}'
+Valid values: off, beta`);
+  }
+  return value;
+}
+async function autoTransition() {
+  const value = process.env.COMET_AUTO_TRANSITION ?? await projectConfigValue2("auto_transition") ?? "true";
+  if (!["true", "false"].includes(value)) {
+    fail2(`ERROR: Invalid auto_transition: '${value}'
+Valid values: true, false`);
+  }
+  return value;
+}
+function gitOutput(args) {
+  const result = spawnSync3("git", args, { encoding: "utf8" });
+  return result.status === 0 ? result.stdout.trim() : null;
+}
+async function stateFile(name) {
+  const change = await changeDirectory(name);
+  return {
+    ...change,
+    file: path13.join(change.directory, ".comet.yaml")
+  };
+}
+async function readField3(name, field2) {
+  const { file } = await stateFile(name);
+  const document = await readDocument2(file);
+  const record = document.toJS();
+  const value = record[field2];
+  if (field2 === "auto_transition" && (value === null || value === void 0 || value === "")) {
+    return autoTransition();
+  }
+  return scalar(value);
+}
+function parsedValue(field2, value) {
+  const document = (0, import_yaml7.parseDocument)(`${field2}: ${value}
+`);
+  if (document.errors.length > 0) fail2(`ERROR: Invalid value: '${value}'`);
+  return document.get(field2);
+}
+function validateSetValue(field2, value) {
+  const enumValues = FIELD_ENUMS[field2];
+  if (enumValues) validateEnum(value, enumValues);
+  if (PATH_FIELDS.has(field2)) validateRelativePath(value, field2);
+  if ((field2 === "skill_hash" || field2 === "handoff_hash") && !/^[a-f0-9]{64}$/u.test(value)) {
+    fail2(`ERROR: ${field2} must be a sha256 hex digest`);
+  }
+  if (field2 === "iteration" && !/^[0-9]+$/u.test(value)) {
+    fail2("ERROR: iteration must be a non-negative integer");
+  }
+}
+async function setField(output, name, field2, value) {
+  if (!SETTABLE_FIELDS.has(field2)) {
+    fail2(`ERROR: Unknown field: '${field2}'`);
+  }
+  validateSetValue(field2, value);
+  const { file } = await stateFile(name);
+  const document = await readDocument2(file);
+  document.set(field2, parsedValue(field2, value));
+  await atomicWrite2(file, document.toString());
+  if (field2 === "phase") {
+    output.stderr.push(
+      yellow4("WARNING: Setting 'phase' directly bypasses state machine constraints."),
+      yellow4("  Consider using: comet-state.sh transition <change-name> <event>")
+    );
+  }
+  output.stderr.push(green4(`[SET] ${field2}=${value}`));
+}
+async function init(output, name, workflow) {
+  validateChangeName4(name);
+  validateEnum(workflow, PROFILES);
+  const { file, label, directory } = await stateFile(name);
+  if (await exists5(file)) fail2(`ERROR: .comet.yaml already exists at ${label}/.comet.yaml`);
+  await fs12.mkdir(directory, { recursive: true });
+  const preset = workflow !== "full";
+  const document = new import_yaml7.Document({
+    workflow,
+    phase: "open",
+    context_compression: await contextCompression(),
+    build_mode: preset ? "direct" : null,
+    build_pause: null,
+    subagent_dispatch: null,
+    tdd_mode: preset ? "direct" : null,
+    isolation: preset ? "branch" : null,
+    verify_mode: preset ? "light" : null,
+    auto_transition: await autoTransition() === "true",
+    base_ref: gitOutput(["rev-parse", "--verify", "HEAD"]),
+    design_doc: null,
+    plan: null,
+    verify_result: "pending",
+    verification_report: null,
+    branch_status: "pending",
+    created_at: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10),
+    verified_at: null,
+    archived: false
+  });
+  await atomicWrite2(file, document.toString());
+  output.stderr.push(green4(`Initialized: ${label}/.comet.yaml (workflow=${workflow})`));
+}
+async function requirePhase(name, expected) {
+  const actual = await readField3(name, "phase");
+  if (actual !== expected) {
+    fail2(`ERROR: Cannot transition '${name}': expected phase ${expected}, got ${actual}`);
+  }
+}
+async function requireBuildDecisions(name) {
+  const workflow = await readField3(name, "workflow");
+  const buildMode = await readField3(name, "build_mode");
+  const isolation = await readField3(name, "isolation");
+  const directOverride = await readField3(name, "direct_override");
+  const subagentDispatch = await readField3(name, "subagent_dispatch");
+  const tddMode = await readField3(name, "tdd_mode");
+  if (!["branch", "worktree"].includes(isolation)) {
+    fail2(
+      `ERROR: Cannot transition '${name}': isolation must be branch or worktree, got '${isolation || "null"}'`
+    );
+  }
+  if (!["subagent-driven-development", "executing-plans", "direct"].includes(buildMode)) {
+    fail2(
+      `ERROR: Cannot transition '${name}': build_mode must be selected before leaving build, got '${buildMode || "null"}'`
+    );
+  }
+  if (buildMode === "direct" && !["hotfix", "tweak"].includes(workflow) && directOverride !== "true") {
+    fail2(
+      `ERROR: Cannot transition '${name}': build_mode=direct is only allowed for hotfix/tweak unless direct_override=true`
+    );
+  }
+  if (buildMode === "subagent-driven-development" && subagentDispatch !== "confirmed") {
+    fail2(
+      `ERROR: Cannot transition '${name}': subagent_dispatch must be confirmed before using build_mode=subagent-driven-development`
+    );
+  }
+  if (workflow === "full" && (!tddMode || tddMode === "null")) {
+    fail2(
+      `ERROR: Cannot transition '${name}': tdd_mode must be selected before leaving build (full workflow)`
+    );
+  }
+}
+async function transition(output, name, event) {
+  validateChangeName4(name);
+  validateEnum(event, EVENTS);
+  if (event === "open-complete") {
+    await requirePhase(name, "open");
+    await setField(
+      output,
+      name,
+      "phase",
+      await readField3(name, "workflow") === "full" ? "design" : "build"
+    );
+  } else if (event === "design-complete") {
+    await requirePhase(name, "design");
+    await setField(output, name, "phase", "build");
+  } else if (event === "build-complete") {
+    await requirePhase(name, "build");
+    await requireBuildDecisions(name);
+    const current = await readField3(name, "verify_result");
+    await setField(output, name, "phase", "verify");
+    await setField(output, name, "verify_result", "pending");
+    if (current !== "fail") {
+      await setField(output, name, "verification_report", "null");
+      await setField(output, name, "branch_status", "pending");
+    }
+  } else if (event === "verify-pass") {
+    await requirePhase(name, "verify");
+    const report = await readField3(name, "verification_report");
+    if (!report || !await exists5(path13.resolve(report))) {
+      fail2(
+        `ERROR: Cannot transition '${name}': verification_report must point to an existing report file`
+      );
+    }
+    if (await readField3(name, "branch_status") !== "handled") {
+      fail2(`ERROR: Cannot transition '${name}': branch_status must be handled`);
+    }
+    await setField(output, name, "verify_result", "pass");
+    await setField(output, name, "phase", "archive");
+    await setField(output, name, "verified_at", (/* @__PURE__ */ new Date()).toISOString().slice(0, 10));
+  } else if (event === "verify-fail") {
+    await requirePhase(name, "verify");
+    await setField(output, name, "verify_result", "fail");
+    await setField(output, name, "phase", "build");
+  } else if (event === "archive-reopen") {
+    await requirePhase(name, "archive");
+    if (await readField3(name, "archived") === "true") {
+      fail2(`ERROR: Cannot transition '${name}': already archived`);
+    }
+    await setField(output, name, "verify_result", "pending");
+    await setField(output, name, "phase", "verify");
+    await setField(output, name, "verified_at", "null");
+  } else {
+    await requirePhase(name, "archive");
+    await setField(output, name, "archived", "true");
+  }
+  output.stderr.push(green4(`[TRANSITION] ${event}`));
+}
+async function next(output, name) {
+  validateChangeName4(name);
+  const { file, label } = await stateFile(name);
+  if (!await exists5(file)) fail2(`ERROR: .comet.yaml not found at ${label}/.comet.yaml`);
+  const phase = await readField3(name, "phase");
+  const workflow = await readField3(name, "workflow");
+  const automatic = await readField3(name, "auto_transition");
+  if (await readField3(name, "archived") === "true") {
+    output.stdout.push("NEXT: done");
+    return;
+  }
+  const skill = phase === "open" ? "comet-open" : phase === "design" ? "comet-design" : phase === "verify" ? "comet-verify" : phase === "archive" ? "comet-archive" : phase === "build" ? workflow === "hotfix" ? "comet-hotfix" : workflow === "tweak" ? "comet-tweak" : "comet-build" : null;
+  if (!skill) {
+    fail2(`ERROR: Cannot resolve next step for '${name}': unknown phase '${phase || "null"}'`);
+  }
+  output.stdout.push(`NEXT: ${automatic === "false" ? "manual" : "auto"}`, `SKILL: ${skill}`);
+  if (automatic === "false") {
+    output.stdout.push(`HINT: phase is '${phase}'; run /${skill} manually to continue`);
+  }
+}
+async function taskCheckoff(output, taskFile, taskText) {
+  validateRelativePath(taskFile, "task file");
+  if (!taskText) fail2("ERROR: Task text cannot be empty");
+  const file = path13.resolve(taskFile);
+  if (!await exists5(file)) fail2(`ERROR: Task file not found: ${taskFile}`);
+  const lines = (await fs12.readFile(file, "utf8")).split(/\r?\n/u);
+  const matches = lines.filter(
+    (line) => [`- [ ] ${taskText}`, `- [x] ${taskText}`, `- [X] ${taskText}`].includes(line)
+  );
+  const checked = matches.filter((line) => /^- \[[xX]\] /u.test(line));
+  if (matches.length !== 1) {
+    fail2(
+      `ERROR: task text must appear exactly once in ${taskFile} (found ${matches.length}): ${taskText}`
+    );
+  }
+  if (checked.length !== 1) fail2(`ERROR: task is not checked in ${taskFile}: ${taskText}`);
+  output.stdout.push("TASK_CHECKOFF: PASS", `FILE: ${taskFile}`, `TASK: ${taskText}`);
+}
+async function check2(output, name, phase) {
+  validateChangeName4(name);
+  validateEnum(phase, PHASES3);
+  const { file, directory, label } = await stateFile(name);
+  output.stdout.push(`=== Entry Check: comet-${phase} ===`);
+  if (!await exists5(file)) fail2(`ERROR: .comet.yaml not found at ${label}/.comet.yaml`);
+  let blocked = false;
+  const pass2 = (message) => output.stdout.push(`  ${green4("[PASS]")} ${message}`);
+  const reject = (message) => {
+    output.stdout.push(`  ${red4("[FAIL]")} ${message}`);
+    blocked = true;
+  };
+  const expectField = async (field2, expected) => {
+    const actual = await readField3(name, field2);
+    (actual === expected ? pass2 : reject)(`${field2}=${actual} (expected: ${expected})`);
+  };
+  pass2(".comet.yaml exists");
+  await expectField("phase", phase);
+  if (phase === "design") {
+    await expectField("workflow", "full");
+    const designDoc = await readField3(name, "design_doc");
+    (!designDoc || designDoc === "null" ? pass2 : reject)(
+      designDoc ? `design_doc=${designDoc} (expected: empty/null)` : "design_doc is empty/null"
+    );
+    for (const artifact of ["proposal.md", "design.md", "tasks.md"]) {
+      (await nonempty3(path13.join(directory, artifact)) ? pass2 : reject)(
+        `${artifact} ${await nonempty3(path13.join(directory, artifact)) ? "non-empty" : "missing or empty"}`
+      );
+    }
+  } else if (phase === "build") {
+    const workflow = await readField3(name, "workflow");
+    const designDoc = await readField3(name, "design_doc");
+    if (workflow === "full") {
+      (designDoc && designDoc !== "null" && await exists5(path13.resolve(designDoc)) ? pass2 : reject)(`design_doc=${designDoc} (expected: non-null and file exists)`);
+    } else {
+      pass2(`workflow=${workflow} (design_doc not required)`);
+    }
+    for (const artifact of ["proposal.md", "tasks.md"]) {
+      (await nonempty3(path13.join(directory, artifact)) ? pass2 : reject)(
+        `${artifact} ${await nonempty3(path13.join(directory, artifact)) ? "non-empty" : "missing or empty"}`
+      );
+    }
+  } else if (phase === "verify") {
+    const value = await readField3(name, "verify_result");
+    (["", "null", "pending"].includes(value) ? pass2 : reject)(
+      `verify_result=${value} (expected: pending or null)`
+    );
+  } else if (phase === "archive") {
+    await expectField("verify_result", "pass");
+    const archived = await readField3(name, "archived");
+    (archived !== "true" ? pass2 : reject)(`archived=${archived} (expected: not true)`);
+  }
+  output.stdout.push("");
+  if (blocked) {
+    output.stderr.push(red4("BLOCKED — fix failing checks before proceeding"));
+    throw new CommandFailure("", 1);
+  }
+  output.stderr.push(green4("ALL CHECKS PASSED — ready to proceed"));
+}
+function fieldStatus(field2, value, file) {
+  if (!value || value === "null") return `  - ${field2}: PENDING`;
+  if (file && !existsSync2(path13.resolve(file))) {
+    return `  - ${field2}: BROKEN (path ${value} does not exist)`;
+  }
+  return `  - ${field2}: DONE (${value})`;
+}
+async function recover(output, name) {
+  validateChangeName4(name);
+  const { file, directory, label } = await stateFile(name);
+  if (!await exists5(file)) fail2(`ERROR: .comet.yaml not found at ${label}/.comet.yaml`);
+  const phase = await readField3(name, "phase");
+  const workflow = await readField3(name, "workflow");
+  output.stdout.push(
+    `=== Recovery Context: ${name} ===`,
+    `Phase: ${phase}`,
+    `Workflow: ${workflow}`,
+    "",
+    "State fields:"
+  );
+  if (phase === "open") {
+    output.stdout.push("  Artifacts:");
+    let complete = 0;
+    for (const artifact of ["proposal.md", "design.md", "tasks.md"]) {
+      const done = await nonempty3(path13.join(directory, artifact));
+      if (done) complete += 1;
+      output.stdout.push(`  - ${artifact}: ${done ? "DONE" : "PENDING"}`);
+    }
+    output.stdout.push(
+      "",
+      complete === 3 ? "Recovery action: All artifacts complete. Run /comet-open user confirmation, then guard to transition." : complete === 0 ? "Recovery action: No artifacts created yet. Start from /comet-open Step 1 (explore and clarify)." : "Recovery action: Some artifacts incomplete. Resume /comet-open from the first missing artifact."
+    );
+  } else if (phase === "design") {
+    output.stdout.push("  Artifacts:");
+    for (const artifact of ["proposal.md", "design.md", "tasks.md"]) {
+      output.stdout.push(
+        `  - ${artifact}: ${await nonempty3(path13.join(directory, artifact)) ? "DONE" : "MISSING (unexpected in design phase)"}`
+      );
+    }
+    const handoff = await readField3(name, "handoff_context");
+    const hash = await readField3(name, "handoff_hash");
+    const design = await readField3(name, "design_doc");
+    output.stdout.push(
+      "",
+      "  Design progress:",
+      fieldStatus("handoff_context", handoff, handoff),
+      fieldStatus("handoff_hash", hash),
+      fieldStatus("design_doc", design, design),
+      ""
+    );
+    if (design && design !== "null" && await exists5(path13.resolve(design))) {
+      output.stdout.push(
+        "Recovery action: Design Doc already created and linked. Run guard to transition to build."
+      );
+    } else if (handoff && handoff !== "null" && await exists5(path13.resolve(handoff))) {
+      output.stdout.push(
+        "Recovery action: Handoff generated but Design Doc not yet created. Resume from brainstorming confirmation (Step 1c)."
+      );
+    } else {
+      output.stdout.push(
+        "Recovery action: No handoff generated yet. Start from Step 1a (generate handoff package)."
+      );
+    }
+  } else if (phase === "build") {
+    const isolation = await readField3(name, "isolation");
+    const buildMode = await readField3(name, "build_mode");
+    const pause = await readField3(name, "build_pause");
+    const subagentDispatch = await readField3(name, "subagent_dispatch");
+    const tdd = await readField3(name, "tdd_mode");
+    const plan = await readField3(name, "plan");
+    const decisions = [
+      "  Build decisions:",
+      fieldStatus("isolation", isolation),
+      fieldStatus("build_mode", buildMode),
+      fieldStatus("build_pause", pause),
+      fieldStatus("tdd_mode", tdd)
+    ];
+    if (buildMode === "subagent-driven-development" || subagentDispatch && subagentDispatch !== "null") {
+      decisions.push(fieldStatus("subagent_dispatch", subagentDispatch));
+    }
+    output.stdout.push(...decisions, "", "  Plan:", fieldStatus("plan", plan, plan), "");
+    const tasks = path13.join(directory, "tasks.md");
+    if (!await exists5(tasks)) {
+      output.stdout.push(
+        "  Tasks: tasks.md MISSING",
+        "",
+        "Recovery action: tasks.md missing. Verify change directory integrity."
+      );
+    } else {
+      const lines = (await fs12.readFile(tasks, "utf8")).split(/\r?\n/u);
+      const total = lines.filter((line) => /^\s*- \[[ xX]\] /u.test(line)).length;
+      const done = lines.filter((line) => /^\s*- \[[xX]\] /u.test(line)).length;
+      const pending = total - done;
+      let planTotal = 0;
+      let planDone = 0;
+      if (plan && plan !== "null" && await exists5(path13.resolve(plan))) {
+        const planLines = (await fs12.readFile(path13.resolve(plan), "utf8")).split(/\r?\n/u);
+        planTotal = planLines.filter((line) => /^\s*- \[[ xX]\] /u.test(line)).length;
+        planDone = planLines.filter((line) => /^\s*- \[[xX]\] /u.test(line)).length;
+      }
+      const planPending = planTotal - planDone;
+      output.stdout.push(`  Tasks: ${done}/${total} done, ${pending} pending`);
+      if (planTotal > 0) {
+        output.stdout.push(`  Plan tasks: ${planDone}/${planTotal} done, ${planPending} pending`);
+      }
+      output.stdout.push("");
+      let action;
+      if (pause === "plan-ready" && plan && plan !== "null" && await exists5(path13.resolve(plan)) && (!isolation || isolation === "null" || !buildMode || buildMode === "null")) {
+        action = "Recovery action: Plan-ready pause detected. Ask the user whether to continue, then choose isolation and build mode without regenerating the plan.";
+      } else if (pause === "plan-ready" && (!plan || plan === "null" || !await exists5(path13.resolve(plan)))) {
+        action = "Recovery action: Plan-ready pause is recorded, but the plan file is missing. Restore the plan file or rerun writing-plans before choosing execution.";
+      } else if (pause === "plan-ready") {
+        if (buildMode === "subagent-driven-development" && (pending > 0 || planPending > 0)) {
+          action = subagentDispatch === "confirmed" ? "Recovery action: Plan-ready pause is stale because build decisions are already selected. Clear build_pause to null, then inspect the first unchecked task (OpenSpec or plan additions) against recent git history/diff. If implemented, check it off; otherwise dispatch a real background subagent. Do not execute the pending task directly in the main window." : "Recovery action: Plan-ready pause is stale and subagent dispatch is not confirmed. Confirm a real background subagent/Task/multi-agent dispatcher and set subagent_dispatch to confirmed, or set build_mode to executing-plans before continuing.";
+        } else if (pending > 0 || planPending > 0) {
+          action = "Recovery action: Plan-ready pause is stale because build decisions are already selected. Clear build_pause to null, then continue from the first unchecked task.";
+        } else {
+          action = "Recovery action: Plan-ready pause is stale and all tasks are done. Clear build_pause to null, then run guard to transition to verify.";
+        }
+      } else if (!isolation || isolation === "null") {
+        action = "Recovery action: Isolation not selected. Use the current platform's user confirmation mechanism to ask user for branch/worktree choice.";
+      } else if (!buildMode || buildMode === "null") {
+        action = "Recovery action: Build mode not selected. Use the current platform's user confirmation mechanism to ask user for execution method.";
+      } else if (!tdd || tdd === "null") {
+        action = "Recovery action: TDD mode not selected. Use the current platform's user confirmation mechanism to ask user for tdd or direct.";
+      } else if (pending > 0) {
+        action = buildMode === "subagent-driven-development" ? subagentDispatch === "confirmed" ? "Recovery action: Read tasks.md and the Superpowers plan (which may include additions beyond OpenSpec), then inspect the first unchecked task against recent git history/diff. If implemented, check it off; otherwise dispatch a real background subagent. Do not execute the pending task directly in the main window." : "Recovery action: Subagent dispatch is not confirmed. Confirm a real background subagent/Task/multi-agent dispatcher and set subagent_dispatch to confirmed, or set build_mode to executing-plans before continuing." : "Recovery action: Read tasks.md and continue from first unchecked task.";
+      } else if (planPending > 0) {
+        action = buildMode === "subagent-driven-development" ? subagentDispatch === "confirmed" ? "Recovery action: Read the Superpowers plan, then inspect the first unchecked Superpowers plan task against recent git history/diff. If implemented, check it off; otherwise dispatch a real background subagent. Do not execute the pending task directly in the main window." : "Recovery action: Subagent dispatch is not confirmed. Confirm a real background subagent/Task/multi-agent dispatcher and set subagent_dispatch to confirmed, or set build_mode to executing-plans before continuing." : "Recovery action: Read the Superpowers plan and continue from the first unchecked plan task.";
+      } else {
+        action = "Recovery action: All tasks done. Run guard to transition to verify.";
+      }
+      output.stdout.push(action);
+    }
+  } else if (phase === "verify") {
+    const result = await readField3(name, "verify_result");
+    const mode = await readField3(name, "verify_mode");
+    const report = await readField3(name, "verification_report");
+    const branch = await readField3(name, "branch_status");
+    output.stdout.push(
+      "  Verification:",
+      fieldStatus("verify_result", result),
+      fieldStatus("verify_mode", mode),
+      fieldStatus("verification_report", report, report),
+      fieldStatus("branch_status", branch),
+      "",
+      result === "pass" && branch === "handled" ? "Recovery action: Verification complete. Run guard to transition to archive." : result === "fail" ? "Recovery action: Verification failed and rolled back to build. Resume from /comet-build." : "Recovery action: Verification not yet started or in progress. Run scale assessment then verify."
+    );
+  } else if (phase === "archive") {
+    output.stdout.push(
+      "  Archive:",
+      fieldStatus("verify_result", await readField3(name, "verify_result")),
+      fieldStatus("archived", await readField3(name, "archived")),
+      "",
+      "Recovery action: Run /comet-archive to complete archiving."
+    );
+  } else {
+    fail2(`ERROR: Unknown phase: ${phase}`);
+  }
+  output.stdout.push("", "=== End Recovery Context ===");
+}
+async function scale(output, name) {
+  validateChangeName4(name);
+  const { file, directory, label } = await stateFile(name);
+  if (!await exists5(file)) fail2(`ERROR: .comet.yaml not found at ${label}/.comet.yaml`);
+  const tasksFile = path13.join(directory, "tasks.md");
+  const taskCount = await exists5(tasksFile) ? (await fs12.readFile(tasksFile, "utf8")).split(/\r?\n/u).filter((line) => /^- \[/u.test(line)).length : 0;
+  const specs = path13.join(directory, "specs");
+  let deltaSpecs = 0;
+  if (await exists5(specs)) {
+    for (const entry2 of await fs12.readdir(specs)) {
+      if (await exists5(path13.join(specs, entry2, "spec.md"))) deltaSpecs += 1;
+    }
+  }
+  const plan = await readField3(name, "plan");
+  let baseRef = "";
+  if (plan && plan !== "null" && await exists5(path13.resolve(plan))) {
+    const match = (await fs12.readFile(path13.resolve(plan), "utf8")).match(/^base-ref:\s*(.+)$/mu);
+    baseRef = match?.[1].trim() ?? "";
+  }
+  if (!baseRef) baseRef = await readField3(name, "base_ref");
+  const changed = gitOutput([
+    "diff",
+    "--name-only",
+    ...baseRef && baseRef !== "null" ? [`${baseRef}...HEAD`] : ["HEAD"]
+  ]);
+  const changedFiles = changed ? changed.split(/\r?\n/u).filter(Boolean).length : 0;
+  const result = taskCount > 3 || deltaSpecs > 1 || changedFiles > 4 ? "full" : "light";
+  await setField(new CommandOutput(), name, "verify_mode", result);
+  output.stderr.push(
+    `=== Scale Assessment: ${name} ===`,
+    `  Tasks: ${taskCount} (threshold: 3)`,
+    `  Delta specs: ${deltaSpecs} capabilities (threshold: 1)`,
+    `  Changed files: ${changedFiles} (threshold: 4)`,
+    `  → Result: ${result}`,
+    green4(`[SCALE] verify_mode=${result}`)
+  );
+}
+function required(args, count, usage) {
+  if (args.length < count) fail2(usage);
+}
+var classicStateCommand = async (args) => {
+  const output = new CommandOutput();
+  try {
+    const [subcommand, ...rest] = args;
+    if (subcommand === "init") {
+      required(rest, 2, "Usage: comet-state.sh init <change-name> <workflow>");
+      await init(output, rest[0], rest[1]);
+    } else if (subcommand === "get") {
+      required(rest, 2, "Usage: comet-state.sh get <change-name> <field>");
+      validateChangeName4(rest[0]);
+      output.stdout.push(await readField3(rest[0], rest[1]));
+    } else if (subcommand === "set") {
+      required(rest, 3, "Usage: comet-state.sh set <change-name> <field> <value>");
+      validateChangeName4(rest[0]);
+      await setField(output, rest[0], rest[1], rest[2]);
+    } else if (subcommand === "transition") {
+      required(rest, 2, "Usage: comet-state.sh transition <change-name> <event>");
+      await transition(output, rest[0], rest[1]);
+    } else if (subcommand === "check") {
+      required(rest, 2, "Usage: comet-state.sh check <change-name> <phase> [--recover]");
+      if (rest[2] === "--recover") await recover(output, rest[0]);
+      else await check2(output, rest[0], rest[1]);
+    } else if (subcommand === "scale") {
+      required(rest, 1, "Usage: comet-state.sh scale <change-name>");
+      await scale(output, rest[0]);
+    } else if (subcommand === "task-checkoff") {
+      required(rest, 2, "Usage: comet-state.sh task-checkoff <file> <task-text>");
+      await taskCheckoff(output, rest[0], rest[1]);
+    } else if (subcommand === "next") {
+      required(rest, 1, "Usage: comet-state.sh next <change-name>");
+      await next(output, rest[0]);
+    } else {
+      fail2(`Unknown subcommand: ${subcommand ?? ""}`);
+    }
+    return output.result();
+  } catch (error) {
+    if (!(error instanceof CommandFailure)) throw error;
+    if (error.message) {
+      for (const line of error.message.split("\n")) output.stderr.push(red4(line));
+    }
+    return output.result(error.exitCode);
   }
 };
 
@@ -9012,7 +11151,9 @@ var CLASSIC_COMMANDS = [
 var DEFAULT_HANDLERS = {
   state: classicStateCommand,
   validate: classicValidateCommand,
-  guard: classicGuardCommand
+  guard: classicGuardCommand,
+  handoff: classicHandoffCommand,
+  archive: classicArchiveCommand
 };
 function isClassicCommand(value) {
   return CLASSIC_COMMANDS.includes(value);
