@@ -7,14 +7,20 @@ All notable changes to @rpamis/comet will be documented in this file.
 ### Added
 
 - **Comet Skill Engine Foundation**: Adds the internal Skill Engine foundation layer — Skill Package loading, structural and semantic validation, stable content hashing and snapshots, Run state projection, Trajectory, Context, Artifacts, Checkpoints, action Guardrails, deterministic Runtime Evals, and the Runtime Adapter contract — providing a single runtime basis for the upcoming classic migration and agentic Skill orchestration. Ships behind new opt-in `.comet.yaml` fields and does not change 0.3.8 user behavior.
+- **Internal Classic Skill**: Adds a bilingual, non-user-facing `comet-classic` Skill Package and deterministic Classic Resolver covering full, hotfix, and tweak workflows while keeping the existing user-visible Skill names and command count unchanged.
+- **Classic baseline benchmark**: Adds a deterministic seven-scenario benchmark for profile migration, retry/fix routing, handoff resume, archive recovery, malformed-state rejection, idempotency, and legacy contract preservation without LLM or network dependencies.
 
 ### Changed
 
 - **`.comet.yaml` run projection**: Accepts new Skill, Orchestration, and Run reference fields while preserving all 0.3.8 fields and behavior. The new fields are progressive and optional (never required), so existing changes remain valid; the shell validator, doctor schema check, and TypeScript state reader agree on the same field set.
+- **Classic compatibility runtime**: Routes state validation, guards, handoff, archive, and hook decisions through one generated TypeScript runtime; the existing shell script names remain as cross-platform facades and no longer contain YAML parsing or transition rules.
+- **Classic status and diagnostics**: `comet status` and `comet doctor` now reuse the typed Classic schema, silently migrate valid legacy changes, display the resolved Run step, and report malformed state without partially rewriting it.
 - **Test timeout ceiling**: Raised the vitest global `testTimeout` to 30s so the bash-spawn-heavy `comet-scripts` integration tests no longer time out at the 5s default on Windows under load.
 
 ### Fixed
 
+- **Atomic Classic migration and transitions**: Legacy changes now gain one stable `comet-classic` Run, immutable Skill snapshot, synchronized compatibility projection, and non-duplicated migration/transition Trajectory events; repeated entry is byte-idempotent and invalid strict-entry state fails closed.
+- **Recoverable handoff and archive transactions**: Handoff persists Context, Artifacts, checkpoint, and PendingWork before advancing to `full.design.document`; archive records pending work before invoking OpenSpec and reconciles an already-moved change without repeating the irreversible operation.
 - **Immutable Skill snapshots**: Skill hashes now include `SKILL.md` and declared script Tool bytes, snapshots copy every executable script into a content-addressed directory, publication is atomic, and existing snapshot contents are revalidated before reuse so a running Run cannot be silently changed by later Skill edits or corrupted storage.
 - **Fail-closed Run recovery**: Run state writes now ignore only missing state files, malformed or incomplete Run projections are rejected with actionable errors, and corrupt deterministic steps can no longer be mistaken for successful completion.
 - **Complete recovery files**: Context, Checkpoint, and Trajectory data can be read through the Run Store, malformed Trajectory lines report their exact location, completed actions can clear stale pending files, and script Tool resolution rejects missing files, directories, and package-escaping symlinks.
@@ -23,6 +29,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 ### Tests
 
 - **Foundation contract coverage**: Adds tests for Skill loading and validation, real-path containment, content-addressed immutable snapshots, preserving/atomic Run state read-write, fail-closed state validation, complete run-file recovery, action authorization and budgets, runtime evals, deterministic/adaptive lifecycle guards, and an end-to-end recovery slice through persisted Artifacts and Trajectory.
+- **Classic compatibility coverage**: Freezes the 0.3.8 shell contracts, compares stable state and command behavior through the new facades, exercises Run migration and recovery across Classic entry points, and requires all four deterministic benchmark rates to remain `1.0`.
 
 ## What's Changed [0.3.8] - 2026-06-13
 
