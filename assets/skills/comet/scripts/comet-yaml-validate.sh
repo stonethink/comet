@@ -136,6 +136,30 @@ validate_required_enum() {
   validate_enum "$field" "$value" "$@"
 }
 
+validate_run_ref() {
+  local field="$1"
+  local value="$2"
+
+  # null and empty are acceptable (means "not set")
+  if [ -z "$value" ] || [ "$value" = "null" ]; then
+    return 0
+  fi
+
+  # Reject absolute paths and home-directory references
+  case "$value" in
+    /*|~*|[A-Za-z]:*|\\*)
+      fail "$field='$value' must be a relative path within the repo"
+      return 0
+      ;;
+  esac
+
+  # Reject path traversal attempts
+  if [[ "$value" =~ \.\. ]]; then
+    fail "$field='$value' cannot contain '..' (path traversal not allowed)"
+    return 0
+  fi
+}
+
 workflow=$(field_value "workflow")
 phase=$(field_value "phase")
 context_compression=$(field_value "context_compression")
@@ -154,6 +178,21 @@ design_doc=$(field_value "design_doc")
 plan=$(field_value "plan")
 handoff_context=$(field_value "handoff_context")
 handoff_hash=$(field_value "handoff_hash")
+run_id=$(field_value "run_id")
+skill=$(field_value "skill")
+skill_version=$(field_value "skill_version")
+skill_hash=$(field_value "skill_hash")
+orchestration=$(field_value "orchestration")
+current_step=$(field_value "current_step")
+iteration=$(field_value "iteration")
+pending=$(field_value "pending")
+pending_ref=$(field_value "pending_ref")
+trajectory_ref=$(field_value "trajectory_ref")
+context_ref=$(field_value "context_ref")
+artifacts_ref=$(field_value "artifacts_ref")
+checkpoint_ref=$(field_value "checkpoint_ref")
+run_status=$(field_value "run_status")
+run_retries=$(field_value "run_retries")
 
 validate_enum "workflow"      "$workflow"      "full hotfix tweak"
 validate_enum "phase"         "$phase"          "open design build verify archive"
@@ -198,8 +237,40 @@ if [ -n "$handoff_hash" ] && [ "$handoff_hash" != "null" ]; then
   fi
 fi
 
+# --- Skill Engine field validations ---
+
+if [ -n "$orchestration" ] && [ "$orchestration" != "null" ]; then
+  validate_enum "orchestration" "$orchestration" "deterministic adaptive"
+fi
+
+if [ -n "$run_status" ] && [ "$run_status" != "null" ]; then
+  validate_enum "run_status" "$run_status" "running waiting completed failed"
+fi
+
+if [ -n "$skill_hash" ] && [ "$skill_hash" != "null" ]; then
+  if [[ ! "$skill_hash" =~ ^[a-f0-9]{64}$ ]]; then
+    fail "skill_hash='$skill_hash' is not a sha256 hex digest"
+  fi
+fi
+
+if [ -n "$iteration" ] && [ "$iteration" != "null" ]; then
+  if [[ ! "$iteration" =~ ^[0-9]+$ ]]; then
+    fail "iteration='$iteration' is not a non-negative integer"
+  fi
+fi
+
+validate_run_ref "pending_ref" "$pending_ref"
+
+validate_run_ref "trajectory_ref" "$trajectory_ref"
+
+validate_run_ref "context_ref" "$context_ref"
+
+validate_run_ref "artifacts_ref" "$artifacts_ref"
+
+validate_run_ref "checkpoint_ref" "$checkpoint_ref"
+
 # --- Unknown keys check ---
-KNOWN_KEYS="workflow phase context_compression design_doc plan build_mode build_pause subagent_dispatch tdd_mode isolation verify_mode auto_transition verify_result verification_report branch_status verified_at created_at archived direct_override build_command verify_command handoff_context handoff_hash base_ref"
+KNOWN_KEYS="workflow phase context_compression design_doc plan build_mode build_pause subagent_dispatch tdd_mode isolation verify_mode auto_transition verify_result verification_report branch_status verified_at created_at archived direct_override build_command verify_command handoff_context handoff_hash base_ref run_id skill skill_version skill_hash orchestration current_step iteration pending pending_ref trajectory_ref context_ref artifacts_ref checkpoint_ref run_status run_retries"
 while IFS=: read -r key _; do
   key="${key// /}"
   [ -z "$key" ] && continue

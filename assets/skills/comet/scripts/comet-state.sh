@@ -356,7 +356,7 @@ cmd_set() {
       yellow "WARNING: Setting 'phase' directly bypasses state machine constraints." >&2
       yellow "  Consider using: comet-state.sh transition <change-name> <event>" >&2
       ;;
-    workflow|context_compression|build_mode|build_pause|subagent_dispatch|tdd_mode|isolation|verify_mode|auto_transition|verify_result|verification_report|branch_status|archived|design_doc|plan|verified_at|created_at|direct_override|build_command|verify_command|handoff_context|handoff_hash|base_ref)
+    workflow|context_compression|build_mode|build_pause|subagent_dispatch|tdd_mode|isolation|verify_mode|auto_transition|verify_result|verification_report|branch_status|archived|design_doc|plan|verified_at|created_at|direct_override|build_command|verify_command|handoff_context|handoff_hash|base_ref|run_id|skill|skill_version|skill_hash|orchestration|current_step|iteration|pending|pending_ref|trajectory_ref|context_ref|artifacts_ref|checkpoint_ref|run_status|run_retries)
       # Valid field
       ;;
     *)
@@ -365,7 +365,9 @@ cmd_set() {
       red "  workflow, phase, context_compression, design_doc, plan, build_mode, build_pause, subagent_dispatch, tdd_mode, isolation," >&2
       red "  verify_mode, auto_transition, verify_result, verification_report, branch_status," >&2
       red "  verified_at, created_at, archived, base_ref, direct_override," >&2
-      red "  build_command, verify_command, handoff_context, handoff_hash" >&2
+      red "  build_command, verify_command, handoff_context, handoff_hash," >&2
+      red "  run_id, skill, skill_version, skill_hash, orchestration, current_step, iteration, pending," >&2
+      red "  pending_ref, trajectory_ref, context_ref, artifacts_ref, checkpoint_ref, run_status, run_retries" >&2
       exit 1
       ;;
   esac
@@ -419,6 +421,30 @@ cmd_set() {
       ;;
     verified_at|created_at|build_command|verify_command)
       # No validation for date fields or project command strings
+      ;;
+    orchestration)
+      validate_enum "$value" "deterministic" "adaptive"
+      ;;
+    run_status)
+      validate_enum "$value" "running" "waiting" "completed" "failed"
+      ;;
+    skill_hash)
+      if [[ ! "$value" =~ ^[a-f0-9]{64}$ ]]; then
+        red "ERROR: skill_hash must be a sha256 hex digest" >&2
+        exit 1
+      fi
+      ;;
+    iteration)
+      if [[ ! "$value" =~ ^[0-9]+$ ]]; then
+        red "ERROR: iteration must be a non-negative integer" >&2
+        exit 1
+      fi
+      ;;
+    pending_ref|trajectory_ref|context_ref|artifacts_ref|checkpoint_ref)
+      validate_path_field "$value" "$field"
+      ;;
+    run_id|skill|skill_version|current_step|pending|run_retries)
+      # Free-form string fields, no validation
       ;;
   esac
 

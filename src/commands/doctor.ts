@@ -29,6 +29,21 @@ const VALID_YAML_FIELDS = new Set([
   'branch_status',
   'archived',
   'verified_at',
+  'run_id',
+  'skill',
+  'skill_version',
+  'skill_hash',
+  'orchestration',
+  'current_step',
+  'iteration',
+  'pending',
+  'pending_ref',
+  'trajectory_ref',
+  'context_ref',
+  'artifacts_ref',
+  'checkpoint_ref',
+  'run_status',
+  'run_retries',
 ]);
 
 function collectTopLevelYamlKeys(yamlContent: string): string[] {
