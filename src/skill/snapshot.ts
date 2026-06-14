@@ -86,6 +86,10 @@ function hashSnapshot(document: unknown, files: SnapshotFile[]): string {
     .digest('hex');
 }
 
+function packageJson(document: unknown): string {
+  return JSON.stringify(document, null, 2) + '\n';
+}
+
 async function snapshotMaterial(pkg: SkillPackage): Promise<{
   document: unknown;
   files: SnapshotFile[];
@@ -110,6 +114,24 @@ async function pathExists(target: string): Promise<boolean> {
   }
 }
 
+async function verifyPublishedSnapshot(
+  snapshotDir: string,
+  material: { document: unknown; files: SnapshotFile[]; hash: string },
+): Promise<void> {
+  try {
+    const storedHash = (await fs.readFile(path.join(snapshotDir, 'sha256'), 'utf8')).trim();
+    if (storedHash !== material.hash) throw new Error('hash mismatch');
+    const storedPackage = await fs.readFile(path.join(snapshotDir, 'package.json'), 'utf8');
+    if (storedPackage !== packageJson(material.document)) throw new Error('package mismatch');
+    for (const file of material.files) {
+      const stored = await fs.readFile(path.join(snapshotDir, ...file.path.split('/')));
+      if (!stored.equals(file.content)) throw new Error(`file mismatch: ${file.path}`);
+    }
+  } catch (error) {
+    throw new Error(`Existing Skill snapshot is invalid: ${material.hash}`, { cause: error });
+  }
+}
+
 export async function createSkillSnapshot(
   pkg: SkillPackage,
   changeDir: string,
@@ -119,6 +141,7 @@ export async function createSkillSnapshot(
   const snapshotDir = path.join(snapshotsRoot, material.hash);
   await fs.mkdir(snapshotsRoot, { recursive: true });
   if (await pathExists(snapshotDir)) {
+    await verifyPublishedSnapshot(snapshotDir, material);
     return { hash: material.hash, snapshotDir };
   }
 
@@ -134,19 +157,16 @@ export async function createSkillSnapshot(
       await fs.mkdir(path.dirname(destination), { recursive: true });
       await fs.writeFile(destination, file.content);
     }
-    await fs.writeFile(
-      path.join(temporaryDir, 'package.json'),
-      JSON.stringify(material.document, null, 2) + '\n',
-    );
+    await fs.writeFile(path.join(temporaryDir, 'package.json'), packageJson(material.document));
     await fs.writeFile(path.join(temporaryDir, 'sha256'), material.hash + '\n');
     await fs.rename(temporaryDir, snapshotDir);
   } catch (error) {
-    if (
-      ((error as NodeJS.ErrnoException).code === 'EEXIST' ||
-        (error as NodeJS.ErrnoException).code === 'ENOTEMPTY') &&
-      (await pathExists(snapshotDir))
-    ) {
-      await fs.rm(temporaryDir, { recursive: true, force: true });
+    if (await pathExists(snapshotDir)) {
+      try {
+        await verifyPublishedSnapshot(snapshotDir, material);
+      } finally {
+        await fs.rm(temporaryDir, { recursive: true, force: true });
+      }
       return { hash: material.hash, snapshotDir };
     }
     await fs.rm(temporaryDir, { recursive: true, force: true });

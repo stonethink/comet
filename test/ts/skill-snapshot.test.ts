@@ -121,6 +121,16 @@ describe('Skill snapshots', () => {
     );
   });
 
+  it('rejects an existing snapshot whose content no longer matches its hash', async () => {
+    const value = pkg(path.join(root, 'skill'));
+    const result = await createSkillSnapshot(value, changeDir);
+    await fs.writeFile(path.join(result.snapshotDir, 'SKILL.md'), '# Corrupt\n');
+
+    await expect(createSkillSnapshot(value, changeDir)).rejects.toThrow(
+      `Existing Skill snapshot is invalid: ${result.hash}`,
+    );
+  });
+
   it('rejects missing declared script Tool sources', async () => {
     const value = withScriptTool(path.join(root, 'skill'));
 

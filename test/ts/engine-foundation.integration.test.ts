@@ -97,7 +97,6 @@ describe('Skill Engine Foundation integration', () => {
     const outcome = await adapter.execute(pending!, { changeDir, state: resumed! });
     state = recordOutcome(pkg, resumed!, outcome);
     await writeArtifacts(changeDir, state.artifactsRef, outcome.artifacts ?? {});
-    await clearPendingAction(changeDir, state.pendingRef);
     await appendTrajectory(changeDir, state.trajectoryRef, {
       sequence: 2,
       timestamp: '2026-06-13T00:00:01.000Z',
@@ -106,6 +105,7 @@ describe('Skill Engine Foundation integration', () => {
       data: { actionId: outcome.actionId, status: outcome.status },
     });
     await writeRunState(changeDir, state);
+    await clearPendingAction(changeDir, state.pendingRef);
 
     expect(await readRunState(changeDir)).toEqual(state);
     expect(await readArtifacts(changeDir, state.artifactsRef)).toEqual({

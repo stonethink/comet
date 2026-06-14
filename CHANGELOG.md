@@ -15,7 +15,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 
 ### Fixed
 
-- **Immutable Skill snapshots**: Skill hashes now include `SKILL.md` and declared script Tool bytes, snapshots copy every executable script into a content-addressed directory, and publication is atomic so a running Run cannot be silently changed by later Skill edits.
+- **Immutable Skill snapshots**: Skill hashes now include `SKILL.md` and declared script Tool bytes, snapshots copy every executable script into a content-addressed directory, publication is atomic, and existing snapshot contents are revalidated before reuse so a running Run cannot be silently changed by later Skill edits or corrupted storage.
 - **Fail-closed Run recovery**: Run state writes now ignore only missing state files, malformed or incomplete Run projections are rejected with actionable errors, and corrupt deterministic steps can no longer be mistaken for successful completion.
 - **Complete recovery files**: Context, Checkpoint, and Trajectory data can be read through the Run Store, malformed Trajectory lines report their exact location, completed actions can clear stale pending files, and script Tool resolution rejects missing files, directories, and package-escaping symlinks.
 - **Adaptive lifecycle guards**: Adaptive candidates can only be accepted while the Run is active and has no pending action, preventing completed Runs from restarting or existing actions from being overwritten.
