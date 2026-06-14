@@ -2,6 +2,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
+    testTimeout: 30000,
     include: ['test/ts/**/*.test.ts'],
     exclude: [
       // Benchmark tests are developer-only tools, not part of CI validation

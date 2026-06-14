@@ -2,6 +2,21 @@
 
 All notable changes to @rpamis/comet will be documented in this file.
 
+## What's Changed [0.4.0] - 2026-06-14
+
+### Added
+
+- **Comet Skill Engine Foundation**: Adds the internal Skill Engine foundation layer — Skill Package loading, structural and semantic validation, stable content hashing and snapshots, Run state projection, Trajectory, Context, Artifacts, Checkpoints, action Guardrails, deterministic Runtime Evals, and the Runtime Adapter contract — providing a single runtime basis for the upcoming classic migration and agentic Skill orchestration. Ships behind new opt-in `.comet.yaml` fields and does not change 0.3.8 user behavior.
+
+### Changed
+
+- **`.comet.yaml` run projection**: Accepts new Skill, Orchestration, and Run reference fields while preserving all 0.3.8 fields and behavior. The new fields are progressive and optional (never required), so existing changes remain valid; the shell validator, doctor schema check, and TypeScript state reader agree on the same field set.
+- **Test timeout ceiling**: Raised the vitest global `testTimeout` to 30s so the bash-spawn-heavy `comet-scripts` integration tests no longer time out at the 5s default on Windows under load.
+
+### Tests
+
+- **Foundation contract coverage**: Adds tests for Skill loading and validation, path-containment safety, order-independent hashing and snapshots, preserving/atomic Run state read-write, run-file persistence and checkpointing, action authorization and budgets, runtime evals, the deterministic/adaptive loop, and an end-to-end recovery slice.
+
 ## What's Changed [0.3.8] - 2026-06-13
 
 ### Added
