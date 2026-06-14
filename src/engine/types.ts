@@ -36,7 +36,15 @@ export interface ActionOutcome {
 export interface TrajectoryEvent {
   sequence: number;
   timestamp: string;
-  type: 'run_started' | 'action_proposed' | 'action_completed' | 'eval_completed' | 'checkpoint';
+  type:
+    | 'run_started'
+    | 'action_proposed'
+    | 'action_completed'
+    | 'eval_completed'
+    | 'checkpoint'
+    | 'state_migrated'
+    | 'state_transitioned'
+    | 'recovery_reconciled';
   runId: string;
   data: Record<string, unknown>;
 }

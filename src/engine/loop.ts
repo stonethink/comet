@@ -1,6 +1,12 @@
 import { createHash } from 'crypto';
 import type { ActionOutcome, EngineAction, RunState } from './types.js';
 import { checkAction } from './guardrails.js';
+import {
+  resolveDeterministicNext,
+  resolveDeterministicStep,
+  staticDeterministicResolver,
+  type DeterministicResolver,
+} from './resolver.js';
 import type { SkillPackage, SkillStep } from '../skill/types.js';
 
 export interface Decision {
@@ -45,29 +51,48 @@ export function decide(
   state: RunState,
   confirmations: ReadonlySet<string>,
 ): Decision {
+  return decideWithResolver(pkg, state, confirmations, staticDeterministicResolver, undefined);
+}
+
+export function decideWithResolver<TContext>(
+  pkg: SkillPackage,
+  state: RunState,
+  confirmations: ReadonlySet<string>,
+  resolver: DeterministicResolver<TContext>,
+  context: TContext,
+): Decision {
   if (state.status !== 'running') return { state, action: null, reason: `Run is ${state.status}` };
   if (state.pending)
     return { state, action: null, reason: `Action already pending: ${state.pending}` };
   if (state.orchestration === 'adaptive') {
     return { state, action: null, reason: 'Adaptive orchestration requires an Agent candidate' };
   }
-  if (state.currentStep === null) {
+  const resolvedStep = resolveDeterministicStep(resolver, pkg, state, context);
+  if (!resolvedStep && state.currentStep === null) {
     return { state: { ...state, status: 'completed' }, action: null };
   }
-  const step = stepFor(pkg, state.currentStep);
-  if (!step) {
+  if (!resolvedStep) {
     return {
       state: { ...state, status: 'failed' },
       action: null,
       reason: `Unknown current step: ${state.currentStep}`,
     };
   }
+  const step = stepFor(pkg, resolvedStep.id);
+  if (!step) {
+    return {
+      state: { ...state, status: 'failed' },
+      action: null,
+      reason: `Resolver returned unknown current step: ${resolvedStep.id}`,
+    };
+  }
+  const resolvedState = state.currentStep === step.id ? state : { ...state, currentStep: step.id };
   const action: EngineAction = {
     ...step.action,
-    id: actionId(state.runId, state.iteration, step.id),
+    id: actionId(resolvedState.runId, resolvedState.iteration, step.id),
     stepId: step.id,
   };
-  return acceptAction(pkg, state, action, confirmations);
+  return acceptAction(pkg, resolvedState, action, confirmations);
 }
 
 function acceptAction(
@@ -104,12 +129,29 @@ export function recordOutcome(
   state: RunState,
   outcome: ActionOutcome,
 ): RunState {
+  return recordOutcomeWithResolver(pkg, state, outcome, staticDeterministicResolver, undefined);
+}
+
+export function recordOutcomeWithResolver<TContext>(
+  pkg: SkillPackage,
+  state: RunState,
+  outcome: ActionOutcome,
+  resolver: DeterministicResolver<TContext>,
+  context: TContext,
+): RunState {
   if (!state.pending || state.pending !== outcome.actionId) {
     throw new Error(`Outcome does not match pending action: ${outcome.actionId}`);
   }
-  const step = stepFor(pkg, state.currentStep);
-  if (state.orchestration === 'deterministic' && !step) {
+  const resolvedStep =
+    state.orchestration === 'deterministic'
+      ? resolveDeterministicStep(resolver, pkg, state, context)
+      : undefined;
+  const step = resolvedStep ? stepFor(pkg, resolvedStep.id) : undefined;
+  if (state.orchestration === 'deterministic' && !resolvedStep) {
     throw new Error(`Unknown current step: ${state.currentStep ?? '(missing)'}`);
+  }
+  if (state.orchestration === 'deterministic' && !step) {
+    throw new Error(`Resolver returned unknown current step: ${resolvedStep!.id}`);
   }
   if (outcome.status === 'failed') {
     const retries = {
@@ -118,7 +160,13 @@ export function recordOutcome(
     };
     return { ...state, pending: null, status: 'running', retries };
   }
-  const next = state.orchestration === 'deterministic' ? (step?.next ?? null) : state.currentStep;
+  const next =
+    state.orchestration === 'deterministic'
+      ? resolveDeterministicNext(resolver, pkg, state, step!, outcome, context)
+      : state.currentStep;
+  if (next !== null && state.orchestration === 'deterministic' && !stepFor(pkg, next)) {
+    throw new Error(`Resolver returned unknown next step: ${next}`);
+  }
   return {
     ...state,
     currentStep: next,
