@@ -11,6 +11,12 @@ const runTsc = (args = []) => {
   execFileSync(process.execPath, [tscPath, ...args], { stdio: 'inherit' });
 };
 
+const buildClassicRuntime = () => {
+  execFileSync(process.execPath, ['scripts/build-classic-runtime.mjs'], {
+    stdio: 'inherit',
+  });
+};
+
 console.log('Building Comet...\n');
 
 if (existsSync('dist')) {
@@ -18,8 +24,10 @@ if (existsSync('dist')) {
   rmSync('dist', { recursive: true, force: true });
 }
 
-console.log('Compiling TypeScript...');
+console.log('Building Classic runtime...');
 try {
+  buildClassicRuntime();
+  console.log('Compiling TypeScript...');
   runTsc(['--version']);
   runTsc();
   console.log('\nBuild completed successfully!');

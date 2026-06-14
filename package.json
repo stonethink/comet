@@ -28,6 +28,7 @@
   ],
   "scripts": {
     "build": "node build.js",
+    "build:classic-runtime": "node scripts/build-classic-runtime.mjs",
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
@@ -54,6 +55,7 @@
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.2.0",
     "@vitest/coverage-v8": "^4.1.6",
+    "esbuild": "^0.28.1",
     "eslint": "^10.4.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.7",

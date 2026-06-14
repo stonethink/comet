@@ -17,6 +17,7 @@
     "comet/scripts/comet-archive.sh",
     "comet/scripts/comet-yaml-validate.sh",
     "comet/scripts/comet-hook-guard.sh",
+    "comet/scripts/comet-runtime.mjs",
     "comet-open/SKILL.md",
     "comet-design/SKILL.md",
     "comet-build/SKILL.md",

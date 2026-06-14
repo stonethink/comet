@@ -1,0 +1,113 @@
+import { pathToFileURL } from 'url';
+
+export interface ClassicCommandResult {
+  exitCode: number;
+  stdout?: string;
+  stderr?: string;
+}
+
+export interface ClassicCommandOptions {
+  json: boolean;
+}
+
+export type ClassicCommandHandler = (
+  args: string[],
+  options: ClassicCommandOptions,
+) => Promise<ClassicCommandResult>;
+
+export type ClassicCommandHandlers = Partial<Record<ClassicCommandName, ClassicCommandHandler>>;
+
+export const CLASSIC_COMMANDS = [
+  'state',
+  'validate',
+  'guard',
+  'handoff',
+  'archive',
+  'hook-guard',
+] as const;
+
+export type ClassicCommandName = (typeof CLASSIC_COMMANDS)[number];
+
+function isClassicCommand(value: string): value is ClassicCommandName {
+  return CLASSIC_COMMANDS.includes(value as ClassicCommandName);
+}
+
+function commandError(command: string | undefined): ClassicCommandResult {
+  if (!command) {
+    return {
+      exitCode: 64,
+      stderr: `Usage: comet-runtime <${CLASSIC_COMMANDS.join('|')}> [args]`,
+    };
+  }
+  return {
+    exitCode: 64,
+    stderr: `Unknown Classic command: ${command}`,
+  };
+}
+
+async function dispatch(
+  command: string | undefined,
+  args: string[],
+  options: ClassicCommandOptions,
+  handlers: ClassicCommandHandlers,
+): Promise<ClassicCommandResult> {
+  if (!command || !isClassicCommand(command)) return commandError(command);
+  const handler = handlers[command];
+  if (!handler) {
+    return {
+      exitCode: 70,
+      stderr: `Classic command is not implemented: ${command}`,
+    };
+  }
+
+  try {
+    return await handler(args, options);
+  } catch (error) {
+    return {
+      exitCode: 70,
+      stderr: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+function jsonResult(
+  command: string | undefined,
+  result: ClassicCommandResult,
+): ClassicCommandResult {
+  return {
+    exitCode: result.exitCode,
+    stdout:
+      JSON.stringify({
+        command: command ?? null,
+        exitCode: result.exitCode,
+        ...(result.stdout === undefined ? {} : { stdout: result.stdout }),
+        ...(result.stderr === undefined ? {} : { stderr: result.stderr }),
+      }) + '\n',
+  };
+}
+
+export async function runClassicCli(
+  argv: readonly string[],
+  handlers: ClassicCommandHandlers = {},
+): Promise<ClassicCommandResult> {
+  const json = argv.includes('--json');
+  const args = argv.filter((argument) => argument !== '--json');
+  const command = args.shift();
+  const result = await dispatch(command, args, { json }, handlers);
+  return json ? jsonResult(command, result) : result;
+}
+
+export async function main(argv: readonly string[] = process.argv.slice(2)): Promise<number> {
+  const result = await runClassicCli(argv);
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr)
+    process.stderr.write(result.stderr + (result.stderr.endsWith('\n') ? '' : '\n'));
+  return result.exitCode;
+}
+
+const entry = process.argv[1];
+if (entry && import.meta.url === pathToFileURL(entry).href) {
+  void main().then((exitCode) => {
+    process.exitCode = exitCode;
+  });
+}
