@@ -92,4 +92,21 @@ describe('engine state projection', () => {
       'Invalid Run state: run_retries must be a JSON object',
     );
   });
+
+  it.each([
+    ['absolute', 'pending_ref', '/tmp/pending.json'],
+    ['traversal', 'context_ref', '../context.md'],
+  ])('rejects %s Run reference paths', async (_name, field, invalidPath) => {
+    await writeRunState(changeDir, state());
+    const file = path.join(changeDir, '.comet.yaml');
+    const raw = await fs.readFile(file, 'utf8');
+    await fs.writeFile(
+      file,
+      raw.replace(new RegExp(`^${field}:.*$`, 'm'), `${field}: ${invalidPath}`),
+    );
+
+    await expect(readRunState(changeDir)).rejects.toThrow(
+      `Invalid Run state: ${field} must stay inside the change directory`,
+    );
+  });
 });

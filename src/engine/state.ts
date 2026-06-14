@@ -19,6 +19,18 @@ function requiredString(doc: StateDocument, key: string): string {
   return value;
 }
 
+function requiredRunReference(doc: StateDocument, key: string): string {
+  const value = requiredString(doc, key);
+  if (
+    path.isAbsolute(value) ||
+    /^(?:[A-Za-z]:|[\\/]|~)/u.test(value) ||
+    value.split(/[\\/]/u).includes('..')
+  ) {
+    throw new Error(`Invalid Run state: ${key} must stay inside the change directory`);
+  }
+  return value;
+}
+
 function retries(doc: StateDocument): Record<string, number> {
   const raw = doc.run_retries ?? '{}';
   let value: unknown;
@@ -44,11 +56,11 @@ export function runStateFromDocument(doc: StateDocument): RunState | null {
   const skill = requiredString(doc, 'skill');
   const skillVersion = requiredString(doc, 'skill_version');
   const skillHash = requiredString(doc, 'skill_hash');
-  const pendingRef = requiredString(doc, 'pending_ref');
-  const trajectoryRef = requiredString(doc, 'trajectory_ref');
-  const contextRef = requiredString(doc, 'context_ref');
-  const artifactsRef = requiredString(doc, 'artifacts_ref');
-  const checkpointRef = requiredString(doc, 'checkpoint_ref');
+  const pendingRef = requiredRunReference(doc, 'pending_ref');
+  const trajectoryRef = requiredRunReference(doc, 'trajectory_ref');
+  const contextRef = requiredRunReference(doc, 'context_ref');
+  const artifactsRef = requiredRunReference(doc, 'artifacts_ref');
+  const checkpointRef = requiredRunReference(doc, 'checkpoint_ref');
   const iteration = Number(doc.iteration);
   if (!Number.isInteger(iteration) || iteration < 0) {
     throw new Error('Invalid Run state: iteration must be a non-negative integer');
@@ -120,6 +132,7 @@ export async function writeRunState(changeDir: string, state: RunState): Promise
   }
   const doc = (raw ? parse(raw) : {}) as StateDocument;
   applyRunStateToDocument(doc, state);
+  runStateFromDocument(doc);
 
   await fs.mkdir(changeDir, { recursive: true });
   const temporary = path.join(changeDir, `.comet.yaml.${randomUUID()}.tmp`);
