@@ -106,4 +106,45 @@ confirmationRequiredFor: []
       },
     ]);
   });
+
+  it.each([
+    {
+      name: 'a missing skills array',
+      yaml: skillDefinition.replace(`skills:\n  - id: writing-plans\n`, ''),
+    },
+    {
+      name: 'a non-string metadata version',
+      yaml: skillDefinition.replace('version: 1.0.0', 'version: 1'),
+    },
+  ])('rejects skill.yaml with $name', async ({ yaml }) => {
+    await fs.writeFile(path.join(skillRoot, 'comet', 'skill.yaml'), yaml);
+
+    await expect(loadSkillPackage(skillRoot)).rejects.toThrow(/comet[\\/]skill\.yaml/);
+  });
+
+  it('rejects guardrails.yaml with a top-level sequence', async () => {
+    await fs.writeFile(
+      path.join(skillRoot, 'comet', 'guardrails.yaml'),
+      `- allowedSkills
+- writing-plans
+`,
+    );
+
+    await expect(loadSkillPackage(skillRoot)).rejects.toThrow(/comet[\\/]guardrails\.yaml/);
+  });
+
+  it.each([
+    {
+      name: 'a top-level sequence',
+      yaml: `- runtime\n- report\n`,
+    },
+    {
+      name: 'a non-array runtime',
+      yaml: `runtime:\n  id: report\n`,
+    },
+  ])('rejects evals.yaml with $name', async ({ yaml }) => {
+    await fs.writeFile(path.join(skillRoot, 'comet', 'evals.yaml'), yaml);
+
+    await expect(loadSkillPackage(skillRoot)).rejects.toThrow(/comet[\\/]evals\.yaml/);
+  });
 });
