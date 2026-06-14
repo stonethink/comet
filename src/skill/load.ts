@@ -10,44 +10,190 @@ import type {
 
 type YamlObject = Record<string, unknown>;
 
-function invalidDocument(filePath: string, message: string): Error {
-  return new Error(`${filePath}: ${message}`);
+const ACTION_TYPES = ['invoke_skill', 'call_tool', 'handoff', 'ask_user', 'checkpoint'] as const;
+const ORCHESTRATION_MODES = ['deterministic', 'adaptive'] as const;
+const TOOL_KINDS = ['function', 'mcp', 'script', 'agent'] as const;
+const TOOL_SIDE_EFFECTS = ['none', 'read', 'write', 'external'] as const;
+const EVAL_SCOPES = ['progress', 'step', 'completion'] as const;
+const EVAL_TYPES = ['artifact_exists', 'state_equals'] as const;
+
+function invalidDocument(filePath: string, fieldPath: string, message: string): Error {
+  return new Error(`${filePath}: ${fieldPath} ${message}`);
 }
 
 function assertObject(
   value: unknown,
   filePath: string,
-  field = 'document',
+  fieldPath = 'document',
 ): asserts value is YamlObject {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    throw invalidDocument(filePath, `${field} must be an object`);
+    throw invalidDocument(filePath, fieldPath, 'must be an object');
   }
 }
 
-function assertStringField(document: YamlObject, field: string, filePath: string): void {
-  if (typeof document[field] !== 'string') {
-    throw invalidDocument(filePath, `${field} must be a string`);
+function assertArray(
+  value: unknown,
+  filePath: string,
+  fieldPath: string,
+): asserts value is unknown[] {
+  if (!Array.isArray(value)) {
+    throw invalidDocument(filePath, fieldPath, 'must be an array');
   }
 }
 
-function assertArrayField(document: YamlObject, field: string, filePath: string): void {
-  if (!Array.isArray(document[field])) {
-    throw invalidDocument(filePath, `${field} must be an array`);
+function assertString(
+  value: unknown,
+  filePath: string,
+  fieldPath: string,
+): asserts value is string {
+  if (typeof value !== 'string') {
+    throw invalidDocument(filePath, fieldPath, 'must be a string');
+  }
+}
+
+function assertOptionalString(
+  document: YamlObject,
+  field: string,
+  filePath: string,
+  objectPath: string,
+): void {
+  if (field in document) {
+    assertString(document[field], filePath, `${objectPath}.${field}`);
+  }
+}
+
+function assertOptionalBoolean(
+  document: YamlObject,
+  field: string,
+  filePath: string,
+  objectPath: string,
+): void {
+  if (field in document && typeof document[field] !== 'boolean') {
+    throw invalidDocument(filePath, `${objectPath}.${field}`, 'must be a boolean');
+  }
+}
+
+function assertEnum(
+  value: unknown,
+  values: readonly string[],
+  filePath: string,
+  fieldPath: string,
+): void {
+  if (typeof value !== 'string' || !values.includes(value)) {
+    throw invalidDocument(filePath, fieldPath, `must be one of ${values.join(', ')}`);
+  }
+}
+
+function assertStringArray(value: unknown, filePath: string, fieldPath: string): void {
+  assertArray(value, filePath, fieldPath);
+  value.forEach((entry, index) => {
+    assertString(entry, filePath, `${fieldPath}[${index}]`);
+  });
+}
+
+function validateNamedContract(value: unknown, filePath: string, fieldPath: string): void {
+  assertObject(value, filePath, fieldPath);
+  assertString(value.name, filePath, `${fieldPath}.name`);
+  assertString(value.description, filePath, `${fieldPath}.description`);
+  assertOptionalBoolean(value, 'required', filePath, fieldPath);
+}
+
+function validateSkillReference(value: unknown, filePath: string, fieldPath: string): void {
+  assertObject(value, filePath, fieldPath);
+  assertString(value.id, filePath, `${fieldPath}.id`);
+  assertOptionalString(value, 'source', filePath, fieldPath);
+  assertOptionalString(value, 'version', filePath, fieldPath);
+}
+
+function validateAgent(value: unknown, filePath: string, fieldPath: string): void {
+  assertObject(value, filePath, fieldPath);
+  assertString(value.id, filePath, `${fieldPath}.id`);
+  assertString(value.role, filePath, `${fieldPath}.role`);
+  assertOptionalString(value, 'instructions', filePath, fieldPath);
+}
+
+function validateTool(value: unknown, filePath: string, fieldPath: string): void {
+  assertObject(value, filePath, fieldPath);
+  assertString(value.id, filePath, `${fieldPath}.id`);
+  assertEnum(value.kind, TOOL_KINDS, filePath, `${fieldPath}.kind`);
+  assertString(value.source, filePath, `${fieldPath}.source`);
+  assertEnum(value.sideEffect, TOOL_SIDE_EFFECTS, filePath, `${fieldPath}.sideEffect`);
+  assertOptionalBoolean(value, 'requiresConfirmation', filePath, fieldPath);
+}
+
+function validateAction(value: unknown, filePath: string, fieldPath: string): void {
+  assertObject(value, filePath, fieldPath);
+  assertEnum(value.type, ACTION_TYPES, filePath, `${fieldPath}.type`);
+  assertOptionalString(value, 'ref', filePath, fieldPath);
+  assertOptionalString(value, 'prompt', filePath, fieldPath);
+  assertOptionalString(value, 'question', filePath, fieldPath);
+  if ('options' in value) {
+    assertStringArray(value.options, filePath, `${fieldPath}.options`);
+  }
+}
+
+function validateStep(value: unknown, filePath: string, fieldPath: string): void {
+  assertObject(value, filePath, fieldPath);
+  assertString(value.id, filePath, `${fieldPath}.id`);
+  validateAction(value.action, filePath, `${fieldPath}.action`);
+  assertOptionalString(value, 'next', filePath, fieldPath);
+  if ('completionEvals' in value) {
+    assertStringArray(value.completionEvals, filePath, `${fieldPath}.completionEvals`);
+  }
+}
+
+function validateGoal(value: unknown, filePath: string): void {
+  const fieldPath = 'goal';
+  assertObject(value, filePath, fieldPath);
+  assertString(value.statement, filePath, `${fieldPath}.statement`);
+  assertArray(value.inputs, filePath, `${fieldPath}.inputs`);
+  value.inputs.forEach((entry, index) => {
+    validateNamedContract(entry, filePath, `${fieldPath}.inputs[${index}]`);
+  });
+  assertArray(value.outputs, filePath, `${fieldPath}.outputs`);
+  value.outputs.forEach((entry, index) => {
+    validateNamedContract(entry, filePath, `${fieldPath}.outputs[${index}]`);
+  });
+  assertStringArray(value.success, filePath, `${fieldPath}.success`);
+}
+
+function validateOrchestration(value: unknown, filePath: string): void {
+  const fieldPath = 'orchestration';
+  assertObject(value, filePath, fieldPath);
+  assertEnum(value.mode, ORCHESTRATION_MODES, filePath, `${fieldPath}.mode`);
+  assertOptionalString(value, 'entry', filePath, fieldPath);
+  if ('steps' in value) {
+    assertArray(value.steps, filePath, `${fieldPath}.steps`);
+    value.steps.forEach((entry, index) => {
+      validateStep(entry, filePath, `${fieldPath}.steps[${index}]`);
+    });
   }
 }
 
 function narrowSkillDefinition(document: unknown, filePath: string): SkillDefinition {
   assertObject(document, filePath);
+  assertEnum(document.apiVersion, ['comet/v1alpha1'], filePath, 'apiVersion');
+  assertEnum(document.kind, ['Skill'], filePath, 'kind');
 
   assertObject(document.metadata, filePath, 'metadata');
-  assertObject(document.goal, filePath, 'goal');
-  assertObject(document.orchestration, filePath, 'orchestration');
-  assertStringField(document.metadata, 'name', filePath);
-  assertStringField(document.metadata, 'version', filePath);
-  assertStringField(document.metadata, 'description', filePath);
-  assertArrayField(document, 'skills', filePath);
-  assertArrayField(document, 'agents', filePath);
-  assertArrayField(document, 'tools', filePath);
+  assertString(document.metadata.name, filePath, 'metadata.name');
+  assertString(document.metadata.version, filePath, 'metadata.version');
+  assertString(document.metadata.description, filePath, 'metadata.description');
+  validateGoal(document.goal, filePath);
+  validateOrchestration(document.orchestration, filePath);
+
+  assertArray(document.skills, filePath, 'skills');
+  document.skills.forEach((entry, index) => {
+    validateSkillReference(entry, filePath, `skills[${index}]`);
+  });
+  assertArray(document.agents, filePath, 'agents');
+  document.agents.forEach((entry, index) => {
+    validateAgent(entry, filePath, `agents[${index}]`);
+  });
+  assertArray(document.tools, filePath, 'tools');
+  document.tools.forEach((entry, index) => {
+    validateTool(entry, filePath, `tools[${index}]`);
+  });
 
   return document as unknown as SkillDefinition;
 }
@@ -62,12 +208,15 @@ function narrowGuardrails(document: unknown, filePath: string): Partial<Guardrai
     'confirmationRequiredFor',
   ]) {
     if (field in document) {
-      assertArrayField(document, field, filePath);
+      assertStringArray(document[field], filePath, field);
     }
   }
   for (const field of ['maxIterations', 'maxRetriesPerAction']) {
-    if (field in document && typeof document[field] !== 'number') {
-      throw invalidDocument(filePath, `${field} must be a number`);
+    if (
+      field in document &&
+      (typeof document[field] !== 'number' || !Number.isFinite(document[field]))
+    ) {
+      throw invalidDocument(filePath, field, 'must be a finite number');
     }
   }
 
@@ -79,8 +228,18 @@ function narrowEvalDocument(
   filePath: string,
 ): { runtime?: RuntimeEvalDefinition[] } {
   assertObject(document, filePath);
-  if ('runtime' in document && !Array.isArray(document.runtime)) {
-    throw invalidDocument(filePath, 'runtime must be an array');
+  if ('runtime' in document) {
+    assertArray(document.runtime, filePath, 'runtime');
+    document.runtime.forEach((entry, index) => {
+      const fieldPath = `runtime[${index}]`;
+      assertObject(entry, filePath, fieldPath);
+      assertString(entry.id, filePath, `${fieldPath}.id`);
+      assertEnum(entry.scope, EVAL_SCOPES, filePath, `${fieldPath}.scope`);
+      assertEnum(entry.type, EVAL_TYPES, filePath, `${fieldPath}.type`);
+      assertOptionalString(entry, 'artifact', filePath, fieldPath);
+      assertOptionalString(entry, 'field', filePath, fieldPath);
+      assertOptionalString(entry, 'equals', filePath, fieldPath);
+    });
   }
   return document as { runtime?: RuntimeEvalDefinition[] };
 }
@@ -91,7 +250,7 @@ async function readYaml(filePath: string): Promise<unknown> {
     return parse(source) as unknown;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw invalidDocument(filePath, message);
+    throw invalidDocument(filePath, 'document', message);
   }
 }
 
