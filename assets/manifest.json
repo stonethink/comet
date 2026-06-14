@@ -25,7 +25,12 @@
     "comet-hotfix/SKILL.md",
     "comet-tweak/SKILL.md"
   ],
-  "internalSkills": [],
+  "internalSkills": [
+    "comet-classic/SKILL.md",
+    "comet-classic/comet/skill.yaml",
+    "comet-classic/comet/guardrails.yaml",
+    "comet-classic/comet/evals.yaml"
+  ],
   "rules": [
     "comet/rules/comet-phase-guard.md"
   ],

@@ -31,7 +31,13 @@ describe('internal Skill assets', () => {
   it('declares the internalSkills collection in the shipped manifest', async () => {
     const shipped = await readManifest();
 
-    expect(shipped.internalSkills).toEqual([]);
+    expect(shipped.internalSkills).toEqual([
+      'comet-classic/SKILL.md',
+      'comet-classic/comet/skill.yaml',
+      'comet-classic/comet/guardrails.yaml',
+      'comet-classic/comet/evals.yaml',
+    ]);
+    expect(getUserFacingSkillNames(shipped)).not.toContain('comet-classic');
     expect(await getManifestSkills()).toEqual(getManagedSkillPaths(shipped));
   });
 });
