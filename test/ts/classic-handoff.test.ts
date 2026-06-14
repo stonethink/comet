@@ -82,6 +82,8 @@ describe('Classic handoff command', () => {
       contextHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
       artifactsHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
     });
+    expect(state.current_step).toBe('full.design.document');
+    expect(state.iteration).toBe(1);
     expect(state.pending).toBeNull();
     await expect(fs.access(path.join(changeDir, String(state.pending_ref)))).rejects.toMatchObject({
       code: 'ENOENT',

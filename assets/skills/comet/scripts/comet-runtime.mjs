@@ -10382,35 +10382,39 @@ var classicHandoffCommand = async (args) => {
       handoff_markdown: contextMd
     };
     await writeArtifacts(changeDir, pendingRun.artifactsRef, artifacts);
-    const trajectory = await readTrajectory(changeDir, pendingRun.trajectoryRef);
-    const checkpoint = {
-      runId: pendingRun.runId,
-      stateVersion: pendingRun.iteration + 1,
-      trajectoryOffset: trajectory.length,
-      contextHash: hashText2(context),
-      artifactsHash: artifactsHash2(artifacts),
-      createdAt: (/* @__PURE__ */ new Date()).toISOString()
-    };
-    await writeCheckpoint(changeDir, pendingRun.checkpointRef, checkpoint);
     const completedClassic = {
       ...runtime.classic,
       handoffContext: contextJson,
       handoffHash: contextHash
     };
+    const transitionedRun = pendingRun.currentStep === "full.design.handoff" ? await transitionClassicRuntimeRun(changeDir, completedClassic, pendingRun, {
+      actionId,
+      kind: "classic-handoff"
+    }) : pendingRun;
     const completedRun = {
-      ...pendingRun,
+      ...transitionedRun,
       pending: null,
       status: "running"
     };
+    if (recovering || resumesPending) {
+      await appendRecoveryEvent2(changeDir, completedRun, actionId);
+    }
+    const trajectory = await readTrajectory(changeDir, completedRun.trajectoryRef);
+    const checkpoint = {
+      runId: completedRun.runId,
+      stateVersion: completedRun.iteration,
+      trajectoryOffset: trajectory.length,
+      contextHash: hashText2(context),
+      artifactsHash: artifactsHash2(artifacts),
+      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    await writeCheckpoint(changeDir, completedRun.checkpointRef, checkpoint);
     await writeClassicState(changeDir, {
       classic: completedClassic,
       run: completedRun,
       unknownKeys: (await readClassicState(changeDir)).unknownKeys
     });
     await clearPendingAction(changeDir, completedRun.pendingRef);
-    if (recovering || resumesPending) {
-      await appendRecoveryEvent2(changeDir, completedRun, actionId);
-    }
     output.stderr.push(green3(`[SET] handoff_context=${contextJson}`));
     output.stderr.push(green3(`[SET] handoff_hash=${contextHash}`));
     output.stderr.push(green3(`[HANDOFF] wrote ${contextJson}`));
