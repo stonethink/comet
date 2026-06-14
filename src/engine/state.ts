@@ -4,7 +4,7 @@ import path from 'path';
 import { parse, stringify } from 'yaml';
 import type { RunState } from './types.js';
 
-type StateDocument = Record<string, unknown>;
+export type StateDocument = Record<string, unknown>;
 
 const field = (doc: StateDocument, key: string): string | null => {
   const value = doc[key];
@@ -38,9 +38,7 @@ function retries(doc: StateDocument): Record<string, number> {
   return value as Record<string, number>;
 }
 
-export async function readRunState(changeDir: string): Promise<RunState | null> {
-  const file = path.join(changeDir, '.comet.yaml');
-  const doc = parse(await fs.readFile(file, 'utf8')) as StateDocument;
+export function runStateFromDocument(doc: StateDocument): RunState | null {
   if (!doc.run_id) return null;
   const runId = requiredString(doc, 'run_id');
   const skill = requiredString(doc, 'skill');
@@ -85,16 +83,7 @@ export async function readRunState(changeDir: string): Promise<RunState | null> 
   };
 }
 
-export async function writeRunState(changeDir: string, state: RunState): Promise<void> {
-  const file = path.join(changeDir, '.comet.yaml');
-  let raw: string;
-  try {
-    raw = await fs.readFile(file, 'utf8');
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-    raw = '';
-  }
-  const doc = (raw ? parse(raw) : {}) as StateDocument;
+export function applyRunStateToDocument(doc: StateDocument, state: RunState): void {
   Object.assign(doc, {
     run_id: state.runId,
     skill: state.skill,
@@ -112,6 +101,25 @@ export async function writeRunState(changeDir: string, state: RunState): Promise
     run_status: state.status,
     run_retries: JSON.stringify(state.retries),
   });
+}
+
+export async function readRunState(changeDir: string): Promise<RunState | null> {
+  const file = path.join(changeDir, '.comet.yaml');
+  const doc = parse(await fs.readFile(file, 'utf8')) as StateDocument;
+  return runStateFromDocument(doc);
+}
+
+export async function writeRunState(changeDir: string, state: RunState): Promise<void> {
+  const file = path.join(changeDir, '.comet.yaml');
+  let raw: string;
+  try {
+    raw = await fs.readFile(file, 'utf8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    raw = '';
+  }
+  const doc = (raw ? parse(raw) : {}) as StateDocument;
+  applyRunStateToDocument(doc, state);
 
   await fs.mkdir(changeDir, { recursive: true });
   const temporary = path.join(changeDir, `.comet.yaml.${randomUUID()}.tmp`);
