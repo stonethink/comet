@@ -28,6 +28,18 @@ const pkg = (root: string): SkillPackage => ({
   evals: [],
 });
 
+function withScriptTool(root: string): SkillPackage {
+  const value = pkg(root);
+  value.definition.tools.push({
+    id: 'build',
+    kind: 'script',
+    source: 'scripts/build.sh',
+    sideEffect: 'write',
+  });
+  value.guardrails.allowedTools.push('build');
+  return value;
+}
+
 describe('Skill snapshots', () => {
   let root: string;
   let changeDir: string;
@@ -43,7 +55,7 @@ describe('Skill snapshots', () => {
     await fs.rm(root, { recursive: true, force: true });
   });
 
-  it('is stable across object key order', () => {
+  it('is stable across object key order', async () => {
     const first = pkg(path.join(root, 'skill'));
     const second = structuredClone(first);
     second.guardrails = {
@@ -54,13 +66,96 @@ describe('Skill snapshots', () => {
       allowedAgents: [],
       confirmationRequiredFor: [],
     };
-    expect(hashSkillPackage(first)).toBe(hashSkillPackage(second));
+    expect(await hashSkillPackage(first)).toBe(await hashSkillPackage(second));
+  });
+
+  it('includes SKILL.md content in the package hash', async () => {
+    const value = pkg(path.join(root, 'skill'));
+    const before = await hashSkillPackage(value);
+
+    await fs.writeFile(path.join(value.root, 'SKILL.md'), '# Changed\n');
+
+    expect(await hashSkillPackage(value)).not.toBe(before);
+  });
+
+  it('includes declared script Tool content in the package hash', async () => {
+    const value = withScriptTool(path.join(root, 'skill'));
+    await fs.mkdir(path.join(value.root, 'scripts'), { recursive: true });
+    await fs.writeFile(path.join(value.root, 'scripts', 'build.sh'), 'echo first\n');
+    const before = await hashSkillPackage(value);
+
+    await fs.writeFile(path.join(value.root, 'scripts', 'build.sh'), 'echo second\n');
+
+    expect(await hashSkillPackage(value)).not.toBe(before);
   });
 
   it('writes a self-contained normalized snapshot', async () => {
-    const result = await createSkillSnapshot(pkg(path.join(root, 'skill')), changeDir);
+    const value = withScriptTool(path.join(root, 'skill'));
+    await fs.mkdir(path.join(value.root, 'scripts'), { recursive: true });
+    await fs.writeFile(path.join(value.root, 'scripts', 'build.sh'), 'echo build\n');
+
+    const result = await createSkillSnapshot(value, changeDir);
+
     expect(result.hash).toMatch(/^[a-f0-9]{64}$/);
     await expect(fs.access(path.join(result.snapshotDir, 'package.json'))).resolves.toBeUndefined();
     await expect(fs.access(path.join(result.snapshotDir, 'SKILL.md'))).resolves.toBeUndefined();
+    await expect(
+      fs.readFile(path.join(result.snapshotDir, 'scripts', 'build.sh'), 'utf8'),
+    ).resolves.toBe('echo build\n');
+  });
+
+  it('keeps published snapshots immutable when the source Skill changes', async () => {
+    const value = pkg(path.join(root, 'skill'));
+    const first = await createSkillSnapshot(value, changeDir);
+
+    await fs.writeFile(path.join(value.root, 'SKILL.md'), '# Changed\n');
+    const second = await createSkillSnapshot(value, changeDir);
+
+    expect(second.hash).not.toBe(first.hash);
+    expect(second.snapshotDir).not.toBe(first.snapshotDir);
+    await expect(fs.readFile(path.join(first.snapshotDir, 'SKILL.md'), 'utf8')).resolves.toBe(
+      '# Demo\n',
+    );
+    await expect(fs.readFile(path.join(second.snapshotDir, 'SKILL.md'), 'utf8')).resolves.toBe(
+      '# Changed\n',
+    );
+  });
+
+  it('rejects missing declared script Tool sources', async () => {
+    const value = withScriptTool(path.join(root, 'skill'));
+
+    await expect(createSkillSnapshot(value, changeDir)).rejects.toThrow(
+      'Script tool build does not exist: scripts/build.sh',
+    );
+  });
+
+  it('rejects directories used as script Tool sources', async () => {
+    const value = withScriptTool(path.join(root, 'skill'));
+    await fs.mkdir(path.join(value.root, 'scripts', 'build.sh'), { recursive: true });
+
+    await expect(createSkillSnapshot(value, changeDir)).rejects.toThrow(
+      'Script tool build is not a file: scripts/build.sh',
+    );
+  });
+
+  it('rejects script Tool symlinks that escape the Skill package', async (context) => {
+    const value = withScriptTool(path.join(root, 'skill'));
+    const outside = path.join(root, 'outside.sh');
+    const source = path.join(value.root, 'scripts', 'build.sh');
+    await fs.mkdir(path.dirname(source), { recursive: true });
+    await fs.writeFile(outside, 'echo outside\n');
+    try {
+      await fs.symlink(outside, source, 'file');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'EPERM') {
+        context.skip();
+        return;
+      }
+      throw error;
+    }
+
+    await expect(createSkillSnapshot(value, changeDir)).rejects.toThrow(
+      'Script tool build resolves outside the Skill package',
+    );
   });
 });
