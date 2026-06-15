@@ -89,6 +89,7 @@ export interface BundleCompilerIr {
   };
   skills: Array<{
     id: string;
+    logicalRoot: string;
     visibility: BundleSkillVisibility;
     sourceRoot: string;
     files: Array<{ relativePath: string; source: string }>;

@@ -11,6 +11,7 @@ import { getPlatformSkillsDir, PLATFORMS, type Platform } from './platforms.js';
 export interface PlatformBundleLayout {
   platform: string;
   scope: 'project' | 'global';
+  baseDir: string;
   skillsRoot: string;
   rulesRoot: string | null;
   hooksSupported: boolean;
@@ -58,6 +59,7 @@ export function listBundlePlatformTargets(options: {
       layout: {
         platform: platform.id,
         scope: options.scope,
+        baseDir,
         skillsRoot: path.join(platformRoot, 'skills'),
         rulesRoot: rulesRoot(platform, baseDir, options.scope),
         hooksSupported: capabilities.has('hooks'),
@@ -133,6 +135,8 @@ export function planBundleHook(
   hook: BundleCompilerIr['hooks'][number],
   scripts: BundleCompilerIr['scripts'],
   bundleName = 'bundle',
+  installedScriptDestination?: string,
+  commandScriptPath?: string,
 ): {
   files: PlatformInstallFile[];
   disclosure: ExecutableDisclosure;
@@ -143,8 +147,9 @@ export function planBundleHook(
   if (!['before_tool', 'before_write'].includes(hook.event)) return null;
   const script = scripts.find((item) => item.id === hook.script);
   if (!script || !target.layout.scriptsRoot) return null;
-  const installedScript = scriptDestination(target, bundleName, script);
-  const command = scriptCommand(script, installedScript);
+  const installedScript =
+    installedScriptDestination ?? scriptDestination(target, bundleName, script);
+  const command = scriptCommand(script, commandScriptPath ?? installedScript);
   return {
     files: [
       {

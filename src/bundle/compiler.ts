@@ -34,6 +34,7 @@ export async function compileBundleIr(
         .sort((left, right) => compareText(left.relativePath, right.relativePath));
       return {
         id: skill.id,
+        logicalRoot: skill.path,
         visibility: skill.visibility,
         sourceRoot: path.resolve(bundle.root, skill.path),
         files,

@@ -23,6 +23,7 @@ function ir(overrides: Partial<BundleCompilerIr> = {}): BundleCompilerIr {
     skills: [
       {
         id: 'demo',
+        logicalRoot: 'skills/demo',
         visibility: 'entry',
         sourceRoot: path.resolve('fixtures/skills/demo'),
         files: [
@@ -34,6 +35,7 @@ function ir(overrides: Partial<BundleCompilerIr> = {}): BundleCompilerIr {
       },
       {
         id: 'helper',
+        logicalRoot: 'skills/helper',
         visibility: 'internal',
         sourceRoot: path.resolve('fixtures/skills/helper'),
         files: [
@@ -193,5 +195,49 @@ describe('Bundle platform compiler', () => {
     const opencode = globalTargets.find((target) => target.id === 'opencode')!;
 
     expect(opencode.layout.skillsRoot).toBe(path.join(homeDir, '.config', 'opencode', 'skills'));
+  });
+
+  it('reuses Skill-local script destinations without creating duplicate shared copies', async () => {
+    const claude = targets.find((target) => target.id === 'claude')!;
+    const bundleIr = ir({
+      skills: [
+        {
+          id: 'demo',
+          logicalRoot: 'skills/demo',
+          visibility: 'entry',
+          sourceRoot: path.resolve('fixtures/skills/demo'),
+          files: [
+            {
+              relativePath: 'SKILL.md',
+              source: path.resolve('fixtures/skills/demo/SKILL.md'),
+            },
+            {
+              relativePath: 'scripts/verify.mjs',
+              source: path.resolve('fixtures/skills/demo/scripts/verify.mjs'),
+            },
+          ],
+        },
+      ],
+      scripts: [
+        {
+          id: 'verify',
+          path: 'skills/demo/scripts/verify.mjs',
+          sideEffect: 'read',
+          runtime: 'node',
+          source: path.resolve('fixtures/skills/demo/scripts/verify.mjs'),
+        },
+      ],
+    });
+
+    const report = await compileBundleForPlatform(bundleIr, claude, {
+      projectRoot,
+      scope: 'project',
+      locale: 'zh',
+    });
+
+    expect(report.files.filter((file) => file.source.endsWith('verify.mjs'))).toHaveLength(1);
+    expect(report.executableDisclosures[0].command.replaceAll('\\', '/')).toContain(
+      '.claude/skills/demo/scripts/verify.mjs',
+    );
   });
 });

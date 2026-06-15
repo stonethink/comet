@@ -59,6 +59,23 @@ function overrideFor(
   );
 }
 
+function skillResourceDestination(
+  ir: BundleCompilerIr,
+  target: BundlePlatformTarget,
+  logicalPath: string,
+): string | null {
+  for (const skill of ir.skills) {
+    const prefix = `${skill.logicalRoot.replace(/\/+$/, '')}/`;
+    if (!logicalPath.startsWith(prefix)) continue;
+    return path.join(
+      target.layout.skillsRoot,
+      skill.id,
+      ...logicalPath.slice(prefix.length).split('/'),
+    );
+  }
+  return null;
+}
+
 function capabilityCoveredByOverrides(
   ir: BundleCompilerIr,
   platform: string,
@@ -148,7 +165,21 @@ export async function compileBundleForPlatform(
       report.files.push(planBundleOverride(target, replacement, 'hook'));
       continue;
     }
-    const planned = planBundleHook(target, hook, ir.scripts, ir.bundle.name);
+    const hookScript = ir.scripts.find((script) => script.id === hook.script);
+    const installedScript = hookScript
+      ? skillResourceDestination(ir, target, hookScript.path)
+      : null;
+    const commandScript = installedScript
+      ? path.relative(target.layout.baseDir, installedScript).replaceAll('\\', '/')
+      : undefined;
+    const planned = planBundleHook(
+      target,
+      hook,
+      ir.scripts,
+      ir.bundle.name,
+      installedScript ?? undefined,
+      commandScript,
+    );
     if (planned) {
       report.files.push(...planned.files);
       report.executableDisclosures.push(planned.disclosure);
@@ -159,6 +190,7 @@ export async function compileBundleForPlatform(
 
   const supportRoot = path.join(target.layout.scriptsRoot!, ir.bundle.name);
   for (const script of ir.scripts) {
+    if (skillResourceDestination(ir, target, script.path)) continue;
     report.files.push({
       source: script.source,
       destination: path.join(supportRoot, ...script.path.split('/')),
@@ -166,6 +198,7 @@ export async function compileBundleForPlatform(
     });
   }
   for (const reference of ir.references) {
+    if (skillResourceDestination(ir, target, reference.logicalPath)) continue;
     report.files.push({
       source: reference.source,
       destination: path.join(supportRoot, ...reference.logicalPath.split('/')),
@@ -173,6 +206,7 @@ export async function compileBundleForPlatform(
     });
   }
   for (const asset of ir.assets) {
+    if (skillResourceDestination(ir, target, asset.logicalPath)) continue;
     report.files.push({
       source: asset.source,
       destination: path.join(supportRoot, ...asset.logicalPath.split('/')),
