@@ -9,6 +9,7 @@ import type {
   BundleRuleDefinition,
   BundleScriptDefinition,
   BundleSkillDefinition,
+  ResolvedBundleLocale,
   SkillBundle,
 } from './types.js';
 
@@ -318,4 +319,130 @@ export async function loadBundle(root: string): Promise<SkillBundle> {
     root: bundleRoot,
     manifest: narrowManifest(await readYaml(manifestPath), manifestPath),
   };
+}
+
+async function collectDirectoryFiles(
+  root: string,
+  directory: string,
+  files: Map<string, string>,
+): Promise<void> {
+  const entries = await fs.readdir(directory, { withFileTypes: true });
+  entries.sort((left, right) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0));
+  for (const entry of entries) {
+    const target = path.join(directory, entry.name);
+    const stats = await fs.lstat(target);
+    const relative = normalizeResourcePath(path.relative(root, target));
+    if (stats.isSymbolicLink()) {
+      throw new Error(`${relative} is a symbolic link`);
+    }
+    if (stats.isDirectory()) {
+      await collectDirectoryFiles(root, target, files);
+    } else if (stats.isFile()) {
+      files.set(relative, target);
+    }
+  }
+}
+
+function declaredLocalizedPaths(bundle: SkillBundle): Set<string> {
+  return new Set([
+    ...bundle.manifest.resources.rules.map((item) => item.path),
+    ...bundle.manifest.resources.hooks.map((item) => item.path),
+    ...bundle.manifest.resources.references,
+    ...bundle.manifest.platforms.overrides.map((item) => item.path),
+  ]);
+}
+
+function sharedResourcePaths(bundle: SkillBundle): Set<string> {
+  return new Set([
+    ...bundle.manifest.resources.scripts.map((item) => item.path),
+    ...bundle.manifest.resources.assets,
+  ]);
+}
+
+function insideDeclaredSkill(bundle: SkillBundle, logicalPath: string): boolean {
+  return bundle.manifest.skills.some((skill) => {
+    const prefix = `${skill.path.replace(/\/+$/, '')}/`;
+    return logicalPath.startsWith(prefix);
+  });
+}
+
+async function addDeclaredFile(
+  bundle: SkillBundle,
+  logicalPath: string,
+  files: Map<string, string>,
+): Promise<void> {
+  const source = path.resolve(bundle.root, logicalPath);
+  const stats = await fs.lstat(source);
+  if (stats.isSymbolicLink()) throw new Error(`${logicalPath} is a symbolic link`);
+  if (!stats.isFile()) throw new Error(`${logicalPath} must reference a file`);
+  files.set(logicalPath, source);
+}
+
+async function collectBaselineFiles(bundle: SkillBundle): Promise<Map<string, string>> {
+  const files = new Map<string, string>();
+  for (const skill of bundle.manifest.skills) {
+    await collectDirectoryFiles(bundle.root, path.resolve(bundle.root, skill.path), files);
+  }
+  const directFiles = [
+    ...bundle.manifest.resources.rules.map((item) => item.path),
+    ...bundle.manifest.resources.hooks.map((item) => item.path),
+    ...bundle.manifest.resources.references,
+    ...bundle.manifest.resources.scripts.map((item) => item.path),
+    ...bundle.manifest.resources.assets,
+    ...bundle.manifest.platforms.overrides.map((item) => item.path),
+  ];
+  for (const logicalPath of directFiles) {
+    await addDeclaredFile(bundle, logicalPath, files);
+  }
+  if (bundle.manifest.engine.enabled) {
+    await collectDirectoryFiles(
+      bundle.root,
+      path.resolve(bundle.root, bundle.manifest.engine.path ?? 'engine'),
+      files,
+    );
+  }
+  return files;
+}
+
+async function applyLocaleOverlay(
+  bundle: SkillBundle,
+  locale: string,
+  files: Map<string, string>,
+): Promise<void> {
+  const localeRoot = path.join(bundle.root, 'locales', locale);
+  try {
+    const stats = await fs.lstat(localeRoot);
+    if (stats.isSymbolicLink()) throw new Error(`locales/${locale} is a symbolic link`);
+    if (!stats.isDirectory()) throw new Error(`locales/${locale} must be a directory`);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return;
+    throw error;
+  }
+
+  const overlays = new Map<string, string>();
+  await collectDirectoryFiles(localeRoot, localeRoot, overlays);
+  const localizedPaths = declaredLocalizedPaths(bundle);
+  const sharedPaths = sharedResourcePaths(bundle);
+  for (const [logicalPath, source] of overlays) {
+    if (sharedPaths.has(logicalPath)) {
+      throw new Error(`Locale overlay cannot replace shared resource: ${logicalPath}`);
+    }
+    if (!localizedPaths.has(logicalPath) && !insideDeclaredSkill(bundle, logicalPath)) {
+      throw new Error(`Locale overlay is outside the Bundle resource graph: ${logicalPath}`);
+    }
+    files.set(logicalPath, source);
+  }
+}
+
+export async function resolveBundleLocale(
+  bundle: SkillBundle,
+  requested?: string,
+): Promise<ResolvedBundleLocale> {
+  const locale = requested ?? bundle.manifest.metadata.defaultLocale;
+  if (!bundle.manifest.metadata.locales.includes(locale)) {
+    throw new Error(`Unsupported Bundle locale: ${locale}`);
+  }
+  const files = await collectBaselineFiles(bundle);
+  await applyLocaleOverlay(bundle, locale, files);
+  return { bundle, locale, files };
 }

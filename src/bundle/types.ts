@@ -74,3 +74,9 @@ export interface SkillBundle {
   root: string;
   manifest: BundleManifest;
 }
+
+export interface ResolvedBundleLocale {
+  bundle: SkillBundle;
+  locale: string;
+  files: Map<string, string>;
+}
