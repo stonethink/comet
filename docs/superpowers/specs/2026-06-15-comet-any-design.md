@@ -1,9 +1,9 @@
 # Comet Any Skill Bundle Creator 设计
 
 **日期：** 2026-06-15
-**状态：** 待用户复审
+**状态：** 已确认
 **范围：** Plan 4 - `/comet-any`
-
+ 
 ## 1. 目标
 
 Plan 4 提供宿主 Agent 驱动的 Skill Bundle 创建器。用户描述目标并选择候选 Skill 后，
