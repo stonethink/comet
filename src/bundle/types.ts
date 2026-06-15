@@ -80,3 +80,25 @@ export interface ResolvedBundleLocale {
   locale: string;
   files: Map<string, string>;
 }
+
+export interface BundleCompilerIr {
+  bundle: { name: string; version: string; locale: string; hash: string };
+  skills: Array<{
+    id: string;
+    visibility: BundleSkillVisibility;
+    sourceRoot: string;
+    files: Array<{ relativePath: string; source: string }>;
+  }>;
+  rules: Array<BundleRuleDefinition & { source: string }>;
+  hooks: Array<NormalizedHook & { id: string; source: string }>;
+  scripts: Array<BundleScriptDefinition & { source: string }>;
+  references: Array<{ logicalPath: string; source: string }>;
+  assets: Array<{ logicalPath: string; source: string }>;
+  engine: { sourceRoot: string } | null;
+}
+
+export interface PlatformInstallFile {
+  source: string;
+  destination: string;
+  kind: 'skill' | 'rule' | 'hook' | 'script' | 'reference' | 'asset' | 'engine';
+}

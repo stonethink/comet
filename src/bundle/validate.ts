@@ -128,12 +128,12 @@ export async function loadNormalizedHook(
   bundle: SkillBundle,
   hook: BundleHookDefinition,
   index: number,
+  source = path.resolve(bundle.root, hook.path),
 ): Promise<NormalizedHook> {
   const field = `resources.hooks[${index}]`;
-  const file = path.resolve(bundle.root, hook.path);
   let document: unknown;
   try {
-    document = parse(await fs.readFile(file, 'utf8')) as unknown;
+    document = parse(await fs.readFile(source, 'utf8')) as unknown;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw hookError(field, `is invalid: ${message}`);
