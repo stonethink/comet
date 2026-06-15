@@ -5,11 +5,20 @@ import { statusCommand } from '../commands/status.js';
 import { doctorCommand } from '../commands/doctor.js';
 import { updateCommand } from '../commands/update.js';
 import { uninstallCommand } from '../commands/uninstall.js';
+import {
+  skillEvalCommand,
+  skillInspectCommand,
+  skillInstallCommand,
+  skillResumeCommand,
+  skillRunCommand,
+  skillValidateCommand,
+} from '../commands/skill.js';
 
 const require = createRequire(import.meta.url);
 const { version } = require('../../package.json');
 
 const program = new Command();
+const collect = (value: string, previous: string[]): string[] => [...previous, value];
 
 program
   .name('comet')
@@ -86,6 +95,79 @@ program
       }
       throw error;
     }
+  });
+
+const skill = program.command('skill').description('Author and run Comet Skill packages');
+
+skill
+  .command('install <path>')
+  .description('Install a Comet Skill into the project Skill pool')
+  .option('--project <dir>', 'Project root', '.')
+  .option('--overwrite', 'Replace an existing project Skill')
+  .option('--json', 'Output as JSON')
+  .action(async (source, options) => {
+    await skillInstallCommand(source, options);
+  });
+
+skill
+  .command('validate <skill>')
+  .description('Validate a Comet Skill package')
+  .option('--project <dir>', 'Project root used for Skill discovery', '.')
+  .option('--json', 'Output as JSON')
+  .action(async (selector, options) => {
+    await skillValidateCommand(selector, options);
+  });
+
+skill
+  .command('inspect <skill>')
+  .description('Inspect a Comet Skill package')
+  .option('--project <dir>', 'Project root used for Skill discovery', '.')
+  .option('--json', 'Output as JSON')
+  .action(async (selector, options) => {
+    await skillInspectCommand(selector, options);
+  });
+
+skill
+  .command('run <skill>')
+  .description('Start a deterministic Comet Skill Run')
+  .requiredOption('--change <dir>', 'Change directory that owns the Run')
+  .option('--project <dir>', 'Project root used for Skill discovery', '.')
+  .option('--confirm <ref>', 'Confirm a guarded reference', collect, [])
+  .option('--json', 'Output as JSON')
+  .action(async (selector, options) => {
+    await skillRunCommand(selector, options);
+  });
+
+skill
+  .command('resume')
+  .description('Resume a Comet Skill Run or submit its pending action outcome')
+  .requiredOption('--change <dir>', 'Change directory that owns the Run')
+  .option('--project <dir>', 'Project root used for Skill discovery', '.')
+  .addOption(
+    new Option('--status <status>', 'Pending action outcome').choices(['succeeded', 'failed']),
+  )
+  .option('--summary <text>', 'Outcome summary')
+  .option('--artifact <key=value>', 'Merge an artifact reference', collect, [])
+  .option('--state <key=value>', 'Record outcome state evidence', collect, [])
+  .option('--confirm <ref>', 'Confirm a guarded reference', collect, [])
+  .option('--upgrade <skill>', 'Upgrade the Run to a compatible Skill snapshot')
+  .option('--json', 'Output as JSON')
+  .action(async (options) => {
+    await skillResumeCommand(options);
+  });
+
+skill
+  .command('eval')
+  .description('Evaluate runtime checks against a Comet Skill Run')
+  .requiredOption('--change <dir>', 'Change directory that owns the Run')
+  .addOption(
+    new Option('--scope <scope>', 'Runtime eval scope')
+      .choices(['progress', 'step', 'completion'])
+      .default('progress'),
+  )
+  .option('--json', 'Output as JSON')
+  .action(async (options) => {
+    await skillEvalCommand(options);
   });
 
 program.parse();

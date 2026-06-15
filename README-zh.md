@@ -217,6 +217,28 @@ comet uninstall --scope project  # 仅移除项目级安装
 
 </details>
 
+<details>
+<summary><code>comet skill &lt;command&gt;</code> — 编写和运行 Comet Skill 包</summary>
+
+按显式 Skill 目录、项目 `.comet/skills/` 覆盖项、内置 Skill 的顺序发现包。手工 Run 会持久化不可变 Skill
+快照和 pending action；当前 Agent 或平台执行该 action，再通过 `resume` 提交 outcome。
+
+```bash
+comet skill install ./my-skill --project .
+comet skill validate my-skill --project .
+comet skill inspect my-skill --json
+comet skill run my-skill --change ./changes/demo
+comet skill resume --change ./changes/demo
+comet skill resume --change ./changes/demo --status succeeded --summary "完成" --artifact report=report.md
+comet skill eval --change ./changes/demo --scope completion
+comet skill resume --change ./changes/demo --upgrade my-skill --project .
+```
+
+六个子命令都支持 `--json`。Plan 3 的 `run` 支持 deterministic Skill；adaptive 执行需要 Agent
+候选动作。项目 Skill 按名称覆盖内置 Skill，无效覆盖会失败关闭，不会静默回退。
+
+</details>
+
 | 命令                | 描述   |
 |-------------------|------|
 | `comet --help`    | 显示帮助 |

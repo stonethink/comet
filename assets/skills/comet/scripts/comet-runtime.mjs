@@ -7487,8 +7487,8 @@ async function collectClassicEvidence(changeDir, projection) {
 
 // src/compat/classic-migrate.ts
 import { createHash as createHash2, randomUUID as randomUUID4 } from "crypto";
-import { promises as fs5 } from "fs";
-import path6 from "path";
+import { promises as fs6 } from "fs";
+import path7 from "path";
 
 // src/compat/classic-resolver.ts
 function profileFor(classic) {
@@ -8063,312 +8063,13 @@ async function readCheckpoint(changeDir, relativePath2) {
 
 // src/skill/snapshot.ts
 import { createHash, randomUUID as randomUUID3 } from "crypto";
-import { promises as fs4 } from "fs";
-import path5 from "path";
-function stable(value) {
-  if (Array.isArray(value)) return value.map(stable);
-  if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value).sort(([left], [right]) => left.localeCompare(right)).map(([key, item]) => [key, stable(item)])
-    );
-  }
-  return value;
-}
-function packageDocument(pkg) {
-  return stable({ definition: pkg.definition, guardrails: pkg.guardrails, evals: pkg.evals });
-}
-function normalizedRelativePath(source) {
-  return path5.posix.normalize(source.replaceAll("\\", "/"));
-}
-function assertInside(parent, target, label) {
-  const relative = path5.relative(parent, target);
-  if (relative === "" || !path5.isAbsolute(relative) && !relative.startsWith(`..${path5.sep}`)) {
-    return;
-  }
-  throw new Error(`${label} resolves outside the Skill package`);
-}
-async function readPackageFile(root, relativePath2, label) {
-  const normalized2 = normalizedRelativePath(relativePath2);
-  if (path5.posix.isAbsolute(normalized2) || normalized2 === ".." || normalized2.startsWith("../")) {
-    throw new Error(`${label} resolves outside the Skill package`);
-  }
-  const target = path5.resolve(root, ...normalized2.split("/"));
-  assertInside(root, target, label);
-  let realTarget;
-  try {
-    realTarget = await fs4.realpath(target);
-  } catch (error) {
-    if (error.code === "ENOENT") {
-      throw new Error(`${label} does not exist: ${relativePath2}`, { cause: error });
-    }
-    throw error;
-  }
-  assertInside(root, realTarget, label);
-  if (!(await fs4.stat(realTarget)).isFile()) {
-    throw new Error(`${label} is not a file: ${relativePath2}`);
-  }
-  return { path: normalized2, content: await fs4.readFile(realTarget) };
-}
-async function snapshotFiles(pkg) {
-  const root = await fs4.realpath(pkg.root);
-  const files = [await readPackageFile(root, "SKILL.md", "SKILL.md")];
-  for (const tool of pkg.definition.tools) {
-    if (tool.kind !== "script") continue;
-    files.push(await readPackageFile(root, tool.source, `Script tool ${tool.id}`));
-  }
-  return files.sort((left, right) => left.path.localeCompare(right.path));
-}
-function hashSnapshot(document, files) {
-  const fileDigests = files.map((file) => ({
-    path: file.path,
-    sha256: createHash("sha256").update(file.content).digest("hex")
-  }));
-  return createHash("sha256").update(JSON.stringify(stable({ package: document, files: fileDigests }))).digest("hex");
-}
-function packageJson(document) {
-  return JSON.stringify(document, null, 2) + "\n";
-}
-async function snapshotMaterial(pkg) {
-  const document = packageDocument(pkg);
-  const files = await snapshotFiles(pkg);
-  return { document, files, hash: hashSnapshot(document, files) };
-}
-async function hashSkillPackage(pkg) {
-  return (await snapshotMaterial(pkg)).hash;
-}
-async function pathExists(target) {
-  try {
-    await fs4.access(target);
-    return true;
-  } catch (error) {
-    if (error.code === "ENOENT") return false;
-    throw error;
-  }
-}
-async function verifyPublishedSnapshot(snapshotDir, material) {
-  try {
-    const storedHash = (await fs4.readFile(path5.join(snapshotDir, "sha256"), "utf8")).trim();
-    if (storedHash !== material.hash) throw new Error("hash mismatch");
-    const storedPackage = await fs4.readFile(path5.join(snapshotDir, "package.json"), "utf8");
-    if (storedPackage !== packageJson(material.document)) throw new Error("package mismatch");
-    for (const file of material.files) {
-      const stored = await fs4.readFile(path5.join(snapshotDir, ...file.path.split("/")));
-      if (!stored.equals(file.content)) throw new Error(`file mismatch: ${file.path}`);
-    }
-  } catch (error) {
-    throw new Error(`Existing Skill snapshot is invalid: ${material.hash}`, { cause: error });
-  }
-}
-async function createSkillSnapshot(pkg, changeDir) {
-  const material = await snapshotMaterial(pkg);
-  const snapshotsRoot = path5.resolve(changeDir, ".comet", "skill-snapshots");
-  const snapshotDir = path5.join(snapshotsRoot, material.hash);
-  await fs4.mkdir(snapshotsRoot, { recursive: true });
-  if (await pathExists(snapshotDir)) {
-    await verifyPublishedSnapshot(snapshotDir, material);
-    return { hash: material.hash, snapshotDir };
-  }
-  const temporaryDir = path5.join(snapshotsRoot, `.tmp-${randomUUID3()}`);
-  assertInside(snapshotsRoot, temporaryDir, "Temporary snapshot");
-  assertInside(snapshotsRoot, snapshotDir, "Published snapshot");
-  try {
-    await fs4.mkdir(temporaryDir);
-    for (const file of material.files) {
-      const destination = path5.join(temporaryDir, ...file.path.split("/"));
-      assertInside(temporaryDir, destination, `Snapshot file ${file.path}`);
-      await fs4.mkdir(path5.dirname(destination), { recursive: true });
-      await fs4.writeFile(destination, file.content);
-    }
-    await fs4.writeFile(path5.join(temporaryDir, "package.json"), packageJson(material.document));
-    await fs4.writeFile(path5.join(temporaryDir, "sha256"), material.hash + "\n");
-    await fs4.rename(temporaryDir, snapshotDir);
-  } catch (error) {
-    if (await pathExists(snapshotDir)) {
-      try {
-        await verifyPublishedSnapshot(snapshotDir, material);
-      } finally {
-        await fs4.rm(temporaryDir, { recursive: true, force: true });
-      }
-      return { hash: material.hash, snapshotDir };
-    }
-    await fs4.rm(temporaryDir, { recursive: true, force: true });
-    throw error;
-  }
-  return { hash: material.hash, snapshotDir };
-}
-
-// src/compat/classic-migrate.ts
-async function pathExists2(target) {
-  try {
-    await fs5.access(target);
-    return true;
-  } catch (error) {
-    if (error.code === "ENOENT") return false;
-    throw error;
-  }
-}
-function projectRootFor2(changeDir) {
-  let cursor = path6.resolve(changeDir);
-  while (path6.dirname(cursor) !== cursor) {
-    if (path6.basename(cursor) === "openspec") return path6.dirname(cursor);
-    cursor = path6.dirname(cursor);
-  }
-  throw new Error(`Classic change is not inside an openspec directory: ${changeDir}`);
-}
-function sha2562(content) {
-  return createHash2("sha256").update(content).digest("hex");
-}
-function artifactHash(artifacts) {
-  return sha2562(
-    JSON.stringify(
-      Object.fromEntries(
-        Object.entries(artifacts).sort(([left], [right]) => left.localeCompare(right))
-      )
-    )
-  );
-}
-function artifactKey(code) {
-  return code.replaceAll(".", "_").replaceAll("-", "_");
-}
-async function migrationArtifacts(changeDir, evidence) {
-  const projectRoot = projectRootFor2(changeDir);
-  const artifacts = Object.fromEntries(
-    evidence.filter((item) => item.satisfied && item.source).map((item) => [artifactKey(item.code), item.source])
-  );
-  const progress = path6.join(changeDir, "subagent-progress.md");
-  if (await pathExists2(progress)) {
-    artifacts.subagent_progress = path6.relative(projectRoot, progress).split(path6.sep).join("/");
-  }
-  const handoff = evidence.find((item) => item.code === "design.handoff" && item.satisfied);
-  if (handoff?.source) artifacts.handoff_context = handoff.source;
-  return artifacts;
-}
-function migrationEvents(run, profile, timestamp) {
-  return [
-    {
-      sequence: 1,
-      timestamp,
-      type: "run_started",
-      runId: run.runId,
-      data: {
-        skill: run.skill,
-        skillVersion: run.skillVersion,
-        skillHash: run.skillHash
-      }
-    },
-    {
-      sequence: 2,
-      timestamp,
-      type: "state_migrated",
-      runId: run.runId,
-      data: {
-        kind: "classic",
-        migrationVersion: CLASSIC_MIGRATION_VERSION,
-        profile,
-        source: "0.3.8"
-      }
-    }
-  ];
-}
-async function removeCreatedFiles(files) {
-  await Promise.all(files.map((file) => fs5.rm(file, { recursive: true, force: true })));
-}
-async function ensureClassicRun(changeDir, options) {
-  const projection = await readClassicState(changeDir);
-  if (!projection.classic) {
-    throw new Error("Classic migration requires a legacy state projection");
-  }
-  const classic = projection.classic;
-  const profile = classic.classicProfile ?? classic.workflow;
-  if (projection.run) {
-    if (classic.classicMigration !== CLASSIC_MIGRATION_VERSION) {
-      throw new Error("Classic Run exists without a supported classic_migration marker");
-    }
-    if (projection.run.skill !== options.skillPackage.definition.metadata.name) {
-      throw new Error(
-        `Classic Run skill mismatch: expected ${options.skillPackage.definition.metadata.name}, got ${projection.run.skill}`
-      );
-    }
-    const snapshot = await createSkillSnapshot(options.skillPackage, changeDir);
-    if (snapshot.hash !== projection.run.skillHash) {
-      throw new Error("Classic Run snapshot hash does not match the installed Skill package");
-    }
-    return {
-      classic,
-      run: projection.run,
-      evidence: await collectClassicEvidence(changeDir, projection),
-      migrated: false,
-      snapshotDir: snapshot.snapshotDir
-    };
-  }
-  const evidence = await collectClassicEvidence(changeDir, projection);
-  const step = resolveClassicStepId(classic, evidence);
-  if (!options.skillPackage.definition.orchestration.steps?.some((item) => item.id === step)) {
-    throw new Error(`Classic Skill package does not define resolved step: ${step}`);
-  }
-  const expectedHash = await hashSkillPackage(options.skillPackage);
-  const expectedSnapshotDir = path6.join(changeDir, ".comet", "skill-snapshots", expectedHash);
-  const snapshotExisted = await pathExists2(expectedSnapshotDir);
-  const createdFiles = [];
-  try {
-    const snapshot = await createSkillSnapshot(options.skillPackage, changeDir);
-    const run = startRun(options.skillPackage, options.runId?.() ?? randomUUID4(), snapshot.hash);
-    run.currentStep = step;
-    if (step === "completed") run.status = "completed";
-    const migratedClassic = {
-      ...classic,
-      classicProfile: profile,
-      classicMigration: CLASSIC_MIGRATION_VERSION
-    };
-    const artifacts = await migrationArtifacts(changeDir, evidence);
-    const projectRoot = projectRootFor2(changeDir);
-    const handoff = evidence.find((item) => item.code === "design.handoff" && item.satisfied);
-    let context = null;
-    if (handoff?.source) {
-      context = await fs5.readFile(path6.resolve(projectRoot, handoff.source), "utf8");
-      await writeContext(changeDir, run.contextRef, context);
-      createdFiles.push(path6.resolve(changeDir, run.contextRef));
-    }
-    await writeArtifacts(changeDir, run.artifactsRef, artifacts);
-    createdFiles.push(path6.resolve(changeDir, run.artifactsRef));
-    const timestamp = (options.now?.() ?? /* @__PURE__ */ new Date()).toISOString();
-    const checkpoint = {
-      runId: run.runId,
-      stateVersion: 1,
-      trajectoryOffset: 2,
-      contextHash: context === null ? null : sha2562(context),
-      artifactsHash: artifactHash(artifacts),
-      createdAt: timestamp
-    };
-    await writeCheckpoint(changeDir, run.checkpointRef, checkpoint);
-    createdFiles.push(path6.resolve(changeDir, run.checkpointRef));
-    createdFiles.push(path6.resolve(changeDir, run.trajectoryRef));
-    for (const event of migrationEvents(run, profile, timestamp)) {
-      await appendTrajectory(changeDir, run.trajectoryRef, event);
-    }
-    await writeClassicState(changeDir, {
-      classic: migratedClassic,
-      run,
-      unknownKeys: projection.unknownKeys
-    });
-    return {
-      classic: migratedClassic,
-      run,
-      evidence,
-      migrated: true,
-      snapshotDir: snapshot.snapshotDir
-    };
-  } catch (error) {
-    await removeCreatedFiles(createdFiles);
-    if (!snapshotExisted) await fs5.rm(expectedSnapshotDir, { recursive: true, force: true });
-    throw error;
-  }
-}
+import { promises as fs5 } from "fs";
+import path6 from "path";
 
 // src/skill/load.ts
 var import_yaml3 = __toESM(require_dist(), 1);
-import { promises as fs6 } from "fs";
-import path7 from "path";
+import { promises as fs4 } from "fs";
+import path5 from "path";
 var ACTION_TYPES = ["invoke_skill", "call_tool", "handoff", "ask_user", "checkpoint"];
 var ORCHESTRATION_MODES = ["deterministic", "adaptive"];
 var TOOL_KINDS = ["function", "mcp", "script", "agent"];
@@ -8531,22 +8232,26 @@ function narrowGuardrails(document, filePath) {
 function narrowEvalDocument(document, filePath) {
   assertObject(document, filePath);
   if ("runtime" in document) {
-    assertArray(document.runtime, filePath, "runtime");
-    document.runtime.forEach((entry2, index) => {
-      const fieldPath = `runtime[${index}]`;
-      assertObject(entry2, filePath, fieldPath);
-      assertString(entry2.id, filePath, `${fieldPath}.id`);
-      assertEnum(entry2.scope, EVAL_SCOPES, filePath, `${fieldPath}.scope`);
-      assertEnum(entry2.type, EVAL_TYPES, filePath, `${fieldPath}.type`);
-      assertOptionalString(entry2, "artifact", filePath, fieldPath);
-      assertOptionalString(entry2, "field", filePath, fieldPath);
-      assertOptionalString(entry2, "equals", filePath, fieldPath);
-    });
+    narrowRuntimeEvals(document.runtime, filePath, "runtime");
   }
   return document;
 }
+function narrowRuntimeEvals(value, filePath, fieldPath) {
+  assertArray(value, filePath, fieldPath);
+  value.forEach((entry2, index) => {
+    const itemPath = `${fieldPath}[${index}]`;
+    assertObject(entry2, filePath, itemPath);
+    assertString(entry2.id, filePath, `${itemPath}.id`);
+    assertEnum(entry2.scope, EVAL_SCOPES, filePath, `${itemPath}.scope`);
+    assertEnum(entry2.type, EVAL_TYPES, filePath, `${itemPath}.type`);
+    assertOptionalString(entry2, "artifact", filePath, itemPath);
+    assertOptionalString(entry2, "field", filePath, itemPath);
+    assertOptionalString(entry2, "equals", filePath, itemPath);
+  });
+  return value;
+}
 async function readYaml(filePath) {
-  const source = await fs6.readFile(filePath, "utf8");
+  const source = await fs4.readFile(filePath, "utf8");
   try {
     return (0, import_yaml3.parse)(source);
   } catch (error) {
@@ -8565,12 +8270,12 @@ async function readOptionalYaml(filePath) {
   }
 }
 async function loadSkillPackage(root) {
-  const packageRoot = path7.resolve(root);
-  const cometRoot = path7.join(packageRoot, "comet");
-  await fs6.access(path7.join(packageRoot, "SKILL.md"));
-  const skillPath = path7.join(cometRoot, "skill.yaml");
-  const guardrailsPath = path7.join(cometRoot, "guardrails.yaml");
-  const evalsPath = path7.join(cometRoot, "evals.yaml");
+  const packageRoot = path5.resolve(root);
+  const cometRoot = path5.join(packageRoot, "comet");
+  await fs4.access(path5.join(packageRoot, "SKILL.md"));
+  const skillPath = path5.join(cometRoot, "skill.yaml");
+  const guardrailsPath = path5.join(cometRoot, "guardrails.yaml");
+  const evalsPath = path5.join(cometRoot, "evals.yaml");
   const definition = narrowSkillDefinition(await readYaml(skillPath), skillPath);
   const rawGuardrails = await readOptionalYaml(guardrailsPath);
   const guardrailDocument = rawGuardrails === null ? null : narrowGuardrails(rawGuardrails, guardrailsPath);
@@ -8593,6 +8298,307 @@ async function loadSkillPackage(root) {
     },
     evals: evalDocument?.runtime ?? []
   };
+}
+
+// src/skill/snapshot.ts
+function stable(value) {
+  if (Array.isArray(value)) return value.map(stable);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).sort(([left], [right]) => left.localeCompare(right)).map(([key, item]) => [key, stable(item)])
+    );
+  }
+  return value;
+}
+function packageDocument(pkg) {
+  return stable({ definition: pkg.definition, guardrails: pkg.guardrails, evals: pkg.evals });
+}
+function normalizedRelativePath(source) {
+  return path6.posix.normalize(source.replaceAll("\\", "/"));
+}
+function assertInside(parent, target, label) {
+  const relative = path6.relative(parent, target);
+  if (relative === "" || !path6.isAbsolute(relative) && !relative.startsWith(`..${path6.sep}`)) {
+    return;
+  }
+  throw new Error(`${label} resolves outside the Skill package`);
+}
+async function readPackageFile(root, relativePath2, label) {
+  const normalized2 = normalizedRelativePath(relativePath2);
+  if (path6.posix.isAbsolute(normalized2) || normalized2 === ".." || normalized2.startsWith("../")) {
+    throw new Error(`${label} resolves outside the Skill package`);
+  }
+  const target = path6.resolve(root, ...normalized2.split("/"));
+  assertInside(root, target, label);
+  let realTarget;
+  try {
+    realTarget = await fs5.realpath(target);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      throw new Error(`${label} does not exist: ${relativePath2}`, { cause: error });
+    }
+    throw error;
+  }
+  assertInside(root, realTarget, label);
+  if (!(await fs5.stat(realTarget)).isFile()) {
+    throw new Error(`${label} is not a file: ${relativePath2}`);
+  }
+  return { path: normalized2, content: await fs5.readFile(realTarget) };
+}
+async function snapshotFiles(pkg) {
+  const root = await fs5.realpath(pkg.root);
+  const files = [await readPackageFile(root, "SKILL.md", "SKILL.md")];
+  for (const tool of pkg.definition.tools) {
+    if (tool.kind !== "script") continue;
+    files.push(await readPackageFile(root, tool.source, `Script tool ${tool.id}`));
+  }
+  return files.sort((left, right) => left.path.localeCompare(right.path));
+}
+function hashSnapshot(document, files) {
+  const fileDigests = files.map((file) => ({
+    path: file.path,
+    sha256: createHash("sha256").update(file.content).digest("hex")
+  }));
+  return createHash("sha256").update(JSON.stringify(stable({ package: document, files: fileDigests }))).digest("hex");
+}
+function packageJson(document) {
+  return JSON.stringify(document, null, 2) + "\n";
+}
+async function snapshotMaterial(pkg) {
+  const document = packageDocument(pkg);
+  const files = await snapshotFiles(pkg);
+  return { document, files, hash: hashSnapshot(document, files) };
+}
+async function hashSkillPackage(pkg) {
+  return (await snapshotMaterial(pkg)).hash;
+}
+async function pathExists(target) {
+  try {
+    await fs5.access(target);
+    return true;
+  } catch (error) {
+    if (error.code === "ENOENT") return false;
+    throw error;
+  }
+}
+async function verifyPublishedSnapshot(snapshotDir, material) {
+  try {
+    const storedHash = (await fs5.readFile(path6.join(snapshotDir, "sha256"), "utf8")).trim();
+    if (storedHash !== material.hash) throw new Error("hash mismatch");
+    const storedPackage = await fs5.readFile(path6.join(snapshotDir, "package.json"), "utf8");
+    if (storedPackage !== packageJson(material.document)) throw new Error("package mismatch");
+    for (const file of material.files) {
+      const stored = await fs5.readFile(path6.join(snapshotDir, ...file.path.split("/")));
+      if (!stored.equals(file.content)) throw new Error(`file mismatch: ${file.path}`);
+    }
+  } catch (error) {
+    throw new Error(`Existing Skill snapshot is invalid: ${material.hash}`, { cause: error });
+  }
+}
+async function createSkillSnapshot(pkg, changeDir) {
+  const material = await snapshotMaterial(pkg);
+  const snapshotsRoot = path6.resolve(changeDir, ".comet", "skill-snapshots");
+  const snapshotDir = path6.join(snapshotsRoot, material.hash);
+  await fs5.mkdir(snapshotsRoot, { recursive: true });
+  if (await pathExists(snapshotDir)) {
+    await verifyPublishedSnapshot(snapshotDir, material);
+    return { hash: material.hash, snapshotDir };
+  }
+  const temporaryDir = path6.join(snapshotsRoot, `.tmp-${randomUUID3()}`);
+  assertInside(snapshotsRoot, temporaryDir, "Temporary snapshot");
+  assertInside(snapshotsRoot, snapshotDir, "Published snapshot");
+  try {
+    await fs5.mkdir(temporaryDir);
+    for (const file of material.files) {
+      const destination = path6.join(temporaryDir, ...file.path.split("/"));
+      assertInside(temporaryDir, destination, `Snapshot file ${file.path}`);
+      await fs5.mkdir(path6.dirname(destination), { recursive: true });
+      await fs5.writeFile(destination, file.content);
+    }
+    await fs5.writeFile(path6.join(temporaryDir, "package.json"), packageJson(material.document));
+    await fs5.writeFile(path6.join(temporaryDir, "sha256"), material.hash + "\n");
+    await fs5.rename(temporaryDir, snapshotDir);
+  } catch (error) {
+    if (await pathExists(snapshotDir)) {
+      try {
+        await verifyPublishedSnapshot(snapshotDir, material);
+      } finally {
+        await fs5.rm(temporaryDir, { recursive: true, force: true });
+      }
+      return { hash: material.hash, snapshotDir };
+    }
+    await fs5.rm(temporaryDir, { recursive: true, force: true });
+    throw error;
+  }
+  return { hash: material.hash, snapshotDir };
+}
+
+// src/compat/classic-migrate.ts
+async function pathExists2(target) {
+  try {
+    await fs6.access(target);
+    return true;
+  } catch (error) {
+    if (error.code === "ENOENT") return false;
+    throw error;
+  }
+}
+function projectRootFor2(changeDir) {
+  let cursor = path7.resolve(changeDir);
+  while (path7.dirname(cursor) !== cursor) {
+    if (path7.basename(cursor) === "openspec") return path7.dirname(cursor);
+    cursor = path7.dirname(cursor);
+  }
+  throw new Error(`Classic change is not inside an openspec directory: ${changeDir}`);
+}
+function sha2562(content) {
+  return createHash2("sha256").update(content).digest("hex");
+}
+function artifactHash(artifacts) {
+  return sha2562(
+    JSON.stringify(
+      Object.fromEntries(
+        Object.entries(artifacts).sort(([left], [right]) => left.localeCompare(right))
+      )
+    )
+  );
+}
+function artifactKey(code) {
+  return code.replaceAll(".", "_").replaceAll("-", "_");
+}
+async function migrationArtifacts(changeDir, evidence) {
+  const projectRoot = projectRootFor2(changeDir);
+  const artifacts = Object.fromEntries(
+    evidence.filter((item) => item.satisfied && item.source).map((item) => [artifactKey(item.code), item.source])
+  );
+  const progress = path7.join(changeDir, "subagent-progress.md");
+  if (await pathExists2(progress)) {
+    artifacts.subagent_progress = path7.relative(projectRoot, progress).split(path7.sep).join("/");
+  }
+  const handoff = evidence.find((item) => item.code === "design.handoff" && item.satisfied);
+  if (handoff?.source) artifacts.handoff_context = handoff.source;
+  return artifacts;
+}
+function migrationEvents(run, profile, timestamp) {
+  return [
+    {
+      sequence: 1,
+      timestamp,
+      type: "run_started",
+      runId: run.runId,
+      data: {
+        skill: run.skill,
+        skillVersion: run.skillVersion,
+        skillHash: run.skillHash
+      }
+    },
+    {
+      sequence: 2,
+      timestamp,
+      type: "state_migrated",
+      runId: run.runId,
+      data: {
+        kind: "classic",
+        migrationVersion: CLASSIC_MIGRATION_VERSION,
+        profile,
+        source: "0.3.8"
+      }
+    }
+  ];
+}
+async function removeCreatedFiles(files) {
+  await Promise.all(files.map((file) => fs6.rm(file, { recursive: true, force: true })));
+}
+async function ensureClassicRun(changeDir, options) {
+  const projection = await readClassicState(changeDir);
+  if (!projection.classic) {
+    throw new Error("Classic migration requires a legacy state projection");
+  }
+  const classic = projection.classic;
+  const profile = classic.classicProfile ?? classic.workflow;
+  if (projection.run) {
+    if (classic.classicMigration !== CLASSIC_MIGRATION_VERSION) {
+      throw new Error("Classic Run exists without a supported classic_migration marker");
+    }
+    if (projection.run.skill !== options.skillPackage.definition.metadata.name) {
+      throw new Error(
+        `Classic Run skill mismatch: expected ${options.skillPackage.definition.metadata.name}, got ${projection.run.skill}`
+      );
+    }
+    const snapshot = await createSkillSnapshot(options.skillPackage, changeDir);
+    if (snapshot.hash !== projection.run.skillHash) {
+      throw new Error("Classic Run snapshot hash does not match the installed Skill package");
+    }
+    return {
+      classic,
+      run: projection.run,
+      evidence: await collectClassicEvidence(changeDir, projection),
+      migrated: false,
+      snapshotDir: snapshot.snapshotDir
+    };
+  }
+  const evidence = await collectClassicEvidence(changeDir, projection);
+  const step = resolveClassicStepId(classic, evidence);
+  if (!options.skillPackage.definition.orchestration.steps?.some((item) => item.id === step)) {
+    throw new Error(`Classic Skill package does not define resolved step: ${step}`);
+  }
+  const expectedHash = await hashSkillPackage(options.skillPackage);
+  const expectedSnapshotDir = path7.join(changeDir, ".comet", "skill-snapshots", expectedHash);
+  const snapshotExisted = await pathExists2(expectedSnapshotDir);
+  const createdFiles = [];
+  try {
+    const snapshot = await createSkillSnapshot(options.skillPackage, changeDir);
+    const run = startRun(options.skillPackage, options.runId?.() ?? randomUUID4(), snapshot.hash);
+    run.currentStep = step;
+    if (step === "completed") run.status = "completed";
+    const migratedClassic = {
+      ...classic,
+      classicProfile: profile,
+      classicMigration: CLASSIC_MIGRATION_VERSION
+    };
+    const artifacts = await migrationArtifacts(changeDir, evidence);
+    const projectRoot = projectRootFor2(changeDir);
+    const handoff = evidence.find((item) => item.code === "design.handoff" && item.satisfied);
+    let context = null;
+    if (handoff?.source) {
+      context = await fs6.readFile(path7.resolve(projectRoot, handoff.source), "utf8");
+      await writeContext(changeDir, run.contextRef, context);
+      createdFiles.push(path7.resolve(changeDir, run.contextRef));
+    }
+    await writeArtifacts(changeDir, run.artifactsRef, artifacts);
+    createdFiles.push(path7.resolve(changeDir, run.artifactsRef));
+    const timestamp = (options.now?.() ?? /* @__PURE__ */ new Date()).toISOString();
+    const checkpoint = {
+      runId: run.runId,
+      stateVersion: 1,
+      trajectoryOffset: 2,
+      contextHash: context === null ? null : sha2562(context),
+      artifactsHash: artifactHash(artifacts),
+      createdAt: timestamp
+    };
+    await writeCheckpoint(changeDir, run.checkpointRef, checkpoint);
+    createdFiles.push(path7.resolve(changeDir, run.checkpointRef));
+    createdFiles.push(path7.resolve(changeDir, run.trajectoryRef));
+    for (const event of migrationEvents(run, profile, timestamp)) {
+      await appendTrajectory(changeDir, run.trajectoryRef, event);
+    }
+    await writeClassicState(changeDir, {
+      classic: migratedClassic,
+      run,
+      unknownKeys: projection.unknownKeys
+    });
+    return {
+      classic: migratedClassic,
+      run,
+      evidence,
+      migrated: true,
+      snapshotDir: snapshot.snapshotDir
+    };
+  } catch (error) {
+    await removeCreatedFiles(createdFiles);
+    if (!snapshotExisted) await fs6.rm(expectedSnapshotDir, { recursive: true, force: true });
+    throw error;
+  }
 }
 
 // src/compat/classic-runtime-run.ts

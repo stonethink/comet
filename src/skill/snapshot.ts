@@ -1,7 +1,9 @@
 import { createHash, randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { loadSkillPackageDocument } from './load.js';
 import type { SkillPackage } from './types.js';
+import { validateSkillPackage } from './validate.js';
 
 interface SnapshotFile {
   path: string;
@@ -174,4 +176,34 @@ export async function createSkillSnapshot(
   }
 
   return { hash: material.hash, snapshotDir };
+}
+
+export async function readSkillSnapshot(changeDir: string, hash: string): Promise<SkillPackage> {
+  if (!/^[a-f0-9]{64}$/u.test(hash)) {
+    throw new Error(`Invalid Skill snapshot hash: ${hash}`);
+  }
+  const snapshotsRoot = path.resolve(changeDir, '.comet', 'skill-snapshots');
+  const snapshotDir = path.join(snapshotsRoot, hash);
+  assertInside(snapshotsRoot, snapshotDir, 'Skill snapshot');
+
+  try {
+    const storedHash = (await fs.readFile(path.join(snapshotDir, 'sha256'), 'utf8')).trim();
+    if (storedHash !== hash) {
+      throw new Error(`stored hash is ${storedHash || '(empty)'}`);
+    }
+    const packagePath = path.join(snapshotDir, 'package.json');
+    const document = JSON.parse(await fs.readFile(packagePath, 'utf8')) as unknown;
+    const pkg = loadSkillPackageDocument(document, snapshotDir, packagePath);
+    const errors = validateSkillPackage(pkg);
+    if (errors.length > 0) {
+      throw new Error(errors.map((error) => `  - ${error}`).join('\n'));
+    }
+    const calculated = await hashSkillPackage(pkg);
+    if (calculated !== hash) {
+      throw new Error(`calculated hash is ${calculated}`);
+    }
+    return pkg;
+  } catch (error) {
+    throw new Error(`Skill snapshot is invalid or missing: ${hash}`, { cause: error });
+  }
 }

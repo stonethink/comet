@@ -1,0 +1,217 @@
+import path from 'path';
+import {
+  evaluateManualRun,
+  resumeManualRun,
+  startManualRun,
+  upgradeManualRun,
+} from '../engine/manual-run.js';
+import { resolveSkill } from '../skill/discovery.js';
+import { installProjectSkill } from '../skill/install.js';
+
+interface SkillCommandOptions {
+  project?: string;
+  json?: boolean;
+  overwrite?: boolean;
+  change?: string;
+  status?: 'succeeded' | 'failed';
+  summary?: string;
+  artifact?: string[];
+  state?: string[];
+  confirm?: string[];
+  upgrade?: string;
+  scope?: 'progress' | 'step' | 'completion';
+}
+
+function projectRoot(options: SkillCommandOptions): string {
+  return path.resolve(options.project ?? '.');
+}
+
+function emit(value: unknown, json: boolean | undefined, text: string): void {
+  console.log(json ? JSON.stringify(value, null, 2) : text);
+}
+
+function changeDir(options: SkillCommandOptions): string {
+  if (!options.change) throw new Error('--change is required');
+  return path.resolve(options.change);
+}
+
+function keyValuePairs(values: string[] | undefined, label: string): Record<string, string> {
+  return Object.fromEntries(
+    (values ?? []).map((value) => {
+      const separator = value.indexOf('=');
+      if (separator <= 0 || separator === value.length - 1) {
+        throw new Error(`${label} must use key=value: ${value}`);
+      }
+      return [value.slice(0, separator), value.slice(separator + 1)];
+    }),
+  );
+}
+
+function hasValues(values: string[] | undefined): boolean {
+  return Boolean(values && values.length > 0);
+}
+
+function runText(result: {
+  state: { runId: string; status: string; currentStep: string | null };
+  action: { id: string; type: string; stepId: string | null } | null;
+  evals: Array<{ evalId: string; passed: boolean }>;
+  reason?: string;
+}): string {
+  return [
+    `Run: ${result.state.runId}`,
+    `Status: ${result.state.status}`,
+    `Current step: ${result.state.currentStep ?? '(complete)'}`,
+    result.action
+      ? `Pending action: ${result.action.id} (${result.action.type}, step ${result.action.stepId ?? 'adaptive'})`
+      : 'Pending action: none',
+    `Runtime evals: ${result.evals.length}`,
+    ...(result.reason ? [`Reason: ${result.reason}`] : []),
+  ].join('\n');
+}
+
+export async function skillValidateCommand(
+  selector: string,
+  options: SkillCommandOptions = {},
+): Promise<void> {
+  const resolved = await resolveSkill(selector, { projectRoot: projectRoot(options) });
+  const result = {
+    valid: true,
+    name: resolved.name,
+    version: resolved.version,
+    origin: resolved.origin,
+    root: resolved.root,
+    hash: resolved.hash,
+  };
+  emit(
+    result,
+    options.json,
+    `Valid Comet Skill: ${result.name}@${result.version} (${result.origin})\nHash: ${result.hash}\nRoot: ${result.root}`,
+  );
+}
+
+export async function skillInspectCommand(
+  selector: string,
+  options: SkillCommandOptions = {},
+): Promise<void> {
+  const resolved = await resolveSkill(selector, { projectRoot: projectRoot(options) });
+  const { definition, guardrails, evals } = resolved.package;
+  const result = {
+    name: resolved.name,
+    version: resolved.version,
+    origin: resolved.origin,
+    root: resolved.root,
+    hash: resolved.hash,
+    description: definition.metadata.description,
+    goal: definition.goal,
+    orchestration: definition.orchestration,
+    skills: definition.skills,
+    agents: definition.agents,
+    tools: definition.tools,
+    guardrails,
+    evals,
+  };
+  emit(
+    result,
+    options.json,
+    [
+      `${result.name}@${result.version} (${result.origin})`,
+      result.description,
+      `Root: ${result.root}`,
+      `Hash: ${result.hash}`,
+      `Orchestration: ${result.orchestration.mode}`,
+      `Steps: ${result.orchestration.steps?.length ?? 0}`,
+      `Skills: ${result.skills.length}`,
+      `Agents: ${result.agents.length}`,
+      `Tools: ${result.tools.length}`,
+      `Runtime evals: ${result.evals.length}`,
+    ].join('\n'),
+  );
+}
+
+export async function skillInstallCommand(
+  source: string,
+  options: SkillCommandOptions = {},
+): Promise<void> {
+  const result = await installProjectSkill(source, projectRoot(options), {
+    overwrite: options.overwrite,
+  });
+  emit(
+    result,
+    options.json,
+    `Installed ${result.name}@${result.version}\nHash: ${result.hash}\nDestination: ${result.destination}`,
+  );
+}
+
+export async function skillRunCommand(
+  selector: string,
+  options: SkillCommandOptions = {},
+): Promise<void> {
+  const resolved = await resolveSkill(selector, { projectRoot: projectRoot(options) });
+  const result = await startManualRun(resolved.package, changeDir(options), options.confirm ?? []);
+  emit(result, options.json, runText(result));
+}
+
+export async function skillResumeCommand(options: SkillCommandOptions = {}): Promise<void> {
+  const target = changeDir(options);
+  if (options.upgrade) {
+    if (
+      options.status ||
+      options.summary ||
+      hasValues(options.artifact) ||
+      hasValues(options.state)
+    ) {
+      throw new Error('--upgrade cannot be combined with outcome options');
+    }
+    const resolved = await resolveSkill(options.upgrade, {
+      projectRoot: projectRoot(options),
+    });
+    const result = await upgradeManualRun(target, resolved.package);
+    emit(
+      result,
+      options.json,
+      `${result.changed ? 'Upgraded' : 'Unchanged'} ${result.state.skill}@${result.state.skillVersion}\nHash: ${result.state.skillHash}`,
+    );
+    return;
+  }
+
+  const hasOutcomeOptions = Boolean(
+    options.summary || hasValues(options.artifact) || hasValues(options.state),
+  );
+  if (!options.status && hasOutcomeOptions) {
+    throw new Error('--summary, --artifact, and --state require --status');
+  }
+  if (options.status && !options.summary) {
+    throw new Error('--summary is required when submitting an outcome');
+  }
+
+  const result = await resumeManualRun(target, {
+    confirmations: options.confirm ?? [],
+    outcome: options.status
+      ? {
+          status: options.status,
+          summary: options.summary!,
+          artifacts: keyValuePairs(options.artifact, '--artifact'),
+          state: keyValuePairs(options.state, '--state'),
+        }
+      : undefined,
+  });
+  emit(result, options.json, runText(result));
+}
+
+export async function skillEvalCommand(options: SkillCommandOptions = {}): Promise<void> {
+  const result = await evaluateManualRun(changeDir(options), options.scope ?? 'progress');
+  emit(
+    result,
+    options.json,
+    [
+      `Run: ${result.state.runId}`,
+      `Scope: ${result.scope}`,
+      ...result.evals.map(
+        (evaluation) =>
+          `${evaluation.passed ? 'PASS' : 'FAIL'} ${evaluation.evalId}: ${evaluation.evidence}`,
+      ),
+    ].join('\n'),
+  );
+}
+
+export type { SkillCommandOptions };

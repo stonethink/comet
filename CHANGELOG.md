@@ -2,13 +2,16 @@
 
 All notable changes to @rpamis/comet will be documented in this file.
 
-## What's Changed [0.4.0] - 2026-06-14
+## What's Changed [0.4.0] - 2026-06-15
 
 ### Added
 
 - **Comet Skill Engine Foundation**: Adds the internal Skill Engine foundation layer — Skill Package loading, structural and semantic validation, stable content hashing and snapshots, Run state projection, Trajectory, Context, Artifacts, Checkpoints, action Guardrails, deterministic Runtime Evals, and the Runtime Adapter contract — providing a single runtime basis for the upcoming classic migration and agentic Skill orchestration. Ships behind new opt-in `.comet.yaml` fields and does not change 0.3.8 user behavior.
 - **Internal Classic Skill**: Adds a bilingual, non-user-facing `comet-classic` Skill Package and deterministic Classic Resolver covering full, hotfix, and tweak workflows while keeping the existing user-visible Skill names and command count unchanged.
 - **Classic baseline benchmark**: Adds a deterministic seven-scenario benchmark for profile migration, retry/fix routing, handoff resume, archive recovery, malformed-state rejection, idempotency, and legacy contract preservation without LLM or network dependencies.
+- **Manual Skill authoring CLI**: Adds `comet skill install`, `validate`, `inspect`, `run`, `resume`, and `eval` with text and JSON output so advanced users can package, discover, inspect, and drive deterministic Comet Skills without waiting for the agentic authoring layer.
+- **Project Skill pool**: Adds validated, symlink-rejecting installation under `.comet/skills/<name>` plus deterministic discovery across explicit directories, project overrides, and built-in Skills; invalid project overrides fail closed instead of silently selecting another package.
+- **Snapshot-based manual Runs**: Adds persisted pending actions, immutable snapshot recovery, runtime Eval evidence, artifact merging, and explicit compatible Skill upgrades with migration events while leaving action execution to the current Agent or platform Runtime.
 
 ### Changed
 
@@ -26,12 +29,14 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Fail-closed Run recovery**: Run state writes now ignore only missing state files, malformed or incomplete Run projections are rejected with actionable errors, and corrupt deterministic steps can no longer be mistaken for successful completion.
 - **Complete recovery files**: Context, Checkpoint, and Trajectory data can be read through the Run Store, malformed Trajectory lines report their exact location, completed actions can clear stale pending files, and script Tool resolution rejects missing files, directories, and package-escaping symlinks.
 - **Adaptive lifecycle guards**: Adaptive candidates can only be accepted while the Run is active and has no pending action, preventing completed Runs from restarting or existing actions from being overwritten.
+- **Manual CLI option handling**: Empty repeated Commander options no longer masquerade as submitted outcome fields, so a bare `comet skill resume` returns the existing pending action and `resume --upgrade` remains usable without synthetic status data.
 
 ### Tests
 
 - **Foundation contract coverage**: Adds tests for Skill loading and validation, real-path containment, content-addressed immutable snapshots, preserving/atomic Run state read-write, fail-closed state validation, complete run-file recovery, action authorization and budgets, runtime evals, deterministic/adaptive lifecycle guards, and an end-to-end recovery slice through persisted Artifacts and Trajectory.
 - **Classic compatibility coverage**: Freezes the 0.3.8 shell contracts, compares stable state and command behavior through the new facades, exercises Run migration and recovery across Classic entry points, and requires all four deterministic benchmark rates to remain `1.0`.
 - **Plan 2 release verification stability**: Isolates installation detection tests from real user-level Skill directories and gives the Classic benchmark a dedicated timeout budget, keeping full-suite results deterministic on developer machines and under parallel CI load.
+- **Manual authoring coverage**: Adds discovery precedence, fail-closed overrides, project installation, immutable snapshot reads, deterministic Run/resume completion, Runtime Evals, upgrade compatibility, Windows link handling, command JSON contracts, and a built CLI end-to-end flow through `run`, bare `resume`, outcome submission, upgrade, and `eval`.
 
 ## What's Changed [0.3.8] - 2026-06-13
 

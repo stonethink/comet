@@ -229,19 +229,28 @@ function narrowEvalDocument(
 ): { runtime?: RuntimeEvalDefinition[] } {
   assertObject(document, filePath);
   if ('runtime' in document) {
-    assertArray(document.runtime, filePath, 'runtime');
-    document.runtime.forEach((entry, index) => {
-      const fieldPath = `runtime[${index}]`;
-      assertObject(entry, filePath, fieldPath);
-      assertString(entry.id, filePath, `${fieldPath}.id`);
-      assertEnum(entry.scope, EVAL_SCOPES, filePath, `${fieldPath}.scope`);
-      assertEnum(entry.type, EVAL_TYPES, filePath, `${fieldPath}.type`);
-      assertOptionalString(entry, 'artifact', filePath, fieldPath);
-      assertOptionalString(entry, 'field', filePath, fieldPath);
-      assertOptionalString(entry, 'equals', filePath, fieldPath);
-    });
+    narrowRuntimeEvals(document.runtime, filePath, 'runtime');
   }
   return document as { runtime?: RuntimeEvalDefinition[] };
+}
+
+function narrowRuntimeEvals(
+  value: unknown,
+  filePath: string,
+  fieldPath: string,
+): RuntimeEvalDefinition[] {
+  assertArray(value, filePath, fieldPath);
+  value.forEach((entry, index) => {
+    const itemPath = `${fieldPath}[${index}]`;
+    assertObject(entry, filePath, itemPath);
+    assertString(entry.id, filePath, `${itemPath}.id`);
+    assertEnum(entry.scope, EVAL_SCOPES, filePath, `${itemPath}.scope`);
+    assertEnum(entry.type, EVAL_TYPES, filePath, `${itemPath}.type`);
+    assertOptionalString(entry, 'artifact', filePath, itemPath);
+    assertOptionalString(entry, 'field', filePath, itemPath);
+    assertOptionalString(entry, 'equals', filePath, itemPath);
+  });
+  return value as RuntimeEvalDefinition[];
 }
 
 async function readYaml(filePath: string): Promise<unknown> {
@@ -300,5 +309,36 @@ export async function loadSkillPackage(root: string): Promise<SkillPackage> {
       ...guardrailDocument,
     },
     evals: evalDocument?.runtime ?? [],
+  };
+}
+
+export function loadSkillPackageDocument(
+  document: unknown,
+  root: string,
+  filePath = path.join(root, 'package.json'),
+): SkillPackage {
+  assertObject(document, filePath);
+  const definition = narrowSkillDefinition(document.definition, filePath);
+  const guardrailDocument = narrowGuardrails(document.guardrails, filePath);
+  const evals = narrowRuntimeEvals(document.evals, filePath, 'evals');
+  const defaultGuardrails: GuardrailDefinition = {
+    allowedSkills: definition.skills.map((skill) => skill.id),
+    allowedAgents: definition.agents.map((agent) => agent.id),
+    allowedTools: definition.tools.map((tool) => tool.id),
+    maxIterations: 50,
+    maxRetriesPerAction: 3,
+    confirmationRequiredFor: definition.tools
+      .filter((tool) => tool.requiresConfirmation)
+      .map((tool) => tool.id),
+  };
+
+  return {
+    root: path.resolve(root),
+    definition,
+    guardrails: {
+      ...defaultGuardrails,
+      ...guardrailDocument,
+    },
+    evals,
   };
 }

@@ -236,6 +236,30 @@ comet uninstall --scope project  # Only remove project-level installations
 
 </details>
 
+<details>
+<summary><code>comet skill &lt;command&gt;</code> — Author and run Comet Skill packages</summary>
+
+Discovers explicit Skill directories, project overrides under `.comet/skills/`, and built-in Skills. Manual Runs
+persist an immutable Skill snapshot and pending action; the current Agent or platform executes that action and submits
+its outcome through `resume`.
+
+```bash
+comet skill install ./my-skill --project .
+comet skill validate my-skill --project .
+comet skill inspect my-skill --json
+comet skill run my-skill --change ./changes/demo
+comet skill resume --change ./changes/demo
+comet skill resume --change ./changes/demo --status succeeded --summary "Done" --artifact report=report.md
+comet skill eval --change ./changes/demo --scope completion
+comet skill resume --change ./changes/demo --upgrade my-skill --project .
+```
+
+All six subcommands support `--json`. `run` supports deterministic Skills in Plan 3; adaptive execution requires an
+Agent candidate. Project Skills override built-ins by name, and invalid overrides fail closed instead of silently
+falling back.
+
+</details>
+
 | Command           | Description  |
 |-------------------|--------------|
 | `comet --help`    | Show help    |

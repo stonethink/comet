@@ -2,7 +2,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
-import { createSkillSnapshot, hashSkillPackage } from '../../src/skill/snapshot.js';
+import {
+  createSkillSnapshot,
+  hashSkillPackage,
+  readSkillSnapshot,
+} from '../../src/skill/snapshot.js';
 import type { SkillPackage } from '../../src/skill/types.js';
 
 const pkg = (root: string): SkillPackage => ({
@@ -158,6 +162,35 @@ describe('Skill snapshots', () => {
 
     await expect(createSkillSnapshot(value, changeDir)).rejects.toThrow(
       'Script tool build resolves outside the Skill package',
+    );
+  });
+
+  it('restores a SkillPackage from an immutable snapshot', async () => {
+    const value = withScriptTool(path.join(root, 'skill'));
+    await fs.mkdir(path.join(value.root, 'scripts'), { recursive: true });
+    await fs.writeFile(path.join(value.root, 'scripts', 'build.sh'), 'echo build\n');
+    const snapshot = await createSkillSnapshot(value, changeDir);
+
+    await fs.writeFile(path.join(value.root, 'SKILL.md'), '# Source changed\n');
+    const restored = await readSkillSnapshot(changeDir, snapshot.hash);
+
+    expect(restored.definition).toEqual(value.definition);
+    expect(restored.root).toBe(snapshot.snapshotDir);
+    await expect(fs.readFile(path.join(restored.root, 'SKILL.md'), 'utf8')).resolves.toBe(
+      '# Demo\n',
+    );
+  });
+
+  it('rejects a snapshot with a modified package document', async () => {
+    const value = pkg(path.join(root, 'skill'));
+    const snapshot = await createSkillSnapshot(value, changeDir);
+    const packagePath = path.join(snapshot.snapshotDir, 'package.json');
+    const document = JSON.parse(await fs.readFile(packagePath, 'utf8'));
+    document.definition.metadata.version = '2';
+    await fs.writeFile(packagePath, JSON.stringify(document, null, 2) + '\n');
+
+    await expect(readSkillSnapshot(changeDir, snapshot.hash)).rejects.toThrow(
+      `Skill snapshot is invalid or missing: ${snapshot.hash}`,
     );
   });
 });
