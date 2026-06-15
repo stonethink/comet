@@ -29,6 +29,30 @@ type Manifest = {
   languages?: LanguageConfig[];
 };
 
+interface PlannedSkillSourceFile {
+  relativePath: string;
+  source: string;
+}
+
+interface PlannedSkillFile {
+  source: string;
+  destination: string;
+}
+
+function planSkillDirectoryCopy(
+  files: readonly PlannedSkillSourceFile[],
+  destinationRoot: string,
+): PlannedSkillFile[] {
+  return files
+    .map((file) => ({
+      source: file.source,
+      destination: path.join(destinationRoot, ...file.relativePath.split('/')),
+    }))
+    .sort((left, right) =>
+      left.destination < right.destination ? -1 : left.destination > right.destination ? 1 : 0,
+    );
+}
+
 function getManagedSkillPaths(manifest: Manifest): string[] {
   return [...new Set([...manifest.skills, ...(manifest.internalSkills ?? [])])];
 }
@@ -771,6 +795,8 @@ export {
   createWorkingDirs,
   getAssetsDir,
   computeRuleDestPath,
+  formatRuleContent,
   isManagedHookCommand,
+  planSkillDirectoryCopy,
 };
-export type { Manifest, LanguageConfig };
+export type { Manifest, LanguageConfig, PlannedSkillFile, PlannedSkillSourceFile };

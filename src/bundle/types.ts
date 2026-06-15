@@ -83,6 +83,10 @@ export interface ResolvedBundleLocale {
 
 export interface BundleCompilerIr {
   bundle: { name: string; version: string; locale: string; hash: string };
+  capabilities: {
+    requires: BundleCapability[];
+    optional: BundleCapability[];
+  };
   skills: Array<{
     id: string;
     visibility: BundleSkillVisibility;
@@ -94,11 +98,35 @@ export interface BundleCompilerIr {
   scripts: Array<BundleScriptDefinition & { source: string }>;
   references: Array<{ logicalPath: string; source: string }>;
   assets: Array<{ logicalPath: string; source: string }>;
+  overrides: Array<BundlePlatformOverride & { source: string }>;
   engine: { sourceRoot: string } | null;
+}
+
+export interface ExecutableDisclosure {
+  id: string;
+  command: string;
+  sideEffect: BundleSideEffect;
+  destination: string;
 }
 
 export interface PlatformInstallFile {
   source: string;
   destination: string;
   kind: 'skill' | 'rule' | 'hook' | 'script' | 'reference' | 'asset' | 'engine';
+  operation?:
+    | {
+        type: 'rule';
+        format: 'md' | 'mdc' | 'copilot';
+        mode: 'always' | 'matched';
+        match?: string[];
+      }
+    | {
+        type: 'hook';
+        format: 'claude-code' | 'gemini' | 'windsurf' | 'copilot' | 'qwen' | 'kiro' | 'qoder';
+        event: NormalizedHook['event'];
+        matcher?: string;
+        command: string;
+        failure: NormalizedHook['failure'];
+        requiresConfirmation: boolean;
+      };
 }

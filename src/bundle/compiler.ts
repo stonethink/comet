@@ -78,6 +78,16 @@ export async function compileBundleIr(
     }))
     .sort((left, right) => compareText(left.logicalPath, right.logicalPath));
 
+  const overrides = bundle.manifest.platforms.overrides
+    .map((override) => ({
+      ...override,
+      source: requiredSource(resolved.files, override.path),
+    }))
+    .sort((left, right) => {
+      const platformOrder = compareText(left.platform, right.platform);
+      return platformOrder === 0 ? compareText(left.replaces, right.replaces) : platformOrder;
+    });
+
   return {
     bundle: {
       name: bundle.manifest.metadata.name,
@@ -85,12 +95,17 @@ export async function compileBundleIr(
       locale: resolved.locale,
       hash,
     },
+    capabilities: {
+      requires: [...bundle.manifest.platforms.requires],
+      optional: [...bundle.manifest.platforms.optional],
+    },
     skills,
     rules,
     hooks,
     scripts,
     references,
     assets,
+    overrides,
     engine: bundle.manifest.engine.enabled
       ? { sourceRoot: path.resolve(bundle.root, bundle.manifest.engine.path ?? 'engine') }
       : null,
