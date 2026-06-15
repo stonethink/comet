@@ -76,9 +76,11 @@ describe('comet init E2E', () => {
     await fs.mkdir(tmpDir, { recursive: true });
     vi.resetAllMocks();
     vi.resetModules();
+    vi.spyOn(os, 'homedir').mockReturnValue(path.join(tmpDir, 'fake-home'));
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     await fs.rm(tmpDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   });
 

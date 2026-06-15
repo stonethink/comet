@@ -31,6 +31,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 
 - **Foundation contract coverage**: Adds tests for Skill loading and validation, real-path containment, content-addressed immutable snapshots, preserving/atomic Run state read-write, fail-closed state validation, complete run-file recovery, action authorization and budgets, runtime evals, deterministic/adaptive lifecycle guards, and an end-to-end recovery slice through persisted Artifacts and Trajectory.
 - **Classic compatibility coverage**: Freezes the 0.3.8 shell contracts, compares stable state and command behavior through the new facades, exercises Run migration and recovery across Classic entry points, and requires all four deterministic benchmark rates to remain `1.0`.
+- **Plan 2 release verification stability**: Isolates installation detection tests from real user-level Skill directories and gives the Classic benchmark a dedicated timeout budget, keeping full-suite results deterministic on developer machines and under parallel CI load.
 
 ## What's Changed [0.3.8] - 2026-06-13
 
