@@ -36,6 +36,14 @@ export interface BundlePlatformOverride {
   path: string;
 }
 
+export interface NormalizedHook {
+  event: 'session_start' | 'before_tool' | 'after_tool' | 'before_write' | 'after_write';
+  matcher?: string;
+  script: string;
+  failure: 'block' | 'warn';
+  requiresConfirmation: boolean;
+}
+
 export interface BundleManifest {
   apiVersion: 'comet/v1alpha1';
   kind: 'SkillBundle';
