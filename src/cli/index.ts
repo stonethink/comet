@@ -13,6 +13,18 @@ import {
   skillRunCommand,
   skillValidateCommand,
 } from '../commands/skill.js';
+import {
+  bundleCandidatesCommand,
+  bundleCompileCommand,
+  bundleDistributeCommand,
+  bundleDraftCreateCommand,
+  bundleDraftOptimizeCommand,
+  bundleEvalPlanCommand,
+  bundleEvalRecordCommand,
+  bundlePublishCommand,
+  bundleReviewCommand,
+  bundleStatusCommand,
+} from '../commands/bundle.js';
 
 const require = createRequire(import.meta.url);
 const { version } = require('../../package.json');
@@ -168,6 +180,128 @@ skill
   .option('--json', 'Output as JSON')
   .action(async (options) => {
     await skillEvalCommand(options);
+  });
+
+const bundle = program.command('bundle').description('Create and distribute Comet Skill Bundles');
+
+bundle
+  .command('candidates')
+  .description('Discover Skill candidates for Bundle authoring')
+  .option('--project <dir>', 'Project root', '.')
+  .option('--json', 'Output as JSON')
+  .action(async (options) => {
+    await bundleCandidatesCommand(options);
+  });
+
+const draft = bundle.command('draft').description('Manage Bundle drafts');
+
+draft
+  .command('create <name>')
+  .description('Create an empty Bundle draft')
+  .option('--project <dir>', 'Project root', '.')
+  .addOption(new Option('--default-locale <locale>', 'Default locale').default('en'))
+  .option('--locale-option <locale>', 'Supported locale', collect, [])
+  .option('--engine', 'Enable optional Engine metadata')
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await bundleDraftCreateCommand(name, options);
+  });
+
+draft
+  .command('optimize <bundle>')
+  .description('Create an optimization draft from an existing Bundle root')
+  .option('--project <dir>', 'Project root', '.')
+  .option('--name <name>', 'Override draft name')
+  .option('--json', 'Output as JSON')
+  .action(async (source, options) => {
+    await bundleDraftOptimizeCommand(source, options);
+  });
+
+bundle
+  .command('status <name>')
+  .description('Show Bundle authoring status')
+  .option('--project <dir>', 'Project root', '.')
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await bundleStatusCommand(name, options);
+  });
+
+bundle
+  .command('compile <name>')
+  .description('Dry-run compile a Bundle for one platform')
+  .option('--project <dir>', 'Project root', '.')
+  .requiredOption('--platform <id>', 'Platform id')
+  .addOption(new Option('--scope <scope>', 'Install scope').choices(['global', 'project']))
+  .option('--locale <locale>', 'Locale to compile')
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await bundleCompileCommand(name, options);
+  });
+
+bundle
+  .command('eval-plan <name>')
+  .description('Estimate Bundle Eval work')
+  .option('--project <dir>', 'Project root', '.')
+  .addOption(
+    new Option('--level <level>', 'Eval level').choices(['quick', 'full']).default('quick'),
+  )
+  .option('--locale <locale>', 'Locale to compile')
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await bundleEvalPlanCommand(name, options);
+  });
+
+bundle
+  .command('eval-record <name>')
+  .description('Record structured Bundle Eval evidence')
+  .option('--project <dir>', 'Project root', '.')
+  .requiredOption('--result <file>', 'Eval result JSON')
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await bundleEvalRecordCommand(name, options);
+  });
+
+bundle
+  .command('review <name>')
+  .description('Approve or reject a Bundle for publishing')
+  .option('--project <dir>', 'Project root', '.')
+  .option('--approve', 'Approve the Bundle')
+  .option('--reject', 'Reject the Bundle')
+  .requiredOption('--reviewer <name>', 'Reviewer name')
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await bundleReviewCommand(name, options);
+  });
+
+bundle
+  .command('publish <name>')
+  .description('Publish an approved Bundle into .comet/bundles')
+  .option('--project <dir>', 'Project root', '.')
+  .requiredOption('--platform <id>', 'Reference platform id')
+  .option('--overwrite', 'Replace an existing published Bundle')
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await bundlePublishCommand(name, options);
+  });
+
+bundle
+  .command('distribute <name>')
+  .description('Install a ready Bundle across selected platforms')
+  .option('--project <dir>', 'Project root', '.')
+  .option('--platform <id>', 'Platform id', collect, [])
+  .addOption(new Option('--scope <scope>', 'Install scope').choices(['global', 'project']))
+  .option('--locale <locale>', 'Locale to distribute')
+  .option('--overwrite', 'Overwrite existing target files')
+  .option(
+    '--skip-capability <capability>',
+    'Explicitly skip an unsupported optional capability',
+    collect,
+    [],
+  )
+  .option('--confirm-executables', 'Confirm executable hook/script disclosures')
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await bundleDistributeCommand(name, options);
   });
 
 program.parse();

@@ -13,6 +13,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Project Skill pool**: Adds validated, symlink-rejecting installation under `.comet/skills/<name>` plus deterministic discovery across explicit directories, project overrides, and built-in Skills; invalid project overrides fail closed instead of silently selecting another package.
 - **Snapshot-based manual Runs**: Adds persisted pending actions, immutable snapshot recovery, runtime Eval evidence, artifact merging, and explicit compatible Skill upgrades with migration events while leaving action execution to the current Agent or platform Runtime.
 - **Bundle distribution service**: Adds ready-state-gated Bundle distribution across selected project/global platforms with locale-aware compilation, explicit optional-capability skips, required-capability cancellation, executable hook confirmation, non-destructive hook settings merges, and per-platform installed/skipped/failed results.
+- **Bundle lifecycle CLI**: Adds the `comet bundle` command group for candidate discovery, draft create/optimize, status, platform compile dry-runs, Eval planning and evidence recording, review approval/rejection, publishing, and ready Bundle distribution with stable JSON output for automation.
 
 ### Changed
 
@@ -39,6 +40,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Plan 2 release verification stability**: Isolates installation detection tests from real user-level Skill directories and gives the Classic benchmark a dedicated timeout budget, keeping full-suite results deterministic on developer machines and under parallel CI load.
 - **Manual authoring coverage**: Adds discovery precedence, fail-closed overrides, project installation, immutable snapshot reads, deterministic Run/resume completion, Runtime Evals, upgrade compatibility, Windows link handling, command JSON contracts, and a built CLI end-to-end flow through `run`, bare `resume`, outcome submission, upgrade, and `eval`.
 - **Bundle distribution coverage**: Adds Task 11 coverage for ready hash enforcement, project/global path derivation, locale overlays, optional and required platform capability gaps, executable confirmation before writes, hook config preservation, overwrite behavior, partial platform failure, and excluding authoring/Eval state from installs.
+- **Bundle CLI lifecycle coverage**: Adds command-level and built-CLI coverage for draft optimization, status reconciliation, platform compilation, Eval workload planning, Eval result recording, review gates, publish gates, distribution installation, text/JSON output, and invalid non-interactive option combinations.
 
 ## What's Changed [0.3.8] - 2026-06-13
 
