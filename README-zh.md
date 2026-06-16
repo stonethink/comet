@@ -239,6 +239,32 @@ comet skill resume --change ./changes/demo --upgrade my-skill --project .
 
 </details>
 
+<details>
+<summary><code>comet bundle &lt;command&gt;</code> — 编写和分发多 Skill Bundle</summary>
+
+从新目标或现有候选 Skill 创建平台无关的 Skill Bundle。Bundle 草稿具备确定性生命周期：可以编译为原生平台
+Skill/rule/hook 安装计划，可以携带可选 Engine 元数据，必须记录结构化 Eval 证据，并且发布和分发前都需要人工批准。
+
+```bash
+comet bundle candidates --project . --json
+comet bundle draft create my-bundle --project .
+comet bundle draft optimize ./bundle-source --project .
+comet bundle status my-bundle --json
+comet bundle compile my-bundle --platform claude --json
+comet bundle eval-plan my-bundle --level quick --json
+comet bundle eval-record my-bundle --result ./eval.json --json
+comet bundle review my-bundle --approve --reviewer alice --json
+comet bundle publish my-bundle --platform claude --json
+comet bundle distribute my-bundle --platform claude --scope project --confirm-executables --json
+```
+
+`/comet-any` 会引导完整创作流程：读取 `.comet/skills.txt` 偏好或扫描平台 Skill，读取每个候选实现，优先使用原生
+`skill-creator`，回退到 Comet fallback 前必须询问用户；在 provider 工作前展示 quick/full Eval 的 token 消耗；
+skip 或失败 Eval 会阻止 ready；分发前必须再次询问用户。required 能力缺口会取消对应平台，optional 缺口需要显式
+`--skip-capability`，hooks/scripts 需要可执行确认。分发同时支持 `project` 和 `global` scope。
+
+</details>
+
 | 命令                | 描述   |
 |-------------------|------|
 | `comet --help`    | 显示帮助 |
@@ -293,6 +319,7 @@ comet skill resume --change ./changes/demo --upgrade my-skill --project .
 | `/comet-archive` | 阶段 5：归档（delta spec 同步、状态标注）       |
 | `/comet-hotfix`  | 快捷路径：快速 bug 修复（跳过头脑风暴，不需要能力设计）    |
 | `/comet-tweak`   | 快捷路径：小改动（文案调整、配置调整、文档或 Prompt 优化） |
+| `/comet-any`     | Bundle 创建器：创建/优化多 Skill Bundle       |
 
 </details>
 

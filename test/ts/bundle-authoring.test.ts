@@ -124,6 +124,7 @@ describe('Bundle authoring lifecycle', () => {
   it('copies an existing Bundle into an optimize draft without changing the source', async () => {
     const sourceRoot = path.join(root, 'source');
     await writeBundle(sourceRoot, 'demo-bundle', '2.3.4');
+    const realSourceRoot = await fs.realpath(sourceRoot);
     const sourceBefore = await fs.readFile(
       path.join(sourceRoot, 'skills', 'demo', 'SKILL.md'),
       'utf8',
@@ -145,7 +146,7 @@ describe('Bundle authoring lifecycle', () => {
       status: 'draft',
       currentHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
       base: {
-        root: path.resolve(sourceRoot),
+        root: realSourceRoot,
         version: '2.3.4',
         hash: expect.stringMatching(/^[a-f0-9]{64}$/u),
       },

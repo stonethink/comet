@@ -77,6 +77,8 @@ brainstorming
     const codexSkill = path.join(homeDir, '.codex', 'skills', 'brainstorming');
     await writeSkill(claudeSkill, 'brainstorming', 'Explore intent before implementation.');
     await writeSkill(codexSkill, 'brainstorming', 'Generate and compare design options.');
+    const realClaudeSkill = await fs.realpath(claudeSkill);
+    const realCodexSkill = await fs.realpath(codexSkill);
 
     const result = await discoverBundleCandidates({
       projectRoot,
@@ -93,7 +95,7 @@ brainstorming
             name: 'brainstorming',
             platform: 'claude-code',
             scope: 'project',
-            root: path.resolve(claudeSkill),
+            root: realClaudeSkill,
             description: 'Explore intent before implementation.',
             skillMd: expect.stringContaining('# brainstorming'),
             hash: expect.stringMatching(/^[a-f0-9]{64}$/u),
@@ -102,7 +104,7 @@ brainstorming
             name: 'brainstorming',
             platform: 'codex',
             scope: 'global',
-            root: path.resolve(codexSkill),
+            root: realCodexSkill,
             description: 'Generate and compare design options.',
             skillMd: expect.stringContaining('# brainstorming'),
             hash: expect.stringMatching(/^[a-f0-9]{64}$/u),

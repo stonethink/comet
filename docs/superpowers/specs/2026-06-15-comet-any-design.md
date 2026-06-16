@@ -1,7 +1,7 @@
 # Comet Any Skill Bundle Creator 设计
 
 **日期：** 2026-06-15
-**状态：** 已确认
+**状态：** 已完成
 **范围：** Plan 4 - `/comet-any`
  
 ## 1. 目标

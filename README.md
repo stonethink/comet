@@ -260,6 +260,34 @@ falling back.
 
 </details>
 
+<details>
+<summary><code>comet bundle &lt;command&gt;</code> — Author and distribute multi-Skill Bundles</summary>
+
+Creates platform-independent Skill Bundles from new goals or existing candidate Skills. Bundle drafts are deterministic:
+they compile into native platform Skill/rule/hook install plans, can carry optional Engine metadata, require structured
+Eval evidence, and must receive human approval before publishing or distribution.
+
+```bash
+comet bundle candidates --project . --json
+comet bundle draft create my-bundle --project .
+comet bundle draft optimize ./bundle-source --project .
+comet bundle status my-bundle --json
+comet bundle compile my-bundle --platform claude --json
+comet bundle eval-plan my-bundle --level quick --json
+comet bundle eval-record my-bundle --result ./eval.json --json
+comet bundle review my-bundle --approve --reviewer alice --json
+comet bundle publish my-bundle --platform claude --json
+comet bundle distribute my-bundle --platform claude --scope project --confirm-executables --json
+```
+
+`/comet-any` guides the authoring flow: it reads `.comet/skills.txt` preferences or scans platform Skills, reads each
+candidate implementation, prefers native `skill-creator`, asks before using the Comet fallback, shows quick/full Eval
+token workload before provider work, blocks ready state when Eval is skipped or fails, and asks before distribution.
+Required capability gaps cancel a platform, optional gaps require explicit `--skip-capability`, and hooks/scripts require
+executable confirmation. Distribution supports both `project` and `global` scopes.
+
+</details>
+
 | Command           | Description  |
 |-------------------|--------------|
 | `comet --help`    | Show help    |
@@ -314,6 +342,7 @@ After `comet init`, three groups of skills are installed to the selected platfor
 | `/comet-archive` | Phase 5: Archive (delta spec sync, status annotation)          |
 | `/comet-hotfix`  | Preset: Quick bug fix (skips brainstorming)                    |
 | `/comet-tweak`   | Preset: Small change (skips brainstorming and full plan)       |
+| `/comet-any`     | Bundle creator — create/optimize multi-Skill Bundles           |
 
 </details>
 
