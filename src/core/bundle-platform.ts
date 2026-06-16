@@ -1,11 +1,13 @@
 import path from 'path';
+import { promises as fs } from 'fs';
 import type {
   BundleCapability,
   BundleCompilerIr,
   ExecutableDisclosure,
   PlatformInstallFile,
 } from '../bundle/types.js';
-import { computeRuleDestPath } from './skills.js';
+import { copyFile, ensureDir, fileExists, writeFile } from '../utils/file-system.js';
+import { computeRuleDestPath, formatRuleContent } from './skills.js';
 import { getPlatformSkillsDir, PLATFORMS, type Platform } from './platforms.js';
 
 export interface PlatformBundleLayout {
@@ -190,4 +192,186 @@ export function planBundleOverride(
     destination: path.join(path.dirname(target.layout.skillsRoot), ...relative.split('/')),
     kind,
   };
+}
+
+function hookMatcher(file: PlatformInstallFile): string {
+  if (file.operation?.type !== 'hook') return '*';
+  if (file.operation.matcher) return file.operation.matcher;
+  return file.operation.event === 'before_write' ? 'Write|Edit' : '*';
+}
+
+function readJsonObject(value: string, file: string): Record<string, unknown> {
+  if (value.trim() === '') return {};
+  const parsed = JSON.parse(value) as unknown;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(`Invalid JSON object at ${file}`);
+  }
+  return parsed as Record<string, unknown>;
+}
+
+async function readExistingJson(file: string): Promise<Record<string, unknown>> {
+  if (!(await fileExists(file))) return {};
+  return readJsonObject(await fs.readFile(file, 'utf8'), file);
+}
+
+function asHookGroups(value: unknown): Array<Record<string, unknown>> {
+  return Array.isArray(value) ? (value as Array<Record<string, unknown>>) : [];
+}
+
+function mergeCommandHookGroup(
+  existingGroups: Array<Record<string, unknown>>,
+  matcher: string,
+  hook: Record<string, unknown>,
+  command: string,
+): Array<Record<string, unknown>> {
+  const groups = existingGroups
+    .map((group) => {
+      if (!Array.isArray(group.hooks)) return group;
+      return {
+        ...group,
+        hooks: group.hooks.filter(
+          (entry) =>
+            !entry ||
+            typeof entry !== 'object' ||
+            (entry as Record<string, unknown>).command !== command,
+        ),
+      };
+    })
+    .filter((group) => !Array.isArray(group.hooks) || group.hooks.length > 0);
+  const group = groups.find(
+    (candidate) => candidate.matcher === matcher && Array.isArray(candidate.hooks),
+  );
+  if (group) {
+    group.hooks = [...(group.hooks as unknown[]), hook];
+  } else {
+    groups.push({ matcher, hooks: [hook] });
+  }
+  return groups;
+}
+
+async function applyHookInstallFile(file: PlatformInstallFile): Promise<void> {
+  const operation = file.operation;
+  if (operation?.type !== 'hook') {
+    throw new Error(`Install file ${file.destination} is not a hook operation`);
+  }
+
+  const matcher = hookMatcher(file);
+  const settings = await readExistingJson(file.destination);
+  const hooks = (settings.hooks as Record<string, unknown> | undefined) ?? {};
+  const commandHook = { type: 'command', command: operation.command };
+
+  switch (operation.format) {
+    case 'claude-code':
+    case 'qwen':
+    case 'qoder': {
+      hooks.PreToolUse = mergeCommandHookGroup(
+        asHookGroups(hooks.PreToolUse),
+        matcher,
+        commandHook,
+        operation.command,
+      );
+      settings.hooks = hooks;
+      await writeFile(file.destination, JSON.stringify(settings, null, 2) + '\n');
+      return;
+    }
+    case 'gemini': {
+      const geminiMatcher = matcher === 'Write|Edit' ? 'write_file|edit_file' : matcher;
+      hooks.BeforeTool = mergeCommandHookGroup(
+        asHookGroups(hooks.BeforeTool),
+        geminiMatcher,
+        { ...commandHook, name: file.kind },
+        operation.command,
+      );
+      settings.hooks = hooks;
+      await writeFile(file.destination, JSON.stringify(settings, null, 2) + '\n');
+      return;
+    }
+    case 'windsurf': {
+      const existing = asHookGroups(hooks.pre_write_code).filter(
+        (entry) => entry.command !== operation.command,
+      );
+      hooks.pre_write_code = [...existing, { command: operation.command, show_output: true }];
+      settings.hooks = hooks;
+      await writeFile(file.destination, JSON.stringify(settings, null, 2) + '\n');
+      return;
+    }
+    case 'copilot': {
+      const hookFile = await readExistingJson(file.destination);
+      const existingHooks = (hookFile.hooks as Record<string, unknown> | undefined) ?? {};
+      const preToolUse = Array.isArray(existingHooks.preToolUse)
+        ? existingHooks.preToolUse.filter((entry) => {
+            if (!entry || typeof entry !== 'object') return true;
+            const value = entry as Record<string, unknown>;
+            return value.bash !== operation.command && value.powershell !== operation.command;
+          })
+        : [];
+      hookFile.version = hookFile.version ?? 1;
+      hookFile.hooks = {
+        ...existingHooks,
+        preToolUse: [...preToolUse, { bash: operation.command, powershell: operation.command }],
+      };
+      await writeFile(file.destination, JSON.stringify(hookFile, null, 2) + '\n');
+      return;
+    }
+    case 'kiro': {
+      const hookFile = await readExistingJson(file.destination);
+      const toolName = matcher === 'Write|Edit' ? 'write' : matcher;
+      await writeFile(
+        file.destination,
+        JSON.stringify(
+          {
+            ...hookFile,
+            enabled: true,
+            name: hookFile.name ?? path.basename(file.destination),
+            description: hookFile.description ?? path.basename(file.destination),
+            version: hookFile.version ?? '1',
+            when: { type: 'preToolUse', toolName },
+            then: { type: 'runCommand', command: operation.command },
+          },
+          null,
+          2,
+        ) + '\n',
+      );
+      return;
+    }
+  }
+}
+
+async function applyInstallFile(
+  file: PlatformInstallFile,
+  overwrite: boolean,
+): Promise<'written' | 'skipped'> {
+  if (file.operation?.type === 'hook') {
+    await applyHookInstallFile(file);
+    return 'written';
+  }
+  if (!overwrite && (await fileExists(file.destination))) {
+    return 'skipped';
+  }
+  await ensureDir(path.dirname(file.destination));
+  if (file.operation?.type === 'rule') {
+    const content = await fs.readFile(file.source, 'utf8');
+    await writeFile(
+      file.destination,
+      formatRuleContent(content, path.basename(file.source), file.operation.format),
+    );
+    return 'written';
+  }
+  await copyFile(file.source, file.destination);
+  return 'written';
+}
+
+export async function applyPlatformInstallPlan(options: {
+  target: BundlePlatformTarget;
+  files: PlatformInstallFile[];
+  overwrite: boolean;
+}): Promise<{ written: string[]; skipped: string[] }> {
+  const written: string[] = [];
+  const skipped: string[] = [];
+  for (const file of options.files) {
+    const result = await applyInstallFile(file, options.overwrite);
+    if (result === 'written') written.push(file.destination);
+    else skipped.push(file.destination);
+  }
+  return { written, skipped };
 }
