@@ -623,7 +623,7 @@ describe('skills', () => {
       // MEDIUM: comet-design brainstorming does not write Design Doc before confirmation
       expect(zhDesign).toContain('brainstorming 阶段不写入 Design Doc 文件');
       expect(zhDesign).toContain('增量更新 `brainstorm-summary.md`');
-      expect(zhDesign).toContain('### 1e. 主动上下文压缩门');
+      expect(zhDesign).toContain('### 1e. 主动式上下文压缩');
 
       // MEDIUM: comet-verify Spec drift requires user choice
       expect(zhVerify).toContain(
@@ -640,10 +640,12 @@ describe('skills', () => {
       expect(zhBuild).toContain('提供 plan-ready 暂停点');
       expect(zhBuild).toContain('不得自动继续，也不得把暂停写入 `build_mode`');
       expect(zhBuild).toContain('`build_mode` 为 `executing-plans`');
+      expect(zhBuild).toContain('review_mode');
+      expect(zhBuild).toContain('| `off` | 不自动派发代码审查 |');
+      expect(zhBuild).toContain('| `standard` | 只在任务完成后运行一次最终轻量代码审查');
       expect(zhBuild).toContain(
-        '必须使用 Skill 工具加载 Superpowers `requesting-code-review` 技能',
+        '| `thorough` | 按批次或风险边界运行合并审查，最后再运行一次完整审查 |',
       );
-      expect(zhBuild).toContain('至少请求一次代码审查');
       expect(zhBuild).toContain('build → verify');
       expect(zhBuild).toContain(
         'CRITICAL review 发现（安全漏洞、数据丢失风险、构建/测试失败）必须先修复',
@@ -652,15 +654,13 @@ describe('skills', () => {
       // MEDIUM: comet-verify Step 1b treats CRITICAL/IMPORTANT as blocking
       expect(zhVerify).toContain('CRITICAL 或 IMPORTANT 失败项必须修复');
       expect(zhVerify).toContain('不允许跳过修复直接全部接受');
-      expect(zhVerify).toContain('简化代码审查');
-      expect(zhVerify).toContain(
-        '必须使用 Skill 工具加载 Superpowers `requesting-code-review` 技能',
-      );
+      expect(zhVerify).toContain('当 `review_mode: standard` 或 `thorough` 时');
+      expect(zhVerify).toContain('当 `review_mode: off` 时跳过自动代码审查');
       expect(zhVerify).toContain('只检查正确性、安全、边界条件');
       expect(zhVerify).toContain('无 CRITICAL 或 IMPORTANT 问题');
       expect(zhVerify).toContain('不影响正确性、安全、边界条件的 code pattern consistency 建议');
       expect(zhVerify).toContain('不执行 spec 覆盖率、Design Doc 一致性或漂移检查');
-      expect(zhHotfix).toContain('6 项快速检查，包含简化代码审查');
+      expect(zhHotfix).toContain('默认 `review_mode: off`');
 
       // MEDIUM: hotfix IMPORTANT covers >3-tasks comet-build decision points
       expect(zhHotfix).toContain('任务超过 3 个转入 `/comet-build` 时的工作区隔离和执行方式选择');
@@ -1224,7 +1224,11 @@ describe('skills', () => {
       expect(zhDispatch).toContain(
         '使用 Skill 工具加载 Superpowers `test-driven-development` 技能',
       );
-      expect(zhDispatch).toContain('两个审查都通过后');
+      expect(zhDispatch).toContain(
+        '当 `review_mode: standard` 时，每个 task 不自动派发 per-task reviewer',
+      );
+      expect(zhDispatch).toContain('当 `review_mode: thorough` 时，不执行每 task 双审查');
+      expect(zhDispatch).toContain('当 `review_mode: off` 时');
       expect(zhDispatch).toContain(
         '"$COMET_BASH" "$COMET_STATE" task-checkoff "$PLAN_FILE" "$PLAN_TASK_TEXT"',
       );
@@ -1325,6 +1329,43 @@ describe('skills', () => {
     });
   });
 
+  describe('Comet phase guard rules', () => {
+    const section = (content: string, heading: string) => {
+      const start = content.indexOf(heading);
+      expect(start).toBeGreaterThanOrEqual(0);
+      const rest = content.slice(start + heading.length);
+      const nextHeading = rest.search(/\n## /u);
+      return nextHeading === -1 ? rest : rest.slice(0, nextHeading);
+    };
+
+    it('delegates post-guard handoff to comet-state next so auto_transition is honored', async () => {
+      const zhGuard = await fs.readFile(
+        path.resolve('assets', 'skills', 'comet', 'rules', 'comet-phase-guard.md'),
+        'utf-8',
+      );
+      const enGuard = await fs.readFile(
+        path.resolve('assets', 'skills', 'comet', 'rules', 'comet-phase-guard.en.md'),
+        'utf-8',
+      );
+
+      const zhSection = section(zhGuard, '## 阶段退出后自动过渡');
+      expect(zhSection).toContain('comet-state next <change-name>');
+      expect(zhSection).toContain('NEXT: auto');
+      expect(zhSection).toContain('NEXT: manual');
+      expect(zhSection).toContain('NEXT: done');
+      expect(zhSection).not.toContain('必须调用下一阶段的 skill');
+      expect(zhSection).not.toContain('open → `comet-design`');
+
+      const enSection = section(enGuard, '## Automatic Transition After Phase Exit');
+      expect(enSection).toContain('comet-state next <change-name>');
+      expect(enSection).toContain('NEXT: auto');
+      expect(enSection).toContain('NEXT: manual');
+      expect(enSection).toContain('NEXT: done');
+      expect(enSection).not.toContain("must invoke the next phase's skill");
+      expect(enSection).not.toContain('open → `comet-design`');
+    });
+  });
+
   describe('Repository authoring guidance', () => {
     it('documents consistent skill invocation wording in CLAUDE.md', async () => {
       const claude = await fs.readFile(path.resolve('CLAUDE.md'), 'utf-8');
@@ -1346,6 +1387,31 @@ describe('skills', () => {
     it('ships a shared script locator helper', async () => {
       const manifest = await readManifest();
       expect(manifest.skills).toContain('comet/scripts/comet-env.sh');
+    });
+
+    it('keeps review_mode wired through state and schema scripts', async () => {
+      const stateScript = await fs.readFile(
+        path.resolve('src', 'compat', 'classic-state-command.ts'),
+        'utf-8',
+      );
+      const guardScript = await fs.readFile(
+        path.resolve('src', 'compat', 'classic-guard.ts'),
+        'utf-8',
+      );
+      const validateScript = await fs.readFile(
+        path.resolve('src', 'compat', 'classic-validate-command.ts'),
+        'utf-8',
+      );
+
+      expect(stateScript).toContain('review_mode: reviewMode');
+      expect(stateScript).toContain("review_mode: ['off', 'standard', 'thorough']");
+      expect(stateScript).toContain("projectConfigValue('review_mode')");
+      expect(stateScript).toContain('review_mode must be selected before leaving build');
+      expect(guardScript).toContain('reviewModeSelected');
+      expect(guardScript).toContain("check('review_mode selected'");
+      expect(validateScript).toContain(
+        "review_mode: ['off', 'standard', 'thorough']",
+      );
     });
 
     it('keeps platform search roots out of English and Chinese skill prose', async () => {

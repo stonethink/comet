@@ -7670,6 +7670,7 @@ var BUILD_MODES = ["subagent-driven-development", "executing-plans", "direct"];
 var BUILD_PAUSES = ["plan-ready"];
 var SUBAGENT_DISPATCH = ["confirmed"];
 var TDD_MODES = ["tdd", "direct"];
+var REVIEW_MODES = ["off", "standard", "thorough"];
 var ISOLATIONS = ["branch", "worktree"];
 var VERIFY_MODES = ["light", "full"];
 var VERIFY_RESULTS = ["pending", "pass", "fail"];
@@ -7682,6 +7683,7 @@ var CLASSIC_WIRE_KEYS = [
   "build_pause",
   "subagent_dispatch",
   "tdd_mode",
+  "review_mode",
   "isolation",
   "verify_mode",
   "auto_transition",
@@ -7796,9 +7798,7 @@ function classicStateFromDocument(doc) {
   const hasClassicProjection = CLASSIC_WIRE_KEYS.some((key) => has(doc, key));
   if (!hasClassicProjection) return null;
   for (const key of REQUIRED_CLASSIC_KEYS) {
-    if (!has(doc, key)) {
-      throw new Error(`Invalid Classic state: missing required field ${key}`);
-    }
+    if (!has(doc, key)) return null;
   }
   return {
     workflow: enumValue(doc, "workflow", CLASSIC_PROFILES, false),
@@ -7808,6 +7808,7 @@ function classicStateFromDocument(doc) {
     buildPause: enumValue(doc, "build_pause", BUILD_PAUSES),
     subagentDispatch: enumValue(doc, "subagent_dispatch", SUBAGENT_DISPATCH),
     tddMode: enumValue(doc, "tdd_mode", TDD_MODES),
+    reviewMode: enumValue(doc, "review_mode", REVIEW_MODES),
     isolation: enumValue(doc, "isolation", ISOLATIONS),
     verifyMode: enumValue(doc, "verify_mode", VERIFY_MODES),
     autoTransition: booleanValue(doc, "auto_transition"),
@@ -7845,6 +7846,19 @@ function parseClassicStateDocument(doc) {
     unknownKeys: Object.keys(doc).filter((key) => !KNOWN_KEYS.has(key))
   };
 }
+function readLegacyStateSummary(doc) {
+  const workflowRaw = doc["workflow"];
+  const phaseRaw = doc["phase"];
+  const archivedRaw = doc["archived"];
+  const designDocRaw = doc["design_doc"];
+  return {
+    workflow: typeof workflowRaw === "string" && CLASSIC_PROFILES.includes(workflowRaw) ? workflowRaw : null,
+    phase: typeof phaseRaw === "string" && PHASES.includes(phaseRaw) ? phaseRaw : null,
+    archived: archivedRaw === true,
+    designDoc: typeof designDocRaw === "string" && designDocRaw !== "" ? designDocRaw : null,
+    unknownKeys: Object.keys(doc).filter((key) => !KNOWN_KEYS.has(key))
+  };
+}
 function classicStateToDocument(state) {
   return {
     workflow: state.workflow,
@@ -7854,6 +7868,7 @@ function classicStateToDocument(state) {
     build_pause: state.buildPause,
     subagent_dispatch: state.subagentDispatch,
     tdd_mode: state.tddMode,
+    review_mode: state.reviewMode,
     isolation: state.isolation,
     verify_mode: state.verifyMode,
     auto_transition: state.autoTransition,
@@ -7924,6 +7939,10 @@ async function readDocument(file) {
 async function readClassicState(changeDir) {
   const document = await readDocument(path3.join(changeDir, ".comet.yaml"));
   return parseClassicStateDocument(documentRecord(document));
+}
+async function readLegacyState(changeDir) {
+  const document = await readDocument(path3.join(changeDir, ".comet.yaml"));
+  return readLegacyStateSummary(documentRecord(document));
 }
 async function writeClassicState(changeDir, projection) {
   const file = path3.join(changeDir, ".comet.yaml");
@@ -9089,6 +9108,7 @@ var ENUMS = {
   build_pause: ["plan-ready"],
   subagent_dispatch: ["confirmed"],
   tdd_mode: ["tdd", "direct"],
+  review_mode: ["off", "standard", "thorough"],
   isolation: ["branch", "worktree"],
   verify_mode: ["light", "full"],
   auto_transition: ["true", "false"],
@@ -9611,6 +9631,19 @@ Next: ask the user to choose TDD enforcement level, then run:
   "$COMET_BASH" "$COMET_STATE" set ${change} tdd_mode <tdd|direct>`
   );
 }
+async function reviewModeSelected(changeDir, change) {
+  const workflow = await readField(changeDir, "workflow");
+  if (workflow === "hotfix" || workflow === "tweak") return pass();
+  const reviewMode = await readField(changeDir, "review_mode");
+  if (reviewMode === "off" || reviewMode === "standard" || reviewMode === "thorough") {
+    return pass();
+  }
+  return fail(
+    `review_mode must be off, standard, or thorough before leaving build, got '${reviewMode || "null"}'
+Next: ask the user to choose review strength, then run:
+  "$COMET_BASH" "$COMET_STATE" set ${change} review_mode <off|standard|thorough>`
+  );
+}
 async function verificationReportExists(changeDir) {
   const report = await readField(changeDir, "verification_report");
   return Boolean(report) && report !== "null" && existsSync(report);
@@ -9730,14 +9763,11 @@ async function betaSpecJsonStructurallyValid(changeDir) {
   return problems.length === 0 ? pass() : fail(problems.join("\n"));
 }
 async function guardOpenChecks(output, changeDir) {
-  return runChecks(output, [
+  const workflow = await readField(changeDir, "workflow");
+  const checks = [
     check(
       "proposal.md exists and non-empty",
       async () => await nonempty(path11.join(changeDir, "proposal.md")) ? pass() : fail("")
-    ),
-    check(
-      "design.md exists and non-empty",
-      async () => await nonempty(path11.join(changeDir, "design.md")) ? pass() : fail("")
     ),
     check(
       "tasks.md exists and non-empty",
@@ -9747,7 +9777,18 @@ async function guardOpenChecks(output, changeDir) {
       "tasks.md has at least one task",
       async () => await tasksHasAny(changeDir) ? pass() : fail("")
     )
-  ]);
+  ];
+  if (workflow === "full") {
+    checks.splice(
+      1,
+      0,
+      check(
+        "design.md exists and non-empty",
+        async () => await nonempty(path11.join(changeDir, "design.md")) ? pass() : fail("")
+      )
+    );
+  }
+  return runChecks(output, checks);
 }
 async function guardDesignChecks(output, changeDir, change) {
   const designDoc = await readField(changeDir, "design_doc");
@@ -9816,6 +9857,7 @@ async function guardBuildChecks(output, changeDir, change) {
     check("build_mode allowed for workflow", () => buildModeAllowedForWorkflow(changeDir)),
     check("subagent dispatch confirmed", () => subagentDispatchConfirmed(changeDir, change)),
     check("tdd_mode selected", () => tddModeSelected(changeDir, change)),
+    check("review_mode selected", () => reviewModeSelected(changeDir, change)),
     check("tasks.md all tasks checked", () => tasksAllDone(changeDir)),
     check("Superpowers plan all tasks checked", () => planTasksAllDone(changeDir)),
     check(
@@ -10478,6 +10520,26 @@ async function projectRelative(target) {
   }
   return candidate.replace(/^\.\//u, "");
 }
+async function loadGoverningChange(changeDir) {
+  try {
+    const runtime = await ensureStrictClassicRuntimeRun(changeDir);
+    return {
+      changeDir,
+      phase: runtime.classic.phase,
+      classic: runtime.classic,
+      archived: runtime.classic.archived
+    };
+  } catch {
+    const legacy = await readLegacyState(changeDir);
+    if (!legacy.phase) return null;
+    return {
+      changeDir,
+      phase: legacy.phase,
+      classic: null,
+      archived: legacy.archived
+    };
+  }
+}
 async function activeChange() {
   const changesDir = path13.join("openspec", "changes");
   if (!existsSync2(changesDir)) return null;
@@ -10486,9 +10548,30 @@ async function activeChange() {
   )) {
     if (!entry2.isDirectory() || entry2.name === "archive") continue;
     const changeDir = path13.join(changesDir, entry2.name);
-    if (existsSync2(path13.join(changeDir, ".comet.yaml"))) return changeDir;
+    if (!existsSync2(path13.join(changeDir, ".comet.yaml"))) continue;
+    const governing = await loadGoverningChange(changeDir);
+    if (!governing || governing.archived) continue;
+    return governing;
   }
   return null;
+}
+async function governingChange(relativePath2) {
+  const prefix = "openspec/changes/";
+  if (relativePath2.startsWith(prefix)) {
+    const rest = relativePath2.slice(prefix.length);
+    const [name] = rest.split("/");
+    if (name && name !== "archive") {
+      const changeDir = path13.join("openspec", "changes", name);
+      const stateFile2 = path13.join(changeDir, ".comet.yaml");
+      if (existsSync2(stateFile2)) {
+        const governing = await loadGoverningChange(changeDir);
+        if (governing) return governing;
+        return { changeDir, phase: "open", classic: null, archived: false };
+      }
+      return { changeDir, phase: "open", classic: null, archived: false };
+    }
+  }
+  return activeChange();
 }
 function isRootMarkdown(relativePath2) {
   return !relativePath2.includes("/") && relativePath2.endsWith(".md");
@@ -10521,14 +10604,20 @@ function openSpecAllowed(relativePath2, phase) {
 }
 function blocked(relativePath2, phase) {
   const guidance = phase === "open" ? [
-    "  ❌ open 阶段不允许写源代码",
-    "  ✅ 允许: 创建 proposal/design/tasks, 运行 guard",
-    "  💡 完成需求澄清和 artifact 创建后运行 guard --apply"
+    "  BLOCKED: source writes are not allowed during open",
+    "  This phase does not allow source writes",
+    "  ALLOWED: create proposal/design/tasks artifacts and run guard",
+    "  NEXT: finish clarification and artifacts, then run guard --apply"
   ] : phase === "design" ? [
-    "  ❌ design 阶段不允许写源代码",
-    "  ✅ 允许: brainstorming, 创建 Design Doc, 运行 guard",
-    "  💡 完成 Design Doc 后运行 comet-guard design --apply 进入 build"
-  ] : ["  ❌ archive 阶段不允许写源代码", "  ✅ 允许: 确认归档, 运行归档脚本"];
+    "  BLOCKED: source writes are not allowed during design",
+    "  This phase does not allow source writes",
+    "  ALLOWED: run brainstorming, create the Design Doc, and run guard",
+    "  NEXT: finish the Design Doc, then run comet-guard design --apply to enter build"
+  ] : [
+    "  BLOCKED: source writes are not allowed during archive",
+    "  This phase does not allow source writes",
+    "  ALLOWED: confirm archive state and run the archive script"
+  ];
   return result(
     2,
     [
@@ -10537,10 +10626,29 @@ function blocked(relativePath2, phase) {
       "║     COMET PHASE GUARD — WRITE BLOCKED    ║",
       "╚══════════════════════════════════════════╝",
       "",
-      `  当前阶段: ${phase}`,
-      `  目标文件: ${relativePath2}`,
+      `  Current phase: ${phase}`,
+      `  Target file: ${relativePath2}`,
       "",
       ...guidance,
+      ""
+    ].join("\n")
+  );
+}
+function blockedMissingDesignDoc(relativePath2) {
+  return result(
+    2,
+    [
+      "",
+      "╔══════════════════════════════════════════╗",
+      "║     COMET PHASE GUARD — WRITE BLOCKED    ║",
+      "╚══════════════════════════════════════════╝",
+      "",
+      "  Current phase: build (workflow: full), but design_doc is empty",
+      `  Target file: ${relativePath2}`,
+      "",
+      "  BLOCKED: full workflow source writes require a recorded Design Doc",
+      "  This phase does not allow source writes until design_doc is recorded",
+      "  NEXT: return to design, create/link the Design Doc, then run guard again",
       ""
     ].join("\n")
   );
@@ -10549,8 +10657,17 @@ var classicHookGuardCommand = async () => {
   const target = inputTarget();
   if (!target) return allowed("no file path in tool input");
   const relativePath2 = await projectRelative(target);
-  const changeDir = await activeChange();
-  if (!changeDir) return allowed("no active comet change");
+  let governing;
+  try {
+    governing = await governingChange(relativePath2);
+  } catch (error) {
+    return result(
+      2,
+      `[COMET-HOOK] blocked: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+  if (!governing) return allowed("no active comet change");
+  if (governing.archived) return allowed(`${relativePath2} (own change archived)`);
   if (isCometConfig(relativePath2)) {
     return allowed(`${relativePath2} (whitelist: comet config)`);
   }
@@ -10560,19 +10677,14 @@ var classicHookGuardCommand = async () => {
   if (relativePath2 === "CLAUDE.md" || relativePath2 === "CHANGELOG.md" || relativePath2 === "README.md" || isRootMarkdown(relativePath2)) {
     return allowed(`${relativePath2} (whitelist: root markdown)`);
   }
-  let phase;
-  try {
-    phase = (await ensureStrictClassicRuntimeRun(changeDir)).classic.phase;
-  } catch (error) {
-    return result(
-      2,
-      `[COMET-HOOK] blocked: ${error instanceof Error ? error.message : String(error)}`
-    );
-  }
+  const phase = governing.phase;
   const openSpec = openSpecAllowed(relativePath2, phase);
   if (openSpec) return allowed(openSpec);
   if (relativePath2.startsWith("docs/superpowers/") && (phase === "design" || phase === "build" || phase === "verify")) {
     return allowed(`${relativePath2} (phase: ${phase}, superpowers)`);
+  }
+  if (phase === "build" && governing.classic?.workflow === "full" && !governing.classic.designDoc) {
+    return blockedMissingDesignDoc(relativePath2);
   }
   if (phase === "build" || phase === "verify") {
     return allowed(`${relativePath2} (phase: ${phase})`);
@@ -10617,6 +10729,7 @@ var FIELD_ENUMS = {
   build_pause: ["null", "plan-ready"],
   subagent_dispatch: ["null", "confirmed"],
   tdd_mode: ["tdd", "direct"],
+  review_mode: ["off", "standard", "thorough"],
   isolation: ["branch", "worktree"],
   verify_mode: ["light", "full"],
   auto_transition: ["true", "false"],
@@ -10780,6 +10893,14 @@ Valid values: true, false`);
   }
   return value;
 }
+async function reviewModeDefault() {
+  const value = process.env.COMET_REVIEW_MODE ?? await projectConfigValue2("review_mode") ?? "null";
+  if (!["null", "off", "standard", "thorough"].includes(value)) {
+    fail2(`ERROR: Invalid review_mode: '${value}'
+Valid values: off, standard, thorough`);
+  }
+  return value === "null" ? null : value;
+}
 function gitOutput(args) {
   const result2 = spawnSync3("git", args, { encoding: "utf8" });
   return result2.status === 0 ? result2.stdout.trim() : null;
@@ -10818,12 +10939,17 @@ function validateSetValue(field2, value) {
     fail2("ERROR: iteration must be a non-negative integer");
   }
 }
-async function setField(output, name, field2, value) {
+async function setField(output, name, field2, value, options = {}) {
   if (MACHINE_OWNED_FIELDS.has(field2)) {
     fail2(`ERROR: '${field2}' is a machine-owned Run field and cannot be set directly`);
   }
   if (!SETTABLE_FIELDS.has(field2)) {
     fail2(`ERROR: Unknown field: '${field2}'`);
+  }
+  if (field2 === "phase" && !options.internal && process.env.COMET_FORCE_PHASE !== "1") {
+    fail2(
+      "ERROR: Setting 'phase' directly is not allowed; it bypasses state machine evidence checks.\n  Use: comet-state.sh transition <change-name> <event>\n  Repair-only escape hatch: COMET_FORCE_PHASE=1 comet-state.sh set <change-name> phase <value>"
+    );
   }
   validateSetValue(field2, value);
   const { file, directory } = await stateFile(name);
@@ -10864,7 +10990,7 @@ async function setField(output, name, field2, value) {
   } else {
     await atomicWrite2(file, document.toString());
   }
-  if (field2 === "phase") {
+  if (field2 === "phase" && !options.internal) {
     output.stderr.push(
       yellow4("WARNING: Setting 'phase' directly bypasses state machine constraints."),
       yellow4("  Consider using: comet-state.sh transition <change-name> <event>")
@@ -10879,6 +11005,7 @@ async function init(output, name, workflow) {
   if (await exists5(file)) fail2(`ERROR: .comet.yaml already exists at ${label}/.comet.yaml`);
   await fs13.mkdir(directory, { recursive: true });
   const preset = workflow !== "full";
+  const reviewMode = preset ? "off" : await reviewModeDefault();
   const document = new import_yaml7.Document({
     workflow,
     phase: "open",
@@ -10887,6 +11014,7 @@ async function init(output, name, workflow) {
     build_pause: null,
     subagent_dispatch: null,
     tdd_mode: preset ? "direct" : null,
+    review_mode: reviewMode,
     isolation: preset ? "branch" : null,
     verify_mode: preset ? "light" : null,
     auto_transition: await autoTransition() === "true",
@@ -10916,6 +11044,7 @@ async function requireBuildDecisions(name) {
   const directOverride = await readField3(name, "direct_override");
   const subagentDispatch = await readField3(name, "subagent_dispatch");
   const tddMode = await readField3(name, "tdd_mode");
+  const reviewMode = await readField3(name, "review_mode");
   if (!["branch", "worktree"].includes(isolation)) {
     fail2(
       `ERROR: Cannot transition '${name}': isolation must be branch or worktree, got '${isolation || "null"}'`
@@ -10941,26 +11070,58 @@ async function requireBuildDecisions(name) {
       `ERROR: Cannot transition '${name}': tdd_mode must be selected before leaving build (full workflow)`
     );
   }
+  if (workflow === "full" && !["off", "standard", "thorough"].includes(reviewMode)) {
+    fail2(
+      `ERROR: Cannot transition '${name}': review_mode must be selected before leaving build (full workflow); review_mode must be off, standard, or thorough, got '${reviewMode || "null"}'`
+    );
+  }
+}
+async function requireOpenArtifacts(name) {
+  const { directory } = await stateFile(name);
+  const workflow = await readField3(name, "workflow");
+  for (const artifact of ["proposal.md", "tasks.md"]) {
+    if (!await nonempty3(path14.join(directory, artifact))) {
+      fail2(
+        `ERROR: Cannot transition '${name}': ${artifact} must exist and be non-empty before leaving open`
+      );
+    }
+  }
+  if (workflow === "full" && !await nonempty3(path14.join(directory, "design.md"))) {
+    fail2(
+      `ERROR: Cannot transition '${name}': design.md must exist and be non-empty before leaving open`
+    );
+  }
+}
+async function requireDesignEvidence(name) {
+  const designDoc = await readField3(name, "design_doc");
+  if (!designDoc || designDoc === "null" || !await nonempty3(path14.resolve(designDoc))) {
+    fail2(
+      `ERROR: Cannot transition '${name}': design_doc must point to an existing Design Doc before leaving design`
+    );
+  }
 }
 async function transition(output, name, event) {
   validateChangeName4(name);
   validateEnum(event, EVENTS);
   if (event === "open-complete") {
     await requirePhase(name, "open");
+    await requireOpenArtifacts(name);
     await setField(
       output,
       name,
       "phase",
-      await readField3(name, "workflow") === "full" ? "design" : "build"
+      await readField3(name, "workflow") === "full" ? "design" : "build",
+      { internal: true }
     );
   } else if (event === "design-complete") {
     await requirePhase(name, "design");
-    await setField(output, name, "phase", "build");
+    await requireDesignEvidence(name);
+    await setField(output, name, "phase", "build", { internal: true });
   } else if (event === "build-complete") {
     await requirePhase(name, "build");
     await requireBuildDecisions(name);
     const current = await readField3(name, "verify_result");
-    await setField(output, name, "phase", "verify");
+    await setField(output, name, "phase", "verify", { internal: true });
     await setField(output, name, "verify_result", "pending");
     if (current !== "fail") {
       await setField(output, name, "verification_report", "null");
@@ -10978,22 +11139,25 @@ async function transition(output, name, event) {
       fail2(`ERROR: Cannot transition '${name}': branch_status must be handled`);
     }
     await setField(output, name, "verify_result", "pass");
-    await setField(output, name, "phase", "archive");
+    await setField(output, name, "phase", "archive", { internal: true });
     await setField(output, name, "verified_at", (/* @__PURE__ */ new Date()).toISOString().slice(0, 10));
   } else if (event === "verify-fail") {
     await requirePhase(name, "verify");
     await setField(output, name, "verify_result", "fail");
-    await setField(output, name, "phase", "build");
+    await setField(output, name, "phase", "build", { internal: true });
   } else if (event === "archive-reopen") {
     await requirePhase(name, "archive");
     if (await readField3(name, "archived") === "true") {
       fail2(`ERROR: Cannot transition '${name}': already archived`);
     }
     await setField(output, name, "verify_result", "pending");
-    await setField(output, name, "phase", "verify");
+    await setField(output, name, "phase", "verify", { internal: true });
     await setField(output, name, "verified_at", "null");
   } else {
     await requirePhase(name, "archive");
+    if (await readField3(name, "verify_result") !== "pass") {
+      fail2(`ERROR: Cannot transition '${name}': verify_result must be pass before archiving`);
+    }
     await setField(output, name, "archived", "true");
   }
   output.stderr.push(green4(`[TRANSITION] ${event}`));
@@ -11164,13 +11328,15 @@ async function recover(output, name) {
     const pause = await readField3(name, "build_pause");
     const subagentDispatch = await readField3(name, "subagent_dispatch");
     const tdd = await readField3(name, "tdd_mode");
+    const review = await readField3(name, "review_mode");
     const plan = await readField3(name, "plan");
     const decisions = [
       "  Build decisions:",
       fieldStatus("isolation", isolation),
       fieldStatus("build_mode", buildMode),
       fieldStatus("build_pause", pause),
-      fieldStatus("tdd_mode", tdd)
+      fieldStatus("tdd_mode", tdd),
+      fieldStatus("review_mode", review)
     ];
     if (buildMode === "subagent-driven-development" || subagentDispatch && subagentDispatch !== "null") {
       decisions.push(fieldStatus("subagent_dispatch", subagentDispatch));

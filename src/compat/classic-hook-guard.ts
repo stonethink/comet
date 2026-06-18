@@ -2,7 +2,8 @@ import { existsSync, promises as fs, readFileSync } from 'fs';
 import path from 'path';
 import type { ClassicCommandHandler, ClassicCommandResult } from './classic-cli.js';
 import { ensureStrictClassicRuntimeRun } from './classic-runtime-run.js';
-import type { ClassicPhase } from './classic-state.js';
+import { readLegacyState } from './classic-store.js';
+import type { ClassicPhase, ClassicState } from './classic-state.js';
 
 function result(exitCode: number, message: string): ClassicCommandResult {
   return { exitCode, stderr: message + '\n' };
@@ -48,7 +49,38 @@ async function projectRelative(target: string): Promise<string> {
   return candidate.replace(/^\.\//u, '');
 }
 
-async function activeChange(): Promise<string | null> {
+interface GoverningChange {
+  changeDir: string | null;
+  phase: ClassicPhase;
+  classic: ClassicState | null;
+  archived: boolean;
+}
+
+async function loadGoverningChange(changeDir: string): Promise<GoverningChange | null> {
+  try {
+    const runtime = await ensureStrictClassicRuntimeRun(changeDir);
+    return {
+      changeDir,
+      phase: runtime.classic.phase,
+      classic: runtime.classic,
+      archived: runtime.classic.archived,
+    };
+  } catch {
+    // Legacy/partial state without the required Classic fields: fall back to a
+    // direct yaml read so the guard still respects the recorded phase rather
+    // than crashing the way master's lenient shell scripts did not.
+    const legacy = await readLegacyState(changeDir);
+    if (!legacy.phase) return null;
+    return {
+      changeDir,
+      phase: legacy.phase,
+      classic: null,
+      archived: legacy.archived,
+    };
+  }
+}
+
+async function activeChange(): Promise<GoverningChange | null> {
   const changesDir = path.join('openspec', 'changes');
   if (!existsSync(changesDir)) return null;
   for (const entry of (await fs.readdir(changesDir, { withFileTypes: true })).sort((left, right) =>
@@ -56,9 +88,31 @@ async function activeChange(): Promise<string | null> {
   )) {
     if (!entry.isDirectory() || entry.name === 'archive') continue;
     const changeDir = path.join(changesDir, entry.name);
-    if (existsSync(path.join(changeDir, '.comet.yaml'))) return changeDir;
+    if (!existsSync(path.join(changeDir, '.comet.yaml'))) continue;
+    const governing = await loadGoverningChange(changeDir);
+    if (!governing || governing.archived) continue;
+    return governing;
   }
   return null;
+}
+
+async function governingChange(relativePath: string): Promise<GoverningChange | null> {
+  const prefix = 'openspec/changes/';
+  if (relativePath.startsWith(prefix)) {
+    const rest = relativePath.slice(prefix.length);
+    const [name] = rest.split('/');
+    if (name && name !== 'archive') {
+      const changeDir = path.join('openspec', 'changes', name);
+      const stateFile = path.join(changeDir, '.comet.yaml');
+      if (existsSync(stateFile)) {
+        const governing = await loadGoverningChange(changeDir);
+        if (governing) return governing;
+        return { changeDir, phase: 'open', classic: null, archived: false };
+      }
+      return { changeDir, phase: 'open', classic: null, archived: false };
+    }
+  }
+  return activeChange();
 }
 
 function isRootMarkdown(relativePath: string): boolean {
@@ -109,17 +163,23 @@ function blocked(relativePath: string, phase: ClassicPhase): ClassicCommandResul
   const guidance =
     phase === 'open'
       ? [
-          '  ❌ open 阶段不允许写源代码',
-          '  ✅ 允许: 创建 proposal/design/tasks, 运行 guard',
-          '  💡 完成需求澄清和 artifact 创建后运行 guard --apply',
+          '  BLOCKED: source writes are not allowed during open',
+          '  This phase does not allow source writes',
+          '  ALLOWED: create proposal/design/tasks artifacts and run guard',
+          '  NEXT: finish clarification and artifacts, then run guard --apply',
         ]
       : phase === 'design'
         ? [
-            '  ❌ design 阶段不允许写源代码',
-            '  ✅ 允许: brainstorming, 创建 Design Doc, 运行 guard',
-            '  💡 完成 Design Doc 后运行 comet-guard design --apply 进入 build',
+            '  BLOCKED: source writes are not allowed during design',
+            '  This phase does not allow source writes',
+            '  ALLOWED: run brainstorming, create the Design Doc, and run guard',
+            '  NEXT: finish the Design Doc, then run comet-guard design --apply to enter build',
           ]
-        : ['  ❌ archive 阶段不允许写源代码', '  ✅ 允许: 确认归档, 运行归档脚本'];
+        : [
+            '  BLOCKED: source writes are not allowed during archive',
+            '  This phase does not allow source writes',
+            '  ALLOWED: confirm archive state and run the archive script',
+          ];
   return result(
     2,
     [
@@ -128,10 +188,30 @@ function blocked(relativePath: string, phase: ClassicPhase): ClassicCommandResul
       '║     COMET PHASE GUARD — WRITE BLOCKED    ║',
       '╚══════════════════════════════════════════╝',
       '',
-      `  当前阶段: ${phase}`,
-      `  目标文件: ${relativePath}`,
+      `  Current phase: ${phase}`,
+      `  Target file: ${relativePath}`,
       '',
       ...guidance,
+      '',
+    ].join('\n'),
+  );
+}
+
+function blockedMissingDesignDoc(relativePath: string): ClassicCommandResult {
+  return result(
+    2,
+    [
+      '',
+      '╔══════════════════════════════════════════╗',
+      '║     COMET PHASE GUARD — WRITE BLOCKED    ║',
+      '╚══════════════════════════════════════════╝',
+      '',
+      '  Current phase: build (workflow: full), but design_doc is empty',
+      `  Target file: ${relativePath}`,
+      '',
+      '  BLOCKED: full workflow source writes require a recorded Design Doc',
+      '  This phase does not allow source writes until design_doc is recorded',
+      '  NEXT: return to design, create/link the Design Doc, then run guard again',
       '',
     ].join('\n'),
   );
@@ -141,8 +221,17 @@ export const classicHookGuardCommand: ClassicCommandHandler = async () => {
   const target = inputTarget();
   if (!target) return allowed('no file path in tool input');
   const relativePath = await projectRelative(target);
-  const changeDir = await activeChange();
-  if (!changeDir) return allowed('no active comet change');
+  let governing: GoverningChange | null;
+  try {
+    governing = await governingChange(relativePath);
+  } catch (error) {
+    return result(
+      2,
+      `[COMET-HOOK] blocked: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  if (!governing) return allowed('no active comet change');
+  if (governing.archived) return allowed(`${relativePath} (own change archived)`);
 
   if (isCometConfig(relativePath)) {
     return allowed(`${relativePath} (whitelist: comet config)`);
@@ -159,15 +248,7 @@ export const classicHookGuardCommand: ClassicCommandHandler = async () => {
     return allowed(`${relativePath} (whitelist: root markdown)`);
   }
 
-  let phase: ClassicPhase;
-  try {
-    phase = (await ensureStrictClassicRuntimeRun(changeDir)).classic.phase;
-  } catch (error) {
-    return result(
-      2,
-      `[COMET-HOOK] blocked: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
+  const phase = governing.phase;
 
   const openSpec = openSpecAllowed(relativePath, phase);
   if (openSpec) return allowed(openSpec);
@@ -176,6 +257,9 @@ export const classicHookGuardCommand: ClassicCommandHandler = async () => {
     (phase === 'design' || phase === 'build' || phase === 'verify')
   ) {
     return allowed(`${relativePath} (phase: ${phase}, superpowers)`);
+  }
+  if (phase === 'build' && governing.classic?.workflow === 'full' && !governing.classic.designDoc) {
+    return blockedMissingDesignDoc(relativePath);
   }
   if (phase === 'build' || phase === 'verify') {
     return allowed(`${relativePath} (phase: ${phase})`);

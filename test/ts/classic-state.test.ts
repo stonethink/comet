@@ -15,6 +15,7 @@ function classicState(): ClassicState {
     buildPause: 'plan-ready',
     subagentDispatch: 'confirmed',
     tddMode: 'tdd',
+    reviewMode: null,
     isolation: 'worktree',
     verifyMode: 'full',
     autoTransition: false,

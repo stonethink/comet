@@ -42,6 +42,7 @@ const FIELD_ENUMS: Record<string, readonly string[]> = {
   build_pause: ['null', 'plan-ready'],
   subagent_dispatch: ['null', 'confirmed'],
   tdd_mode: ['tdd', 'direct'],
+  review_mode: ['off', 'standard', 'thorough'],
   isolation: ['branch', 'worktree'],
   verify_mode: ['light', 'full'],
   auto_transition: ['true', 'false'],
@@ -201,7 +202,7 @@ function scalar(value: unknown): string {
 }
 
 async function projectConfigValue(
-  field: 'context_compression' | 'auto_transition',
+  field: 'context_compression' | 'auto_transition' | 'review_mode',
 ): Promise<string | null> {
   const file = path.resolve('.comet', 'config.yaml');
   if (!(await exists(file))) return null;
@@ -228,6 +229,15 @@ async function autoTransition(): Promise<string> {
     fail(`ERROR: Invalid auto_transition: '${value}'\nValid values: true, false`);
   }
   return value;
+}
+
+async function reviewModeDefault(): Promise<string | null> {
+  const value =
+    process.env.COMET_REVIEW_MODE ?? (await projectConfigValue('review_mode')) ?? 'null';
+  if (!['null', 'off', 'standard', 'thorough'].includes(value)) {
+    fail(`ERROR: Invalid review_mode: '${value}'\nValid values: off, standard, thorough`);
+  }
+  return value === 'null' ? null : value;
 }
 
 function gitOutput(args: string[]): string | null {
@@ -283,12 +293,20 @@ async function setField(
   name: string,
   field: string,
   value: string,
+  options: { internal?: boolean } = {},
 ): Promise<void> {
   if (MACHINE_OWNED_FIELDS.has(field)) {
     fail(`ERROR: '${field}' is a machine-owned Run field and cannot be set directly`);
   }
   if (!SETTABLE_FIELDS.has(field)) {
     fail(`ERROR: Unknown field: '${field}'`);
+  }
+  if (field === 'phase' && !options.internal && process.env.COMET_FORCE_PHASE !== '1') {
+    fail(
+      "ERROR: Setting 'phase' directly is not allowed; it bypasses state machine evidence checks.\n" +
+        '  Use: comet-state.sh transition <change-name> <event>\n' +
+        '  Repair-only escape hatch: COMET_FORCE_PHASE=1 comet-state.sh set <change-name> phase <value>',
+    );
   }
   validateSetValue(field, value);
   const { file, directory } = await stateFile(name);
@@ -329,7 +347,7 @@ async function setField(
   } else {
     await atomicWrite(file, document.toString());
   }
-  if (field === 'phase') {
+  if (field === 'phase' && !options.internal) {
     output.stderr.push(
       yellow("WARNING: Setting 'phase' directly bypasses state machine constraints."),
       yellow('  Consider using: comet-state.sh transition <change-name> <event>'),
@@ -346,6 +364,7 @@ async function init(output: CommandOutput, name: string, workflow: string): Prom
   await fs.mkdir(directory, { recursive: true });
 
   const preset = workflow !== 'full';
+  const reviewMode = preset ? 'off' : await reviewModeDefault();
   const document = new Document({
     workflow,
     phase: 'open',
@@ -354,6 +373,7 @@ async function init(output: CommandOutput, name: string, workflow: string): Prom
     build_pause: null,
     subagent_dispatch: null,
     tdd_mode: preset ? 'direct' : null,
+    review_mode: reviewMode,
     isolation: preset ? 'branch' : null,
     verify_mode: preset ? 'light' : null,
     auto_transition: (await autoTransition()) === 'true',
@@ -385,6 +405,7 @@ async function requireBuildDecisions(name: string): Promise<void> {
   const directOverride = await readField(name, 'direct_override');
   const subagentDispatch = await readField(name, 'subagent_dispatch');
   const tddMode = await readField(name, 'tdd_mode');
+  const reviewMode = await readField(name, 'review_mode');
   if (!['branch', 'worktree'].includes(isolation)) {
     fail(
       `ERROR: Cannot transition '${name}': isolation must be branch or worktree, got '${isolation || 'null'}'`,
@@ -414,6 +435,37 @@ async function requireBuildDecisions(name: string): Promise<void> {
       `ERROR: Cannot transition '${name}': tdd_mode must be selected before leaving build (full workflow)`,
     );
   }
+  if (workflow === 'full' && !['off', 'standard', 'thorough'].includes(reviewMode)) {
+    fail(
+      `ERROR: Cannot transition '${name}': review_mode must be selected before leaving build (full workflow); review_mode must be off, standard, or thorough, got '${reviewMode || 'null'}'`,
+    );
+  }
+}
+
+async function requireOpenArtifacts(name: string): Promise<void> {
+  const { directory } = await stateFile(name);
+  const workflow = await readField(name, 'workflow');
+  for (const artifact of ['proposal.md', 'tasks.md']) {
+    if (!(await nonempty(path.join(directory, artifact)))) {
+      fail(
+        `ERROR: Cannot transition '${name}': ${artifact} must exist and be non-empty before leaving open`,
+      );
+    }
+  }
+  if (workflow === 'full' && !(await nonempty(path.join(directory, 'design.md')))) {
+    fail(
+      `ERROR: Cannot transition '${name}': design.md must exist and be non-empty before leaving open`,
+    );
+  }
+}
+
+async function requireDesignEvidence(name: string): Promise<void> {
+  const designDoc = await readField(name, 'design_doc');
+  if (!designDoc || designDoc === 'null' || !(await nonempty(path.resolve(designDoc)))) {
+    fail(
+      `ERROR: Cannot transition '${name}': design_doc must point to an existing Design Doc before leaving design`,
+    );
+  }
 }
 
 async function transition(output: CommandOutput, name: string, event: string): Promise<void> {
@@ -421,20 +473,23 @@ async function transition(output: CommandOutput, name: string, event: string): P
   validateEnum(event, EVENTS);
   if (event === 'open-complete') {
     await requirePhase(name, 'open');
+    await requireOpenArtifacts(name);
     await setField(
       output,
       name,
       'phase',
       (await readField(name, 'workflow')) === 'full' ? 'design' : 'build',
+      { internal: true },
     );
   } else if (event === 'design-complete') {
     await requirePhase(name, 'design');
-    await setField(output, name, 'phase', 'build');
+    await requireDesignEvidence(name);
+    await setField(output, name, 'phase', 'build', { internal: true });
   } else if (event === 'build-complete') {
     await requirePhase(name, 'build');
     await requireBuildDecisions(name);
     const current = await readField(name, 'verify_result');
-    await setField(output, name, 'phase', 'verify');
+    await setField(output, name, 'phase', 'verify', { internal: true });
     await setField(output, name, 'verify_result', 'pending');
     if (current !== 'fail') {
       await setField(output, name, 'verification_report', 'null');
@@ -452,22 +507,25 @@ async function transition(output: CommandOutput, name: string, event: string): P
       fail(`ERROR: Cannot transition '${name}': branch_status must be handled`);
     }
     await setField(output, name, 'verify_result', 'pass');
-    await setField(output, name, 'phase', 'archive');
+    await setField(output, name, 'phase', 'archive', { internal: true });
     await setField(output, name, 'verified_at', new Date().toISOString().slice(0, 10));
   } else if (event === 'verify-fail') {
     await requirePhase(name, 'verify');
     await setField(output, name, 'verify_result', 'fail');
-    await setField(output, name, 'phase', 'build');
+    await setField(output, name, 'phase', 'build', { internal: true });
   } else if (event === 'archive-reopen') {
     await requirePhase(name, 'archive');
     if ((await readField(name, 'archived')) === 'true') {
       fail(`ERROR: Cannot transition '${name}': already archived`);
     }
     await setField(output, name, 'verify_result', 'pending');
-    await setField(output, name, 'phase', 'verify');
+    await setField(output, name, 'phase', 'verify', { internal: true });
     await setField(output, name, 'verified_at', 'null');
   } else {
     await requirePhase(name, 'archive');
+    if ((await readField(name, 'verify_result')) !== 'pass') {
+      fail(`ERROR: Cannot transition '${name}': verify_result must be pass before archiving`);
+    }
     await setField(output, name, 'archived', 'true');
   }
   output.stderr.push(green(`[TRANSITION] ${event}`));
@@ -668,6 +726,7 @@ async function recover(output: CommandOutput, name: string): Promise<void> {
     const pause = await readField(name, 'build_pause');
     const subagentDispatch = await readField(name, 'subagent_dispatch');
     const tdd = await readField(name, 'tdd_mode');
+    const review = await readField(name, 'review_mode');
     const plan = await readField(name, 'plan');
     const decisions = [
       '  Build decisions:',
@@ -675,6 +734,7 @@ async function recover(output: CommandOutput, name: string): Promise<void> {
       fieldStatus('build_mode', buildMode),
       fieldStatus('build_pause', pause),
       fieldStatus('tdd_mode', tdd),
+      fieldStatus('review_mode', review),
     ];
     if (
       buildMode === 'subagent-driven-development' ||

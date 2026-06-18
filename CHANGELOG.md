@@ -16,6 +16,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Bundle lifecycle CLI**: Adds the `comet bundle` command group for candidate discovery, draft create/optimize, status, platform compile dry-runs, Eval planning and evidence recording, review approval/rejection, publishing, and ready Bundle distribution with stable JSON output for automation.
 - **`/comet-any` Bundle creator**: Adds bilingual `/comet-any` guidance for creating or optimizing platform-independent multi-Skill Bundles, including candidate implementation reads, native `skill-creator` preference with authorized fallback, optional Engine metadata, Eval token choices, human review gates, capability-gap decisions, executable confirmation, and project/global distribution.
 - **Comet Skill Eval harness**: Adds a minimal Python benchmark harness under `eval/` for comparing the Comet workflow against a control treatment on full workflow, hotfix, and phase-resume tasks.
+- **0.3.9 CLI workflow additions**: Carries forward the master branch CLI i18n module, optional npm dependency prompts for init/update, `comet init --language`, `review_mode` state/config defaults, selective platform uninstall prompts, and Codex plugin-installed Superpowers detection so the 0.4.0 line includes the latest released setup and review controls.
 
 ### Changed
 
@@ -24,6 +25,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Classic status and diagnostics**: `comet status` and `comet doctor` now reuse the typed Classic schema, silently migrate valid legacy changes, display the resolved Run step, and report malformed state without partially rewriting it.
 - **Test timeout ceiling**: Raised the vitest global `testTimeout` to 30s so the bash-spawn-heavy `comet-scripts` integration tests no longer time out at the 5s default on Windows under load.
 - **Eval suite layout**: Splits the Comet eval harness into selectable `local/` and `langsmith/` suites with a shared `scaffold/`, so local runs do not require LangSmith credentials while LangSmith runs can reuse the same task corpus with tracing enabled.
+- **0.3.9 release alignment and rebrand**: Carries forward master branch NEWS/README release highlights, the "Agent Skill Harness Phase-Guarded Automation From Idea To Archive" tagline, change-name confirmation/ASCII guidance, Chinese gate-term normalization, and full init/update prompt translations.
 
 ### Fixed
 
@@ -35,6 +37,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Complete recovery files**: Context, Checkpoint, and Trajectory data can be read through the Run Store, malformed Trajectory lines report their exact location, completed actions can clear stale pending files, and script Tool resolution rejects missing files, directories, and package-escaping symlinks.
 - **Adaptive lifecycle guards**: Adaptive candidates can only be accepted while the Run is active and has no pending action, preventing completed Runs from restarting or existing actions from being overwritten.
 - **Manual CLI option handling**: Empty repeated Commander options no longer masquerade as submitted outcome fields, so a bare `comet skill resume` returns the existing pending action and `resume --upgrade` remains usable without synthetic status data.
+- **0.3.9 state and guard hardening**: Carries forward master branch fixes for skipped phase enforcement, per-change hook guard scoping, CodeGraph setup detection, `auto_transition` handoff delegation, executable script modes, preset workflow open transitions without `design.md`, full-workflow `review_mode` build gating, and English hook-block messages.
 
 ### Tests
 
@@ -46,6 +49,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Bundle CLI lifecycle coverage**: Adds command-level and built-CLI coverage for draft optimization, status reconciliation, platform compilation, Eval workload planning, Eval result recording, review gates, publish gates, distribution installation, text/JSON output, and invalid non-interactive option combinations.
 - **`/comet-any` Skill coverage**: Adds Chinese workflow contract tests and bilingual parity assertions for Bundle model behavior, native platform execution, optional Engine metadata, creator fallback authorization, Eval token choices, review and distribution gates, candidate implementation reads, capability gaps, executable disclosures, and deterministic Bundle CLI commands.
 - **Eval scaffold coverage**: Adds Python scaffold tests for task loading, treatment loading, task index stability, and cross-platform pytest coordination helpers.
+- **0.3.9 regression coverage**: Carries forward master branch tests for phase-skip enforcement, project review-mode defaults, CodeGraph index detection, `comet-state next` handoff behavior, review-mode integration, selective uninstall prompts, executable fixture modes, and English hook-guard diagnostics.
 
 ## What's Changed [0.3.8] - 2026-06-13
 

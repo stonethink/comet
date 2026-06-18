@@ -10,6 +10,7 @@ const BUILD_MODES = ['subagent-driven-development', 'executing-plans', 'direct']
 const BUILD_PAUSES = ['plan-ready'] as const;
 const SUBAGENT_DISPATCH = ['confirmed'] as const;
 const TDD_MODES = ['tdd', 'direct'] as const;
+const REVIEW_MODES = ['off', 'standard', 'thorough'] as const;
 const ISOLATIONS = ['branch', 'worktree'] as const;
 const VERIFY_MODES = ['light', 'full'] as const;
 const VERIFY_RESULTS = ['pending', 'pass', 'fail'] as const;
@@ -26,6 +27,7 @@ export interface ClassicState {
   buildPause: (typeof BUILD_PAUSES)[number] | null;
   subagentDispatch: (typeof SUBAGENT_DISPATCH)[number] | null;
   tddMode: (typeof TDD_MODES)[number] | null;
+  reviewMode: (typeof REVIEW_MODES)[number] | null;
   isolation: (typeof ISOLATIONS)[number] | null;
   verifyMode: (typeof VERIFY_MODES)[number] | null;
   autoTransition: boolean | null;
@@ -61,6 +63,7 @@ export const CLASSIC_WIRE_KEYS = [
   'build_pause',
   'subagent_dispatch',
   'tdd_mode',
+  'review_mode',
   'isolation',
   'verify_mode',
   'auto_transition',
@@ -191,9 +194,7 @@ function classicStateFromDocument(doc: StateDocument): ClassicState | null {
   if (!hasClassicProjection) return null;
 
   for (const key of REQUIRED_CLASSIC_KEYS) {
-    if (!has(doc, key)) {
-      throw new Error(`Invalid Classic state: missing required field ${key}`);
-    }
+    if (!has(doc, key)) return null;
   }
 
   return {
@@ -204,6 +205,7 @@ function classicStateFromDocument(doc: StateDocument): ClassicState | null {
     buildPause: enumValue(doc, 'build_pause', BUILD_PAUSES),
     subagentDispatch: enumValue(doc, 'subagent_dispatch', SUBAGENT_DISPATCH),
     tddMode: enumValue(doc, 'tdd_mode', TDD_MODES),
+    reviewMode: enumValue(doc, 'review_mode', REVIEW_MODES),
     isolation: enumValue(doc, 'isolation', ISOLATIONS),
     verifyMode: enumValue(doc, 'verify_mode', VERIFY_MODES),
     autoTransition: booleanValue(doc, 'auto_transition'),
@@ -244,6 +246,34 @@ export function parseClassicStateDocument(doc: StateDocument): ClassicStateProje
   };
 }
 
+export interface LegacyStateSummary {
+  workflow: ClassicProfile | null;
+  phase: ClassicPhase | null;
+  archived: boolean;
+  designDoc: string | null;
+  unknownKeys: string[];
+}
+
+export function readLegacyStateSummary(doc: StateDocument): LegacyStateSummary {
+  const workflowRaw = doc['workflow'];
+  const phaseRaw = doc['phase'];
+  const archivedRaw = doc['archived'];
+  const designDocRaw = doc['design_doc'];
+  return {
+    workflow:
+      typeof workflowRaw === 'string' && CLASSIC_PROFILES.includes(workflowRaw as ClassicProfile)
+        ? (workflowRaw as ClassicProfile)
+        : null,
+    phase:
+      typeof phaseRaw === 'string' && PHASES.includes(phaseRaw as ClassicPhase)
+        ? (phaseRaw as ClassicPhase)
+        : null,
+    archived: archivedRaw === true,
+    designDoc: typeof designDocRaw === 'string' && designDocRaw !== '' ? designDocRaw : null,
+    unknownKeys: Object.keys(doc).filter((key) => !KNOWN_KEYS.has(key)),
+  };
+}
+
 export function classicStateToDocument(state: ClassicState): StateDocument {
   return {
     workflow: state.workflow,
@@ -253,6 +283,7 @@ export function classicStateToDocument(state: ClassicState): StateDocument {
     build_pause: state.buildPause,
     subagent_dispatch: state.subagentDispatch,
     tdd_mode: state.tddMode,
+    review_mode: state.reviewMode,
     isolation: state.isolation,
     verify_mode: state.verifyMode,
     auto_transition: state.autoTransition,

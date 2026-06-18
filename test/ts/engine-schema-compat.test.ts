@@ -38,7 +38,15 @@ describe.skipIf(!bash())('Skill Engine shell schema compatibility', () => {
   beforeEach(async () => {
     root = await fs.mkdtemp(path.join(os.tmpdir(), 'comet-engine-shell-'));
     await fs.mkdir(path.join(root, 'assets'), { recursive: true });
-    for (const name of ['comet-state.sh', 'comet-yaml-validate.sh']) {
+    for (const name of [
+      'comet-state.sh',
+      'comet-yaml-validate.sh',
+      'comet-guard.sh',
+      'comet-handoff.sh',
+      'comet-archive.sh',
+      'comet-env.sh',
+      'comet-runtime.mjs',
+    ]) {
       await fs.copyFile(path.join(sourceScripts, name), path.join(root, 'assets', name));
     }
     stateScript = bashPath(path.join(root, 'assets', 'comet-state.sh'));

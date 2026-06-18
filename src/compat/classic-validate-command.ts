@@ -28,6 +28,7 @@ const ENUMS: Record<string, readonly string[]> = {
   build_pause: ['plan-ready'],
   subagent_dispatch: ['confirmed'],
   tdd_mode: ['tdd', 'direct'],
+  review_mode: ['off', 'standard', 'thorough'],
   isolation: ['branch', 'worktree'],
   verify_mode: ['light', 'full'],
   auto_transition: ['true', 'false'],

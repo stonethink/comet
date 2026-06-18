@@ -91,3 +91,4 @@ skills-lock.json
 
 # Local Git worktrees
 .worktrees/
+.agent/

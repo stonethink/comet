@@ -447,6 +447,18 @@ async function tddModeSelected(changeDir: string, change: string): Promise<Check
   );
 }
 
+async function reviewModeSelected(changeDir: string, change: string): Promise<CheckResult> {
+  const workflow = await readField(changeDir, 'workflow');
+  if (workflow === 'hotfix' || workflow === 'tweak') return pass();
+  const reviewMode = await readField(changeDir, 'review_mode');
+  if (reviewMode === 'off' || reviewMode === 'standard' || reviewMode === 'thorough') {
+    return pass();
+  }
+  return fail(
+    `review_mode must be off, standard, or thorough before leaving build, got '${reviewMode || 'null'}'\nNext: ask the user to choose review strength, then run:\n  "$COMET_BASH" "$COMET_STATE" set ${change} review_mode <off|standard|thorough>`,
+  );
+}
+
 async function verificationReportExists(changeDir: string): Promise<boolean> {
   const report = await readField(changeDir, 'verification_report');
   return Boolean(report) && report !== 'null' && existsSync(report);
@@ -571,12 +583,10 @@ async function betaSpecJsonStructurallyValid(changeDir: string): Promise<CheckRe
 }
 
 async function guardOpenChecks(output: GuardOutput, changeDir: string): Promise<boolean> {
-  return runChecks(output, [
+  const workflow = await readField(changeDir, 'workflow');
+  const checks: Array<() => Promise<CheckOutcome>> = [
     check('proposal.md exists and non-empty', async () =>
       (await nonempty(path.join(changeDir, 'proposal.md'))) ? pass() : fail(''),
-    ),
-    check('design.md exists and non-empty', async () =>
-      (await nonempty(path.join(changeDir, 'design.md'))) ? pass() : fail(''),
     ),
     check('tasks.md exists and non-empty', async () =>
       (await nonempty(path.join(changeDir, 'tasks.md'))) ? pass() : fail(''),
@@ -584,7 +594,17 @@ async function guardOpenChecks(output: GuardOutput, changeDir: string): Promise<
     check('tasks.md has at least one task', async () =>
       (await tasksHasAny(changeDir)) ? pass() : fail(''),
     ),
-  ]);
+  ];
+  if (workflow === 'full') {
+    checks.splice(
+      1,
+      0,
+      check('design.md exists and non-empty', async () =>
+        (await nonempty(path.join(changeDir, 'design.md'))) ? pass() : fail(''),
+      ),
+    );
+  }
+  return runChecks(output, checks);
 }
 
 async function guardDesignChecks(
@@ -665,6 +685,7 @@ async function guardBuildChecks(
     check('build_mode allowed for workflow', () => buildModeAllowedForWorkflow(changeDir)),
     check('subagent dispatch confirmed', () => subagentDispatchConfirmed(changeDir, change)),
     check('tdd_mode selected', () => tddModeSelected(changeDir, change)),
+    check('review_mode selected', () => reviewModeSelected(changeDir, change)),
     check('tasks.md all tasks checked', () => tasksAllDone(changeDir)),
     check('Superpowers plan all tasks checked', () => planTasksAllDone(changeDir)),
     check('proposal.md exists', async () =>

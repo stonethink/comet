@@ -7,7 +7,9 @@ import {
   RUN_WIRE_KEYS,
   classicStateToDocument,
   parseClassicStateDocument,
+  readLegacyStateSummary,
   type ClassicStateProjection,
+  type LegacyStateSummary,
 } from './classic-state.js';
 import { applyRunStateToDocument, type StateDocument } from '../engine/state.js';
 
@@ -64,6 +66,11 @@ async function readDocument(file: string): Promise<Document> {
 export async function readClassicState(changeDir: string): Promise<ClassicStateProjection> {
   const document = await readDocument(path.join(changeDir, '.comet.yaml'));
   return parseClassicStateDocument(documentRecord(document));
+}
+
+export async function readLegacyState(changeDir: string): Promise<LegacyStateSummary> {
+  const document = await readDocument(path.join(changeDir, '.comet.yaml'));
+  return readLegacyStateSummary(documentRecord(document));
 }
 
 export async function writeClassicState(

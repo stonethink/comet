@@ -11,6 +11,7 @@ function state(cwd: string, ...args: string[]) {
   return spawnSync(process.execPath, [runtime, 'state', ...args], {
     cwd,
     encoding: 'utf8',
+    env: { ...process.env, COMET_FORCE_PHASE: '1' },
   });
 }
 
