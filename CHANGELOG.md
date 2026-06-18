@@ -2,7 +2,7 @@
 
 All notable changes to @rpamis/comet will be documented in this file.
 
-## What's Changed [0.4.0] - 2026-06-15
+## What's Changed [0.4.0-beta.1] - 2026-06-15
 
 ### Added
 
@@ -16,7 +16,6 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Bundle lifecycle CLI**: Adds the `comet bundle` command group for candidate discovery, draft create/optimize, status, platform compile dry-runs, Eval planning and evidence recording, review approval/rejection, publishing, and ready Bundle distribution with stable JSON output for automation.
 - **`/comet-any` Bundle creator**: Adds bilingual `/comet-any` guidance for creating or optimizing platform-independent multi-Skill Bundles, including candidate implementation reads, native `skill-creator` preference with authorized fallback, optional Engine metadata, Eval token choices, human review gates, capability-gap decisions, executable confirmation, and project/global distribution.
 - **Comet Skill Eval harness**: Adds a minimal Python benchmark harness under `eval/` for comparing the Comet workflow against a control treatment on full workflow, hotfix, and phase-resume tasks.
-- **0.3.9 CLI workflow additions**: Carries forward the master branch CLI i18n module, optional npm dependency prompts for init/update, `comet init --language`, `review_mode` state/config defaults, selective platform uninstall prompts, and Codex plugin-installed Superpowers detection so the 0.4.0 line includes the latest released setup and review controls.
 
 ### Changed
 
@@ -25,7 +24,6 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Classic status and diagnostics**: `comet status` and `comet doctor` now reuse the typed Classic schema, silently migrate valid legacy changes, display the resolved Run step, and report malformed state without partially rewriting it.
 - **Test timeout ceiling**: Raised the vitest global `testTimeout` to 30s so the bash-spawn-heavy `comet-scripts` integration tests no longer time out at the 5s default on Windows under load.
 - **Eval suite layout**: Splits the Comet eval harness into selectable `local/` and `langsmith/` suites with a shared `scaffold/`, so local runs do not require LangSmith credentials while LangSmith runs can reuse the same task corpus with tracing enabled.
-- **0.3.9 release alignment and rebrand**: Carries forward master branch NEWS/README release highlights, the "Agent Skill Harness Phase-Guarded Automation From Idea To Archive" tagline, change-name confirmation/ASCII guidance, Chinese gate-term normalization, and full init/update prompt translations.
 
 ### Fixed
 
@@ -37,7 +35,6 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Complete recovery files**: Context, Checkpoint, and Trajectory data can be read through the Run Store, malformed Trajectory lines report their exact location, completed actions can clear stale pending files, and script Tool resolution rejects missing files, directories, and package-escaping symlinks.
 - **Adaptive lifecycle guards**: Adaptive candidates can only be accepted while the Run is active and has no pending action, preventing completed Runs from restarting or existing actions from being overwritten.
 - **Manual CLI option handling**: Empty repeated Commander options no longer masquerade as submitted outcome fields, so a bare `comet skill resume` returns the existing pending action and `resume --upgrade` remains usable without synthetic status data.
-- **0.3.9 state and guard hardening**: Carries forward master branch fixes for skipped phase enforcement, per-change hook guard scoping, CodeGraph setup detection, `auto_transition` handoff delegation, executable script modes, preset workflow open transitions without `design.md`, full-workflow `review_mode` build gating, and English hook-block messages.
 
 ### Tests
 
@@ -49,7 +46,50 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Bundle CLI lifecycle coverage**: Adds command-level and built-CLI coverage for draft optimization, status reconciliation, platform compilation, Eval workload planning, Eval result recording, review gates, publish gates, distribution installation, text/JSON output, and invalid non-interactive option combinations.
 - **`/comet-any` Skill coverage**: Adds Chinese workflow contract tests and bilingual parity assertions for Bundle model behavior, native platform execution, optional Engine metadata, creator fallback authorization, Eval token choices, review and distribution gates, candidate implementation reads, capability gaps, executable disclosures, and deterministic Bundle CLI commands.
 - **Eval scaffold coverage**: Adds Python scaffold tests for task loading, treatment loading, task index stability, and cross-platform pytest coordination helpers.
-- **0.3.9 regression coverage**: Carries forward master branch tests for phase-skip enforcement, project review-mode defaults, CodeGraph index detection, `comet-state next` handoff behavior, review-mode integration, selective uninstall prompts, executable fixture modes, and English hook-guard diagnostics.
+
+## What's Changed [0.3.9] - 2026-06-17
+
+### Added
+
+- **CLI i18n shared module**: Extracted the init-time translation table to `src/commands/i18n.ts` so init, update, and future commands can share English/Chinese strings consistently instead of duplicating tables per command.
+- **Optional npm dependency prompts in init/update**: `comet init` and `comet update` now present a multi-select for OpenSpec CLI, Superpowers (via `npx skills add`), and CodeGraph CLI instead of force-installing them. Items not yet detected on the system default to checked; already-installed items default to unchecked so users can opt into upgrades without being forced. The Superpowers entry also surfaces a recommendation to install v6.0.0+ (≈2× faster, ≈50% fewer tokens).
+- **`--language` option for `comet init`**: New CLI flag (`en`/`zh`) that selects skill language non-interactively, mirroring the existing `comet update --language` option ([#109](https://github.com/rpamis/comet/pull/109)).
+- **`review_mode` field for code review control**: Added `.comet.yaml` field `review_mode` (`off` / `standard` / `thorough`) controlling automatic code review during build and verify phases. `comet-build` requires user selection before execution; `comet-verify` and subagent dispatch adapt behavior per mode; `comet-hotfix` defaults to `off`. Validated by `comet-state.sh`, `comet-guard.sh`, and `comet-yaml-validate.sh`.
+- **Project-level review mode defaults**: `.comet/config.yaml` can now set `review_mode: off|standard|thorough`, which is snapshotted into new full workflow changes so teams can choose a project-wide automatic review default while preserving existing per-change state behavior. Newly generated config files include enum comments for `context_compression`, `review_mode`, and `auto_transition` so users can adjust supported values without searching the docs.
+- **Uninstall by platform selection**: `comet uninstall` now shows a checkbox prompt when multiple platforms are detected, allowing users to selectively uninstall specific platforms instead of removing all at once. Single-target scenarios use a simple yes/no confirmation. `--force` and `--json` flags retain the existing all-at-once behavior.
+- **Codex plugin-installed Superpowers detection**: `comet init` now detects Superpowers already installed via the Codex plugin cache (`~/.codex/plugins/cache/...`), preventing duplicate re-installation — parallel to the existing Claude Code and OpenCode plugin detection ([#115](https://github.com/rpamis/comet/pull/115)).
+
+### Changed
+
+- **Release notes alignment**: Updated `NEWS.md` and the README highlight blocks so the visible documentation covers the 0.3.8 and 0.3.9 releases, including the new review mode behavior and the `off` / `standard` / `thorough` review-strength semantics, instead of leaving the front-page summary on 0.3.7.
+- **Tagline rebrand**: Changed the Comet tagline in the `comet init` banner and the `package.json` / CLI `--description` from "OpenSpec + Superpowers dual-star development workflow" to "Agent Skill Harness Phase-Guarded Automation From Idea To Archive", positioning Comet by its core value (a phase-guarded agent skill harness) rather than by its underlying OpenSpec + Superpowers dependencies.
+- **Change name confirmation as a blocking decision point**: `comet-open` SKILL.md (Chinese and English) now adds a dedicated Step 1c that pauses before `openspec new change` to confirm the change name. The agent must recommend 2-3 kebab-case English candidate names derived from the clarification summary, always offer a custom-input option, and warn that Chinese (or any non-kebab-case) input will be converted into a compliant kebab-case English name and shown back for confirmation — preventing agents from auto-generating non-compliant Chinese change names.
+- **Non-ASCII change name prevention**: Added explicit ASCII validation rules to `comet-open` SKILL.md (both Chinese and English) to prevent agents from auto-generating non-compliant change names containing Chinese, Japanese, Korean characters, spaces, or special characters. The agent must now ask the user for an ASCII-compliant name.
+- **Chinese gate-term normalization**: Updated Chinese Comet wording to avoid translating `gate` literally as "门": Design Step 1e now uses "主动式上下文压缩", the shared debugging guidance now uses "异常调试协议", and `CLAUDE.md` / `AGENTS.md` now define this as the standard Chinese translation rule for future skill edits.
+- **Full i18n coverage for CLI prompts**: Extended translation coverage from `init`-only to also cover `update` (banner, npm update progress, skills copy progress, summary, codegraph prompt). All user-facing strings now have English and Chinese variants ([#109](https://github.com/rpamis/comet/pull/109)).
+
+### Fixed
+
+- **Phase-skip enforcement across all guard layers**: Fixed agents jumping from `open` to `build` (skipping `design`) undetected. `comet-state.sh` now enforces evidence on every forward transition; direct `set phase` is blocked (with `COMET_FORCE_PHASE=1` escape hatch); `comet-hook-guard.sh` blocks source writes when `design_doc` is null; `comet-phase-guard` rule adds a phase-entry self-consistency check requiring prerequisite artifacts before writing source.
+- **Hook guard cross-change false positives**: Fixed `comet-hook-guard.sh` letting one change's phase wrongly block writes to a different change. Writes targeting `openspec/changes/<name>/` are now governed by that change's own `.comet.yaml` phase instead of the first active change found in the directory. This covers two cases that previously blocked a brand-new change's artifact writes: (1) an old change marked `archived: true` but not yet physically moved to the `archive/` subdirectory, and (2) an old change stalled in the `archive` phase with `archived: false` (not yet run through the archive script). Additionally, a new change directory whose `.comet.yaml` does not exist yet (artifacts are written before the state file during `/comet-open`) is treated as `open`, so `proposal/design/tasks/specs` writes are allowed.
+- **CodeGraph setup detection**: Fixed `comet init` and `comet update` prompting for CodeGraph setup even when the project already has a `.codegraph/` index. Existing project indexes now skip the optional CodeGraph prompt and install step, and CodeGraph CLI resolution can use a pnpm global binary before falling back to npm global installation.
+- **Phase guard auto-transition handoff**: Fixed the injected Comet phase guard rule hardcoding the next skill after `guard --apply`, which could bypass `auto_transition: false`. The rule now delegates post-guard handoff to `comet-state next <change-name>` and follows `NEXT: auto|manual|done` so manual phase boundaries are respected.
+- **Executable permission loss on macOS after update**: `bin/comet.js` and all shell scripts under `assets/skills/comet/scripts/` were committed with git mode `100644` (non-executable). After an npm update, macOS users lost execute permissions on the `comet` CLI entry point. Changed all 8 files to `100755` in git so npm installs always preserve the executable bit.
+- **Preset workflow open transition**: Fixed `comet-state.sh` requiring `design.md` before `hotfix`/`tweak` changes could leave `open`, aligning state transitions with the guard rules that only require `proposal.md` and `tasks.md` for preset workflows.
+- **Review mode build gating**: Fixed `comet-guard.sh` allowing full-workflow changes with a missing `review_mode` field to pass build checks before `comet-state.sh` rejected the transition, so both guard layers now report the same required review-mode decision.
+- **Hook guard blocked-message language**: Changed `comet-hook-guard.sh` blocked-write guidance to English so the English-distributed hook script no longer emits Chinese-only recovery instructions during phase enforcement.
+
+### Tests
+
+- **Phase-skip enforcement coverage**: Added shell-script tests covering the hardened guard layers — `open-complete` blocked when an open artifact is missing, `design-complete` blocked/allowed by `design_doc` presence, `archived` blocked until `verify_result: pass`, direct `set phase` blocked while the `COMET_FORCE_PHASE` escape hatch is allowed, and hook-guard blocking full-workflow `build` source writes when `design_doc` is null while still allowing preset workflows and full workflows with a valid `design_doc`.
+- **Project review mode default coverage**: Added regression coverage for `.comet/config.yaml` `review_mode` snapshotting into full workflow changes, invalid project review mode rejection, and enum comments in generated project config files.
+- **CodeGraph setup coverage**: Added regression tests for existing `.codegraph/` index detection, skipping redundant CodeGraph installation, pnpm global CLI resolution, and suppressing the update-time CodeGraph prompt when a project index already exists.
+- **Phase guard handoff coverage**: Added skill-rule regression coverage ensuring the phase guard delegates to `comet-state next` and no longer embeds a fixed next-skill mapping that can ignore `auto_transition`.
+- **`review_mode` integration coverage**: Added regression tests verifying `review_mode` is wired through state, guard, and validation scripts, with correct mode-specific behavior in `comet-build`/`comet-verify`/`comet-hotfix`.
+- **Uninstall platform selection coverage**: Added tests for single-target auto-select, multi-target checkbox selection, user cancellation, `--force` skip, `--json` output, and no-targets-found handling.
+- **CI regression coverage**: Added state-machine regression coverage for preset workflows leaving `open` without `design.md`, missing full-workflow `review_mode` being blocked consistently, and repair-only phase resets using `COMET_FORCE_PHASE`.
+- **Hook guard message coverage**: Added regression coverage ensuring `comet-hook-guard.sh` blocked-write messages remain English and do not reintroduce Chinese-only guidance.
+- **CI fixture alignment**: Updated shell-script test fixtures to preserve executable permissions after copying scripts, include required `review_mode` decisions in full-workflow build states, and use the repair-only `COMET_FORCE_PHASE` escape hatch only when constructing phase states for guard checks.
 
 ## What's Changed [0.3.8] - 2026-06-13
 
