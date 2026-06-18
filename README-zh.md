@@ -117,15 +117,14 @@ comet init
 1. 提示你选择 AI 平台（自动检测已有配置）
 2. 选择安装范围：项目级（当前目录）或全局（用户主目录）
 3. 选择 Comet 技能语言：English 或 中文
-4. 安装 [OpenSpec](https://github.com/Fission-AI/OpenSpec) 技能
-5. 安装 [Superpowers](https://github.com/obra/superpowers) 技能
+4. 选择要安装/升级的 npm 依赖 —— [OpenSpec](https://github.com/Fission-AI/OpenSpec) CLI、[Superpowers](https://github.com/obra/superpowers)（通过 `npx skills add`）、[CodeGraph](https://github.com/colbymchenry/codegraph) CLI。未检测到的依赖默认勾选；已存在的默认不勾，可自主选择是否升级。
+5. 安装选中的依赖并部署对应技能
 6. 将 Comet 技能（你选择的语言）部署到所选平台
 7. 在项目级安装时创建 `docs/superpowers/specs/` 和 `docs/superpowers/plans/` 工作目录
 
 > [!TIP]
-> 更新版本号
->
-> 执行 `comet update` 或者 `npm install -g @rpamis/comet@latest` 即可更新到最新版本。
+> 推荐安装 Superpowers v6.0.0+ —— 相比旧版速度快约 2 倍，节省约 50% token。
+> 后续升级 Comet 本身：执行 `comet update` 或 `npm install -g @rpamis/comet@latest`。
 
 ## 对OpenClaw和Hermes、或其他AI平台的支持
 
@@ -154,6 +153,7 @@ npx skills add rpamis/comet
 |-------------------|----------------------------|
 | `--yes`           | 非交互模式，自动选择已检测平台（未检测到则选择全部） |
 | `--scope <scope>` | 安装范围：`project` 或 `global`  |
+| `--language <lang>` | 技能语言：`en` 或 `zh`（跳过交互式语言选择） |
 | `--skip-existing` | 跳过已安装的组件                   |
 | `--overwrite`     | 覆盖已安装的组件                   |
 | `--json`          | 输出结构化 JSON                 |

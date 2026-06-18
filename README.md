@@ -134,15 +134,14 @@ comet init
 1. Prompt you to select AI platforms (auto-detects existing configs)
 2. Choose install scope: project-level (current directory) or global (home directory)
 3. Select language for Comet skills: English or 中文
-4. Install [OpenSpec](https://github.com/Fission-AI/OpenSpec) skills
-5. Install [Superpowers](https://github.com/obra/superpowers) skills
+4. Select npm dependencies to install/upgrade — [OpenSpec](https://github.com/Fission-AI/OpenSpec) CLI, [Superpowers](https://github.com/obra/superpowers) (via `npx skills add`), and [CodeGraph](https://github.com/colbymchenry/codegraph) CLI. Items not yet detected default to checked; already-installed items default to unchecked so you can opt in to upgrades.
+5. Install the selected dependencies and deploy their skills
 6. Deploy Comet skills (in your chosen language) to selected platforms
 7. Create `docs/superpowers/specs/` and `docs/superpowers/plans/` working directories for project-scope installs
 
 > [!TIP]
-> update version
->
-> `comet update` or `npm install -g @rpamis/comet@latest` to get the latest features and fixes.
+> Superpowers v6.0.0+ is recommended — about 2× faster and ~50% fewer tokens than older versions.
+> To upgrade Comet itself later: `comet update` or `npm install -g @rpamis/comet@latest`.
 
 ## Support for OpenClaw and Hermes, and other AI platforms
 
@@ -168,13 +167,14 @@ npx skills add rpamis/comet
 
 Initializes OpenSpec, Superpowers, and Comet skills for selected AI coding platforms.
 
-| Option            | Description                                                                    |
-|-------------------|--------------------------------------------------------------------------------|
-| `--yes`           | Non-interactive mode, auto-select detected platforms (or all if none detected) |
-| `--scope <scope>` | Install scope: `project` or `global`                                           |
-| `--skip-existing` | Skip already installed components                                              |
-| `--overwrite`     | Overwrite already installed components                                         |
-| `--json`          | Output structured JSON                                                         |
+| Option              | Description                                                                    |
+|---------------------|--------------------------------------------------------------------------------|
+| `--yes`             | Non-interactive mode, auto-select detected platforms (or all if none detected) |
+| `--scope <scope>`   | Install scope: `project` or `global`                                           |
+| `--language <lang>` | Skill language: `en` or `zh` (skips interactive language prompt)              |
+| `--skip-existing`   | Skip already installed components                                              |
+| `--overwrite`       | Overwrite already installed components                                         |
+| `--json`            | Output structured JSON                                                         |
 
 When multiple existing components are found on the same platform, interactive init offers one bulk choice: overwrite
 all, skip all, or choose per component.

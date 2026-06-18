@@ -139,7 +139,12 @@ async function installSuperpowersForPlatforms(
   projectPath: string,
   scope: InstallScope,
   platformIds: string[],
+  shouldInstall = true,
 ): Promise<'installed' | 'failed' | 'skipped'> {
+  if (!shouldInstall) {
+    return 'skipped';
+  }
+
   const unknownIds = platformIds.filter((id) => !VALID_PLATFORM_IDS.has(id));
   if (unknownIds.length > 0) {
     throw new Error(`Unknown platform IDs: ${unknownIds.join(', ')}`);

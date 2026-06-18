@@ -13,7 +13,7 @@ const program = new Command();
 
 program
   .name('comet')
-  .description('OpenSpec + Superpowers dual-star development workflow')
+  .description('Agent Skill Harness Phase-Guarded Automation From Idea To Archive')
   .version(version);
 
 program

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
@@ -417,5 +417,156 @@ describe('uninstall', () => {
       }
       expect(await fileExists(rulePath)).toBe(false);
     });
+  });
+});
+
+// --- uninstallCommand interactive selection tests ---
+
+vi.mock('@inquirer/prompts', () => ({
+  select: vi.fn().mockResolvedValue(true),
+  checkbox: vi.fn().mockResolvedValue([]),
+}));
+
+import { select, checkbox } from '@inquirer/prompts';
+import { uninstallCommand } from '../../src/commands/uninstall.js';
+
+const mockedSelect = vi.mocked(select);
+const mockedCheckbox = vi.mocked(checkbox);
+
+describe('uninstallCommand interactive selection', () => {
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    mockedSelect.mockReset();
+    mockedCheckbox.mockReset();
+    mockedSelect.mockResolvedValue(true as never);
+    tmpDir = path.join(
+      os.tmpdir(),
+      `comet-uninstall-cmd-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    );
+    await fs.mkdir(tmpDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it('auto-selects single target and uninstalls on confirmation', async () => {
+    const claudePlatform = PLATFORMS.find((p) => p.id === 'claude')!;
+    await copyCometSkillsForPlatform(tmpDir, claudePlatform, true, 'skills', 'project');
+
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    try {
+      await uninstallCommand(tmpDir, { force: false });
+    } finally {
+      log.mockRestore();
+    }
+
+    expect(mockedSelect).toHaveBeenCalled();
+    expect(mockedCheckbox).not.toHaveBeenCalled();
+
+    const skillsDir = path.join(tmpDir, '.claude', 'skills');
+    const entries = (await fs.readdir(skillsDir)).filter((e) => e.startsWith('comet'));
+    expect(entries.length).toBe(0);
+  });
+
+  it('cancels when single target user declines', async () => {
+    const claudePlatform = PLATFORMS.find((p) => p.id === 'claude')!;
+    await copyCometSkillsForPlatform(tmpDir, claudePlatform, true, 'skills', 'project');
+
+    mockedSelect.mockResolvedValue(false as never);
+
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    try {
+      await uninstallCommand(tmpDir, { force: false });
+    } finally {
+      log.mockRestore();
+    }
+
+    const skillsDir = path.join(tmpDir, '.claude', 'skills');
+    const entries = (await fs.readdir(skillsDir)).filter((e) => e.startsWith('comet'));
+    expect(entries.length).toBeGreaterThan(0);
+  });
+
+  it('shows checkbox when multiple targets detected', async () => {
+    const claudePlatform = PLATFORMS.find((p) => p.id === 'claude')!;
+    await copyCometSkillsForPlatform(tmpDir, claudePlatform, true, 'skills', 'project');
+    // Create a second platform (codex) fixture
+    const codexDir = path.join(tmpDir, '.codex', 'skills', 'comet');
+    await fs.mkdir(codexDir, { recursive: true });
+    await fs.writeFile(path.join(codexDir, 'SKILL.md'), '# Comet', 'utf-8');
+
+    mockedCheckbox.mockResolvedValue(['claude:project'] as never);
+
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    try {
+      await uninstallCommand(tmpDir, { force: false });
+    } finally {
+      log.mockRestore();
+    }
+
+    expect(mockedCheckbox).toHaveBeenCalled();
+    expect(mockedSelect).not.toHaveBeenCalled();
+
+    // Claude should be uninstalled
+    const claudeSkillsDir = path.join(tmpDir, '.claude', 'skills');
+    const claudeEntries = (await fs.readdir(claudeSkillsDir)).filter((e) => e.startsWith('comet'));
+    expect(claudeEntries.length).toBe(0);
+
+    // Codex should remain
+    expect(await fileExists(path.join(codexDir, 'SKILL.md'))).toBe(true);
+  });
+
+  it('skips prompt with --force and uninstalls all', async () => {
+    const claudePlatform = PLATFORMS.find((p) => p.id === 'claude')!;
+    await copyCometSkillsForPlatform(tmpDir, claudePlatform, true, 'skills', 'project');
+
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    try {
+      await uninstallCommand(tmpDir, { force: true });
+    } finally {
+      log.mockRestore();
+    }
+
+    expect(mockedSelect).not.toHaveBeenCalled();
+    expect(mockedCheckbox).not.toHaveBeenCalled();
+
+    const skillsDir = path.join(tmpDir, '.claude', 'skills');
+    const entries = (await fs.readdir(skillsDir)).filter((e) => e.startsWith('comet'));
+    expect(entries.length).toBe(0);
+  });
+
+  it('skips prompt with --json and uninstalls all', async () => {
+    const claudePlatform = PLATFORMS.find((p) => p.id === 'claude')!;
+    await copyCometSkillsForPlatform(tmpDir, claudePlatform, true, 'skills', 'project');
+
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    let jsonOutput;
+    try {
+      await uninstallCommand(tmpDir, { json: true });
+      jsonOutput = log.mock.calls.map((c) => c.join(' ')).join('\n');
+    } finally {
+      log.mockRestore();
+    }
+
+    expect(mockedSelect).not.toHaveBeenCalled();
+    expect(mockedCheckbox).not.toHaveBeenCalled();
+
+    const result = JSON.parse(jsonOutput);
+    expect(result.summary.targetsProcessed).toBeGreaterThan(0);
+  });
+
+  it('prints message when no targets found', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    let output;
+    try {
+      await uninstallCommand(tmpDir);
+      output = log.mock.calls.map((c) => c.join(' ')).join('\n');
+    } finally {
+      log.mockRestore();
+    }
+
+    expect(output).toContain('No Comet installations found');
+    expect(mockedSelect).not.toHaveBeenCalled();
   });
 });
