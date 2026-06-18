@@ -1,0 +1,8 @@
+# Full comet skill treatment
+COMET_FULL:
+  description: "Full comet skill with all sub-skills and workflow guidance"
+  skills:
+    - name: comet
+      skill: comet
+      variant: all
+      base: benchmarks

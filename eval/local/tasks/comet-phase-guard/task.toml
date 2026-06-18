@@ -1,0 +1,23 @@
+[metadata]
+name = "comet-phase-guard"
+description = "Test Claude's ability to detect comet phase state and resume workflow correctly"
+difficulty = "medium"
+category = "comet"
+tags = ["comet", "phase-detection", "resume", "state-machine"]
+default_treatments = [
+    "CONTROL",
+    "COMET_FULL",
+]
+
+[template]
+required = []
+
+[environment]
+description = "Python workspace with a partially completed comet change. Claude must detect the current phase and continue the workflow."
+dockerfile = "environment/Dockerfile"
+timeout_sec = 900
+
+[validation]
+test_scripts = "test_phase_guard.py"
+target_artifacts = []
+timeout = 120

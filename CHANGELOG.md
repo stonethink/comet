@@ -15,6 +15,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Bundle distribution service**: Adds ready-state-gated Bundle distribution across selected project/global platforms with locale-aware compilation, explicit optional-capability skips, required-capability cancellation, executable hook confirmation, non-destructive hook settings merges, and per-platform installed/skipped/failed results.
 - **Bundle lifecycle CLI**: Adds the `comet bundle` command group for candidate discovery, draft create/optimize, status, platform compile dry-runs, Eval planning and evidence recording, review approval/rejection, publishing, and ready Bundle distribution with stable JSON output for automation.
 - **`/comet-any` Bundle creator**: Adds bilingual `/comet-any` guidance for creating or optimizing platform-independent multi-Skill Bundles, including candidate implementation reads, native `skill-creator` preference with authorized fallback, optional Engine metadata, Eval token choices, human review gates, capability-gap decisions, executable confirmation, and project/global distribution.
+- **Comet Skill Eval harness**: Adds a minimal Python benchmark harness under `eval/` for comparing the Comet workflow against a control treatment on full workflow, hotfix, and phase-resume tasks.
 
 ### Changed
 
@@ -22,6 +23,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Classic compatibility runtime**: Routes state validation, guards, handoff, archive, and hook decisions through one generated TypeScript runtime; the existing shell script names remain as cross-platform facades and no longer contain YAML parsing or transition rules.
 - **Classic status and diagnostics**: `comet status` and `comet doctor` now reuse the typed Classic schema, silently migrate valid legacy changes, display the resolved Run step, and report malformed state without partially rewriting it.
 - **Test timeout ceiling**: Raised the vitest global `testTimeout` to 30s so the bash-spawn-heavy `comet-scripts` integration tests no longer time out at the 5s default on Windows under load.
+- **Eval suite layout**: Splits the Comet eval harness into selectable `local/` and `langsmith/` suites with a shared `scaffold/`, so local runs do not require LangSmith credentials while LangSmith runs can reuse the same task corpus with tracing enabled.
 
 ### Fixed
 
@@ -43,6 +45,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Bundle distribution coverage**: Adds Task 11 coverage for ready hash enforcement, project/global path derivation, locale overlays, optional and required platform capability gaps, executable confirmation before writes, hook config preservation, overwrite behavior, partial platform failure, and excluding authoring/Eval state from installs.
 - **Bundle CLI lifecycle coverage**: Adds command-level and built-CLI coverage for draft optimization, status reconciliation, platform compilation, Eval workload planning, Eval result recording, review gates, publish gates, distribution installation, text/JSON output, and invalid non-interactive option combinations.
 - **`/comet-any` Skill coverage**: Adds Chinese workflow contract tests and bilingual parity assertions for Bundle model behavior, native platform execution, optional Engine metadata, creator fallback authorization, Eval token choices, review and distribution gates, candidate implementation reads, capability gaps, executable disclosures, and deterministic Bundle CLI commands.
+- **Eval scaffold coverage**: Adds Python scaffold tests for task loading, treatment loading, task index stability, and cross-platform pytest coordination helpers.
 
 ## What's Changed [0.3.8] - 2026-06-13
 

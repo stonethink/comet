@@ -1,0 +1,193 @@
+"""Python utilities - thin wrappers around shell scripts."""
+import json, os, random, shutil, subprocess, time
+from pathlib import Path
+from dotenv import load_dotenv
+from pydantic import BaseModel, Field
+from scaffold.python.paths import EVAL_ROOT, get_suite_root
+
+TEST_CONTEXT_FILE = os.environ.get("BENCH_TEST_CONTEXT", "_test_context.json")
+TEST_RESULTS_FILE = os.environ.get("BENCH_TEST_RESULTS", "_test_results.json")
+load_dotenv(EVAL_ROOT / ".env")
+load_dotenv(get_suite_root() / ".env", override=True)
+SHELL_DIR = Path(__file__).parent.parent / "shell"
+SCAFFOLD_PYTHON_DIR = Path(__file__).parent
+
+def run_shell(script, *args, timeout=None, check=True):
+    cmd = ["bash", str(SHELL_DIR / script)] + [str(a) for a in args]
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=check, env=os.environ.copy())
+
+def check_docker_available():
+    try:
+        return run_shell("docker.sh", "check", check=False, timeout=10).returncode == 0
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return False
+
+def build_docker_image(test_dir, force=False, verbose=False):
+    try:
+        args = ["build", str(test_dir)] + (["--force"] if force else [])
+        result = run_shell("docker.sh", *args, timeout=300, check=False)
+        return result.stdout.strip() if result.returncode == 0 else None
+    except subprocess.TimeoutExpired:
+        return None
+
+def _docker_run_script(mode, test_dir, script_name, timeout=120, args=None):
+    if not check_docker_available():
+        return False, "Docker not available"
+    try:
+        cmd = [mode, str(test_dir), script_name] + (args or [])
+        result = run_shell("docker.sh", *cmd, timeout=timeout, check=False)
+        return result.returncode == 0, result.stdout
+    except subprocess.TimeoutExpired:
+        return False, f"Timeout ({timeout}s)"
+    except Exception as e:
+        return False, str(e)
+
+def run_python_in_docker(test_dir, script_name, timeout=120, args=None):
+    return _docker_run_script("run-python", test_dir, script_name, timeout, args)
+
+def run_node_in_docker(test_dir, script_name, timeout=120, args=None):
+    return _docker_run_script("run-node", test_dir, script_name, timeout, args)
+
+def run_claude_in_docker(test_dir, prompt, timeout=300, model=None):
+    if not check_docker_available():
+        raise RuntimeError("Docker not available")
+    cmd = ["run-claude", str(test_dir), prompt, "--timeout", str(timeout)]
+    if model:
+        cmd.extend(["--model", model])
+    try:
+        return run_shell("docker.sh", *cmd, timeout=timeout + 30, check=False)
+    except subprocess.TimeoutExpired:
+        return subprocess.CompletedProcess(cmd, 124, "", f"Timeout after {timeout}s")
+
+def _copy_scaffold_to_docker(test_dir):
+    scaffold_root = SCAFFOLD_PYTHON_DIR.parent
+    scaffold_dir = test_dir / "scaffold"
+    scaffold_dir.mkdir(parents=True, exist_ok=True)
+    (scaffold_dir / "__init__.py").touch()
+    py_dest = scaffold_dir / "python"
+    py_dest.mkdir(exist_ok=True)
+    (py_dest / "__init__.py").touch()
+    shutil.copy(SCAFFOLD_PYTHON_DIR / "utils.py", py_dest / "utils.py")
+    py_validation = SCAFFOLD_PYTHON_DIR / "validation"
+    if py_validation.is_dir():
+        shutil.copytree(py_validation, py_dest / "validation", dirs_exist_ok=True)
+
+def _parse_json_output(output):
+    stripped = output.strip()
+    try:
+        result = json.loads(stripped)
+        if isinstance(result, dict):
+            return result
+    except (json.JSONDecodeError, ValueError):
+        pass
+    for line in reversed(stripped.splitlines()):
+        try:
+            result = json.loads(line)
+            if isinstance(result, dict):
+                return result
+        except (json.JSONDecodeError, ValueError):
+            continue
+    return None
+
+def run_eval_in_docker(test_dir, validation_dir, test_script, timeout=120, data_dir=None):
+    val_dir = test_dir / "validation"
+    val_dir.mkdir(exist_ok=True)
+    for f in validation_dir.iterdir():
+        if f.is_file():
+            shutil.copy(f, val_dir / f.name)
+    if data_dir and data_dir.is_dir():
+        dest_data = test_dir / "data"
+        dest_data.mkdir(exist_ok=True)
+        for f in data_dir.iterdir():
+            if f.is_file():
+                shutil.copy(f, dest_data / f.name)
+    _copy_scaffold_to_docker(test_dir)
+    results_path = test_dir / TEST_RESULTS_FILE
+    results_path.unlink(missing_ok=True)
+    script_path = f"validation/{test_script}"
+    if test_script.endswith((".ts", ".js")):
+        success, output = run_node_in_docker(test_dir, script_path, timeout=timeout)
+    else:
+        success, output = run_python_in_docker(test_dir, script_path, timeout=timeout)
+    if results_path.exists():
+        try:
+            return json.loads(results_path.read_text())
+        except (json.JSONDecodeError, ValueError):
+            pass
+    result = _parse_json_output(output)
+    if result is not None:
+        return result
+    return {"error": f"No JSON output. success={success}, output={output[:300]}"}
+
+def make_execution_validator(validation_dir, test_scripts, target_artifacts, timeout=120, data_dir=None):
+    test_scripts = [test_scripts] if isinstance(test_scripts, str) else test_scripts
+    artifacts = [target_artifacts] if isinstance(target_artifacts, str) else target_artifacts
+
+    def validate_execution(test_dir, outputs):
+        passed, failed = [], []
+        for artifact in artifacts:
+            if any(c in artifact for c in "*?["):
+                if not list(test_dir.glob(artifact)):
+                    failed.append(f"Artifact not found: {artifact}")
+            elif not (test_dir / artifact).exists():
+                failed.append(f"Artifact not found: {artifact}")
+        if failed:
+            return passed, failed
+        context = dict(outputs) if outputs else {}
+        context["target_artifacts"] = artifacts
+        (test_dir / TEST_CONTEXT_FILE).write_text(json.dumps(context, default=str))
+        for script in test_scripts:
+            results = run_eval_in_docker(test_dir, validation_dir, script, timeout=timeout, data_dir=data_dir)
+            passed.extend(results.get("passed", []))
+            failed.extend(results.get("failed", []))
+            if results.get("error") and not results.get("passed") and not results.get("failed"):
+                failed.append(f"Test execution error ({script}): {results['error']}")
+        return passed, failed
+
+    return validate_execution
+
+def check_claude_available():
+    try:
+        return subprocess.run(["claude", "--version"], capture_output=True, timeout=10).returncode == 0
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return False
+
+def retry_with_backoff(func, max_retries=3, base_delay=1.0, max_delay=10.0, retry_on=None):
+    retry_on = retry_on or (lambda e: "429" in str(e) or "rate limit" in str(e).lower())
+    for attempt in range(max_retries + 1):
+        try:
+            return func()
+        except Exception as e:
+            if not retry_on(e) or attempt == max_retries:
+                raise
+            time.sleep(min(base_delay * (2**attempt) + random.uniform(0, 1), max_delay))
+
+def read_json_file(path):
+    if not path.exists():
+        return None, f"file not found: {path.name}"
+    try:
+        with open(path) as f:
+            return json.load(f), None
+    except json.JSONDecodeError as e:
+        return None, f"invalid JSON: {e}"
+    except Exception as e:
+        return None, str(e)
+
+def get_field(obj, *keys, default=None):
+    if not isinstance(obj, dict):
+        return default
+    for key in keys:
+        if key in obj:
+            return obj[key]
+    return default
+
+def get_nested_field(obj, outer_keys, inner_keys, default=None):
+    outer = get_field(obj, *outer_keys) or {}
+    return get_field(outer, *inner_keys, default=default) if isinstance(outer, dict) else default
+
+def normalize_score(score):
+    if isinstance(score, bool):
+        return 1.0 if score else 0.0
+    if isinstance(score, (int, float)) and score > 1:
+        return score / 100.0
+    return float(score) if score is not None else 0.0

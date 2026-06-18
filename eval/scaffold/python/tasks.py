@@ -1,0 +1,259 @@
+"""Task loader for self-contained benchmark tasks.
+
+Each task is a directory containing:
+- instruction.md: Task prompt with {variable} placeholders
+- task.toml: Task metadata, validation config (test_scripts, target_artifacts)
+- environment/: Docker context (Dockerfile, source code)
+- validation/: Validator implementations
+- data/: Test data and ground truth (optional)
+
+Usage:
+    from scaffold.python.tasks import load_task, list_tasks
+
+    task = load_task("ls-evaluator")
+    prompt = task.render_prompt(py_dataset="ds-py", ts_dataset="ds-ts", run_id="abc123")
+    validators = task.load_validators()
+"""
+
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib  # Python < 3.11
+
+
+from scaffold.python.paths import get_tasks_dir
+
+
+@dataclass
+class DataHandler:
+    """A data handler triggered by file pattern match."""
+
+    pattern: str  # Glob pattern relative to task data dir (e.g., "trace_*.jsonl")
+    handler: str  # Handler name (e.g., "upload_traces")
+    args: dict = field(default_factory=dict)  # Handler-specific arguments
+
+
+@dataclass
+class SetupConfig:
+    """Setup configuration for a task.
+
+    Defines data handlers and template variables that are computed at test time.
+    """
+
+    # Data handlers triggered by pattern matches
+    data_handlers: list[DataHandler] = field(default_factory=list)
+
+    # Template variables with format strings (can use {run_id})
+    template_vars: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
+class ValidationConfig:
+    """Validation configuration from [validation] in task.toml.
+
+    Defines what to check and how. The framework auto-builds a validator
+    from this config — no validators.py needed for most tasks.
+    """
+
+    # Test script(s) to run in Docker (e.g., "test_agent.py")
+    test_scripts: str | list[str] = ""
+
+    # File(s) or dir(s) Claude should produce — existence is checked before
+    # running test scripts. Names are available via runner.artifacts.
+    target_artifacts: str | list[str] = field(default_factory=list)
+
+    # Docker execution timeout in seconds
+    timeout: int = 120
+
+
+@dataclass
+class TaskConfig:
+    """Configuration loaded from task.toml."""
+
+    name: str
+    description: str
+    difficulty: str = "medium"
+    category: str = ""
+    tags: list[str] = field(default_factory=list)
+
+    # Description of what Claude has access to in this task environment
+    environment_description: str = ""
+
+    # Default treatments to test with this task
+    default_treatments: list[str] = field(default_factory=list)
+
+    # Template variables required for instruction.md
+    template_required: list[str] = field(default_factory=list)
+
+    # Environment settings
+    dockerfile: str = "Dockerfile"
+    timeout_sec: int = 900
+
+    # Validation configuration
+    validation: ValidationConfig = field(default_factory=ValidationConfig)
+
+    # Setup configuration
+    setup: SetupConfig = field(default_factory=SetupConfig)
+
+
+@dataclass
+class Task:
+    """A self-contained benchmark task."""
+
+    path: Path
+    config: TaskConfig
+    instruction_template: str
+
+    @property
+    def name(self) -> str:
+        return self.config.name
+
+    @property
+    def environment_dir(self) -> Path:
+        return self.path / "environment"
+
+    @property
+    def validation_dir(self) -> Path:
+        return self.path / "validation"
+
+    @property
+    def data_dir(self) -> Path:
+        return self.path / "data"
+
+    @property
+    def default_treatments(self) -> list[str]:
+        return self.config.default_treatments
+
+    def render_prompt(self, **kwargs: Any) -> str:
+        """Render the instruction template with provided variables.
+
+        Args:
+            **kwargs: Template variables (e.g., run_id, py_dataset, ts_dataset)
+
+        Returns:
+            Rendered prompt string
+
+        Raises:
+            KeyError: If a required template variable is missing
+        """
+        missing = set(self.config.template_required) - set(kwargs.keys())
+        if missing:
+            raise KeyError(f"Missing required template variables: {missing}")
+        return self.instruction_template.format(**kwargs)
+
+    def load_validators(self) -> list:
+        """Build validator from task.toml [validation] config.
+
+        The config specifies test_scripts and target_artifacts. The framework
+        auto-builds an execution validator that runs the scripts in Docker.
+        """
+        vc = self.config.validation
+        if vc.test_scripts:
+            from scaffold.python.utils import make_execution_validator
+
+            return [
+                make_execution_validator(
+                    validation_dir=self.validation_dir,
+                    test_scripts=vc.test_scripts,
+                    target_artifacts=vc.target_artifacts,
+                    timeout=vc.timeout,
+                    data_dir=self.data_dir if self.data_dir.exists() else None,
+                )
+            ]
+
+        return []
+
+
+def load_task(name: str, tasks_dir: Path | None = None) -> Task:
+    """Load a task by name.
+
+    Args:
+        name: Task directory name (e.g., "ls-evaluator")
+        tasks_dir: Optional custom tasks directory
+
+    Returns:
+        Task object with config and instruction template
+    """
+    tasks_dir = tasks_dir or get_tasks_dir()
+    task_path = tasks_dir / name
+
+    if not task_path.exists():
+        raise FileNotFoundError(f"Task not found: {name} (looked in {tasks_dir})")
+
+    # Load task.toml
+    toml_path = task_path / "task.toml"
+    if not toml_path.exists():
+        raise FileNotFoundError(f"task.toml not found in {task_path}")
+
+    with open(toml_path, "rb") as f:
+        toml_data = tomllib.load(f)
+
+    metadata = toml_data.get("metadata", {})
+    template = toml_data.get("template", {})
+    environment = toml_data.get("environment", {})
+    validation = toml_data.get("validation", {})
+    setup_data = toml_data.get("setup", {})
+
+    # Parse setup config
+    data_handlers = [
+        DataHandler(pattern=d["pattern"], handler=d["handler"], args=d.get("args", {}))
+        for d in setup_data.get("data", [])
+    ]
+    setup = SetupConfig(
+        data_handlers=data_handlers,
+        template_vars=setup_data.get("template_vars", {}),
+    )
+
+    validation_config = ValidationConfig(
+        test_scripts=validation.get("test_scripts", ""),
+        target_artifacts=validation.get("target_artifacts", []),
+        timeout=validation.get("timeout", 120),
+    )
+
+    config = TaskConfig(
+        name=metadata.get("name", name),
+        description=metadata.get("description", ""),
+        difficulty=metadata.get("difficulty", "medium"),
+        category=metadata.get("category", ""),
+        tags=metadata.get("tags", []),
+        environment_description=environment.get("description", ""),
+        default_treatments=metadata.get("default_treatments", []),
+        template_required=template.get("required", []),
+        dockerfile=environment.get("dockerfile", "Dockerfile"),
+        timeout_sec=environment.get("timeout_sec", 900),
+        validation=validation_config,
+        setup=setup,
+    )
+
+    # Load instruction.md
+    instruction_path = task_path / "instruction.md"
+    if not instruction_path.exists():
+        raise FileNotFoundError(f"instruction.md not found in {task_path}")
+
+    instruction_template = instruction_path.read_text()
+
+    return Task(path=task_path, config=config, instruction_template=instruction_template)
+
+
+def list_tasks(tasks_dir: Path | None = None) -> list[str]:
+    """List available task names.
+
+    Args:
+        tasks_dir: Optional custom tasks directory
+
+    Returns:
+        List of task directory names
+    """
+    tasks_dir = tasks_dir or get_tasks_dir()
+    if not tasks_dir.exists():
+        return []
+
+    return sorted(
+        d.name
+        for d in tasks_dir.iterdir()
+        if d.is_dir() and (d / "task.toml").exists() and (d / "instruction.md").exists()
+    )

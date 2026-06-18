@@ -1,0 +1,19 @@
+tasks:
+  - name: comet-full-workflow
+    category: comet
+    default_treatments:
+      - CONTROL
+      - COMET_FULL
+    description: Full open-design-build-verify-archive workflow on a sentence-counting feature.
+  - name: comet-hotfix
+    category: comet
+    default_treatments:
+      - CONTROL
+      - COMET_FULL
+    description: Hotfix preset workflow on a line-counting bug.
+  - name: comet-phase-guard
+    category: comet
+    default_treatments:
+      - CONTROL
+      - COMET_FULL
+    description: Resume a partially completed change from the detected phase.
