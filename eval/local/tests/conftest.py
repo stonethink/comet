@@ -75,6 +75,13 @@ def pytest_addoption(parser):
         default=None,
         help="Run specific treatment (e.g., --treatment=COMET_FULL)",
     )
+    parser.addoption(
+        "--count",
+        action="store",
+        type=int,
+        default=1,
+        help="Repeat each task/treatment combination N times for distribution stats (default: 1)",
+    )
 
 
 def pytest_configure(config):

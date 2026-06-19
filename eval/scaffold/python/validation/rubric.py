@@ -24,6 +24,7 @@ Dimensions
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -347,4 +348,17 @@ def comet_rubric_validator(test_dir: Path, outputs: dict) -> tuple[list[str], li
     ]
 
     passed = [_fmt(dim, score, reason) for dim, score, reason in scored]
+
+    # Optional LLM-as-judge overlay: when BENCH_LLM_JUDGE=1, a judge model
+    # re-scores the three qualitative dimensions (artifact_quality, spec_drift,
+    # main_flow) by reading the actual artifacts. These [RUBRIC-JUDGE] messages
+    # supplement (do not replace) the rule-based [RUBRIC] scores so the report
+    # can show rule vs judge agreement.
+    if os.environ.get("BENCH_LLM_JUDGE") == "1":
+        try:
+            from scaffold.python.llm_judge import judge_messages
+            passed.extend(judge_messages(test_dir))
+        except Exception:
+            pass  # judge is best-effort; never break the run
+
     return passed, []

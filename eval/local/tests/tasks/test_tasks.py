@@ -87,11 +87,23 @@ def generate_test_params(task_filter: str | None, treatment_filter: str | None):
 
 
 def pytest_generate_tests(metafunc):
-    """Dynamically parametrize tests based on CLI options."""
+    """Dynamically parametrize tests based on CLI options.
+
+    ``--count N`` repeats each (task, treatment) pair N times so the report can
+    compute pass-rate distributions instead of a single noisy sample.
+    """
     if "task_name" in metafunc.fixturenames and "treatment_name" in metafunc.fixturenames:
         task_filter = metafunc.config.getoption("--task")
         treatment_filter = metafunc.config.getoption("--treatment")
-        params = generate_test_params(task_filter, treatment_filter)
+        count = int(metafunc.config.getoption("--count") or 1)
+        base_params = generate_test_params(task_filter, treatment_filter)
+        # pytest ids stay (task, treatment); the rep number is tracked separately
+        # by the experiment plugin's get_rep_number per treatment. To force N
+        # distinct test invocations we append a rep suffix to the param id.
+        params = []
+        for rep in range(count):
+            for task_name, treatment_name in base_params:
+                params.append(pytest.param(task_name, treatment_name, id=f"{task_name}-{treatment_name}-r{rep+1}"))
         metafunc.parametrize("task_name,treatment_name", params)
 
 
