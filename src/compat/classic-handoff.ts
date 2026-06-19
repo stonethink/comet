@@ -3,6 +3,7 @@ import { promises as fs, readFileSync } from 'fs';
 import path from 'path';
 import { parseDocument } from 'yaml';
 import type { ClassicCommandHandler, ClassicCommandResult } from './classic-cli.js';
+import { openSpecChangeNameError } from './classic-paths.js';
 import { ensureClassicRuntimeRun, transitionClassicRuntimeRun } from './classic-runtime-run.js';
 import { readClassicState, writeClassicState } from './classic-store.js';
 import {
@@ -79,20 +80,8 @@ async function nonempty(file: string): Promise<boolean> {
 }
 
 function validateChangeName(name: string): void {
-  if (!name) throw new HandoffFailure(red('ERROR: Change name cannot be empty'));
-  if (!/^[a-zA-Z0-9_-]+$/u.test(name)) {
-    throw new HandoffFailure(
-      [
-        red(`ERROR: Invalid change name: '${name}'`),
-        red('Valid characters: a-z, A-Z, 0-9, -, _'),
-      ].join('\n'),
-    );
-  }
-  if (name.includes('..')) {
-    throw new HandoffFailure(
-      red("ERROR: Change name cannot contain '..' (path traversal not allowed)"),
-    );
-  }
+  const error = openSpecChangeNameError(name);
+  if (error) throw new HandoffFailure(red(`ERROR: ${error}`));
 }
 
 function hashFile(file: string): string {
@@ -305,30 +294,28 @@ async function writeSpecJsonContext(
   contextHash: string,
   output: string,
 ): Promise<void> {
-  const entries: string[] = [];
+  const entries: Array<{ path: string; sha256: string; role: 'spec' | 'supporting' }> = [];
   for (const file of await handoffSourceFiles(changeDir)) {
     if (!(await exists(file))) continue;
     const role = /\/specs\/[^/]+\/spec\.md$/u.test(file) ? 'spec' : 'supporting';
-    entries.push(
-      `    { "path": "${jsonEscape(file)}", "sha256": "${hashFile(file)}", "role": "${role}" }`,
-    );
+    entries.push({ path: file, sha256: hashFile(file), role });
   }
-  const filesBlock = entries.join(',\n');
-  const document = [
-    '{',
-    `  "change": "${jsonEscape(change)}",`,
-    '  "phase": "design",',
-    '  "mode": "beta",',
-    '  "canonical_spec": "openspec",',
-    '  "generated_by": "comet-handoff.sh",',
-    `  "context_hash": "${contextHash}",`,
-    '  "files": [',
-    filesBlock,
-    '  ]',
-    '}',
-    '',
-  ].join('\n');
-  await fs.writeFile(output, document);
+  await fs.writeFile(
+    output,
+    `${JSON.stringify(
+      {
+        change,
+        phase: 'design',
+        mode: 'beta',
+        canonical_spec: 'openspec',
+        generated_by: 'comet-handoff.sh',
+        context_hash: contextHash,
+        files: entries,
+      },
+      null,
+      2,
+    )}\n`,
+  );
 }
 
 async function readField(changeDir: string, field: string): Promise<string> {

@@ -170,6 +170,8 @@ Run `node "$COMET_STATE" set <name> tdd_mode <tdd|direct>`
 
 `tdd_mode` is a script-enforced hard constraint. Full workflow must have `tdd_mode` selected as `tdd` or `direct` before leaving the build phase, otherwise both `comet-guard.mjs build --apply` and `comet-state transition build-complete` will fail.
 
+`review_mode` is a script-enforced hard constraint. Full workflow must have `review_mode` selected as `off`, `standard`, or `thorough` before leaving the build phase, otherwise both `comet-guard.mjs build --apply` and `comet-state transition build-complete` will fail. Legacy state files without this field follow a compat path, but should be backfilled on recovery.
+
 `build_mode` defaults to `direct` only for hotfix/tweak presets. Full workflow must not default to `direct`. Use it only when the user explicitly asks to bypass the plan execution skills and you record an explicit override:
 
 ```bash
@@ -275,6 +277,8 @@ Build is the longest phase and may span many tasks. To support resume after cont
 - `isolation` has been written as `branch` or `worktree`
 - `build_mode` has been written as `subagent-driven-development`, `executing-plans`, or `direct` with explicit override; if `subagent-driven-development`, `subagent_dispatch` must be `confirmed`
 - `tdd_mode` has been written as `tdd` or `direct`
+- `review_mode` has been written as `off`, `standard`, or `thorough`
+- If `review_mode` is `standard` or `thorough`, code review has been completed per the review mode and CRITICAL review findings have been fixed or acceptance rationale for non-CRITICAL review findings has been recorded; if `review_mode: off`, the reason for skipping automatic code review has been recorded in a persistent artifact
 - If `build_mode` is `executing-plans`, the Skill tool has been used to load the Superpowers `requesting-code-review` skill and request code review at least once, and CRITICAL review findings have been fixed or acceptance rationale for non-CRITICAL review findings has been recorded
 - **Phase guard**: Run `node "$COMET_GUARD" <change-name> build --apply`; after all PASS, state advances to `phase: verify`
 
@@ -286,7 +290,7 @@ verify_command: <verify command>
 ```
 
 Configuration can live in the change `.comet.yaml`, or in repo-root `.comet.yaml` / `comet.yaml` / `.comet.yml` / `comet.yml`.
-Only when no command is configured does guard fall back to `npm run build`, Maven, or Cargo auto-detection. When a command fails, guard prints the command output as evidence for debugging.
+Configured commands use a restricted shell grammar: command words, quotes, paths, and `&&` for sequential steps are allowed; `;`, pipes, bare `&`, `$`, and backticks are rejected. Only when no command is configured does guard fall back to `npm run build`, Maven, or Cargo auto-detection. When a command fails, guard prints the command output as evidence for debugging.
 
 Before exit, run guard to auto-transition:
 

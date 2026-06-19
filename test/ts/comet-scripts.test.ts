@@ -60,7 +60,10 @@ async function createChange(tmpDir: string, name: string, yaml: string, tasks = 
   return changeDir;
 }
 
-async function createFakeOpenSpecArchive(tmpDir: string, archiveDate = new Date().toISOString().slice(0, 10)) {
+async function createFakeOpenSpecArchive(
+  tmpDir: string,
+  archiveDate = new Date().toISOString().slice(0, 10),
+) {
   // Cross-platform fake `openspec archive` (Node, not bash) so the archive tests
   // run identically on macOS, Linux, and Windows. Returns `command` — the value
   // to assign to COMET_OPENSPEC — already shaped so the runtime's
@@ -157,6 +160,7 @@ describe('comet scripts', () => {
   let tmpDir: string;
   let guardScript: string;
   let stateScript: string;
+  let validateScript: string;
   let hookGuardScript: string;
 
   beforeEach(async () => {
@@ -184,6 +188,7 @@ describe('comet scripts', () => {
     }
     guardScript = path.join(tmpScriptsDir, 'comet-guard.mjs');
     stateScript = path.join(tmpScriptsDir, 'comet-state.mjs');
+    validateScript = path.join(tmpScriptsDir, 'comet-yaml-validate.mjs');
     hookGuardScript = path.join(tmpScriptsDir, 'comet-hook-guard.mjs');
   });
 
@@ -203,6 +208,22 @@ describe('comet scripts', () => {
     expect(yaml).toContain('phase: open');
     expect(yaml).toContain('verification_report: null');
     expect(yaml).toContain('branch_status: pending');
+  }, 20_000);
+
+  it('rejects change names that OpenSpec cannot archive later', async () => {
+    const upper = runNode(tmpDir, stateScript, ['init', 'Upper_Name', 'full']);
+    const underscore = runNode(tmpDir, stateScript, ['init', 'snake_case', 'full']);
+    const datePrefixed = runNode(tmpDir, stateScript, ['init', '2026-05-21-change', 'full']);
+    const valid = runNode(tmpDir, stateScript, ['init', 'kebab-case-name', 'full']);
+
+    expect(upper.status).not.toBe(0);
+    expect(upper.stderr).toContain('Invalid change name');
+    expect(upper.stderr).toContain('kebab-case');
+    expect(underscore.status).not.toBe(0);
+    expect(underscore.stderr).toContain('Invalid change name');
+    expect(datePrefixed.status).not.toBe(0);
+    expect(datePrefixed.stderr).toContain('Invalid change name');
+    expect(valid.status).toBe(0);
   }, 20_000);
 
   it('initializes build_pause as null for new changes', async () => {
@@ -628,7 +649,9 @@ describe('comet scripts', () => {
         'phase: build',
         'build_mode: executing-plans',
         'build_pause: null',
-        'tdd_mode: null',
+        'subagent_dispatch: null',
+        'tdd_mode: direct',
+        'review_mode: off',
         'isolation: branch',
         'verify_mode: null',
         'design_doc: null',
@@ -929,6 +952,91 @@ describe('comet scripts', () => {
     expect(result.stderr).toContain('[FAIL] beta spec-context.json is structurally valid');
   }, 20_000);
 
+  it('blocks beta design exit when spec-context.json is malformed JSON', async () => {
+    const handoffScript = path.join(tmpDir, 'scripts', 'comet-handoff.mjs');
+    await createChange(
+      tmpDir,
+      'beta-malformed-json',
+      [
+        'workflow: full',
+        'phase: design',
+        'context_compression: beta',
+        'build_mode: null',
+        'build_pause: null',
+        'tdd_mode: null',
+        'isolation: null',
+        'verify_mode: null',
+        'design_doc: null',
+        'plan: null',
+        'verify_result: pending',
+        'verified_at: null',
+        'archived: false',
+        'auto_transition: true',
+        '',
+      ].join('\n'),
+      '- [ ] build beta context\n',
+    );
+    await writeFile(
+      path.join(
+        tmpDir,
+        'openspec',
+        'changes',
+        'beta-malformed-json',
+        'specs',
+        'capability',
+        'spec.md',
+      ),
+      [
+        '## ADDED Requirements',
+        '',
+        '### Requirement: Keep malformed JSON blocked',
+        '',
+        '#### Scenario: malformed JSON',
+        '- **WHEN** guard parses the projection',
+        '- **THEN** invalid JSON is rejected',
+        '',
+      ].join('\n'),
+    );
+
+    const handoff = runNode(tmpDir, handoffScript, ['beta-malformed-json', 'design', '--write']);
+    expect(handoff.status).toBe(0);
+
+    const jsonPath = path.join(
+      tmpDir,
+      'openspec',
+      'changes',
+      'beta-malformed-json',
+      '.comet',
+      'handoff',
+      'spec-context.json',
+    );
+    await fs.appendFile(jsonPath, '\nnot-json\n');
+
+    await writeFile(
+      path.join(tmpDir, 'docs', 'superpowers', 'specs', 'beta-malformed-json-design.md'),
+      [
+        '---',
+        'comet_change: beta-malformed-json',
+        'role: technical-design',
+        'canonical_spec: openspec',
+        '---',
+        '',
+      ].join('\n'),
+    );
+    runNode(tmpDir, stateScript, [
+      'set',
+      'beta-malformed-json',
+      'design_doc',
+      'docs/superpowers/specs/beta-malformed-json-design.md',
+    ]);
+
+    const result = runNode(tmpDir, guardScript, ['beta-malformed-json', 'design']);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('[FAIL] beta spec-context.json is structurally valid');
+    expect(result.stderr).toContain('invalid JSON');
+  }, 20_000);
+
   it('reads comet yaml fields without including trailing comments', async () => {
     const handoffScript = path.join(tmpDir, 'scripts', 'comet-handoff.mjs');
     const validateScript = path.join(tmpDir, 'scripts', 'comet-yaml-validate.mjs');
@@ -958,7 +1066,7 @@ describe('comet scripts', () => {
 
     expect(phase.status).toBe(0);
     expect(phase.stdout.trim()).toBe('design');
-    expect(validate.status).toBe(0);
+    expect(validate.status, validate.stderr).toBe(0);
     expect(handoff.status).toBe(0);
   }, 20_000);
 
@@ -1672,7 +1780,9 @@ describe('comet scripts', () => {
         'phase: build',
         'build_mode: executing-plans',
         'build_pause: null',
-        'tdd_mode: null',
+        'subagent_dispatch: null',
+        'tdd_mode: direct',
+        'review_mode: off',
         'isolation: branch',
         'verify_mode: null',
         'design_doc: null',
@@ -1915,6 +2025,87 @@ describe('comet scripts', () => {
     expect(result.stderr).toContain('configured failure');
   }, 20_000);
 
+  it('runs configured build command chains joined with &&', async () => {
+    await createChange(
+      tmpDir,
+      'configured-build-chain',
+      [
+        'workflow: full',
+        'phase: build',
+        'build_mode: executing-plans',
+        'build_pause: null',
+        'subagent_dispatch: null',
+        'tdd_mode: direct',
+        'review_mode: off',
+        'isolation: branch',
+        'verify_mode: null',
+        'build_command: "node first-build-check.js && node second-build-check.js"',
+        'design_doc: null',
+        'plan: null',
+        'verify_result: pending',
+        'verified_at: null',
+        'archived: false',
+        '',
+      ].join('\n'),
+    );
+    await writeFile(path.join(tmpDir, 'first-build-check.js'), 'console.error("first ok");\n');
+    await writeFile(
+      path.join(tmpDir, 'second-build-check.js'),
+      'console.error("second failed"); process.exit(1);\n',
+    );
+    await writeFile(
+      path.join(tmpDir, 'package.json'),
+      JSON.stringify({ scripts: { build: 'node -e "process.exit(0)"' } }),
+    );
+
+    const result = runNode(tmpDir, guardScript, ['configured-build-chain', 'build']);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('first ok');
+    expect(result.stderr).toContain('second failed');
+    expect(result.stderr).not.toContain('shell metacharacters');
+  }, 20_000);
+
+  it('does not split configured command chains on && inside quotes', async () => {
+    await createChange(
+      tmpDir,
+      'quoted-build-chain',
+      [
+        'workflow: full',
+        'phase: build',
+        'build_mode: executing-plans',
+        'build_pause: null',
+        'subagent_dispatch: null',
+        'tdd_mode: direct',
+        'review_mode: off',
+        'isolation: branch',
+        'verify_mode: null',
+        "build_command: 'node -e \"console.error(''literal && kept'')\" && node second-build-check.js'",
+        'design_doc: null',
+        'plan: null',
+        'verify_result: pending',
+        'verified_at: null',
+        'archived: false',
+        '',
+      ].join('\n'),
+    );
+    await writeFile(
+      path.join(tmpDir, 'second-build-check.js'),
+      'console.error("second failed"); process.exit(1);\n',
+    );
+    await writeFile(
+      path.join(tmpDir, 'package.json'),
+      JSON.stringify({ scripts: { build: 'node -e "process.exit(0)"' } }),
+    );
+
+    const result = runNode(tmpDir, guardScript, ['quoted-build-chain', 'build']);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('literal && kept');
+    expect(result.stderr).toContain('second failed');
+    expect(result.stderr).not.toContain('shell metacharacters');
+  }, 20_000);
+
   it('preserves configured command values containing shell metacharacters', async () => {
     const command = 'node -e "console.log(\'a&b|c\')"';
     await createChange(
@@ -2050,11 +2241,63 @@ describe('comet scripts', () => {
       ].join('\n'),
     );
 
-    const result = runNode(tmpDir, guardScript, ['2026-05-21-done-change', 'archive']);
+    const result = runNode(tmpDir, guardScript, ['done-change', 'archive']);
 
     expect(result.status).toBe(0);
     expect(result.stderr).toContain('ALL CHECKS PASSED');
   });
+
+  it('resolves OpenSpec date-prefixed archive directories from the original change name', async () => {
+    await createChange(
+      tmpDir,
+      path.join('archive', '2026-05-21-resolved-archive'),
+      [
+        'workflow: full',
+        'phase: archive',
+        'context_compression: off',
+        'build_mode: executing-plans',
+        'build_pause: null',
+        'subagent_dispatch: null',
+        'tdd_mode: tdd',
+        'review_mode: off',
+        'isolation: branch',
+        'verify_mode: full',
+        'base_ref: null',
+        'design_doc: null',
+        'plan: null',
+        'verify_result: pass',
+        'verification_report: null',
+        'branch_status: handled',
+        'auto_transition: true',
+        'created_at: 2026-05-21',
+        'verified_at: 2026-05-21',
+        'archived: true',
+        'direct_override: null',
+        'build_command: null',
+        'verify_command: null',
+        'handoff_context: null',
+        'handoff_hash: null',
+        '',
+      ].join('\n'),
+      '- [x] archived\n',
+    );
+
+    const get = runNode(tmpDir, stateScript, ['get', 'resolved-archive', 'archived']);
+    const next = runNode(tmpDir, stateScript, ['next', 'resolved-archive']);
+    const guard = runNode(tmpDir, guardScript, ['resolved-archive', 'archive']);
+    const validate = runNode(tmpDir, validateScript, ['resolved-archive']);
+
+    expect(get.status).toBe(0);
+    expect(get.stdout.trim()).toBe('true');
+    expect(next.status).toBe(0);
+    expect(next.stdout.trim()).toBe('NEXT: done');
+    expect(guard.status).toBe(0);
+    expect(guard.stderr).toContain('ALL CHECKS PASSED');
+    expect(validate.status, validate.stderr).toBe(0);
+    expect(validate.stderr).toContain(
+      '[VALIDATE] openspec/changes/archive/2026-05-21-resolved-archive/.comet.yaml',
+    );
+  }, 20_000);
 
   it('reports accurate archive step counts when syncing and annotating', async () => {
     const archiveScript = path.join(tmpDir, 'scripts', 'comet-archive.mjs');
@@ -2302,7 +2545,220 @@ describe('comet scripts', () => {
 
     expect(result.status).toBe(0);
     expect(mode.stdout.trim()).toBe('full');
-  }, 25_000);
+  }, 20_000);
+
+  it('scale defaults to light when no tasks.md, no specs, and no git diff', async () => {
+    await createChange(
+      tmpDir,
+      'tiny-change',
+      [
+        'workflow: full',
+        'phase: verify',
+        'build_mode: executing-plans',
+        'build_pause: null',
+        'tdd_mode: null',
+        'isolation: branch',
+        'verify_mode: null',
+        'design_doc: null',
+        'plan: null',
+        'verify_result: pending',
+        'archived: false',
+        '',
+      ].join('\n'),
+    );
+
+    const result = runNode(tmpDir, stateScript, ['scale', 'tiny-change']);
+    const mode = runNode(tmpDir, stateScript, ['get', 'tiny-change', 'verify_mode']);
+
+    expect(result.status).toBe(0);
+    expect(mode.stdout.trim()).toBe('light');
+  });
+
+  it('scale returns full when tasks exceed threshold', async () => {
+    const tasks = Array.from({ length: 5 }, (_, i) => `- [x] task ${i + 1}`).join('\n');
+    await createChange(
+      tmpDir,
+      'many-tasks',
+      [
+        'workflow: full',
+        'phase: verify',
+        'build_mode: executing-plans',
+        'build_pause: null',
+        'tdd_mode: null',
+        'isolation: branch',
+        'verify_mode: null',
+        'design_doc: null',
+        'plan: null',
+        'verify_result: pending',
+        'archived: false',
+        '',
+      ].join('\n'),
+      tasks,
+    );
+
+    const result = runNode(tmpDir, stateScript, ['scale', 'many-tasks']);
+    const mode = runNode(tmpDir, stateScript, ['get', 'many-tasks', 'verify_mode']);
+
+    expect(result.status).toBe(0);
+    expect(mode.stdout.trim()).toBe('full');
+  });
+
+  it('scale uses base_ref from .comet.yaml when plan has no base-ref header', async () => {
+    execFileSync('git', ['init'], { cwd: tmpDir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: tmpDir });
+    execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: tmpDir });
+    await writeFile(path.join(tmpDir, 'README.md'), 'base\n');
+    execFileSync('git', ['add', '.'], { cwd: tmpDir });
+    execFileSync('git', ['commit', '-m', 'base'], { cwd: tmpDir, stdio: 'ignore' });
+    const baseRef = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: tmpDir,
+      encoding: 'utf-8',
+    }).trim();
+
+    await createChange(
+      tmpDir,
+      'base-ref-change',
+      [
+        'workflow: full',
+        'phase: verify',
+        'build_mode: executing-plans',
+        'build_pause: null',
+        'tdd_mode: null',
+        'isolation: branch',
+        'verify_mode: null',
+        'design_doc: null',
+        'plan: null',
+        `base_ref: ${baseRef}`,
+        'verify_result: pending',
+        'archived: false',
+        '',
+      ].join('\n'),
+    );
+    for (let i = 1; i <= 6; i += 1) {
+      await writeFile(path.join(tmpDir, 'src', `file-${i}.txt`), `change ${i}\n`);
+    }
+    execFileSync('git', ['add', '.'], { cwd: tmpDir });
+    execFileSync('git', ['commit', '-m', 'many files'], { cwd: tmpDir, stdio: 'ignore' });
+
+    const result = runNode(tmpDir, stateScript, ['scale', 'base-ref-change']);
+    const mode = runNode(tmpDir, stateScript, ['get', 'base-ref-change', 'verify_mode']);
+
+    expect(result.status).toBe(0);
+    expect(mode.stdout.trim()).toBe('full');
+  }, 20_000);
+
+  it('blocks build-complete when review_mode is null for full workflow', async () => {
+    await createChange(
+      tmpDir,
+      'no-review-mode',
+      [
+        'workflow: full',
+        'phase: build',
+        'build_mode: executing-plans',
+        'build_pause: null',
+        'tdd_mode: tdd',
+        'isolation: branch',
+        'verify_mode: light',
+        'review_mode: null',
+        'design_doc: null',
+        'plan: null',
+        'verify_result: pending',
+        'archived: false',
+        '',
+      ].join('\n'),
+    );
+
+    const result = runNode(tmpDir, stateScript, ['transition', 'no-review-mode', 'build-complete']);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('review_mode must be selected');
+  });
+
+  it('allows build-complete when review_mode is off for full workflow', async () => {
+    await createChange(
+      tmpDir,
+      'review-off',
+      [
+        'workflow: full',
+        'phase: build',
+        'build_mode: executing-plans',
+        'build_pause: null',
+        'tdd_mode: tdd',
+        'isolation: branch',
+        'verify_mode: light',
+        'review_mode: off',
+        'design_doc: null',
+        'plan: null',
+        'verify_result: pending',
+        'archived: false',
+        '',
+      ].join('\n'),
+    );
+
+    const result = runNode(tmpDir, stateScript, ['transition', 'review-off', 'build-complete']);
+
+    expect(result.status).toBe(0);
+  });
+
+  it('allows build-complete when review_mode is standard for full workflow', async () => {
+    await createChange(
+      tmpDir,
+      'review-standard',
+      [
+        'workflow: full',
+        'phase: build',
+        'build_mode: executing-plans',
+        'build_pause: null',
+        'tdd_mode: tdd',
+        'isolation: branch',
+        'verify_mode: light',
+        'review_mode: standard',
+        'design_doc: null',
+        'plan: null',
+        'verify_result: pending',
+        'archived: false',
+        '',
+      ].join('\n'),
+    );
+
+    const result = runNode(tmpDir, stateScript, [
+      'transition',
+      'review-standard',
+      'build-complete',
+    ]);
+
+    expect(result.status).toBe(0);
+  });
+
+  it('allows build-complete without review_mode for hotfix workflow', async () => {
+    await createChange(
+      tmpDir,
+      'hotfix-no-review',
+      [
+        'workflow: hotfix',
+        'phase: build',
+        'build_mode: direct',
+        'build_pause: null',
+        'tdd_mode: direct',
+        'isolation: branch',
+        'verify_mode: light',
+        'review_mode: off',
+        'design_doc: null',
+        'plan: null',
+        'verify_result: pending',
+        'archived: false',
+        '',
+      ].join('\n'),
+    );
+
+    const result = runNode(tmpDir, stateScript, [
+      'transition',
+      'hotfix-no-review',
+      'build-complete',
+    ]);
+
+    expect(result.status).toBe(0);
+  });
 
   it('transitions full workflow from open to design', async () => {
     await createChange(
@@ -2740,7 +3196,18 @@ describe('comet scripts', () => {
     expect(result.stderr).toContain('expected phase build');
   });
 
-  it('marks archived changes through transition in the archive directory', async () => {
+  it('reports error for malformed .comet.yaml on get', async () => {
+    const changeDir = path.join(tmpDir, 'openspec', 'changes', 'bad-yaml');
+    await fs.mkdir(changeDir, { recursive: true });
+    await writeFile(path.join(changeDir, '.comet.yaml'), 'workflow: full\nphase: [\n  broken\n');
+
+    const result = runNode(tmpDir, stateScript, ['get', 'bad-yaml', 'phase']);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('Invalid .comet.yaml');
+  });
+
+  it('marks archived changes through transition resolved by original change name', async () => {
     await createChange(
       tmpDir,
       path.join('archive', '2026-05-21-done-change'),
@@ -2761,12 +3228,8 @@ describe('comet scripts', () => {
       ].join('\n'),
     );
 
-    const result = runNode(tmpDir, stateScript, [
-      'transition',
-      '2026-05-21-done-change',
-      'archived',
-    ]);
-    const archived = runNode(tmpDir, stateScript, ['get', '2026-05-21-done-change', 'archived']);
+    const result = runNode(tmpDir, stateScript, ['transition', 'done-change', 'archived']);
+    const archived = runNode(tmpDir, stateScript, ['get', 'done-change', 'archived']);
 
     expect(result.status).toBe(0);
     expect(archived.stdout.trim()).toBe('true');
@@ -3983,6 +4446,39 @@ describe('comet scripts', () => {
       expect(result.status).toBe(0);
     }, 20_000);
 
+    it('blocks repo source writes when any active change is still in design', async () => {
+      await createChange(
+        tmpDir,
+        'a-build-ready',
+        [
+          'workflow: full',
+          'phase: build',
+          'design_doc: docs/superpowers/specs/a-build-ready.md',
+          'archived: false',
+          '',
+        ].join('\n'),
+      );
+      await writeFile(
+        path.join(tmpDir, 'docs', 'superpowers', 'specs', 'a-build-ready.md'),
+        '# Design\n',
+      );
+      await createChange(
+        tmpDir,
+        'z-design-active',
+        ['workflow: full', 'phase: design', 'archived: false', ''].join('\n'),
+      );
+
+      const srcDir = path.join(tmpDir, 'src');
+      await fs.mkdir(srcDir, { recursive: true });
+      const targetFile = path.join(srcDir, 'feature.ts');
+
+      const result = runHookGuard(tmpDir, hookGuardScript, hookStdin(targetFile));
+
+      expect(result.status).toBe(2);
+      expect(result.stderr).toContain('Current phase: design');
+      expect(result.stderr).toContain('This phase does not allow source writes');
+    }, 20_000);
+
     it('blocks full-workflow build source writes when design_doc is null (illegal jump)', async () => {
       await createChange(
         tmpDir,
@@ -4053,6 +4549,45 @@ describe('comet scripts', () => {
       const targetFile = path.join(srcDir, 'feature.ts');
 
       const result = runHookGuard(tmpDir, hookGuardScript, hookStdin(targetFile));
+
+      expect(result.status).toBe(0);
+    }, 20_000);
+
+    it('blocks source edits (Edit tool) during open phase same as Write', async () => {
+      await createChange(tmpDir, 'edit-block-open', 'phase: open\narchived: false\n');
+
+      const srcDir = path.join(tmpDir, 'src');
+      await fs.mkdir(srcDir, { recursive: true });
+      const targetFile = path.join(srcDir, 'new-feature.ts');
+
+      const editStdin = JSON.stringify({
+        tool_name: 'Edit',
+        tool_input: { file_path: targetFile, old_string: 'old', new_string: 'new' },
+      });
+
+      const result = runHookGuard(tmpDir, hookGuardScript, editStdin);
+
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain('BLOCKED');
+    }, 20_000);
+
+    it('allows source edits (Edit tool) during build phase', async () => {
+      await createChange(
+        tmpDir,
+        'edit-allow-build',
+        ['workflow: hotfix', 'phase: build', 'design_doc: null', 'archived: false', ''].join('\n'),
+      );
+
+      const srcDir = path.join(tmpDir, 'src');
+      await fs.mkdir(srcDir, { recursive: true });
+      const targetFile = path.join(srcDir, 'fix.ts');
+
+      const editStdin = JSON.stringify({
+        tool_name: 'Edit',
+        tool_input: { file_path: targetFile, old_string: 'bug', new_string: 'fix' },
+      });
+
+      const result = runHookGuard(tmpDir, hookGuardScript, editStdin);
 
       expect(result.status).toBe(0);
     }, 20_000);

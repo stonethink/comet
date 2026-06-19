@@ -40,6 +40,8 @@ Superpowers handles **HOW** (technical design, planning, execution, wrap-up).
 Comet chains both into a five-phase automated pipeline.
 
 > [!IMPORTANT]
+> **0.4.0-beta.1** — Migrates Classic workflow commands to a Node-only runtime, adds the internal Skill Engine and Bundle lifecycle foundation, and hardens archive recovery, change-name validation, hook governance, configured command chains, and beta context JSON checks.
+>
 > **0.3.9** — Review mode (`off|standard|thorough`) controls Build/Verify code review with project defaults; init/update now use optional dependency prompts, broader CLI i18n, stronger phase guards, and macOS executable bits.
 >
 > **0.3.8** — Adds Kimi Code support, safe multi-platform `comet uninstall`, extended subagent dispatch, shared progressive-loading references, update checks, and pre-commit formatting.
@@ -465,8 +467,10 @@ plus `branch_status: handled`. Fields after `archived` in the example are option
 is only needed for full-workflow direct builds, project commands may be absent unless configured, and
 `handoff_context` / `handoff_hash` are recorded by `comet-handoff.mjs` before leaving design. Projects can configure
 `build_command` / `verify_command` in the change or repo root, and guard will run those commands first and print failure
-output. `review_mode` controls automatic code review during Build/Verify (`off` skips, `standard` reviews key changes,
-`thorough` reviews everything); can be set project-wide in `.comet/config.yaml`.
+output. Configured commands use a restricted shell grammar: command words, quotes, paths, and `&&` for sequential steps
+are allowed; `;`, pipes, bare `&`, `$`, and backticks are rejected. `review_mode` controls automatic code review during
+Build/Verify (`off` skips, `standard` reviews key changes, `thorough` reviews everything); can be set project-wide in
+`.comet/config.yaml`.
 
 </details>
 

@@ -2,6 +2,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { isMap, parseDocument } from 'yaml';
 import type { ClassicCommandHandler } from './classic-cli.js';
+import { openSpecChangeNameError, resolveClassicChangeDirectory } from './classic-paths.js';
 import { CLASSIC_WIRE_KEYS, RUN_WIRE_KEYS } from './classic-state.js';
 
 const GREEN = '\u001b[32m';
@@ -67,19 +68,15 @@ function text(value: unknown): string {
 
 export const classicValidateCommand: ClassicCommandHandler = async (args) => {
   const name = args[0];
-  if (!name || !/^[a-zA-Z0-9_-]+$/u.test(name) || name.includes('..')) {
+  const nameError = openSpecChangeNameError(name);
+  if (nameError) {
     return {
       exitCode: 1,
-      stderr: color(RED, `ERROR: Invalid change name: '${name ?? ''}'`),
+      stderr: color(RED, `ERROR: ${nameError}`),
     };
   }
 
-  const activeLabel = `openspec/changes/${name}`;
-  const archiveLabel = `openspec/changes/archive/${name}`;
-  const active = path.resolve(...activeLabel.split('/'));
-  const archived = path.resolve(...archiveLabel.split('/'));
-  const directory = (await exists(active)) ? active : (await exists(archived)) ? archived : active;
-  const label = directory === archived ? archiveLabel : activeLabel;
+  const { directory, label } = await resolveClassicChangeDirectory(name);
   const yamlFile = path.join(directory, '.comet.yaml');
   const lines = [`[VALIDATE] ${label}/.comet.yaml`];
   let errors = 0;

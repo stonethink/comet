@@ -299,7 +299,7 @@ verify_command: <verify command>
 ```
 
 配置位置可为 change 的 `.comet.yaml`，也可为仓库根目录的 `.comet.yaml` / `comet.yaml` / `.comet.yml` / `comet.yml`。
-未配置时才回退到 `npm run build`、Maven 或 Cargo 的默认探测。构建失败时 guard 会打印失败命令输出，作为排查证据。
+配置命令使用受限 shell 语法：允许命令词、引号、路径和用 `&&` 串联的顺序步骤；拒绝 `;`、管道、裸 `&`、`$` 和反引号。未配置时才回退到 `npm run build`、Maven 或 Cargo 的默认探测。构建失败时 guard 会打印失败命令输出，作为排查证据。
 
 退出前运行阶段守卫推进 phase（此步骤与 `auto_transition` 无关）：
 

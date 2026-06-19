@@ -3,6 +3,7 @@ import { spawnSync } from 'child_process';
 import { promises as fs } from 'fs';
 import path from 'path';
 import type { ClassicCommandHandler, ClassicCommandResult } from './classic-cli.js';
+import { openSpecChangeNameError } from './classic-paths.js';
 import { ensureClassicRuntimeRun, transitionClassicRuntimeRun } from './classic-runtime-run.js';
 import { readClassicState, writeClassicState } from './classic-store.js';
 import {
@@ -68,16 +69,8 @@ async function exists(file: string): Promise<boolean> {
 }
 
 function validateChangeName(name: string): void {
-  if (!name) throw new ArchiveFailure(red('FATAL: Change name cannot be empty'));
-  if (!/^[a-zA-Z0-9_-]+$/u.test(name)) {
-    throw new ArchiveFailure(
-      [
-        red(`FATAL: Invalid change name: '${name}'`),
-        red('Valid characters: a-z, A-Z, 0-9, -, _'),
-      ].join('\n'),
-    );
-  }
-  if (name.includes('..')) throw new ArchiveFailure(red("FATAL: Change name cannot contain '..'"));
+  const error = openSpecChangeNameError(name);
+  if (error) throw new ArchiveFailure(red(`FATAL: ${error}`));
 }
 
 function hashText(content: string): string {

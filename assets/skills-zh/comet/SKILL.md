@@ -235,8 +235,9 @@ node "$COMET_STATE" transition <change-name> design-complete
 node "$COMET_STATE" transition <change-name> build-complete
 node "$COMET_STATE" transition <change-name> verify-pass
 node "$COMET_STATE" transition <change-name> verify-fail
-node "$COMET_STATE" transition <archive-name> archived
 ```
+
+归档完成由 `node "$COMET_ARCHIVE" <change-name>` 负责；OpenSpec 会把 change 移到带日期前缀的归档目录，不要手动 transition 一个 `<archive-name>`。
 
 **解析下一步**：阶段守卫推进 phase 后，用 `next` 子命令解析是否自动调用下一个 skill：
 

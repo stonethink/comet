@@ -89,6 +89,10 @@ export const CLASSIC_WIRE_KEYS = [
 export const RUN_WIRE_KEYS = ['run_id'] as const;
 
 const KNOWN_KEYS = new Set<string>([...CLASSIC_WIRE_KEYS, ...RUN_WIRE_KEYS]);
+// NOTE: review_mode is intentionally omitted — pre-0.4.0 state files lack this field,
+// and omitting it here allows legacy files to parse without migration. The transition
+// guard in classic-state-command.ts enforces review_mode selection for full workflow
+// at build→verify time, so runtime safety is not compromised.
 const REQUIRED_CLASSIC_KEYS = [
   'workflow',
   'phase',

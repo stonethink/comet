@@ -6,10 +6,10 @@ This document provides Comet-specific extensions applied **on top of** the Super
 
 > **⚠️ CRITICAL — No Pause Between Tasks**
 >
-> After a task passes both reviews and is checked off, **immediately dispatch the next task** without stopping, summarizing, or asking the user whether to continue. The user expects all tasks to execute in sequence without manual intervention. Pausing between tasks breaks the workflow and requires the user to manually resume each time.
+> After a task passes `review_mode` validation and is checked off, **immediately dispatch the next task** without stopping, summarizing, or asking the user whether to continue. The user expects all tasks to execute in sequence without manual intervention. Pausing between tasks breaks the workflow and requires the user to manually resume each time.
 >
 > Only stop and wait for user input when:
-> - A task is **BLOCKED** (3 review-fix rounds exhausted)
+> - A task is **BLOCKED** (review-fix rounds exhausted: `review_mode: standard` — 1 round of lightweight review not passed; `review_mode: thorough` — 2 rounds of batch/final review-fix not passed)
 > - There is irreducible ambiguity that cannot be resolved from the repository, plan, or existing context
 > - The platform lacks real background agent dispatch capability and the user must choose `executing-plans`
 > - The user **explicitly** asks to pause
@@ -95,10 +95,31 @@ node "$COMET_STATE" task-checkoff "openspec/changes/<name>/tasks.md" "$OPENSPEC_
 
 Run the second command only when the corresponding mapping exists. The script requires the task text to appear exactly once and be checked; verification failure blocks moving to the next task.
 
+## Review Mode Behavior
+
+When `review_mode` requires a reviewer, each reviewer prompt must include the full task, the implementation commit or diff, and RED/GREEN evidence (when `tdd_mode: tdd`). A reviewer must not review from the implementer's summary alone.
+
+The coordinator must record the selected `review_mode` in the checkpoint.
+
+**When `review_mode: standard`**: No per-task reviewer is dispatched automatically. The implementer must self-test, commit, and report evidence; the coordinator completes targeted checkoff verification. After all tasks complete, dispatch exactly one final lightweight code reviewer scoped to correctness, security, and edge cases. If the final lightweight review finds CRITICAL or IMPORTANT issues, dispatch at most one fix agent and re-review once; if still not passed, mark **BLOCKED** and pause, handing feedback to the user. Non-CRITICAL findings may be accepted with rationale recorded.
+
+**When `review_mode: thorough`**: No per-task dual review. The coordinator runs merged reviews by batch or risk boundary: after every 3 tasks or when a cross-module/high-risk boundary is crossed, dispatch one reviewer checking both spec compliance and code quality. If total tasks ≤ 3 and no high-risk boundary exists, skip mid-batch review and only do the final complete review. After all tasks, dispatch one final complete reviewer. Batch and final reviews each allow at most 2 review-fix rounds; if still not passed, mark **BLOCKED** and pause, handing accumulated feedback to the user.
+
+**When `review_mode: off`**: No automatic spec reviewer, code quality reviewer, final reviewer, or review-fix agent is dispatched. Task completion is determined by implementer test/build evidence, current worktree confirmation, targeted task text checkoff verification, and explicit user request. If test failures, build failures, or abnormal behavior occur during execution, the debug gate protocol must still be followed — `off` does not skip real issues.
+
+**After `review_mode` validation**, the main session:
+
+1. Changes the saved unique task text from `- [ ]` to `- [x]` in the plan
+2. If a mapping exists, also checks off the OpenSpec task
+3. Commits this progress update
+4. Runs targeted verification
+
 ## Wrap-up
 
-- **AUTO-CONTINUE**: After both reviews pass and the task is checked off, immediately dispatch the next unchecked task. Do NOT summarize, do NOT ask the user whether to continue, do NOT wait for user input between tasks. This is non-negotiable — the Superpowers skill enforces continuous execution, and the CRITICAL warning at the top of this document reinforces it.
-- After all tasks complete, switch the checkpoint to `final-review`, then dispatch a fresh background final code quality reviewer. For CRITICAL issues, switch the checkpoint to `final-fix`, record feedback and the round, dispatch a fresh background fix agent, and re-review. Final review also has a maximum of 3 rounds; when exhausted, mark the checkpoint `blocked` and pause. Non-CRITICAL findings may be accepted with rationale recorded in tasks.md.
+- **AUTO-CONTINUE**: After `review_mode` validation and the task is checked off, immediately dispatch the next unchecked task. Do NOT summarize, do NOT ask the user whether to continue, do NOT wait for user input between tasks. This is non-negotiable — the Superpowers skill enforces continuous execution, and the CRITICAL warning at the top of this document reinforces it.
+- After all tasks complete, if `review_mode: standard`, switch the checkpoint to `final-review` and dispatch exactly one final lightweight code reviewer. CRITICAL or IMPORTANT issues allow at most one auto-fix and re-review; if still not passed, pause and hand to the user. After passing or accepting non-CRITICAL findings, continue to return to `comet-build`.
+- After all tasks complete, if `review_mode: thorough`, switch the checkpoint to `final-review` and dispatch one final complete reviewer. CRITICAL or IMPORTANT issues allow at most two auto-fix and re-review rounds; if still not passed, pause and hand to the user. After passing or accepting non-CRITICAL findings, continue to return to `comet-build`.
+- After all tasks complete, if `review_mode: off`, do not enter `final-review` or `final-fix`, but must record the reason for skipping automatic code review in a durable artifact, then return to `comet-build`.
 - After final review passes, only the subagent dispatch loop is complete, not the Comet workflow. The coordinator must not load `finishing-a-development-branch` or pause to ask what comes next; it must return control to `comet-build` for exit checks, the phase guard, and phase handoff.
 
 ## Context Recovery

@@ -587,16 +587,12 @@ describe('skills', () => {
         '只有在用户完成选择且对应操作完成后，才允许写入 `branch_status: handled`',
       );
       expect(zhArchive).toContain('### 1. 归档前最终确认（阻塞点）');
-      expect(zhArchive).toContain(
-        '不得在用户确认前运行 `node "$COMET_ARCHIVE" "<change-name>"`',
-      );
+      expect(zhArchive).toContain('不得在用户确认前运行 `node "$COMET_ARCHIVE" "<change-name>"`');
       expect(zhArchive).toContain('`comet/reference/decision-point.md`');
       expect(zhArchive).toContain('「确认归档」');
       expect(zhArchive).toContain('「需要调整或重新验证」');
       expect(zhArchive).toContain('「暂不归档」');
-      expect(zhArchive).toContain(
-        '`node "$COMET_STATE" transition <change-name> archive-reopen`',
-      );
+      expect(zhArchive).toContain('`node "$COMET_STATE" transition <change-name> archive-reopen`');
       expect(zhVerify).toContain('不得因为验证已通过就自动归档');
       expect(zhHotfix).toContain(
         '满足升级条件时**必须按 `comet/reference/decision-point.md` 的协议暂停并等待用户明确确认**升级为完整 `/comet` 流程',
@@ -718,9 +714,7 @@ describe('skills', () => {
       expect(zhBuild).toContain(
         '先确认当前平台存在可调用的真实后台 subagent / Task / multi-agent 调度能力',
       );
-      expect(zhBuild).toContain(
-        '`node "$COMET_STATE" set <name> subagent_dispatch confirmed`',
-      );
+      expect(zhBuild).toContain('`node "$COMET_STATE" set <name> subagent_dispatch confirmed`');
       expect(zhBuild).toContain(
         '用户选择改用主窗口执行后，必须先运行 `node "$COMET_STATE" set <name> build_mode executing-plans`',
       );
@@ -905,9 +899,7 @@ describe('skills', () => {
       expect(enArchive).toContain('Confirm archive');
       expect(enArchive).toContain('Needs adjustment or re-verification');
       expect(enArchive).toContain('Do not archive yet');
-      expect(enArchive).toContain(
-        '`node "$COMET_STATE" transition <change-name> archive-reopen`',
-      );
+      expect(enArchive).toContain('`node "$COMET_STATE" transition <change-name> archive-reopen`');
       expect(enVerify).toContain('Must not automatically archive just because verification passed');
       expect(enHotfix).toContain(
         'must follow the `comet/reference/decision-point.md` protocol to pause and wait for the user to explicitly confirm',
@@ -959,7 +951,7 @@ describe('skills', () => {
       );
       expect(enVerify).toContain('CRITICAL or IMPORTANT failures must be fixed');
       expect(enVerify).toContain('skipping fix to accept all is not allowed');
-      expect(enVerify).toContain('Lightweight code review');
+      expect(enVerify).toContain('Code review strategy');
       expect(enVerify).toContain(
         'use the Skill tool to load the Superpowers `requesting-code-review` skill',
       );
@@ -968,7 +960,7 @@ describe('skills', () => {
       expect(enVerify).toContain(
         'does not perform spec coverage, Design Doc consistency, or drift checks',
       );
-      expect(enHotfix).toContain('6 quick checks, including lightweight code review');
+      expect(enHotfix).toContain('6 quick checks');
       expect(enHotfix).toContain(
         'workspace isolation and execution-method selection when tasks exceed 3 and transfer to `/comet-build`',
       );
@@ -1409,9 +1401,7 @@ describe('skills', () => {
       expect(stateScript).toContain('review_mode must be selected before leaving build');
       expect(guardScript).toContain('reviewModeSelected');
       expect(guardScript).toContain("check('review_mode selected'");
-      expect(validateScript).toContain(
-        "review_mode: ['off', 'standard', 'thorough']",
-      );
+      expect(validateScript).toContain("review_mode: ['off', 'standard', 'thorough']");
     });
 
     it('keeps platform search roots out of English and Chinese skill prose', async () => {
@@ -1433,9 +1423,10 @@ describe('skills', () => {
           expect(content, `${languageDir}/${skillPath} should use comet-env.mjs`).toContain(
             'comet-env.mjs',
           );
-          expect(content, `${languageDir}/${skillPath} should resolve COMET_ENV via node`).toContain(
-            'node "$COMET_ENV"',
-          );
+          expect(
+            content,
+            `${languageDir}/${skillPath} should resolve COMET_ENV via node`,
+          ).toContain('node "$COMET_ENV"');
           expect(
             content,
             `${languageDir}/${skillPath} should allow HOME skill glob expansion`,

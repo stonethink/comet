@@ -69,7 +69,7 @@ node "$COMET_ARCHIVE" "<change-name>"
 3. Plan 前置元数据标注（archived-with）
 4. 调用 OpenSpec archive 按 delta 语义合并主 spec 并移动 change 到归档目录
 5. 校验主 spec 未残留 delta-only section 标题
-6. 通过 `comet-state transition <archive-name> archived` 更新 `archived: true`
+6. 在 OpenSpec 实际归档目录中更新 archived 状态，并协调 pending recovery 元数据
 
 如脚本返回非零退出码，报告错误并停止。
 如脚本返回零退出码，归档完成。

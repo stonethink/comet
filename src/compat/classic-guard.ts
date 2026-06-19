@@ -4,6 +4,7 @@ import { existsSync, promises as fs, readFileSync } from 'fs';
 import path from 'path';
 import { parseDocument } from 'yaml';
 import type { ClassicCommandHandler, ClassicCommandResult } from './classic-cli.js';
+import { openSpecChangeNameError, resolveClassicChangeDirectory } from './classic-paths.js';
 import { ensureClassicRuntimeRun, transitionClassicRuntimeRun } from './classic-runtime-run.js';
 import type { ClassicRunContext } from './classic-migrate.js';
 import type { ClassicState } from './classic-state.js';
@@ -86,22 +87,8 @@ async function nonempty(file: string): Promise<boolean> {
 }
 
 function validateChangeName(name: string): void {
-  if (!name) {
-    throw new GuardFailure(red('ERROR: Change name cannot be empty'));
-  }
-  if (!/^[a-zA-Z0-9_-]+$/u.test(name)) {
-    throw new GuardFailure(
-      [
-        red(`ERROR: Invalid change name: '${name}'`),
-        red('Valid characters: a-z, A-Z, 0-9, -, _'),
-      ].join('\n'),
-    );
-  }
-  if (name.includes('..')) {
-    throw new GuardFailure(
-      red("ERROR: Change name cannot contain '..' (path traversal not allowed)"),
-    );
-  }
+  const error = openSpecChangeNameError(name);
+  if (error) throw new GuardFailure(red(`ERROR: ${error}`));
 }
 
 // Resolve the change directory the way the frozen guard does: prefer the active
@@ -109,11 +96,7 @@ function validateChangeName(name: string): void {
 // RELATIVE path (cwd is the project root) so handoff-hash inputs and check
 // output match the frozen `openspec/changes/...` form byte-for-byte.
 async function resolveChangeDir(name: string): Promise<string> {
-  const active = `openspec/changes/${name}`;
-  const archived = `openspec/changes/archive/${name}`;
-  if (await exists(active)) return active;
-  if (await exists(archived)) return archived;
-  return active;
+  return (await resolveClassicChangeDirectory(name)).label;
 }
 
 function stripInlineComment(value: string): string {
@@ -177,17 +160,64 @@ async function projectConfigValue(field: string, changeDir: string): Promise<str
 // metacharacters before they ever reach the shell.
 function runCommandString(command: string): { status: number; output: string } {
   if (!command) return { status: 1, output: red('ERROR: build/verify command is empty') };
-  if (/[;|&$`]/u.test(command)) {
+  const split = splitCommandChain(command);
+  if (typeof split === 'string') {
     return {
       status: 1,
       output: `${red(`ERROR: build/verify command contains shell metacharacters: ${command}`)}\n${red(
-        'Allowed: alphanumeric, spaces, hyphens, underscores, dots, colons, forward slashes, quotes',
+        split,
       )}`,
     };
   }
-  const result = spawnSync(command, { shell: true, encoding: 'utf8' });
-  const combined = `${result.stdout ?? ''}${result.stderr ?? ''}`.replace(/\n+$/u, '');
-  return { status: result.status ?? 1, output: `${red(`+ ${command}`)}\n${combined}` };
+  const output: string[] = [];
+  for (const part of split) {
+    const segment = part.trim();
+    if (!segment) {
+      return { status: 1, output: red('ERROR: build/verify command contains an empty && step') };
+    }
+    const result = spawnSync(segment, { shell: true, encoding: 'utf8', timeout: 300_000 });
+    const combined = `${result.stdout ?? ''}${result.stderr ?? ''}`.replace(/\n+$/u, '');
+    output.push(`${red(`+ ${segment}`)}${combined ? `\n${combined}` : ''}`);
+    if (result.status !== 0) {
+      return { status: result.status ?? 1, output: output.join('\n') };
+    }
+  }
+  return { status: 0, output: output.join('\n') };
+}
+
+function splitCommandChain(command: string): string[] | string {
+  const parts: string[] = [];
+  let current = '';
+  let quote: '"' | "'" | '' = '';
+  for (let i = 0; i < command.length; i += 1) {
+    const c = command[i];
+    if (c === '$' || c === '`') {
+      return 'Allowed: command words, quotes, paths, and && between sequential commands';
+    }
+    if (quote) {
+      current += c;
+      if (c === quote) quote = '';
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      quote = c;
+      current += c;
+      continue;
+    }
+    if (c === '&' && command[i + 1] === '&') {
+      parts.push(current);
+      current = '';
+      i += 1;
+      continue;
+    }
+    if (c === ';' || c === '|' || c === '&') {
+      return 'Allowed: command words, quotes, paths, and && between sequential commands';
+    }
+    current += c;
+  }
+  if (quote) return 'Command has an unmatched quote';
+  parts.push(current);
+  return parts;
 }
 
 function hashFile(file: string): string {
@@ -305,7 +335,7 @@ function runInferred(command: string): CommandRun {
   // Inferred build/verify commands (npm run build, mvn, cargo, …) run through
   // the platform's default shell so .cmd shims resolve on Windows without
   // requiring bash. Output is returned raw (no `+ ` prefix).
-  const result = spawnSync(command, { shell: true, encoding: 'utf8' });
+  const result = spawnSync(command, { shell: true, encoding: 'utf8', timeout: 300_000 });
   return {
     status: result.status ?? 1,
     output: `${result.stdout ?? ''}${result.stderr ?? ''}`.replace(/\n+$/u, ''),
@@ -563,16 +593,36 @@ async function betaSpecJsonStructurallyValid(changeDir: string): Promise<CheckRe
   if (!(await nonempty(context))) return fail(`spec-context.json is missing or empty: ${context}`);
   const source = await fs.readFile(context, 'utf8');
   const problems: string[] = [];
-  if (!source.includes('"change"')) problems.push("spec-context.json missing 'change' field");
-  if (!source.includes('"phase"')) problems.push("spec-context.json missing 'phase' field");
-  if (!source.includes('"mode": "beta"')) problems.push('spec-context.json mode is not beta');
-  if (!source.includes('"files"')) problems.push("spec-context.json missing 'files' field");
-  if (!source.includes('"context_hash"'))
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(source);
+  } catch (error) {
+    return fail(
+      `spec-context.json invalid JSON: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return fail('spec-context.json root must be an object');
+  }
+  const record = parsed as Record<string, unknown>;
+  if (typeof record.change !== 'string') problems.push("spec-context.json missing 'change' field");
+  if (typeof record.phase !== 'string') problems.push("spec-context.json missing 'phase' field");
+  if (record.mode !== 'beta') problems.push('spec-context.json mode is not beta');
+  if (typeof record.context_hash !== 'string') {
     problems.push("spec-context.json missing 'context_hash' field");
+  }
+  if (!Array.isArray(record.files)) problems.push("spec-context.json missing 'files' field");
+  const files = Array.isArray(record.files)
+    ? record.files.filter(
+        (file): file is Record<string, unknown> =>
+          Boolean(file) && typeof file === 'object' && !Array.isArray(file),
+      )
+    : [];
   for (const file of await handoffSourceFiles(changeDir)) {
     if (!(await exists(file))) continue;
-    if (!source.includes(file))
+    if (!files.some((entry) => entry.path === file && typeof entry.sha256 === 'string')) {
       problems.push(`spec-context.json missing source file reference: ${file}`);
+    }
   }
   return problems.length === 0 ? pass() : fail(problems.join('\n'));
 }
@@ -673,7 +723,6 @@ async function guardBuildChecks(
   changeDir: string,
   change: string,
 ): Promise<boolean> {
-  const buildResult = await buildPasses(changeDir);
   return runChecks(output, [
     check('isolation selected', () => isolationSelected(changeDir, change)),
     check('build_mode selected', () => buildModeSelected(changeDir, change)),
@@ -686,19 +735,24 @@ async function guardBuildChecks(
     check('proposal.md exists', async () =>
       (await nonempty(path.join(changeDir, 'proposal.md'))) ? pass() : fail(''),
     ),
-    check('Build passes', async () =>
-      buildResult.status === 0 ? pass() : fail(buildResult.output),
-    ),
+    // Build check runs last — only after all config checks pass — to avoid
+    // wasting time on a build that would be rejected by a config failure.
+    check('Build passes', async () => {
+      const buildResult = await buildPasses(changeDir);
+      return buildResult.status === 0 ? pass() : fail(buildResult.output);
+    }),
   ]);
 }
 
 async function guardVerifyChecks(output: GuardOutput, changeDir: string): Promise<boolean> {
-  const verifyResult = await verificationCommandPasses(changeDir);
   return runChecks(output, [
     check('tasks.md all tasks checked', () => tasksAllDone(changeDir)),
-    check('Build passes', async () =>
-      verifyResult.status === 0 ? pass() : fail(verifyResult.output),
-    ),
+    // Verification command runs after tasks check — no point running tests
+    // if tasks.md is incomplete.
+    check('Verification passes', async () => {
+      const verifyResult = await verificationCommandPasses(changeDir);
+      return verifyResult.status === 0 ? pass() : fail(verifyResult.output);
+    }),
     check('verification_report exists', async () =>
       (await verificationReportExists(changeDir)) ? pass() : fail(''),
     ),

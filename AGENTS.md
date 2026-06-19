@@ -1,3 +1,6 @@
+## 回复语言
+必须采用中文回答用户
+
 ## 测试
 
 ```bash
@@ -20,30 +23,34 @@ pnpm test           # 单元测试
 
 注：本地 Windows 若 `core.autocrlf=true`，未改动的旧文件可能因 CRLF 被 `prettier --check` 误报；钩子只处理暂存文件，不受影响，旧文件下次编辑时会自动转为 LF。
 
-## Shell 脚本规范
+## Classic runtime 脚本规范
 
-脚本位于 `assets/skills/comet/scripts/`，必须跨平台兼容（macOS / Linux / Windows Git Bash）：
+脚本位于 `assets/skills/comet/scripts/`，当前发布形态是薄 `.mjs` launcher + 生成的 `comet-runtime.mjs`：
 
-- **禁止** `sed -i`（GNU/BSD 不兼容），用 `awk` 做字段替换
-- 必须兼容 `sha256sum`（GNU）和 `shasum -a 256`（BSD/macOS）
-- 所有可选 grep 结果加 `|| true` 防止 `pipefail` 误杀
-- 新增脚本必须加入 `beforeEach` 的拷贝列表和 manifest.json
+- 运行时源码位于 `src/compat/`，修改后必须运行 `pnpm build:classic-runtime` 同步 `assets/skills/comet/scripts/comet-runtime.mjs`
+- launcher 必须保持薄封装，只 import `./comet-runtime.mjs` 并调用对应命令；不要把业务逻辑写回 launcher
+- 不再新增 `.sh` runtime；测试 fixture `test/fixtures/classic-0.3.9/` 是冻结参考实现，只用于差分兼容
+- 新增 launcher 或 runtime 文件必须加入 `test/ts/comet-scripts.test.ts` 的 `beforeEach` 拷贝列表和 `assets/manifest.json`
 
 ## 脚本依赖关系
 
 ```
-comet-state.sh ← comet-guard.sh, comet-handoff.sh, comet-archive.sh
-comet-yaml-validate.sh ← comet-guard.sh (preflight 阶段)
-comet-handoff.sh ← comet-state.sh (写入 handoff_context/handoff_hash)
+comet-runtime.mjs ← src/compat/*
+comet-state.mjs ← comet-runtime.mjs
+comet-guard.mjs ← comet-runtime.mjs
+comet-handoff.mjs ← comet-runtime.mjs (写入 handoff_context/handoff_hash)
+comet-archive.mjs ← comet-runtime.mjs
+comet-yaml-validate.mjs ← comet-runtime.mjs
+comet-hook-guard.mjs ← comet-runtime.mjs
 ```
 
-新增共享工具函数时（如 hash、yaml 解析），如果两个脚本都需要，允许在各自脚本中独立实现，不强制抽共享文件。
+新增共享工具函数时（如 archive 目录解析、change name 校验、hash、yaml 解析），优先放在 `src/compat/` 的共享模块中，再重新生成 runtime，避免多个命令漂移。
 
 ## .comet.yaml 状态机
 
 每个 change 的状态文件，字段变更需要同步三处：
-1. `comet-state.sh` — `cmd_set` 白名单 + enum 验证
-2. `comet-yaml-validate.sh` — schema 校验 + KNOWN_KEYS
+1. `src/compat/classic-state-command.ts` — `set` 白名单 + enum 验证
+2. `src/compat/classic-validate-command.ts` — schema 校验 + KNOWN_KEYS
 3. `test/ts/comet-scripts.test.ts` — 测试中的 yaml 字符串
 
 ## 双语言 Skill

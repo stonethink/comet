@@ -251,8 +251,9 @@ node "$COMET_STATE" transition <change-name> design-complete
 node "$COMET_STATE" transition <change-name> build-complete
 node "$COMET_STATE" transition <change-name> verify-pass
 node "$COMET_STATE" transition <change-name> verify-fail
-node "$COMET_STATE" transition <archive-name> archived
 ```
+
+Archive completion is handled by `node "$COMET_ARCHIVE" <change-name>` after OpenSpec moves the change into its date-prefixed archive directory; do not manually transition an `<archive-name>`.
 
 **Resolve next action**: after guard-based phase advancement, use the `next` subcommand to determine whether to auto-invoke the next skill:
 

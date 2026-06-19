@@ -117,4 +117,87 @@ describe('Skill Engine Foundation integration', () => {
     expect(raw).toContain('workflow: full');
     expect(raw).toContain('phase: build');
   });
+
+  it('advances through multiple deterministic steps until completion', async () => {
+    await fs.writeFile(
+      path.join(skillDir, 'comet', 'skill.yaml'),
+      [
+        'apiVersion: comet/v1alpha1',
+        'kind: Skill',
+        'metadata: { name: two-step, version: "1", description: Two steps }',
+        'goal:',
+        '  statement: Plan then implement',
+        '  inputs: []',
+        '  outputs: []',
+        '  success: [done]',
+        'orchestration:',
+        '  mode: deterministic',
+        '  entry: plan',
+        '  steps:',
+        '    - id: plan',
+        '      next: implement',
+        '      action: { type: invoke_skill, ref: writing-plans }',
+        '    - id: implement',
+        '      action: { type: invoke_skill, ref: executing-plans }',
+        'skills: [{ id: writing-plans }, { id: executing-plans }]',
+        'agents: []',
+        'tools: []',
+        '',
+      ].join('\n'),
+    );
+    const pkg = await loadSkillPackage(skillDir);
+    expect(validateSkillPackage(pkg)).toEqual([]);
+    const snapshot = await createSkillSnapshot(pkg, changeDir);
+    let state = startRun(pkg, 'run-multi', snapshot.hash);
+
+    const adapter: RuntimeAdapter = {
+      id: 'test',
+      supports: () => true,
+      execute: async (action) => ({
+        actionId: action.id,
+        status: 'succeeded',
+        summary: `completed ${action.id}`,
+        artifacts: {},
+      }),
+    };
+
+    const d1 = decide(pkg, state, new Set());
+    expect(d1.action).not.toBeNull();
+    const o1 = await adapter.execute(d1.action!, { changeDir, state: d1.state });
+    state = recordOutcome(pkg, d1.state, o1);
+
+    const d2 = decide(pkg, state, new Set());
+    expect(d2.action).not.toBeNull();
+    const o2 = await adapter.execute(d2.action!, { changeDir, state: d2.state });
+    state = recordOutcome(pkg, d2.state, o2);
+
+    expect(state.status).toBe('completed');
+    expect(state.iteration).toBe(2);
+  });
+
+  it('rejects outcome when run is already completed', async () => {
+    const pkg = await loadSkillPackage(skillDir);
+    const snapshot = await createSkillSnapshot(pkg, changeDir);
+    let state = startRun(pkg, 'run-complete', snapshot.hash);
+
+    const adapter: RuntimeAdapter = {
+      id: 'test',
+      supports: () => true,
+      execute: async (action) => ({
+        actionId: action.id,
+        status: 'succeeded',
+        summary: 'done',
+        artifacts: {},
+      }),
+    };
+
+    const decision = decide(pkg, state, new Set());
+    const outcome = await adapter.execute(decision.action!, { changeDir, state: decision.state });
+    state = recordOutcome(pkg, decision.state, outcome);
+
+    expect(state.status).toBe('completed');
+    expect(() => recordOutcome(pkg, state, outcome)).toThrow(
+      'Outcome does not match pending action',
+    );
+  });
 });

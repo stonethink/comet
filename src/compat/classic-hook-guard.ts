@@ -80,9 +80,10 @@ async function loadGoverningChange(changeDir: string): Promise<GoverningChange |
   }
 }
 
-async function activeChange(): Promise<GoverningChange | null> {
+async function activeChanges(): Promise<GoverningChange[]> {
   const changesDir = path.join('openspec', 'changes');
-  if (!existsSync(changesDir)) return null;
+  const governingChanges: GoverningChange[] = [];
+  if (!existsSync(changesDir)) return governingChanges;
   for (const entry of (await fs.readdir(changesDir, { withFileTypes: true })).sort((left, right) =>
     left.name.localeCompare(right.name),
   )) {
@@ -91,9 +92,25 @@ async function activeChange(): Promise<GoverningChange | null> {
     if (!existsSync(path.join(changeDir, '.comet.yaml'))) continue;
     const governing = await loadGoverningChange(changeDir);
     if (!governing || governing.archived) continue;
-    return governing;
+    governingChanges.push(governing);
   }
-  return null;
+  return governingChanges;
+}
+
+function blocksSourceWrites(governing: GoverningChange): boolean {
+  if (governing.phase === 'open' || governing.phase === 'design' || governing.phase === 'archive') {
+    return true;
+  }
+  return (
+    governing.phase === 'build' &&
+    governing.classic?.workflow === 'full' &&
+    !governing.classic.designDoc
+  );
+}
+
+async function repoSourceGoverningChange(): Promise<GoverningChange | null> {
+  const active = await activeChanges();
+  return active.find(blocksSourceWrites) ?? active[0] ?? null;
 }
 
 async function governingChange(relativePath: string): Promise<GoverningChange | null> {
@@ -112,7 +129,7 @@ async function governingChange(relativePath: string): Promise<GoverningChange | 
       return { changeDir, phase: 'open', classic: null, archived: false };
     }
   }
-  return activeChange();
+  return repoSourceGoverningChange();
 }
 
 function isRootMarkdown(relativePath: string): boolean {

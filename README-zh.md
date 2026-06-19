@@ -40,6 +40,8 @@ Superpowers 处理 **HOW**（技术设计、规划、执行、收尾）。
 Comet 将二者串联为五阶段自动化流水线。
 
 > [!IMPORTANT]
+> **0.4.0-beta.1** — Classic 工作流命令迁移为纯 Node runtime，新增内部 Skill Engine 与 Bundle 生命周期基础，并加固归档恢复、change name 校验、hook 多 change 治理、配置命令链和 beta context JSON 校验。
+>
 > **0.3.9** — `review_mode: off|standard|thorough` 控制 Build/Verify 自动代码审查并支持项目级默认；init/update 改为可选依赖安装，补齐 CLI 国际化、阶段守护加固和 macOS 可执行权限。
 >
 > **0.3.8** — 新增 Kimi Code 支持、安全的多平台 `comet uninstall`、子代理调度扩展、按需加载共享参考、版本更新检查和 pre-commit 格式化。
@@ -439,7 +441,8 @@ full workflow 初始化时 `build_mode`、`build_pause`、`isolation`、`verify_
 `verification_report` 在验证报告生成前保持 `null`，`verify-pass` 要求该报告文件存在且 `branch_status: handled`。示例中
 `archived` 之后的字段是可选字段或脚本派生字段：`direct_override` 只在 full workflow 直接构建时需要，项目命令未配置时可以不存在，
 `handoff_context` 和 `handoff_hash` 由 `comet-handoff.mjs` 在离开 design 阶段前写入。项目可在 change 或仓库根配置中设置
-`build_command` / `verify_command`，guard 会优先运行并打印失败输出。`review_mode` 控制 Build/Verify 阶段的自动代码审查（`off`
+`build_command` / `verify_command`，guard 会优先运行并打印失败输出。配置命令使用受限 shell 语法：允许命令词、引号、路径和用
+`&&` 串联的顺序步骤；拒绝 `;`、管道、裸 `&`、`$` 和反引号。`review_mode` 控制 Build/Verify 阶段的自动代码审查（`off`
 跳过、`standard` 审查关键变更、`thorough` 全量审查）；可在 `.comet/config.yaml` 中设置项目级默认值。
 
 </details>

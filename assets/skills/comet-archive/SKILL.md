@@ -69,7 +69,7 @@ The script automatically executes:
 3. Plan frontmatter annotation (archived-with)
 4. OpenSpec archive for delta-merge semantics and moving the change to the archive directory
 5. Main spec guard against leaked delta-only section headings
-6. Update `archived: true` through `comet-state transition <archive-name> archived`
+6. Update archived state in the actual OpenSpec archive directory and reconcile pending recovery metadata
 
 If script returns non-zero exit code, report error and stop.
 If script returns zero exit code, archive is complete.

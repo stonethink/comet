@@ -5,6 +5,7 @@ import path from 'path';
 import { Document, parseDocument } from 'yaml';
 import type { ClassicCommandHandler, ClassicCommandResult } from './classic-cli.js';
 import { collectClassicEvidence } from './classic-evidence.js';
+import { openSpecChangeNameError, resolveClassicChangeDirectory } from './classic-paths.js';
 import { resolveClassicStepId } from './classic-resolver.js';
 import { CLASSIC_WIRE_KEYS, RUN_WIRE_KEYS, parseClassicStateDocument } from './classic-state.js';
 import { writeClassicState } from './classic-store.js';
@@ -51,23 +52,11 @@ const FIELD_ENUMS: Record<string, readonly string[]> = {
   branch_status: ['pending', 'handled'],
   archived: ['true', 'false'],
   direct_override: ['true', 'false'],
-  orchestration: ['deterministic', 'adaptive'],
-  run_status: ['running', 'waiting', 'completed', 'failed'],
   classic_profile: PROFILES,
   classic_migration: ['1'],
 };
 
-const PATH_FIELDS = new Set([
-  'design_doc',
-  'plan',
-  'verification_report',
-  'handoff_context',
-  'pending_ref',
-  'trajectory_ref',
-  'context_ref',
-  'artifacts_ref',
-  'checkpoint_ref',
-]);
+const PATH_FIELDS = new Set(['design_doc', 'plan', 'verification_report', 'handoff_context']);
 
 class CommandFailure extends Error {
   constructor(
@@ -108,12 +97,8 @@ function fail(message: string): never {
 }
 
 function validateChangeName(name: string | undefined): asserts name is string {
-  if (!name) fail('ERROR: Change name cannot be empty');
-  if (!/^[a-zA-Z0-9_-]+$/u.test(name)) {
-    fail(`ERROR: Invalid change name: '${name}'\nValid characters: a-z, A-Z, 0-9, -, _`);
-  }
-  if (name.includes('..'))
-    fail("ERROR: Change name cannot contain '..' (path traversal not allowed)");
+  const error = openSpecChangeNameError(name);
+  if (error) fail(`ERROR: ${error}`);
 }
 
 function validateEnum(value: string, values: readonly string[]): void {
@@ -130,10 +115,6 @@ function validateRelativePath(value: string, field: string): void {
   if (value.split(/[\\/]/u).includes('..')) {
     fail(`ERROR: ${field} cannot contain '..' (path traversal not allowed): '${value}'`);
   }
-}
-
-function filesystemPath(relativePath: string): string {
-  return path.resolve(...relativePath.split('/'));
 }
 
 async function exists(file: string): Promise<boolean> {
@@ -156,14 +137,7 @@ async function nonempty(file: string): Promise<boolean> {
 }
 
 async function changeDirectory(name: string): Promise<{ label: string; directory: string }> {
-  const active = `openspec/changes/${name}`;
-  const archived = `openspec/changes/archive/${name}`;
-  if (await exists(filesystemPath(active)))
-    return { label: active, directory: filesystemPath(active) };
-  if (await exists(filesystemPath(archived))) {
-    return { label: archived, directory: filesystemPath(archived) };
-  }
-  return { label: active, directory: filesystemPath(active) };
+  return resolveClassicChangeDirectory(name);
 }
 
 async function readDocument(file: string): Promise<Document> {
@@ -662,6 +636,214 @@ function fieldStatus(field: string, value: string, file?: string): string {
   return `  - ${field}: DONE (${value})`;
 }
 
+async function recoverOpen(output: CommandOutput, directory: string): Promise<void> {
+  output.stdout.push('  Artifacts:');
+  let complete = 0;
+  for (const artifact of ['proposal.md', 'design.md', 'tasks.md']) {
+    const done = await nonempty(path.join(directory, artifact));
+    if (done) complete += 1;
+    output.stdout.push(`  - ${artifact}: ${done ? 'DONE' : 'PENDING'}`);
+  }
+  output.stdout.push(
+    '',
+    complete === 3
+      ? 'Recovery action: All artifacts complete. Run /comet-open user confirmation, then guard to transition.'
+      : complete === 0
+        ? 'Recovery action: No artifacts created yet. Start from /comet-open Step 1 (explore and clarify).'
+        : 'Recovery action: Some artifacts incomplete. Resume /comet-open from the first missing artifact.',
+  );
+}
+
+async function recoverDesign(
+  output: CommandOutput,
+  name: string,
+  directory: string,
+): Promise<void> {
+  output.stdout.push('  Artifacts:');
+  for (const artifact of ['proposal.md', 'design.md', 'tasks.md']) {
+    output.stdout.push(
+      `  - ${artifact}: ${(await nonempty(path.join(directory, artifact))) ? 'DONE' : 'MISSING (unexpected in design phase)'}`,
+    );
+  }
+  const handoff = await readField(name, 'handoff_context');
+  const hash = await readField(name, 'handoff_hash');
+  const design = await readField(name, 'design_doc');
+  output.stdout.push(
+    '',
+    '  Design progress:',
+    fieldStatus('handoff_context', handoff, handoff),
+    fieldStatus('handoff_hash', hash),
+    fieldStatus('design_doc', design, design),
+    '',
+  );
+  if (design && design !== 'null' && (await exists(path.resolve(design)))) {
+    output.stdout.push(
+      'Recovery action: Design Doc already created and linked. Run guard to transition to build.',
+    );
+  } else if (handoff && handoff !== 'null' && (await exists(path.resolve(handoff)))) {
+    output.stdout.push(
+      'Recovery action: Handoff generated but Design Doc not yet created. Resume from brainstorming confirmation (Step 1c).',
+    );
+  } else {
+    output.stdout.push(
+      'Recovery action: No handoff generated yet. Start from Step 1a (generate handoff package).',
+    );
+  }
+}
+
+async function recoverBuild(output: CommandOutput, name: string, directory: string): Promise<void> {
+  const isolation = await readField(name, 'isolation');
+  const buildMode = await readField(name, 'build_mode');
+  const pause = await readField(name, 'build_pause');
+  const subagentDispatch = await readField(name, 'subagent_dispatch');
+  const tdd = await readField(name, 'tdd_mode');
+  const review = await readField(name, 'review_mode');
+  const plan = await readField(name, 'plan');
+  const decisions = [
+    '  Build decisions:',
+    fieldStatus('isolation', isolation),
+    fieldStatus('build_mode', buildMode),
+    fieldStatus('build_pause', pause),
+    fieldStatus('tdd_mode', tdd),
+    fieldStatus('review_mode', review),
+  ];
+  if (
+    buildMode === 'subagent-driven-development' ||
+    (subagentDispatch && subagentDispatch !== 'null')
+  ) {
+    decisions.push(fieldStatus('subagent_dispatch', subagentDispatch));
+  }
+  output.stdout.push(...decisions, '', '  Plan:', fieldStatus('plan', plan, plan), '');
+  const tasks = path.join(directory, 'tasks.md');
+  if (!(await exists(tasks))) {
+    output.stdout.push(
+      '  Tasks: tasks.md MISSING',
+      '',
+      'Recovery action: tasks.md missing. Verify change directory integrity.',
+    );
+    return;
+  }
+  const lines = (await fs.readFile(tasks, 'utf8')).split(/\r?\n/u);
+  const total = lines.filter((line) => /^\s*- \[[ xX]\] /u.test(line)).length;
+  const done = lines.filter((line) => /^\s*- \[[xX]\] /u.test(line)).length;
+  const pending = total - done;
+  let planTotal = 0;
+  let planDone = 0;
+  if (plan && plan !== 'null' && (await exists(path.resolve(plan)))) {
+    const planLines = (await fs.readFile(path.resolve(plan), 'utf8')).split(/\r?\n/u);
+    planTotal = planLines.filter((line) => /^\s*- \[[ xX]\] /u.test(line)).length;
+    planDone = planLines.filter((line) => /^\s*- \[[xX]\] /u.test(line)).length;
+  }
+  const planPending = planTotal - planDone;
+  output.stdout.push(`  Tasks: ${done}/${total} done, ${pending} pending`);
+  if (planTotal > 0) {
+    output.stdout.push(`  Plan tasks: ${planDone}/${planTotal} done, ${planPending} pending`);
+  }
+  output.stdout.push('');
+
+  const action = resolveBuildRecoveryAction(
+    isolation,
+    buildMode,
+    pause,
+    subagentDispatch,
+    tdd,
+    plan,
+    pending,
+    planPending,
+  );
+  output.stdout.push(action);
+}
+
+function resolveBuildRecoveryAction(
+  isolation: string,
+  buildMode: string,
+  pause: string,
+  subagentDispatch: string,
+  tdd: string,
+  plan: string,
+  pending: number,
+  planPending: number,
+): string {
+  const planExists = plan && plan !== 'null';
+  if (
+    pause === 'plan-ready' &&
+    planExists &&
+    (!isolation || isolation === 'null' || !buildMode || buildMode === 'null')
+  ) {
+    return 'Recovery action: Plan-ready pause detected. Ask the user whether to continue, then choose isolation and build mode without regenerating the plan.';
+  }
+  if (pause === 'plan-ready' && !planExists) {
+    return 'Recovery action: Plan-ready pause is recorded, but the plan file is missing. Restore the plan file or rerun writing-plans before choosing execution.';
+  }
+  if (pause === 'plan-ready') {
+    if (buildMode === 'subagent-driven-development' && (pending > 0 || planPending > 0)) {
+      return subagentDispatch === 'confirmed'
+        ? 'Recovery action: Plan-ready pause is stale because build decisions are already selected. Clear build_pause to null, then inspect the first unchecked task (OpenSpec or plan additions) against recent git history/diff. If implemented, check it off; otherwise dispatch a real background subagent. Do not execute the pending task directly in the main window.'
+        : 'Recovery action: Plan-ready pause is stale and subagent dispatch is not confirmed. Confirm a real background subagent/Task/multi-agent dispatcher and set subagent_dispatch to confirmed, or set build_mode to executing-plans before continuing.';
+    }
+    if (pending > 0 || planPending > 0) {
+      return 'Recovery action: Plan-ready pause is stale because build decisions are already selected. Clear build_pause to null, then continue from the first unchecked task.';
+    }
+    return 'Recovery action: Plan-ready pause is stale and all tasks are done. Clear build_pause to null, then run guard to transition to verify.';
+  }
+  if (!isolation || isolation === 'null') {
+    return "Recovery action: Isolation not selected. Use the current platform's user confirmation mechanism to ask user for branch/worktree choice.";
+  }
+  if (!buildMode || buildMode === 'null') {
+    return "Recovery action: Build mode not selected. Use the current platform's user confirmation mechanism to ask user for execution method.";
+  }
+  if (!tdd || tdd === 'null') {
+    return "Recovery action: TDD mode not selected. Use the current platform's user confirmation mechanism to ask user for tdd or direct.";
+  }
+  if (pending > 0) {
+    if (buildMode === 'subagent-driven-development') {
+      return subagentDispatch === 'confirmed'
+        ? 'Recovery action: Read tasks.md and the Superpowers plan (which may include additions beyond OpenSpec), then inspect the first unchecked task against recent git history/diff. If implemented, check it off; otherwise dispatch a real background subagent. Do not execute the pending task directly in the main window.'
+        : 'Recovery action: Subagent dispatch is not confirmed. Confirm a real background subagent/Task/multi-agent dispatcher and set subagent_dispatch to confirmed, or set build_mode to executing-plans before continuing.';
+    }
+    return 'Recovery action: Read tasks.md and continue from first unchecked task.';
+  }
+  if (planPending > 0) {
+    if (buildMode === 'subagent-driven-development') {
+      return subagentDispatch === 'confirmed'
+        ? 'Recovery action: Read the Superpowers plan, then inspect the first unchecked Superpowers plan task against recent git history/diff. If implemented, check it off; otherwise dispatch a real background subagent. Do not execute the pending task directly in the main window.'
+        : 'Recovery action: Subagent dispatch is not confirmed. Confirm a real background subagent/Task/multi-agent dispatcher and set subagent_dispatch to confirmed, or set build_mode to executing-plans before continuing.';
+    }
+    return 'Recovery action: Read the Superpowers plan and continue from the first unchecked plan task.';
+  }
+  return 'Recovery action: All tasks done. Run guard to transition to verify.';
+}
+
+async function recoverVerify(output: CommandOutput, name: string): Promise<void> {
+  const result = await readField(name, 'verify_result');
+  const mode = await readField(name, 'verify_mode');
+  const report = await readField(name, 'verification_report');
+  const branch = await readField(name, 'branch_status');
+  output.stdout.push(
+    '  Verification:',
+    fieldStatus('verify_result', result),
+    fieldStatus('verify_mode', mode),
+    fieldStatus('verification_report', report, report),
+    fieldStatus('branch_status', branch),
+    '',
+    result === 'pass' && branch === 'handled'
+      ? 'Recovery action: Verification complete. Run guard to transition to archive.'
+      : result === 'fail'
+        ? 'Recovery action: Verification failed and rolled back to build. Resume from /comet-build.'
+        : 'Recovery action: Verification not yet started or in progress. Run scale assessment then verify.',
+  );
+}
+
+async function recoverArchive(output: CommandOutput, name: string): Promise<void> {
+  output.stdout.push(
+    '  Archive:',
+    fieldStatus('verify_result', await readField(name, 'verify_result')),
+    fieldStatus('archived', await readField(name, 'archived')),
+    '',
+    'Recovery action: Run /comet-archive to complete archiving.',
+  );
+}
+
 async function recover(output: CommandOutput, name: string): Promise<void> {
   validateChangeName(name);
   const { file, directory, label } = await stateFile(name);
@@ -676,184 +858,15 @@ async function recover(output: CommandOutput, name: string): Promise<void> {
     'State fields:',
   );
   if (phase === 'open') {
-    output.stdout.push('  Artifacts:');
-    let complete = 0;
-    for (const artifact of ['proposal.md', 'design.md', 'tasks.md']) {
-      const done = await nonempty(path.join(directory, artifact));
-      if (done) complete += 1;
-      output.stdout.push(`  - ${artifact}: ${done ? 'DONE' : 'PENDING'}`);
-    }
-    output.stdout.push(
-      '',
-      complete === 3
-        ? 'Recovery action: All artifacts complete. Run /comet-open user confirmation, then guard to transition.'
-        : complete === 0
-          ? 'Recovery action: No artifacts created yet. Start from /comet-open Step 1 (explore and clarify).'
-          : 'Recovery action: Some artifacts incomplete. Resume /comet-open from the first missing artifact.',
-    );
+    await recoverOpen(output, directory);
   } else if (phase === 'design') {
-    output.stdout.push('  Artifacts:');
-    for (const artifact of ['proposal.md', 'design.md', 'tasks.md']) {
-      output.stdout.push(
-        `  - ${artifact}: ${(await nonempty(path.join(directory, artifact))) ? 'DONE' : 'MISSING (unexpected in design phase)'}`,
-      );
-    }
-    const handoff = await readField(name, 'handoff_context');
-    const hash = await readField(name, 'handoff_hash');
-    const design = await readField(name, 'design_doc');
-    output.stdout.push(
-      '',
-      '  Design progress:',
-      fieldStatus('handoff_context', handoff, handoff),
-      fieldStatus('handoff_hash', hash),
-      fieldStatus('design_doc', design, design),
-      '',
-    );
-    if (design && design !== 'null' && (await exists(path.resolve(design)))) {
-      output.stdout.push(
-        'Recovery action: Design Doc already created and linked. Run guard to transition to build.',
-      );
-    } else if (handoff && handoff !== 'null' && (await exists(path.resolve(handoff)))) {
-      output.stdout.push(
-        'Recovery action: Handoff generated but Design Doc not yet created. Resume from brainstorming confirmation (Step 1c).',
-      );
-    } else {
-      output.stdout.push(
-        'Recovery action: No handoff generated yet. Start from Step 1a (generate handoff package).',
-      );
-    }
+    await recoverDesign(output, name, directory);
   } else if (phase === 'build') {
-    const isolation = await readField(name, 'isolation');
-    const buildMode = await readField(name, 'build_mode');
-    const pause = await readField(name, 'build_pause');
-    const subagentDispatch = await readField(name, 'subagent_dispatch');
-    const tdd = await readField(name, 'tdd_mode');
-    const review = await readField(name, 'review_mode');
-    const plan = await readField(name, 'plan');
-    const decisions = [
-      '  Build decisions:',
-      fieldStatus('isolation', isolation),
-      fieldStatus('build_mode', buildMode),
-      fieldStatus('build_pause', pause),
-      fieldStatus('tdd_mode', tdd),
-      fieldStatus('review_mode', review),
-    ];
-    if (
-      buildMode === 'subagent-driven-development' ||
-      (subagentDispatch && subagentDispatch !== 'null')
-    ) {
-      decisions.push(fieldStatus('subagent_dispatch', subagentDispatch));
-    }
-    output.stdout.push(...decisions, '', '  Plan:', fieldStatus('plan', plan, plan), '');
-    const tasks = path.join(directory, 'tasks.md');
-    if (!(await exists(tasks))) {
-      output.stdout.push(
-        '  Tasks: tasks.md MISSING',
-        '',
-        'Recovery action: tasks.md missing. Verify change directory integrity.',
-      );
-    } else {
-      const lines = (await fs.readFile(tasks, 'utf8')).split(/\r?\n/u);
-      const total = lines.filter((line) => /^\s*- \[[ xX]\] /u.test(line)).length;
-      const done = lines.filter((line) => /^\s*- \[[xX]\] /u.test(line)).length;
-      const pending = total - done;
-      let planTotal = 0;
-      let planDone = 0;
-      if (plan && plan !== 'null' && (await exists(path.resolve(plan)))) {
-        const planLines = (await fs.readFile(path.resolve(plan), 'utf8')).split(/\r?\n/u);
-        planTotal = planLines.filter((line) => /^\s*- \[[ xX]\] /u.test(line)).length;
-        planDone = planLines.filter((line) => /^\s*- \[[xX]\] /u.test(line)).length;
-      }
-      const planPending = planTotal - planDone;
-      output.stdout.push(`  Tasks: ${done}/${total} done, ${pending} pending`);
-      if (planTotal > 0) {
-        output.stdout.push(`  Plan tasks: ${planDone}/${planTotal} done, ${planPending} pending`);
-      }
-      output.stdout.push('');
-
-      let action: string;
-      if (
-        pause === 'plan-ready' &&
-        plan &&
-        plan !== 'null' &&
-        (await exists(path.resolve(plan))) &&
-        (!isolation || isolation === 'null' || !buildMode || buildMode === 'null')
-      ) {
-        action =
-          'Recovery action: Plan-ready pause detected. Ask the user whether to continue, then choose isolation and build mode without regenerating the plan.';
-      } else if (
-        pause === 'plan-ready' &&
-        (!plan || plan === 'null' || !(await exists(path.resolve(plan))))
-      ) {
-        action =
-          'Recovery action: Plan-ready pause is recorded, but the plan file is missing. Restore the plan file or rerun writing-plans before choosing execution.';
-      } else if (pause === 'plan-ready') {
-        if (buildMode === 'subagent-driven-development' && (pending > 0 || planPending > 0)) {
-          action =
-            subagentDispatch === 'confirmed'
-              ? 'Recovery action: Plan-ready pause is stale because build decisions are already selected. Clear build_pause to null, then inspect the first unchecked task (OpenSpec or plan additions) against recent git history/diff. If implemented, check it off; otherwise dispatch a real background subagent. Do not execute the pending task directly in the main window.'
-              : 'Recovery action: Plan-ready pause is stale and subagent dispatch is not confirmed. Confirm a real background subagent/Task/multi-agent dispatcher and set subagent_dispatch to confirmed, or set build_mode to executing-plans before continuing.';
-        } else if (pending > 0 || planPending > 0) {
-          action =
-            'Recovery action: Plan-ready pause is stale because build decisions are already selected. Clear build_pause to null, then continue from the first unchecked task.';
-        } else {
-          action =
-            'Recovery action: Plan-ready pause is stale and all tasks are done. Clear build_pause to null, then run guard to transition to verify.';
-        }
-      } else if (!isolation || isolation === 'null') {
-        action =
-          "Recovery action: Isolation not selected. Use the current platform's user confirmation mechanism to ask user for branch/worktree choice.";
-      } else if (!buildMode || buildMode === 'null') {
-        action =
-          "Recovery action: Build mode not selected. Use the current platform's user confirmation mechanism to ask user for execution method.";
-      } else if (!tdd || tdd === 'null') {
-        action =
-          "Recovery action: TDD mode not selected. Use the current platform's user confirmation mechanism to ask user for tdd or direct.";
-      } else if (pending > 0) {
-        action =
-          buildMode === 'subagent-driven-development'
-            ? subagentDispatch === 'confirmed'
-              ? 'Recovery action: Read tasks.md and the Superpowers plan (which may include additions beyond OpenSpec), then inspect the first unchecked task against recent git history/diff. If implemented, check it off; otherwise dispatch a real background subagent. Do not execute the pending task directly in the main window.'
-              : 'Recovery action: Subagent dispatch is not confirmed. Confirm a real background subagent/Task/multi-agent dispatcher and set subagent_dispatch to confirmed, or set build_mode to executing-plans before continuing.'
-            : 'Recovery action: Read tasks.md and continue from first unchecked task.';
-      } else if (planPending > 0) {
-        action =
-          buildMode === 'subagent-driven-development'
-            ? subagentDispatch === 'confirmed'
-              ? 'Recovery action: Read the Superpowers plan, then inspect the first unchecked Superpowers plan task against recent git history/diff. If implemented, check it off; otherwise dispatch a real background subagent. Do not execute the pending task directly in the main window.'
-              : 'Recovery action: Subagent dispatch is not confirmed. Confirm a real background subagent/Task/multi-agent dispatcher and set subagent_dispatch to confirmed, or set build_mode to executing-plans before continuing.'
-            : 'Recovery action: Read the Superpowers plan and continue from the first unchecked plan task.';
-      } else {
-        action = 'Recovery action: All tasks done. Run guard to transition to verify.';
-      }
-      output.stdout.push(action);
-    }
+    await recoverBuild(output, name, directory);
   } else if (phase === 'verify') {
-    const result = await readField(name, 'verify_result');
-    const mode = await readField(name, 'verify_mode');
-    const report = await readField(name, 'verification_report');
-    const branch = await readField(name, 'branch_status');
-    output.stdout.push(
-      '  Verification:',
-      fieldStatus('verify_result', result),
-      fieldStatus('verify_mode', mode),
-      fieldStatus('verification_report', report, report),
-      fieldStatus('branch_status', branch),
-      '',
-      result === 'pass' && branch === 'handled'
-        ? 'Recovery action: Verification complete. Run guard to transition to archive.'
-        : result === 'fail'
-          ? 'Recovery action: Verification failed and rolled back to build. Resume from /comet-build.'
-          : 'Recovery action: Verification not yet started or in progress. Run scale assessment then verify.',
-    );
+    await recoverVerify(output, name);
   } else if (phase === 'archive') {
-    output.stdout.push(
-      '  Archive:',
-      fieldStatus('verify_result', await readField(name, 'verify_result')),
-      fieldStatus('archived', await readField(name, 'archived')),
-      '',
-      'Recovery action: Run /comet-archive to complete archiving.',
-    );
+    await recoverArchive(output, name);
   } else {
     fail(`ERROR: Unknown phase: ${phase}`);
   }

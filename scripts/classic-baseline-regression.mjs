@@ -382,7 +382,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === SCRIPT_PATH) {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) {
     process.stdout.write(
-      'Usage: node scripts/classic-baseline-benchmark.mjs [--workspace <dir>]\n',
+      'Usage: node scripts/classic-baseline-regression.mjs [--workspace <dir>]\n',
     );
   } else {
     const report = await runClassicBaselineBenchmark(options);

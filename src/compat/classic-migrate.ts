@@ -116,7 +116,7 @@ function migrationEvents(
         kind: 'classic',
         migrationVersion: CLASSIC_MIGRATION_VERSION,
         profile,
-        source: '0.3.8',
+        source: 'pre-migration',
       },
     },
   ];

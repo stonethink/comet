@@ -39,7 +39,7 @@
     "format:check": "prettier --check src/",
     "benchmark:context": "node scripts/context-compression-benchmark.mjs",
     "benchmark:execution": "node scripts/context-execution-benchmark.mjs",
-    "benchmark:classic": "node scripts/classic-baseline-benchmark.mjs",
+    "benchmark:classic": "node scripts/classic-baseline-regression.mjs",
     "benchmark:bundle": "pnpm build && node scripts/comet-bundle-compatibility-benchmark.mjs",
     "prepare": "husky && pnpm run build",
     "prepublishOnly": "node scripts/prepublish-check.js && pnpm run build",
