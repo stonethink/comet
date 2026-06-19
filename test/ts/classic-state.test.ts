@@ -147,8 +147,6 @@ describe('Classic state projection', () => {
     ['verify_result', 'maybe'],
     ['branch_status', 'open'],
     ['classic_profile', 'other'],
-    ['orchestration', 'manual'],
-    ['run_status', 'paused'],
   ])('rejects invalid %s values', async (field, value) => {
     await writeClassicState(changeDir, { classic: classicState(), run: runState() });
     const raw = await fs.readFile(stateFile, 'utf8');

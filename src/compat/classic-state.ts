@@ -85,23 +85,8 @@ export const CLASSIC_WIRE_KEYS = [
   'classic_migration',
 ] as const;
 
-export const RUN_WIRE_KEYS = [
-  'run_id',
-  'skill',
-  'skill_version',
-  'skill_hash',
-  'orchestration',
-  'current_step',
-  'iteration',
-  'pending',
-  'pending_ref',
-  'trajectory_ref',
-  'context_ref',
-  'artifacts_ref',
-  'checkpoint_ref',
-  'run_status',
-  'run_retries',
-] as const;
+/** Fields that appear in .comet.yaml to link to the Run state. */
+export const RUN_WIRE_KEYS = ['run_id'] as const;
 
 const KNOWN_KEYS = new Set<string>([...CLASSIC_WIRE_KEYS, ...RUN_WIRE_KEYS]);
 const REQUIRED_CLASSIC_KEYS = [
@@ -228,20 +213,30 @@ function classicStateFromDocument(doc: StateDocument): ClassicState | null {
   };
 }
 
-export function parseClassicStateDocument(doc: StateDocument): ClassicStateProjection {
-  let run: RunState | null;
-  try {
-    run = runStateFromDocument(doc);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(message.replace(/^Invalid Run state:/u, 'Invalid Classic state:'), {
-      cause: error,
-    });
+export function parseClassicStateDocument(
+  doc: StateDocument,
+  run?: RunState | null,
+): ClassicStateProjection {
+  // Run state is stored separately in .comet/run-state.json.
+  // If not provided, check for a run_id link (but don't parse full Run state from yaml).
+  let resolvedRun: RunState | null = run ?? null;
+  if (resolvedRun === null && run === undefined) {
+    // Backward compat: old yaml may still have full Run fields — extract them
+    if (doc.run_id && doc.skill) {
+      try {
+        resolvedRun = runStateFromDocument(doc);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(message.replace(/^Invalid Run state:/u, 'Invalid Classic state:'), {
+          cause: error,
+        });
+      }
+    }
   }
 
   return {
     classic: classicStateFromDocument(doc),
-    run,
+    run: resolvedRun,
     unknownKeys: Object.keys(doc).filter((key) => !KNOWN_KEYS.has(key)),
   };
 }

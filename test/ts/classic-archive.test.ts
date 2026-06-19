@@ -4,6 +4,7 @@ import os from 'os';
 import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
+import { readRunState } from '../../src/engine/state.js';
 
 const runtime = path.resolve('assets', 'skills', 'comet', 'scripts', 'comet-runtime.mjs');
 const temporary: string[] = [];
@@ -134,15 +135,17 @@ describe('Classic archive command', () => {
     expect(state).toMatchObject({
       archived: true,
       phase: 'archive',
-      current_step: 'completed',
-      run_status: 'completed',
-      pending: null,
     });
-    await expect(fs.access(path.join(archiveDir, String(state.pending_ref)))).rejects.toMatchObject(
-      { code: 'ENOENT' },
-    );
+    const archiveRunState = await readRunState(archiveDir);
+    expect(archiveRunState).not.toBeNull();
+    expect(archiveRunState!.currentStep).toBe('completed');
+    expect(archiveRunState!.status).toBe('completed');
+    expect(archiveRunState!.pending).toBeNull();
+    await expect(
+      fs.access(path.join(archiveDir, archiveRunState!.pendingRef)),
+    ).rejects.toMatchObject({ code: 'ENOENT' });
     const artifacts = JSON.parse(
-      await fs.readFile(path.join(archiveDir, String(state.artifacts_ref)), 'utf8'),
+      await fs.readFile(path.join(archiveDir, archiveRunState!.artifactsRef), 'utf8'),
     ) as Record<string, string>;
     expect(artifacts.archive_directory).toBe(
       `openspec/changes/archive/${path.basename(archiveDir)}`,
@@ -185,9 +188,11 @@ describe('Classic archive command', () => {
       unknown
     >;
     expect(state.archived).toBe(false);
-    expect(state.pending).toMatch(/^classic-archive:/u);
+    const failRunState = await readRunState(changeDir);
+    expect(failRunState).not.toBeNull();
+    expect(failRunState!.pending).toMatch(/^classic-archive:/u);
     await expect(
-      fs.access(path.join(changeDir, String(state.pending_ref))),
+      fs.access(path.join(changeDir, failRunState!.pendingRef)),
     ).resolves.toBeUndefined();
   });
 
@@ -210,12 +215,10 @@ describe('Classic archive command', () => {
       'archive',
       `${new Date().toISOString().slice(0, 10)}-demo`,
     );
-    const state = parse(await fs.readFile(path.join(archiveDir, '.comet.yaml'), 'utf8')) as Record<
-      string,
-      unknown
-    >;
+    const reconcileRunState = await readRunState(archiveDir);
+    expect(reconcileRunState).not.toBeNull();
     const trajectory = (
-      await fs.readFile(path.join(archiveDir, String(state.trajectory_ref)), 'utf8')
+      await fs.readFile(path.join(archiveDir, reconcileRunState!.trajectoryRef), 'utf8')
     )
       .trim()
       .split(/\r?\n/u)

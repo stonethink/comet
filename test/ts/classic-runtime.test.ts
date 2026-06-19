@@ -3,6 +3,7 @@ import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
 import { spawnSync } from 'child_process';
+import { readRunState } from '../../src/engine/state.js';
 
 const runtime = path.resolve('assets', 'skills', 'comet', 'scripts', 'comet-runtime.mjs');
 const buildScript = path.resolve('scripts', 'build-classic-runtime.mjs');
@@ -186,7 +187,7 @@ describe('Classic runtime bundle', () => {
     );
 
     expect(result.status).not.toBe(0);
-    expect(result.stderr).toContain('machine-owned Run field');
+    expect(result.stderr).toContain('Unknown field');
   });
 
   it('re-resolves the Run step when migrated Classic configuration changes', async () => {
@@ -226,12 +227,11 @@ describe('Classic runtime bundle', () => {
       [runtime, 'state', 'set', 'demo', 'plan', 'docs/plan.md'],
       { cwd: directory, encoding: 'utf8' },
     );
-    const step = spawnSync(process.execPath, [runtime, 'state', 'get', 'demo', 'current_step'], {
-      cwd: directory,
-      encoding: 'utf8',
-    });
+    const changeDir = path.join(directory, 'openspec', 'changes', 'demo');
+    const runState = await readRunState(changeDir);
 
     expect(set.status).toBe(0);
-    expect(step.stdout.trim()).toBe('full.build.configure');
+    expect(runState).not.toBeNull();
+    expect(runState!.currentStep).toBe('full.build.configure');
   });
 });

@@ -8,6 +8,7 @@ import { collectClassicEvidence } from './classic-evidence.js';
 import { resolveClassicStepId } from './classic-resolver.js';
 import { CLASSIC_WIRE_KEYS, RUN_WIRE_KEYS, parseClassicStateDocument } from './classic-state.js';
 import { writeClassicState } from './classic-store.js';
+import { readRunState } from '../engine/state.js';
 import { appendTrajectory, readTrajectory } from '../engine/run-store.js';
 
 const GREEN = '\u001b[32m';
@@ -312,7 +313,8 @@ async function setField(
   const { file, directory } = await stateFile(name);
   const document = await readDocument(file);
   document.set(field, parsedValue(field, value));
-  const projection = parseClassicStateDocument(document.toJS() as Record<string, unknown>);
+  const run = await readRunState(directory);
+  const projection = parseClassicStateDocument(document.toJS() as Record<string, unknown>, run);
   if (projection.run) {
     if (!projection.classic) fail('ERROR: migrated Run is missing its Classic projection');
     const evidence = await collectClassicEvidence(directory, projection);

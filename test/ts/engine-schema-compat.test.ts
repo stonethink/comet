@@ -40,50 +40,26 @@ describe('Skill Engine schema compatibility', () => {
     });
   }
 
-  // Run projection fields are machine-owned (the engine writes them via the
-  // Run store, never via `comet-state set`), so this writes them directly to
-  // .comet.yaml — exactly as the engine would — and confirms the schema
-  // accepts every field.
-  async function writeRunState(overrides: Record<string, string> = {}): Promise<void> {
-    const yamlPath = path.join(root, 'openspec', 'changes', 'demo', '.comet.yaml');
-    const base = await fs.readFile(yamlPath, 'utf8');
-    const fields: Record<string, string> = {
-      run_id: 'run-1',
-      skill: 'demo',
-      skill_version: "'1'",
-      skill_hash: 'a'.repeat(64),
-      orchestration: 'deterministic',
-      current_step: 'start',
-      iteration: '0',
-      pending: 'null',
-      pending_ref: '.comet/pending-action.json',
-      trajectory_ref: '.comet/trajectory.jsonl',
-      context_ref: '.comet/context.md',
-      artifacts_ref: '.comet/artifacts.json',
-      checkpoint_ref: '.comet/checkpoint.json',
-      run_status: 'running',
-      run_retries: '{}',
-    };
-    Object.assign(fields, overrides);
-    const block = Object.entries(fields).map(([k, v]) => `${k}: ${v}`).join('\n') + '\n';
-    await fs.writeFile(yamlPath, base + block);
-  }
-
-  it('validates every Skill Engine projection field written as the engine would', async () => {
+  it('validates every Classic projection field written as the engine would', async () => {
     expect(run(stateScript, ['init', 'demo', 'full']).status).toBe(0);
-    await writeRunState();
     const result = run(validateScript, ['demo']);
     expect(result.status).toBe(0);
     expect(result.stderr).not.toContain('unknown field');
   }, 30_000);
 
+  async function setYamlField(field: string, value: string): Promise<void> {
+    const yamlPath = path.join(root, 'openspec', 'changes', 'demo', '.comet.yaml');
+    const raw = await fs.readFile(yamlPath, 'utf8');
+    await fs.writeFile(yamlPath, raw.replace(new RegExp(`^${field}:.*$`, 'mu'), `${field}: ${value}`));
+  }
+
   it.each([
-    ['orchestration', 'freeform'],
-    ['iteration', '-1'],
-    ['trajectory_ref', '../outside.jsonl'],
+    ['workflow', 'freeform'],
+    ['phase', 'bad'],
+    ['verify_result', 'maybe'],
   ])('rejects invalid %s=%s', async (field, value) => {
     expect(run(stateScript, ['init', 'demo', 'full']).status).toBe(0);
-    await writeRunState({ [field]: value });
+    await setYamlField(field, value);
     const result = run(validateScript, ['demo']);
     expect(result.status).not.toBe(0);
   });

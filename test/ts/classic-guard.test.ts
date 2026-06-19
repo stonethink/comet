@@ -4,6 +4,7 @@ import os from 'os';
 import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
+import { readRunState } from '../../src/engine/state.js';
 
 const runtime = path.resolve('assets', 'skills', 'comet', 'scripts', 'comet-runtime.mjs');
 const temporary: string[] = [];
@@ -68,12 +69,14 @@ describe('Classic guard command', () => {
     expect(state).toMatchObject({
       classic_profile: 'hotfix',
       classic_migration: 1,
-      skill: 'comet-classic',
-      current_step: 'hotfix.build.complete',
-      iteration: 1,
     });
+    const runState = await readRunState(changeDir);
+    expect(runState).not.toBeNull();
+    expect(runState!.skill).toBe('comet-classic');
+    expect(runState!.currentStep).toBe('hotfix.build.complete');
+    expect(runState!.iteration).toBe(1);
     const trajectory = (
-      await fs.readFile(path.join(changeDir, String(state.trajectory_ref)), 'utf8')
+      await fs.readFile(path.join(changeDir, runState!.trajectoryRef), 'utf8')
     )
       .trim()
       .split(/\r?\n/u)

@@ -34,8 +34,25 @@ function state(cwd, ...args) {
   return run(cwd, ['state', ...args], options);
 }
 
+function camelToSnake(str) {
+  return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+}
+
 async function readState(changeDir) {
-  return parse(await fs.readFile(path.join(changeDir, '.comet.yaml'), 'utf8'));
+  const yamlState = parse(await fs.readFile(path.join(changeDir, '.comet.yaml'), 'utf8'));
+  try {
+    const runJson = JSON.parse(await fs.readFile(path.join(changeDir, '.comet', 'run-state.json'), 'utf8'));
+    for (const [key, value] of Object.entries(runJson)) {
+      yamlState[camelToSnake(key)] = value;
+    }
+    // Backward-compat aliases: the old yaml format used run_status / run_retries
+    // but the JSON format uses status / retries.
+    if (runJson.status != null) yamlState.run_status = runJson.status;
+    if (runJson.retries != null) yamlState.run_retries = runJson.retries;
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
+  }
+  return yamlState;
 }
 
 function hookInput(filePath) {

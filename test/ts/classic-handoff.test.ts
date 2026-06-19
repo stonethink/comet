@@ -4,6 +4,7 @@ import os from 'os';
 import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { parse, stringify } from 'yaml';
+import { readRunState, writeRunState } from '../../src/engine/state.js';
 
 const runtime = path.resolve('assets', 'skills', 'comet', 'scripts', 'comet-runtime.mjs');
 const temporary: string[] = [];
@@ -66,12 +67,14 @@ describe('Classic handoff command', () => {
       string,
       unknown
     >;
-    const context = await fs.readFile(path.join(changeDir, String(state.context_ref)), 'utf8');
+    const runState = await readRunState(changeDir);
+    expect(runState).not.toBeNull();
+    const context = await fs.readFile(path.join(changeDir, runState!.contextRef), 'utf8');
     const artifacts = JSON.parse(
-      await fs.readFile(path.join(changeDir, String(state.artifacts_ref)), 'utf8'),
+      await fs.readFile(path.join(changeDir, runState!.artifactsRef), 'utf8'),
     ) as Record<string, string>;
     const checkpoint = JSON.parse(
-      await fs.readFile(path.join(changeDir, String(state.checkpoint_ref)), 'utf8'),
+      await fs.readFile(path.join(changeDir, runState!.checkpointRef), 'utf8'),
     ) as Record<string, unknown>;
     expect(context).toBe(md);
     expect(artifacts).toMatchObject({
@@ -83,10 +86,10 @@ describe('Classic handoff command', () => {
       contextHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
       artifactsHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
     });
-    expect(state.current_step).toBe('full.design.document');
-    expect(state.iteration).toBe(1);
-    expect(state.pending).toBeNull();
-    await expect(fs.access(path.join(changeDir, String(state.pending_ref)))).rejects.toMatchObject({
+    expect(runState!.currentStep).toBe('full.design.document');
+    expect(runState!.iteration).toBe(1);
+    expect(runState!.pending).toBeNull();
+    await expect(fs.access(path.join(changeDir, runState!.pendingRef))).rejects.toMatchObject({
       code: 'ENOENT',
     });
   });
@@ -120,32 +123,27 @@ describe('Classic handoff command', () => {
     const changeDir = await seedDesignChange(dir);
     expect(run(dir, 'handoff', 'demo', 'design', '--write').status).toBe(0);
     const hash = run(dir, 'state', 'get', 'demo', 'handoff_hash').stdout.trim();
-    const state = parse(await fs.readFile(path.join(changeDir, '.comet.yaml'), 'utf8')) as Record<
-      string,
-      unknown
-    >;
+    const runStateBefore = await readRunState(changeDir);
+    expect(runStateBefore).not.toBeNull();
     const actionId = `classic-handoff:${hash}`;
     await fs.writeFile(
-      path.join(changeDir, String(state.pending_ref)),
+      path.join(changeDir, runStateBefore!.pendingRef),
       JSON.stringify({
         id: actionId,
-        stepId: state.current_step,
+        stepId: runStateBefore!.currentStep,
         type: 'handoff',
         ref: hash,
       }),
     );
-    state.pending = actionId;
-    await fs.writeFile(path.join(changeDir, '.comet.yaml'), stringify(state));
+    await writeRunState(changeDir, { ...runStateBefore!, pending: actionId });
 
     const result = run(dir, 'handoff', 'demo', 'design', '--write');
     expect(result.status).toBe(0);
-    const after = parse(await fs.readFile(path.join(changeDir, '.comet.yaml'), 'utf8')) as Record<
-      string,
-      unknown
-    >;
-    expect(after.pending).toBeNull();
+    const afterRunState = await readRunState(changeDir);
+    expect(afterRunState).not.toBeNull();
+    expect(afterRunState!.pending).toBeNull();
     const trajectory = (
-      await fs.readFile(path.join(changeDir, String(after.trajectory_ref)), 'utf8')
+      await fs.readFile(path.join(changeDir, afterRunState!.trajectoryRef), 'utf8')
     )
       .trim()
       .split(/\r?\n/u)

@@ -36,21 +36,12 @@ const ENUMS: Record<string, readonly string[]> = {
   branch_status: ['pending', 'handled'],
   archived: ['true', 'false'],
   direct_override: ['true', 'false'],
-  orchestration: ['deterministic', 'adaptive'],
-  run_status: ['running', 'waiting', 'completed', 'failed'],
   classic_profile: ['full', 'hotfix', 'tweak'],
   classic_migration: ['1'],
 };
-const RUN_REFS = [
-  'pending_ref',
-  'trajectory_ref',
-  'context_ref',
-  'artifacts_ref',
-  'checkpoint_ref',
-] as const;
 const KNOWN_KEYS = new Set<string>([
   ...CLASSIC_WIRE_KEYS,
-  ...RUN_WIRE_KEYS,
+  ...RUN_WIRE_KEYS, // just 'run_id'
   'classic_profile',
   'classic_migration',
 ]);
@@ -72,10 +63,6 @@ async function exists(file: string): Promise<boolean> {
 function text(value: unknown): string {
   if (value === null || value === undefined) return '';
   return typeof value === 'object' ? JSON.stringify(value) : String(value);
-}
-
-function validRelativePath(value: string): boolean {
-  return !/^(?:[A-Za-z]:|[\\/]|~)/u.test(value) && !value.split(/[\\/]/u).includes('..');
 }
 
 export const classicValidateCommand: ClassicCommandHandler = async (args) => {
@@ -151,20 +138,10 @@ export const classicValidateCommand: ClassicCommandHandler = async (args) => {
       fail(`${field}='${value}' does not exist on disk`);
     }
   }
-  for (const field of ['handoff_hash', 'skill_hash'] as const) {
+  for (const field of ['handoff_hash'] as const) {
     const value = text(record[field]);
     if (value && !/^[a-f0-9]{64}$/u.test(value)) {
       fail(`${field}='${value}' is not a sha256 hex digest`);
-    }
-  }
-  const iteration = text(record.iteration);
-  if (iteration && !/^[0-9]+$/u.test(iteration)) {
-    fail(`iteration='${iteration}' is not a non-negative integer`);
-  }
-  for (const field of RUN_REFS) {
-    const value = text(record[field]);
-    if (value && !validRelativePath(value)) {
-      fail(`${field}='${value}' must be a relative path within the repo`);
     }
   }
   for (const field of Object.keys(record)) {

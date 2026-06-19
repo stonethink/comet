@@ -1,7 +1,6 @@
 import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { parse, stringify } from 'yaml';
 import type { RunState } from './types.js';
 
 export type StateDocument = Record<string, unknown>;
@@ -95,47 +94,98 @@ export function runStateFromDocument(doc: StateDocument): RunState | null {
   };
 }
 
-export function applyRunStateToDocument(doc: StateDocument, state: RunState): void {
-  Object.assign(doc, {
-    run_id: state.runId,
+/** Write only run_id onto a yaml document (the rest of Run state lives in .comet/run-state.json). */
+export function applyRunStateToDocument(doc: StateDocument, state: RunState | null): void {
+  if (state) {
+    doc.run_id = state.runId;
+  } else {
+    delete doc.run_id;
+  }
+}
+
+export const RUN_STATE_FILE = '.comet/run-state.json';
+
+interface RunStateJson {
+  runId: string;
+  skill: string;
+  skillVersion: string;
+  skillHash: string;
+  orchestration: 'deterministic' | 'adaptive';
+  currentStep: string | null;
+  iteration: number;
+  pending: string | null;
+  pendingRef: string;
+  trajectoryRef: string;
+  contextRef: string;
+  artifactsRef: string;
+  checkpointRef: string;
+  status: 'running' | 'waiting' | 'completed' | 'failed';
+  retries: Record<string, number>;
+}
+
+function runStateToJson(state: RunState): RunStateJson {
+  return {
+    runId: state.runId,
     skill: state.skill,
-    skill_version: state.skillVersion,
-    skill_hash: state.skillHash,
+    skillVersion: state.skillVersion,
+    skillHash: state.skillHash,
     orchestration: state.orchestration,
-    current_step: state.currentStep,
+    currentStep: state.currentStep,
     iteration: state.iteration,
     pending: state.pending,
-    pending_ref: state.pendingRef,
-    trajectory_ref: state.trajectoryRef,
-    context_ref: state.contextRef,
-    artifacts_ref: state.artifactsRef,
-    checkpoint_ref: state.checkpointRef,
-    run_status: state.status,
-    run_retries: JSON.stringify(state.retries),
-  });
+    pendingRef: state.pendingRef,
+    trajectoryRef: state.trajectoryRef,
+    contextRef: state.contextRef,
+    artifactsRef: state.artifactsRef,
+    checkpointRef: state.checkpointRef,
+    status: state.status,
+    retries: state.retries,
+  };
+}
+
+function runStateFromJson(json: RunStateJson): RunState {
+  // Validate by round-tripping through the document parser
+  const doc: StateDocument = {
+    run_id: json.runId,
+    skill: json.skill,
+    skill_version: json.skillVersion,
+    skill_hash: json.skillHash,
+    orchestration: json.orchestration,
+    current_step: json.currentStep,
+    iteration: json.iteration,
+    pending: json.pending,
+    pending_ref: json.pendingRef,
+    trajectory_ref: json.trajectoryRef,
+    context_ref: json.contextRef,
+    artifacts_ref: json.artifactsRef,
+    checkpoint_ref: json.checkpointRef,
+    run_status: json.status,
+    run_retries: JSON.stringify(json.retries),
+  };
+  return runStateFromDocument(doc)!;
 }
 
 export async function readRunState(changeDir: string): Promise<RunState | null> {
-  const file = path.join(changeDir, '.comet.yaml');
-  const doc = parse(await fs.readFile(file, 'utf8')) as StateDocument;
-  return runStateFromDocument(doc);
-}
-
-export async function writeRunState(changeDir: string, state: RunState): Promise<void> {
-  const file = path.join(changeDir, '.comet.yaml');
+  const file = path.join(changeDir, RUN_STATE_FILE);
   let raw: string;
   try {
     raw = await fs.readFile(file, 'utf8');
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-    raw = '';
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    throw error;
   }
-  const doc = (raw ? parse(raw) : {}) as StateDocument;
-  applyRunStateToDocument(doc, state);
-  runStateFromDocument(doc);
+  const json = JSON.parse(raw) as RunStateJson;
+  return runStateFromJson(json);
+}
 
-  await fs.mkdir(changeDir, { recursive: true });
-  const temporary = path.join(changeDir, `.comet.yaml.${randomUUID()}.tmp`);
-  await fs.writeFile(temporary, stringify(doc), 'utf8');
+export async function writeRunState(changeDir: string, state: RunState): Promise<void> {
+  await fs.mkdir(path.join(changeDir, '.comet'), { recursive: true });
+  const file = path.join(changeDir, RUN_STATE_FILE);
+  const temporary = path.join(changeDir, '.comet', `run-state.${randomUUID()}.tmp`);
+  await fs.writeFile(temporary, JSON.stringify(runStateToJson(state), null, 2), 'utf8');
   await fs.rename(temporary, file);
+}
+
+export async function removeRunState(changeDir: string): Promise<void> {
+  await fs.rm(path.join(changeDir, RUN_STATE_FILE), { force: true });
 }
