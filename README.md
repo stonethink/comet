@@ -407,12 +407,17 @@ Development methodology: brainstorming, TDD, subagent-driven development, code r
 
 ### State Management
 
-Comet uses a decoupled state architecture with separate YAML files:
+Comet uses a decoupled state architecture with separate files:
 
-| File             | Owner    | Purpose                                             |
-|------------------|----------|-----------------------------------------------------|
-| `.openspec.yaml` | OpenSpec | Spec lifecycle, change metadata                     |
-| `.comet.yaml`    | Comet    | Workflow phase, execution mode, verification status |
+| File                      | Owner    | Purpose                                             |
+|---------------------------|----------|-----------------------------------------------------|
+| `.openspec.yaml`          | OpenSpec | Spec lifecycle, change metadata                     |
+| `.comet.yaml`             | Comet    | Workflow phase, execution mode, verification status |
+| `.comet/run-state.json`   | Engine   | Run identity and execution state (machine-owned)    |
+
+`.comet.yaml` holds all user-facing Classic workflow fields and a `run_id` link. The Engine stores Run fields
+(`current_step`, `skill`, `iteration`, `run_status`, etc.) separately in `.comet/run-state.json` (camelCase JSON).
+Legacy changes with Run fields embedded in `.comet.yaml` are auto-migrated on first read.
 
 All states and execution phases are updated via scripts, and each phase verifies that tasks are truly complete before
 advancing. Compared to storing complex state rules only in Skill text, this script-backed state machine gives Comet more
@@ -428,6 +433,9 @@ through Comet's built-in commands.
 workflow: full
 auto_transition: true
 phase: build
+skill: comet-classic           # Resolved Skill package name
+run_id: <uuid>                 # Links to .comet/run-state.json
+review_mode: standard          # off | standard | thorough
 build_mode: subagent-driven-development
 build_pause: null
 isolation: branch
@@ -457,7 +465,8 @@ plus `branch_status: handled`. Fields after `archived` in the example are option
 is only needed for full-workflow direct builds, project commands may be absent unless configured, and
 `handoff_context` / `handoff_hash` are recorded by `comet-handoff.mjs` before leaving design. Projects can configure
 `build_command` / `verify_command` in the change or repo root, and guard will run those commands first and print failure
-output.
+output. `review_mode` controls automatic code review during Build/Verify (`off` skips, `standard` reviews key changes,
+`thorough` reviews everything); can be set project-wide in `.comet/config.yaml`.
 
 </details>
 
@@ -509,7 +518,7 @@ Comet ensures agent execution reliability through automated state transitions:
 ```
 your-project/
 ├── .comet/
-│   └── config.yaml              # Project-level global config (context_compression, auto_transition, etc.)
+│   └── config.yaml              # Project-level global config (context_compression, review_mode, auto_transition)
 ├── .claude/skills/              # Platform skills dir (Comet + OpenSpec + Superpowers)
 │   ├── comet/SKILL.md
 │   │   └── scripts/
@@ -528,7 +537,9 @@ your-project/
 │   └── changes/
 │       └── <name>/
 │           ├── .openspec.yaml       # OpenSpec state
-│           ├── .comet.yaml          # Comet workflow state (decoupled)
+│           ├── .comet.yaml          # Comet workflow state (Classic fields + run_id link)
+│           ├── .comet/
+│           │   └── run-state.json   # Engine Run state (machine-owned, auto-migrated)
 │           ├── proposal.md
 │           ├── design.md
 │           ├── specs/<capability>/spec.md

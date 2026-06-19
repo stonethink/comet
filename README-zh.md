@@ -385,12 +385,17 @@ Spec 生命周期管理：propose、explore、sync、verify、archive 等。
 
 ### 状态管理
 
-Comet 使用解耦状态架构，YAML 文件独立管理：
+Comet 使用解耦状态架构，文件独立管理：
 
-| 文件               | 归属       | 用途              |
-|------------------|----------|-----------------|
-| `.openspec.yaml` | OpenSpec | Spec 生命周期、变更元数据 |
-| `.comet.yaml`    | Comet    | 工作流阶段、执行模式、验证状态 |
+| 文件                       | 归属       | 用途                         |
+|--------------------------|----------|----------------------------|
+| `.openspec.yaml`         | OpenSpec | Spec 生命周期、变更元数据          |
+| `.comet.yaml`            | Comet    | 工作流阶段、执行模式、验证状态         |
+| `.comet/run-state.json`  | Engine   | Run 身份和执行状态（机器所有）        |
+
+`.comet.yaml` 保存所有用户可见的 Classic 工作流字段及 `run_id` 关联。Engine 将 Run 字段（`current_step`、`skill`、
+`iteration`、`run_status` 等）单独存储在 `.comet/run-state.json`（camelCase JSON）中。旧变更如果 Run 字段仍在
+`.comet.yaml` 中，首次读取时自动迁移。
 
 所有状态和运行阶段都通过脚本更新，并且会在每个阶段退出前校验任务是否真实完成。相比于将复杂状态管理写在 Skill
 文本中，脚本化状态机能更稳定地保障阶段流转、YAML 正确性和断点恢复；Agent 只需要通过 Comet 内置命令读取状态，就能知道当前
@@ -405,6 +410,9 @@ Spec 处于哪个阶段。
 workflow: full
 auto_transition: true
 phase: build
+skill: comet-classic           # 解析后的 Skill 包名
+run_id: <uuid>                 # 链接到 .comet/run-state.json
+review_mode: standard          # off | standard | thorough
 build_mode: subagent-driven-development
 build_pause: null
 isolation: branch
@@ -431,7 +439,8 @@ full workflow 初始化时 `build_mode`、`build_pause`、`isolation`、`verify_
 `verification_report` 在验证报告生成前保持 `null`，`verify-pass` 要求该报告文件存在且 `branch_status: handled`。示例中
 `archived` 之后的字段是可选字段或脚本派生字段：`direct_override` 只在 full workflow 直接构建时需要，项目命令未配置时可以不存在，
 `handoff_context` 和 `handoff_hash` 由 `comet-handoff.mjs` 在离开 design 阶段前写入。项目可在 change 或仓库根配置中设置
-`build_command` / `verify_command`，guard 会优先运行并打印失败输出。
+`build_command` / `verify_command`，guard 会优先运行并打印失败输出。`review_mode` 控制 Build/Verify 阶段的自动代码审查（`off`
+跳过、`standard` 审查关键变更、`thorough` 全量审查）；可在 `.comet/config.yaml` 中设置项目级默认值。
 
 </details>
 
@@ -488,7 +497,7 @@ Comet 通过自动化状态转换确保 agent 执行可靠性：
 ```
 your-project/
 ├── .comet/
-│   └── config.yaml              # 项目级全局配置（context_compression、auto_transition 等）
+│   └── config.yaml              # 项目级全局配置（context_compression、review_mode、auto_transition）
 ├── .claude/skills/              # 平台技能目录（Comet + OpenSpec + Superpowers）
 │   ├── comet/SKILL.md
 │   │   └── scripts/
@@ -507,7 +516,9 @@ your-project/
 │   └── changes/
 │       └── <name>/
 │           ├── .openspec.yaml       # OpenSpec 状态
-│           ├── .comet.yaml          # Comet 工作流状态（解耦）
+│           ├── .comet.yaml          # Comet 工作流状态（Classic 字段 + run_id 关联）
+│           ├── .comet/
+│           │   └── run-state.json   # Engine Run 状态（机器所有，自动迁移）
 │           ├── proposal.md
 │           ├── design.md
 │           ├── specs/<capability>/spec.md
