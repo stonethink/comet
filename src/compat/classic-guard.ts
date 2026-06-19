@@ -171,15 +171,10 @@ async function projectConfigValue(field: string, changeDir: string): Promise<str
   return '';
 }
 
-function resolveBash(): string {
-  return process.env.COMET_BASH || process.env.BASH || 'bash';
-}
-
-function isWindowsBash(): boolean {
-  const uname = spawnSync('uname', ['-s'], { encoding: 'utf8' });
-  return /MINGW|MSYS|CYGWIN/u.test(uname.stdout ?? '');
-}
-
+// Build/verify commands run through the platform's default shell (cmd.exe on
+// Windows, /bin/sh elsewhere) via `shell: true`, so Comet no longer requires a
+// usable bash. Configured commands are pre-validated to reject shell
+// metacharacters before they ever reach the shell.
 function runCommandString(command: string): { status: number; output: string } {
   if (!command) return { status: 1, output: red('ERROR: build/verify command is empty') };
   if (/[;|&$`]/u.test(command)) {
@@ -190,7 +185,7 @@ function runCommandString(command: string): { status: number; output: string } {
       )}`,
     };
   }
-  const result = spawnSync(resolveBash(), ['-lc', command], { encoding: 'utf8' });
+  const result = spawnSync(command, { shell: true, encoding: 'utf8' });
   const combined = `${result.stdout ?? ''}${result.stderr ?? ''}`.replace(/\n+$/u, '');
   return { status: result.status ?? 1, output: `${red(`+ ${command}`)}\n${combined}` };
 }
@@ -202,7 +197,7 @@ function hashFile(file: string): string {
 async function handoffSourceFiles(changeDir: string): Promise<string[]> {
   // Use forward-slash concatenation (not path.join, which uses the OS separator)
   // so the handoff-hash input and markdown `Source:` references match the frozen
-  // shell + comet-handoff.sh byte-for-byte. changeDir is a relative forward-slash
+  // shell + comet-handoff provenance byte-for-byte. changeDir is a relative forward-slash
   // path (openspec/changes/<name>); forward slashes are readable on Windows too.
   const files = [`${changeDir}/proposal.md`, `${changeDir}/design.md`, `${changeDir}/tasks.md`];
   const specs = `${changeDir}/specs`;
@@ -308,9 +303,9 @@ interface CommandRun {
 
 function runInferred(command: string): CommandRun {
   // Inferred build/verify commands (npm run build, mvn, cargo, …) run through
-  // bash so .cmd shims resolve on Windows, matching the frozen shell which
-  // invokes them bare inside a bash script. Output is returned raw (no `+ ` prefix).
-  const result = spawnSync(resolveBash(), ['-lc', command], { encoding: 'utf8' });
+  // the platform's default shell so .cmd shims resolve on Windows without
+  // requiring bash. Output is returned raw (no `+ ` prefix).
+  const result = spawnSync(command, { shell: true, encoding: 'utf8' });
   return {
     status: result.status ?? 1,
     output: `${result.stdout ?? ''}${result.stderr ?? ''}`.replace(/\n+$/u, ''),
@@ -328,11 +323,11 @@ async function buildPasses(changeDir: string): Promise<CommandRun> {
     return runInferred('npm run build');
   }
   if (await exists('pom.xml')) {
-    if (existsSync('mvnw')) return runInferred('./mvnw compile -q');
-    if (isWindowsBash()) {
-      const mvnCmd = spawnSync(resolveBash(), ['-lc', 'command -v mvn.cmd'], { encoding: 'utf8' });
-      if (mvnCmd.status === 0 && mvnCmd.stdout.trim()) return runInferred('mvn.cmd compile -q');
+    if (process.platform === 'win32') {
+      if (existsSync('mvnw.cmd')) return runInferred('mvnw.cmd compile -q');
+      return runInferred('mvn.cmd compile -q');
     }
+    if (existsSync('mvnw')) return runInferred('./mvnw compile -q');
     return runInferred('mvn compile -q');
   }
   if (await exists('Cargo.toml')) return runInferred('cargo build');
@@ -402,7 +397,7 @@ async function isolationSelected(changeDir: string, change: string): Promise<Che
   const isolation = await readField(changeDir, 'isolation');
   if (isolation === 'branch' || isolation === 'worktree') return pass();
   return fail(
-    `isolation must be branch or worktree, got '${isolation || 'null'}'\nNext: ask the user to choose branch or worktree, create the chosen isolation, then run:\n  "$COMET_BASH" "$COMET_STATE" set ${change} isolation <branch|worktree>`,
+    `isolation must be branch or worktree, got '${isolation || 'null'}'\nNext: ask the user to choose branch or worktree, create the chosen isolation, then run:\n  node "$COMET_STATE" set ${change} isolation <branch|worktree>`,
   );
 }
 
@@ -411,7 +406,7 @@ async function buildModeSelected(changeDir: string, change: string): Promise<Che
   if (['subagent-driven-development', 'executing-plans', 'direct'].includes(buildMode))
     return pass();
   return fail(
-    `build_mode must be selected before leaving build, got '${buildMode || 'null'}'\nNext: ask the user to choose an execution mode, then run:\n  "$COMET_BASH" "$COMET_STATE" set ${change} build_mode <subagent-driven-development|executing-plans>`,
+    `build_mode must be selected before leaving build, got '${buildMode || 'null'}'\nNext: ask the user to choose an execution mode, then run:\n  node "$COMET_STATE" set ${change} build_mode <subagent-driven-development|executing-plans>`,
   );
 }
 
@@ -433,7 +428,7 @@ async function subagentDispatchConfirmed(changeDir: string, change: string): Pro
   if (buildMode !== 'subagent-driven-development') return pass();
   if (subagentDispatch === 'confirmed') return pass();
   return fail(
-    `subagent_dispatch must be confirmed before using build_mode=subagent-driven-development\nNext: confirm the current platform has a real background subagent/Task/multi-agent dispatcher, then run:\n  "$COMET_BASH" "$COMET_STATE" set ${change} subagent_dispatch confirmed\nOr ask the user to switch to executing-plans and run:\n  "$COMET_BASH" "$COMET_STATE" set ${change} build_mode executing-plans`,
+    `subagent_dispatch must be confirmed before using build_mode=subagent-driven-development\nNext: confirm the current platform has a real background subagent/Task/multi-agent dispatcher, then run:\n  node "$COMET_STATE" set ${change} subagent_dispatch confirmed\nOr ask the user to switch to executing-plans and run:\n  node "$COMET_STATE" set ${change} build_mode executing-plans`,
   );
 }
 
@@ -443,7 +438,7 @@ async function tddModeSelected(changeDir: string, change: string): Promise<Check
   const tddMode = await readField(changeDir, 'tdd_mode');
   if (tddMode === 'tdd' || tddMode === 'direct') return pass();
   return fail(
-    `tdd_mode must be tdd or direct for full workflow, got '${tddMode || 'null'}'\nNext: ask the user to choose TDD enforcement level, then run:\n  "$COMET_BASH" "$COMET_STATE" set ${change} tdd_mode <tdd|direct>`,
+    `tdd_mode must be tdd or direct for full workflow, got '${tddMode || 'null'}'\nNext: ask the user to choose TDD enforcement level, then run:\n  node "$COMET_STATE" set ${change} tdd_mode <tdd|direct>`,
   );
 }
 
@@ -455,7 +450,7 @@ async function reviewModeSelected(changeDir: string, change: string): Promise<Ch
     return pass();
   }
   return fail(
-    `review_mode must be off, standard, or thorough before leaving build, got '${reviewMode || 'null'}'\nNext: ask the user to choose review strength, then run:\n  "$COMET_BASH" "$COMET_STATE" set ${change} review_mode <off|standard|thorough>`,
+    `review_mode must be off, standard, or thorough before leaving build, got '${reviewMode || 'null'}'\nNext: ask the user to choose review strength, then run:\n  node "$COMET_STATE" set ${change} review_mode <off|standard|thorough>`,
   );
 }
 
@@ -494,7 +489,7 @@ async function designDocRecorded(changeDir: string, change: string): Promise<Che
   const designDoc = await readField(changeDir, 'design_doc');
   if (designDoc && designDoc !== 'null' && existsSync(designDoc)) return pass();
   return fail(
-    `design_doc must point to an existing Superpowers Design Doc for full workflow before leaving design.\nNext: create the Design Doc and run: "$COMET_BASH" "$COMET_STATE" set ${change} design_doc <path>`,
+    `design_doc must point to an existing Superpowers Design Doc for full workflow before leaving design.\nNext: create the Design Doc and run: node "$COMET_STATE" set ${change} design_doc <path>`,
   );
 }
 
@@ -503,29 +498,29 @@ async function designHandoffContextValid(changeDir: string, change: string): Pro
   const recordedHash = await readField(changeDir, 'handoff_hash');
   if (!context || context === 'null') {
     return fail(
-      `handoff_context is missing from .comet.yaml\nNext: run "$COMET_BASH" "$COMET_HANDOFF" ${change} design --write before invoking Superpowers.`,
+      `handoff_context is missing from .comet.yaml\nNext: run node "$COMET_HANDOFF" ${change} design --write before invoking Superpowers.`,
     );
   }
   if (!(await nonempty(context))) {
     return fail(
-      `handoff_context does not point to a non-empty file: ${context}\nNext: regenerate the design handoff with comet-handoff.sh.`,
+      `handoff_context does not point to a non-empty file: ${context}\nNext: regenerate the design handoff with comet-handoff.mjs.`,
     );
   }
   if (!/^[a-f0-9]{64}$/u.test(recordedHash)) {
     return fail(
-      `handoff_hash is missing or invalid: ${recordedHash || 'null'}\nNext: regenerate the design handoff with comet-handoff.sh.`,
+      `handoff_hash is missing or invalid: ${recordedHash || 'null'}\nNext: regenerate the design handoff with comet-handoff.mjs.`,
     );
   }
   const actualHash = await computeHandoffHash(changeDir);
   if (actualHash !== recordedHash) {
     return fail(
-      `OpenSpec artifacts changed after handoff was generated.\nExpected handoff_hash: ${recordedHash}\nActual handoff_hash:   ${actualHash}\nNext: rerun comet-handoff.sh so Superpowers receives the current OpenSpec context.`,
+      `OpenSpec artifacts changed after handoff was generated.\nExpected handoff_hash: ${recordedHash}\nActual handoff_hash:   ${actualHash}\nNext: rerun comet-handoff.mjs so Superpowers receives the current OpenSpec context.`,
     );
   }
   const markdown = `${context.replace(/\.json$/u, '')}.md`;
   if (!(await nonempty(markdown))) {
     return fail(
-      `design handoff markdown is missing or empty: ${markdown}\nNext: regenerate the design handoff with comet-handoff.sh.`,
+      `design handoff markdown is missing or empty: ${markdown}\nNext: regenerate the design handoff with comet-handoff.mjs.`,
     );
   }
   return pass();

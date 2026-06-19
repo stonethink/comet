@@ -138,19 +138,24 @@ openspec/changes/<name>/
 创建 `.comet.yaml` 状态文件：
 
 ```bash
-COMET_ENV="${COMET_ENV:-$(find . "$HOME"/.*/skills "$HOME/.config" "$HOME/.gemini" -path '*/comet/scripts/comet-env.sh' -type f -print -quit 2>/dev/null)}"
+COMET_ENV="${COMET_ENV:-$(find . "$HOME"/.*/skills "$HOME/.config" "$HOME/.gemini" -path '*/comet/scripts/comet-env.mjs' -type f -print -quit 2>/dev/null)}"
 if [ -z "$COMET_ENV" ]; then
-  echo "ERROR: comet-env.sh not found. Ensure the comet skill is installed." >&2
+  echo "ERROR: comet-env.mjs not found. Ensure the comet skill is installed." >&2
   return 1
 fi
-. "$COMET_ENV"
+COMET_SCRIPTS_DIR="$(node "$COMET_ENV")"
+COMET_STATE="$COMET_SCRIPTS_DIR/comet-state.mjs"
+COMET_GUARD="$COMET_SCRIPTS_DIR/comet-guard.mjs"
+COMET_HANDOFF="$COMET_SCRIPTS_DIR/comet-handoff.mjs"
+COMET_ARCHIVE="$COMET_SCRIPTS_DIR/comet-archive.mjs"
+COMET_RUNTIME="$COMET_SCRIPTS_DIR/comet-runtime.mjs"
 
-if [ -z "$COMET_STATE" ] || [ -z "$COMET_GUARD" ]; then
+if [ -z "$COMET_SCRIPTS_DIR" ]; then
   echo "ERROR: Comet scripts not found. Ensure the comet skill is installed." >&2
   return 1
 fi
 
-"$COMET_BASH" "$COMET_STATE" init <name> full
+node "$COMET_STATE" init <name> full
 ```
 
 ### 3. 入口状态验证
@@ -158,7 +163,7 @@ fi
 验证状态机已正确初始化：
 
 ```bash
-"$COMET_BASH" "$COMET_STATE" check <name> open
+node "$COMET_STATE" check <name> open
 ```
 
 验证通过后继续 Step 4。验证失败时脚本会输出具体失败原因。
@@ -195,12 +200,12 @@ fi
 
 - proposal.md、design.md、tasks.md 均已创建且内容完整
 - **用户已确认** proposal、design、tasks 内容符合预期
-- **阶段守卫**：运行 `"$COMET_BASH" "$COMET_GUARD" <change-name> open --apply`，全部 PASS 后由守卫推进到下一阶段（此步骤更新 `phase` 字段，与 `auto_transition` 无关）
+- **阶段守卫**：运行 `node "$COMET_GUARD" <change-name> open --apply`，全部 PASS 后由守卫推进到下一阶段（此步骤更新 `phase` 字段，与 `auto_transition` 无关）
 
 退出前必须使用 `--apply`，否则 `.comet.yaml` 仍停留在 `phase: open`，下一阶段入口检查会失败。
 
 ```bash
-"$COMET_BASH" "$COMET_GUARD" <change-name> open --apply
+node "$COMET_GUARD" <change-name> open --apply
 ```
 
 完整流程会自动更新为 `phase: design`；hotfix/tweak preset 会自动更新为 `phase: build`。
@@ -210,7 +215,7 @@ fi
 按 `comet/reference/auto-transition.md` 执行。关键命令：
 
 ```bash
-"$COMET_BASH" "$COMET_STATE" next <change-name>
+node "$COMET_STATE" next <change-name>
 ```
 
 - `NEXT: auto` → 调用 `SKILL` 指向的 skill 进入下一阶段

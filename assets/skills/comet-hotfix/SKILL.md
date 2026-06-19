@@ -27,12 +27,17 @@ Execution chain: open → build → root cause check → verify → archive. Hot
 Locate Comet scripts before starting:
 
 ```bash
-COMET_ENV="${COMET_ENV:-$(find . "$HOME"/.*/skills "$HOME/.config" "$HOME/.gemini" -path '*/comet/scripts/comet-env.sh' -type f -print -quit 2>/dev/null)}"
+COMET_ENV="${COMET_ENV:-$(find . "$HOME"/.*/skills "$HOME/.config" "$HOME/.gemini" -path '*/comet/scripts/comet-env.mjs' -type f -print -quit 2>/dev/null)}"
 if [ -z "$COMET_ENV" ]; then
-  echo "ERROR: comet-env.sh not found. Ensure the comet skill is installed." >&2
+  echo "ERROR: comet-env.mjs not found. Ensure the comet skill is installed." >&2
   return 1
 fi
-. "$COMET_ENV"
+COMET_SCRIPTS_DIR="$(node "$COMET_ENV")"
+COMET_STATE="$COMET_SCRIPTS_DIR/comet-state.mjs"
+COMET_GUARD="$COMET_SCRIPTS_DIR/comet-guard.mjs"
+COMET_HANDOFF="$COMET_SCRIPTS_DIR/comet-handoff.mjs"
+COMET_ARCHIVE="$COMET_SCRIPTS_DIR/comet-archive.mjs"
+COMET_RUNTIME="$COMET_SCRIPTS_DIR/comet-runtime.mjs"
 ```
 
 ### 1. Quick Open (preset open)
@@ -50,25 +55,25 @@ After the skill loads, follow its guidance to create streamlined artifacts:
 Initialize Comet state file:
 
 ```bash
-"$COMET_BASH" "$COMET_STATE" init <name> hotfix
+node "$COMET_STATE" init <name> hotfix
 ```
 
 Verify initialized state:
 
 ```bash
-"$COMET_BASH" "$COMET_STATE" check <name> open
+node "$COMET_STATE" check <name> open
 ```
 
 Run phase guard to transition open → build:
 
 ```bash
-"$COMET_BASH" "$COMET_GUARD" <change-name> open --apply
+node "$COMET_GUARD" <change-name> open --apply
 ```
 
 Check `auto_transition` to decide whether to continue:
 
 ```bash
-"$COMET_BASH" "$COMET_STATE" next <name>
+node "$COMET_STATE" next <name>
 ```
 
 - `NEXT: auto` → continue to Step 2
@@ -114,7 +119,7 @@ For specific investigation, minimal failing test, fix verification, and keeping 
 After root cause is confirmed eliminated, run phase guard to transition build → verify:
 
 ```bash
-"$COMET_BASH" "$COMET_GUARD" <change-name> build --apply
+node "$COMET_GUARD" <change-name> build --apply
 ```
 
 State automatically updates to `phase: verify`, `verify_result: pending`, then enter verification.
@@ -143,7 +148,7 @@ If there is delta spec, sync to main spec according to comet-archive rules, and 
 <IMPORTANT>
 Hotfix workflow is **one-time continuous execution**. After invoking `/comet-hotfix`, agent must automatically advance through hotfix steps, without pausing to wait for user input mid-way.
 
-Exception: when `.comet.yaml` has `auto_transition: false`, after each phase guard advances `phase`, do not auto-invoke the next skill. In this case, use `"$COMET_BASH" "$COMET_STATE" next <name>` output and pause for manual continuation as instructed.
+Exception: when `.comet.yaml` has `auto_transition: false`, after each phase guard advances `phase`, do not auto-invoke the next skill. In this case, use `node "$COMET_STATE" next <name>` output and pause for manual continuation as instructed.
 
 The following situations must also pause and wait for user confirmation:
 
@@ -176,8 +181,8 @@ When upgrade conditions are met, **must follow the `comet/reference/decision-poi
 After user confirms upgrade, **must first update the workflow and phase fields** before entering full flow:
 
 ```bash
-"$COMET_BASH" "$COMET_STATE" set <name> workflow full
-"$COMET_BASH" "$COMET_STATE" set <name> phase design
+node "$COMET_STATE" set <name> workflow full
+node "$COMET_STATE" set <name> phase design
 ```
 
 Then on current change basis, supplement Design Doc: **Immediately use the Skill tool to load the `comet-design` skill**, proceed normally with full workflow. If user does not confirm upgrade, stop hotfix and report that current change has exceeded hotfix scope.
@@ -189,14 +194,14 @@ Then on current change basis, supplement Design Doc: **Immediately use the Skill
 - Bug fixed, tests pass
 - Change archived
 - If spec changes, synced to main spec
-- **Phase guard**: Before build → verify run `"$COMET_BASH" "$COMET_GUARD" <change-name> build --apply`; before verify → archive follow `/comet-verify` and run `"$COMET_BASH" "$COMET_GUARD" <change-name> verify --apply`
+- **Phase guard**: Before build → verify run `node "$COMET_GUARD" <change-name> build --apply`; before verify → archive follow `/comet-verify` and run `node "$COMET_GUARD" <change-name> verify --apply`
 
 ## Automatic Handoff to Next Phase
 
 Follow `comet/reference/auto-transition.md`. Key command:
 
 ```bash
-"$COMET_BASH" "$COMET_STATE" next <name>
+node "$COMET_STATE" next <name>
 ```
 
 - `NEXT: auto` → invoke the skill pointed to by `SKILL` to continue hotfix workflow (`phase: build` returns `comet-hotfix`, `verify` returns `comet-verify`, `archive` returns `comet-archive`)

@@ -17,13 +17,18 @@ description: "Comet 阶段 2：深度设计。用 /comet-design 调用。通过 
 执行入口验证：
 
 ```bash
-COMET_ENV="${COMET_ENV:-$(find . "$HOME"/.*/skills "$HOME/.config" "$HOME/.gemini" -path '*/comet/scripts/comet-env.sh' -type f -print -quit 2>/dev/null)}"
+COMET_ENV="${COMET_ENV:-$(find . "$HOME"/.*/skills "$HOME/.config" "$HOME/.gemini" -path '*/comet/scripts/comet-env.mjs' -type f -print -quit 2>/dev/null)}"
 if [ -z "$COMET_ENV" ]; then
-  echo "ERROR: comet-env.sh not found. Ensure the comet skill is installed." >&2
+  echo "ERROR: comet-env.mjs not found. Ensure the comet skill is installed." >&2
   return 1
 fi
-. "$COMET_ENV"
-"$COMET_BASH" "$COMET_STATE" check <name> design
+COMET_SCRIPTS_DIR="$(node "$COMET_ENV")"
+COMET_STATE="$COMET_SCRIPTS_DIR/comet-state.mjs"
+COMET_GUARD="$COMET_SCRIPTS_DIR/comet-guard.mjs"
+COMET_HANDOFF="$COMET_SCRIPTS_DIR/comet-handoff.mjs"
+COMET_ARCHIVE="$COMET_SCRIPTS_DIR/comet-archive.mjs"
+COMET_RUNTIME="$COMET_SCRIPTS_DIR/comet-runtime.mjs"
+node "$COMET_STATE" check <name> design
 ```
 
 验证通过后继续 Step 1。验证失败时脚本会输出具体失败原因。
@@ -35,7 +40,7 @@ fi
 **必须由脚本生成，不允许 agent 临场手写 summary 代替。**
 
 ```bash
-"$COMET_BASH" "$COMET_HANDOFF" <change-name> design --write
+node "$COMET_HANDOFF" <change-name> design --write
 ```
 
 脚本会根据 change `.comet.yaml` 的 `context_compression` 快照生成并记录交接包。
@@ -74,7 +79,7 @@ beta 交接包是 **结构化 spec projection**，用于减少 OpenSpec 原文 t
 如确实需要全文上下文，可显式运行：
 
 ```bash
-"$COMET_BASH" "$COMET_HANDOFF" <change-name> design --write --full
+node "$COMET_HANDOFF" <change-name> design --write --full
 ```
 
 交接包来源来自 OpenSpec open 阶段产物：
@@ -218,13 +223,13 @@ canonical_spec: openspec
 
 ```bash
 # 记录 design_doc 路径
-"$COMET_BASH" "$COMET_STATE" set <name> design_doc docs/superpowers/specs/YYYY-MM-DD-topic-design.md
+node "$COMET_STATE" set <name> design_doc docs/superpowers/specs/YYYY-MM-DD-topic-design.md
 
 # 如有 delta spec 变更，重新生成 handoff（更新 hash）
-"$COMET_BASH" "$COMET_HANDOFF" <change-name> design --write
+node "$COMET_HANDOFF" <change-name> design --write
 
 # 阶段守卫推进 phase 到下一阶段
-"$COMET_BASH" "$COMET_GUARD" <change-name> design --apply
+node "$COMET_GUARD" <change-name> design --apply
 ```
 
 如果没有 delta spec 变更，跳过 handoff 重新生成步骤。状态文件自动更新，无需手动编辑其他字段。
@@ -239,12 +244,12 @@ canonical_spec: openspec
 - beta 模式下，`spec-context.json` 必须结构合法且引用当前源文件（由 guard 强制校验）
 - 如有新能力或补充验收场景，OpenSpec delta spec 已创建/更新
 - `design_doc` 已写入 `.comet.yaml`
-- **阶段守卫**：运行 `"$COMET_BASH" "$COMET_GUARD" <change-name> design --apply`，全部 PASS 后由守卫推进到 `phase: build`（此步骤更新 `phase` 字段，与 `auto_transition` 无关）
+- **阶段守卫**：运行 `node "$COMET_GUARD" <change-name> design --apply`，全部 PASS 后由守卫推进到 `phase: build`（此步骤更新 `phase` 字段，与 `auto_transition` 无关）
 
 退出前必须使用 `--apply`：
 
 ```bash
-"$COMET_BASH" "$COMET_GUARD" <change-name> design --apply
+node "$COMET_GUARD" <change-name> design --apply
 ```
 
 ## 上下文压缩恢复
@@ -256,7 +261,7 @@ canonical_spec: openspec
 按 `comet/reference/auto-transition.md` 执行。关键命令：
 
 ```bash
-"$COMET_BASH" "$COMET_STATE" next <change-name>
+node "$COMET_STATE" next <change-name>
 ```
 
 - `NEXT: auto` → 调用 `SKILL` 指向的 skill 进入下一阶段

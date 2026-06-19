@@ -7,7 +7,7 @@ This protocol is shared by all comet sub-skills that may trigger context compres
 ## Recovery Steps
 
 ```bash
-"$COMET_BASH" "$COMET_STATE" check <change-name> <phase> --recover
+node "$COMET_STATE" check <change-name> <phase> --recover
 ```
 
 The script outputs structured recovery context (phase, completed fields, pending fields, recovery action). Follow the **Recovery action** output for next steps.

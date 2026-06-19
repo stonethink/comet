@@ -139,7 +139,7 @@ describe('skills', () => {
       expect(command).toContain('$ARGUMENTS');
       expect(command).toContain('# Comet Phase 1: Open');
       expect(command).toContain('## Steps');
-      expect(command).toContain('"$COMET_BASH" "$COMET_STATE" init <name> full');
+      expect(command).toContain('node "$COMET_STATE" init <name> full');
       expect(command).not.toContain('Immediately load the `comet-open` skill with the skill tool');
       expect(path.basename(commandPath)).toBe('comet-open.md');
     });
@@ -188,7 +188,7 @@ describe('skills', () => {
 
   describe('installCometHooksForPlatform', () => {
     const staleCometCommand = 'bash .legacy/skills/comet/scripts/comet-hook-guard.sh';
-    const currentCometScript = 'comet/scripts/comet-hook-guard.sh';
+    const currentCometScript = 'comet/scripts/comet-hook-guard.mjs';
 
     it('merges Claude-style hooks into an existing matcher group without replacing user hooks', async () => {
       const platform: Platform = {
@@ -235,7 +235,7 @@ describe('skills', () => {
         { type: 'command', command: 'echo user-write-check' },
         {
           type: 'command',
-          command: `bash .claude/skills/${currentCometScript}`,
+          command: `node .claude/skills/${currentCometScript}`,
         },
       ]);
 
@@ -328,7 +328,7 @@ describe('skills', () => {
           },
           {
             type: 'command',
-            command: `bash ${skillsDir}/skills/${currentCometScript}`,
+            command: `node ${skillsDir}/skills/${currentCometScript}`,
             description: 'Block code writes in wrong Comet phase (open/design/archive)',
           },
         ]);
@@ -389,7 +389,7 @@ describe('skills', () => {
         },
         {
           type: 'command',
-          command: `bash .gemini/skills/${currentCometScript}`,
+          command: `node .gemini/skills/${currentCometScript}`,
           name: 'Block code writes in wrong Comet phase (open/design/archive)',
         },
       ]);
@@ -430,7 +430,7 @@ describe('skills', () => {
       expect(firstInstall.hooks.pre_write_code).toEqual([
         { command: 'echo user-write-check', show_output: false },
         {
-          command: `bash .windsurf/skills/${currentCometScript}`,
+          command: `node .windsurf/skills/${currentCometScript}`,
           show_output: true,
         },
       ]);
@@ -588,14 +588,14 @@ describe('skills', () => {
       );
       expect(zhArchive).toContain('### 1. 归档前最终确认（阻塞点）');
       expect(zhArchive).toContain(
-        '不得在用户确认前运行 `"$COMET_BASH" "$COMET_ARCHIVE" "<change-name>"`',
+        '不得在用户确认前运行 `node "$COMET_ARCHIVE" "<change-name>"`',
       );
       expect(zhArchive).toContain('`comet/reference/decision-point.md`');
       expect(zhArchive).toContain('「确认归档」');
       expect(zhArchive).toContain('「需要调整或重新验证」');
       expect(zhArchive).toContain('「暂不归档」');
       expect(zhArchive).toContain(
-        '`"$COMET_BASH" "$COMET_STATE" transition <change-name> archive-reopen`',
+        '`node "$COMET_STATE" transition <change-name> archive-reopen`',
       );
       expect(zhVerify).toContain('不得因为验证已通过就自动归档');
       expect(zhHotfix).toContain(
@@ -608,7 +608,7 @@ describe('skills', () => {
       expect(zhTweak).toContain('不得直接进入 `/comet-design`');
       expect(zhComet).toContain('`verify_result: fail` → 进入验证失败决策阻塞点');
       expect(zhComet).not.toContain(
-        '`verify_result: fail` → `"$COMET_BASH" "$COMET_STATE" transition <name> verify-fail` 后 `/comet-build`',
+        '`verify_result: fail` → `node "$COMET_STATE" transition <name> verify-fail` 后 `/comet-build`',
       );
       expect(zhHotfix).toContain('按升级条件阻塞确认处理');
       expect(zhHotfix).not.toContain('停止 hotfix，升级为 `/comet`');
@@ -719,14 +719,14 @@ describe('skills', () => {
         '先确认当前平台存在可调用的真实后台 subagent / Task / multi-agent 调度能力',
       );
       expect(zhBuild).toContain(
-        '`"$COMET_BASH" "$COMET_STATE" set <name> subagent_dispatch confirmed`',
+        '`node "$COMET_STATE" set <name> subagent_dispatch confirmed`',
       );
       expect(zhBuild).toContain(
-        '用户选择改用主窗口执行后，必须先运行 `"$COMET_BASH" "$COMET_STATE" set <name> build_mode executing-plans`',
+        '用户选择改用主窗口执行后，必须先运行 `node "$COMET_STATE" set <name> build_mode executing-plans`',
       );
       expect(zhBuild).not.toContain('使用 Skill 工具加载对应技能');
       expect(zhBuild).toContain('tdd_mode');
-      expect(zhBuild).toContain('`"$COMET_BASH" "$COMET_STATE" set <name> tdd_mode <tdd|direct>`');
+      expect(zhBuild).toContain('`node "$COMET_STATE" set <name> tdd_mode <tdd|direct>`');
       expect(zhBuild).toContain('若 `tdd_mode: tdd`');
       expect(zhBuild).toContain(
         'TDD 约束和证据门槛已在 `comet/reference/subagent-dispatch.md` 中定义',
@@ -736,7 +736,7 @@ describe('skills', () => {
       expect(zhHotfix).toContain('立即使用 Skill 工具加载 `comet-design` skill');
       expect(zhTweak).toContain('立即使用 Skill 工具加载 `comet-design` skill');
       expect(zhVerify).toContain(
-        '用户选择 B 后，运行 `"$COMET_BASH" "$COMET_STATE" transition <change-name> verify-fail`，然后调用 `/comet-build`',
+        '用户选择 B 后，运行 `node "$COMET_STATE" transition <change-name> verify-fail`，然后调用 `/comet-build`',
       );
 
       // CRITICAL: implementation-time crashes must enter systematic debugging and keep tests in the current change.
@@ -777,19 +777,19 @@ describe('skills', () => {
         [zhVerify, '/comet-archive'],
       ] as const) {
         expect(content).toContain('自动衔接下一阶段');
-        expect(content).toContain('"$COMET_BASH" "$COMET_STATE" next <change-name>');
+        expect(content).toContain('node "$COMET_STATE" next <change-name>');
         expect(content).toContain('`NEXT: auto`');
         expect(content).toContain('`NEXT: manual`');
         expect(content).toContain('按 `HINT`');
       }
       expect(zhHotfix).toContain('自动衔接下一阶段');
-      expect(zhHotfix).toContain('"$COMET_BASH" "$COMET_STATE" next <name>');
+      expect(zhHotfix).toContain('node "$COMET_STATE" next <name>');
       expect(zhHotfix).toContain('`NEXT: auto`');
       expect(zhHotfix).toContain(
         '`phase: build` 返回 `comet-hotfix`，`verify` 返回 `comet-verify`，`archive` 返回 `comet-archive`',
       );
       expect(zhTweak).toContain('自动衔接下一阶段');
-      expect(zhTweak).toContain('"$COMET_BASH" "$COMET_STATE" next <name>');
+      expect(zhTweak).toContain('node "$COMET_STATE" next <name>');
       expect(zhTweak).toContain('`NEXT: auto`');
       expect(zhTweak).toContain(
         '`phase: build` 返回 `comet-tweak`，`verify` 返回 `comet-verify`，`archive` 返回 `comet-archive`',
@@ -899,14 +899,14 @@ describe('skills', () => {
       );
       expect(enArchive).toContain('### 1. Final Archive Confirmation (Blocking Point)');
       expect(enArchive).toContain(
-        'Must not run `"$COMET_BASH" "$COMET_ARCHIVE" "<change-name>"` before user confirmation',
+        'Must not run `node "$COMET_ARCHIVE" "<change-name>"` before user confirmation',
       );
       expect(enArchive).toContain('`comet/reference/decision-point.md`');
       expect(enArchive).toContain('Confirm archive');
       expect(enArchive).toContain('Needs adjustment or re-verification');
       expect(enArchive).toContain('Do not archive yet');
       expect(enArchive).toContain(
-        '`"$COMET_BASH" "$COMET_STATE" transition <change-name> archive-reopen`',
+        '`node "$COMET_STATE" transition <change-name> archive-reopen`',
       );
       expect(enVerify).toContain('Must not automatically archive just because verification passed');
       expect(enHotfix).toContain(
@@ -922,7 +922,7 @@ describe('skills', () => {
         '`verify_result: fail` → Enter verification failure decision blocking point',
       );
       expect(enComet).not.toContain(
-        '`verify_result: fail` → `"$COMET_BASH" "$COMET_STATE" transition <name> verify-fail` then `/comet-build`',
+        '`verify_result: fail` → `node "$COMET_STATE" transition <name> verify-fail` then `/comet-build`',
       );
 
       expect(enHotfix).toContain('handle per "Upgrade Conditions" section');
@@ -1031,7 +1031,7 @@ describe('skills', () => {
       expect(enHotfix).toContain('Immediately use the Skill tool to load the `comet-design` skill');
       expect(enTweak).toContain('Immediately use the Skill tool to load the `comet-design` skill');
       expect(enVerify).toContain(
-        'After user selects B, run `"$COMET_BASH" "$COMET_STATE" transition <change-name> verify-fail`, then invoke `/comet-build`',
+        'After user selects B, run `node "$COMET_STATE" transition <change-name> verify-fail`, then invoke `/comet-build`',
       );
 
       expect(enBuild).toContain(
@@ -1076,19 +1076,19 @@ describe('skills', () => {
         [enVerify, '/comet-archive'],
       ] as const) {
         expect(content).toContain('Automatic Handoff to Next Phase');
-        expect(content).toContain('"$COMET_BASH" "$COMET_STATE" next <change-name>');
+        expect(content).toContain('node "$COMET_STATE" next <change-name>');
         expect(content).toContain('`NEXT: auto`');
         expect(content).toContain('`NEXT: manual`');
         expect(content).toContain('run `/<SKILL>` manually');
       }
       expect(enHotfix).toContain('Automatic Handoff to Next Phase');
-      expect(enHotfix).toContain('"$COMET_BASH" "$COMET_STATE" next <name>');
+      expect(enHotfix).toContain('node "$COMET_STATE" next <name>');
       expect(enHotfix).toContain('`NEXT: auto`');
       expect(enHotfix).toContain(
         '`phase: build` returns `comet-hotfix`, `verify` returns `comet-verify`, `archive` returns `comet-archive`',
       );
       expect(enTweak).toContain('Automatic Handoff to Next Phase');
-      expect(enTweak).toContain('"$COMET_BASH" "$COMET_STATE" next <name>');
+      expect(enTweak).toContain('node "$COMET_STATE" next <name>');
       expect(enTweak).toContain('`NEXT: auto`');
       expect(enTweak).toContain(
         '`phase: build` returns `comet-tweak`, `verify` returns `comet-verify`, `archive` returns `comet-archive`',
@@ -1230,7 +1230,7 @@ describe('skills', () => {
       expect(zhDispatch).toContain('当 `review_mode: thorough` 时，不执行每 task 双审查');
       expect(zhDispatch).toContain('当 `review_mode: off` 时');
       expect(zhDispatch).toContain(
-        '"$COMET_BASH" "$COMET_STATE" task-checkoff "$PLAN_FILE" "$PLAN_TASK_TEXT"',
+        'node "$COMET_STATE" task-checkoff "$PLAN_FILE" "$PLAN_TASK_TEXT"',
       );
       expect(zhDispatch).not.toContain('PLAN_MATCHES="$(grep -cF');
       expect(zhDispatch).toContain('RED 失败命令与失败摘要');
@@ -1386,7 +1386,7 @@ describe('skills', () => {
   describe('Comet script discovery helper', () => {
     it('ships a shared script locator helper', async () => {
       const manifest = await readManifest();
-      expect(manifest.skills).toContain('comet/scripts/comet-env.sh');
+      expect(manifest.skills).toContain('comet/scripts/comet-env.mjs');
     });
 
     it('keeps review_mode wired through state and schema scripts', async () => {
@@ -1430,11 +1430,11 @@ describe('skills', () => {
           );
           if (!content.includes('COMET_STATE') && !content.includes('COMET_GUARD')) continue;
 
-          expect(content, `${languageDir}/${skillPath} should use comet-env.sh`).toContain(
-            'comet-env.sh',
+          expect(content, `${languageDir}/${skillPath} should use comet-env.mjs`).toContain(
+            'comet-env.mjs',
           );
-          expect(content, `${languageDir}/${skillPath} should source COMET_ENV`).toContain(
-            '. "$COMET_ENV"',
+          expect(content, `${languageDir}/${skillPath} should resolve COMET_ENV via node`).toContain(
+            'node "$COMET_ENV"',
           );
           expect(
             content,
@@ -1451,7 +1451,7 @@ describe('skills', () => {
       }
     });
 
-    it('uses COMET_BASH in shipped Comet command examples', async () => {
+    it('uses node (not bash) in shipped Comet command examples', async () => {
       const manifest = await readManifest();
       const skillPaths = manifest.skills.filter(
         (skillPath) =>
@@ -1484,12 +1484,12 @@ describe('skills', () => {
 
       const extractLocatorBlock = (content: string) => {
         const start = content.indexOf('COMET_ENV="${COMET_ENV:-$(find .');
-        const end = content.indexOf('. "$COMET_ENV"');
+        const end = content.indexOf('node "$COMET_ENV"');
 
         expect(start).toBeGreaterThanOrEqual(0);
         expect(end).toBeGreaterThan(start);
 
-        return content.slice(start, end + '. "$COMET_ENV"'.length);
+        return content.slice(start, end + 'node "$COMET_ENV"'.length);
       };
 
       for (const languageDir of ['skills', 'skills-zh']) {

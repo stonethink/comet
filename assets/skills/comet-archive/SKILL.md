@@ -22,20 +22,25 @@ Archive summaries and lifecycle closure notes must use the language of the user 
 Execute entry verification:
 
 ```bash
-COMET_ENV="${COMET_ENV:-$(find . "$HOME"/.*/skills "$HOME/.config" "$HOME/.gemini" -path '*/comet/scripts/comet-env.sh' -type f -print -quit 2>/dev/null)}"
+COMET_ENV="${COMET_ENV:-$(find . "$HOME"/.*/skills "$HOME/.config" "$HOME/.gemini" -path '*/comet/scripts/comet-env.mjs' -type f -print -quit 2>/dev/null)}"
 if [ -z "$COMET_ENV" ]; then
-  echo "ERROR: comet-env.sh not found. Ensure the comet skill is installed." >&2
+  echo "ERROR: comet-env.mjs not found. Ensure the comet skill is installed." >&2
   return 1
 fi
-. "$COMET_ENV"
-"$COMET_BASH" "$COMET_STATE" check <name> archive
+COMET_SCRIPTS_DIR="$(node "$COMET_ENV")"
+COMET_STATE="$COMET_SCRIPTS_DIR/comet-state.mjs"
+COMET_GUARD="$COMET_SCRIPTS_DIR/comet-guard.mjs"
+COMET_HANDOFF="$COMET_SCRIPTS_DIR/comet-handoff.mjs"
+COMET_ARCHIVE="$COMET_SCRIPTS_DIR/comet-archive.mjs"
+COMET_RUNTIME="$COMET_SCRIPTS_DIR/comet-runtime.mjs"
+node "$COMET_STATE" check <name> archive
 ```
 
 Proceed to Step 1 after verification passes. The script outputs specific failure reasons when verification fails.
 
 ### 1. Final Archive Confirmation (Blocking Point)
 
-After entry verification passes, **must follow the `comet/reference/decision-point.md` protocol to pause and wait for the user to confirm whether to archive immediately**. Must not run `"$COMET_BASH" "$COMET_ARCHIVE" "<change-name>"` before user confirmation.
+After entry verification passes, **must follow the `comet/reference/decision-point.md` protocol to pause and wait for the user to confirm whether to archive immediately**. Must not run `node "$COMET_ARCHIVE" "<change-name>"` before user confirmation.
 
 Before confirmation, show the user a brief summary:
 - Change name
@@ -45,7 +50,7 @@ Before confirmation, show the user a brief summary:
 
 The user confirmation question must be presented as a single-select question with these options:
 - "Confirm archive" — immediately run the archive script to complete spec merge and change movement
-- "Needs adjustment or re-verification" — do not archive; run `"$COMET_BASH" "$COMET_STATE" transition <change-name> archive-reopen` to return to `phase: verify`, then invoke `/comet-verify`. If verification confirms fixes are needed, follow `/comet-verify`'s verification-failure decision flow back to `/comet-build`
+- "Needs adjustment or re-verification" — do not archive; run `node "$COMET_STATE" transition <change-name> archive-reopen` to return to `phase: verify`, then invoke `/comet-verify`. If verification confirms fixes are needed, follow `/comet-verify`'s verification-failure decision flow back to `/comet-build`
 - "Do not archive yet" — do not archive; keep the current `phase: archive` state and wait for the user to invoke `/comet-archive` again later
 
 Only after the user selects "Confirm archive" may Step 2 continue. After the user selects "Needs adjustment or re-verification", must first run the `archive-reopen` state transition; do not edit `.comet.yaml` manually.
@@ -55,7 +60,7 @@ Only after the user selects "Confirm archive" may Step 2 continue. After the use
 Run the archive script to automatically complete all steps:
 
 ```bash
-"$COMET_BASH" "$COMET_ARCHIVE" "<change-name>"
+node "$COMET_ARCHIVE" "<change-name>"
 ```
 
 The script automatically executes:
@@ -89,7 +94,7 @@ brainstorming → delta spec → implementation → verification → main spec m
 
 The archive script moves `openspec/changes/<name>/` to `openspec/changes/archive/YYYY-MM-DD-<name>/`.
 
-> **WARNING**: After successful archive, **do not run** `"$COMET_BASH" "$COMET_GUARD" <change-name> archive` against the old active change name; the active directory no longer exists. Doing so will cause the guard to error with "change directory not found". Archive completeness is determined by script exit code and archived directory state.
+> **WARNING**: After successful archive, **do not run** `node "$COMET_GUARD" <change-name> archive` against the old active change name; the active directory no longer exists. Doing so will cause the guard to error with "change directory not found". Archive completeness is determined by script exit code and archived directory state.
 
 ## Complete
 

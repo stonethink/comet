@@ -1,7 +1,7 @@
 # Comet Phase Awareness (Anti-Drift Rules)
 
 > This rule is injected every round to prevent forgetting Comet workflow state during long context.
-> The Hook platform additionally executes `comet-hook-guard.sh` for hard interception;
+> The Hook platform additionally executes `comet-hook-guard.mjs` for hard interception;
 > this Rule is a universal soft defense line for all platforms.
 
 ## Global Rules
@@ -86,7 +86,7 @@ The following decision points must pause to wait for explicit user selection; do
 If context compression is suspected (previous conversation was summarized, previous discussion cannot be found), immediately run:
 
 ```bash
-"$COMET_BASH" "$COMET_STATE" check <name> <phase> --recover
+node "$COMET_STATE" check <name> <phase> --recover
 ```
 
 Decide next step according to the script's **Recovery action** output.
@@ -110,10 +110,10 @@ After guard `--apply` succeeds, do not hardcode the next skill in this rule. Fir
 comet-state next <change-name>
 ```
 
-If `comet-env.sh` has already located the scripts, the equivalent command is:
+If `comet-env.mjs` has already located the scripts, the equivalent command is:
 
 ```bash
-"$COMET_BASH" "$COMET_STATE" next <change-name>
+node "$COMET_STATE" next <change-name>
 ```
 
 Decide the next step from the script output:

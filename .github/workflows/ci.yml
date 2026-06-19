@@ -34,27 +34,6 @@ jobs:
 
       - run: pnpm test:coverage
 
-  shellcheck:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Run shellcheck
-        uses: ludeeus/action-shellcheck@2.0.0
-        with:
-          scandir: ./assets/skills/comet/scripts
-
-  bats-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install bats
-        run: sudo apt-get install -y bats
-
-      - name: Run shell tests
-        run: bats test/shell/*.bats
-
   script-smoke:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -76,9 +55,6 @@ jobs:
 
       - name: Run Comet script smoke tests
         run: pnpm test -- test/ts/comet-scripts.test.ts
-
-      - name: Run portable shell tests
-        run: pnpm test:shell
 
   init-e2e:
     runs-on: ${{ matrix.os }}
@@ -132,11 +108,14 @@ jobs:
                     .iflow/skills .pi/skills .qoder/skills .agents/skills \
                     .bob/skills .forge/skills .trae/skills .github/skills; do
             check_file "$PROJ/$sd/comet/SKILL.md"
-            check_file "$PROJ/$sd/comet/scripts/comet-guard.sh"
-            check_file "$PROJ/$sd/comet/scripts/comet-state.sh"
-            check_file "$PROJ/$sd/comet/scripts/comet-handoff.sh"
-            check_file "$PROJ/$sd/comet/scripts/comet-yaml-validate.sh"
-            check_file "$PROJ/$sd/comet/scripts/comet-archive.sh"
+            check_file "$PROJ/$sd/comet/scripts/comet-guard.mjs"
+            check_file "$PROJ/$sd/comet/scripts/comet-state.mjs"
+            check_file "$PROJ/$sd/comet/scripts/comet-handoff.mjs"
+            check_file "$PROJ/$sd/comet/scripts/comet-yaml-validate.mjs"
+            check_file "$PROJ/$sd/comet/scripts/comet-archive.mjs"
+            check_file "$PROJ/$sd/comet/scripts/comet-hook-guard.mjs"
+            check_file "$PROJ/$sd/comet/scripts/comet-env.mjs"
+            check_file "$PROJ/$sd/comet/scripts/comet-runtime.mjs"
           done
           check_file "$PROJ/.pi/extensions/comet-commands.ts"
           PROJ="$PROJ" node -e "const s=require(process.env.PROJ+'/.pi/settings.json'); if(s.enableSkillCommands!==true) process.exit(1)"
@@ -222,11 +201,14 @@ jobs:
                     .iflow/skills .pi/agent/skills .qoder/skills .gemini/antigravity/skills \
                     .bob/skills .forge/skills .trae/skills .github/skills; do
             check_file "$HOME_DIR/$sd/comet/SKILL.md"
-            check_file "$HOME_DIR/$sd/comet/scripts/comet-guard.sh"
-            check_file "$HOME_DIR/$sd/comet/scripts/comet-state.sh"
-            check_file "$HOME_DIR/$sd/comet/scripts/comet-handoff.sh"
-            check_file "$HOME_DIR/$sd/comet/scripts/comet-yaml-validate.sh"
-            check_file "$HOME_DIR/$sd/comet/scripts/comet-archive.sh"
+            check_file "$HOME_DIR/$sd/comet/scripts/comet-guard.mjs"
+            check_file "$HOME_DIR/$sd/comet/scripts/comet-state.mjs"
+            check_file "$HOME_DIR/$sd/comet/scripts/comet-handoff.mjs"
+            check_file "$HOME_DIR/$sd/comet/scripts/comet-yaml-validate.mjs"
+            check_file "$HOME_DIR/$sd/comet/scripts/comet-archive.mjs"
+            check_file "$HOME_DIR/$sd/comet/scripts/comet-hook-guard.mjs"
+            check_file "$HOME_DIR/$sd/comet/scripts/comet-env.mjs"
+            check_file "$HOME_DIR/$sd/comet/scripts/comet-runtime.mjs"
           done
           check_file "$HOME_DIR/.pi/agent/extensions/comet-commands.ts"
           HOME_DIR="$HOME_DIR" node -e "const s=require(process.env.HOME_DIR+'/.pi/agent/settings.json'); if(s.enableSkillCommands!==true) process.exit(1)"

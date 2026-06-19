@@ -304,8 +304,8 @@ async function setField(
   if (field === 'phase' && !options.internal && process.env.COMET_FORCE_PHASE !== '1') {
     fail(
       "ERROR: Setting 'phase' directly is not allowed; it bypasses state machine evidence checks.\n" +
-        '  Use: comet-state.sh transition <change-name> <event>\n' +
-        '  Repair-only escape hatch: COMET_FORCE_PHASE=1 comet-state.sh set <change-name> phase <value>',
+        '  Use: comet-state.mjs transition <change-name> <event>\n' +
+        '  Repair-only escape hatch: COMET_FORCE_PHASE=1 comet-state.mjs set <change-name> phase <value>',
     );
   }
   validateSetValue(field, value);
@@ -350,7 +350,7 @@ async function setField(
   if (field === 'phase' && !options.internal) {
     output.stderr.push(
       yellow("WARNING: Setting 'phase' directly bypasses state machine constraints."),
-      yellow('  Consider using: comet-state.sh transition <change-name> <event>'),
+      yellow('  Consider using: comet-state.mjs transition <change-name> <event>'),
     );
   }
   output.stderr.push(green(`[SET] ${field}=${value}`));
@@ -908,31 +908,31 @@ export const classicStateCommand: ClassicCommandHandler = async (args) => {
   try {
     const [subcommand, ...rest] = args;
     if (subcommand === 'init') {
-      required(rest, 2, 'Usage: comet-state.sh init <change-name> <workflow>');
+      required(rest, 2, 'Usage: comet-state.mjs init <change-name> <workflow>');
       await init(output, rest[0], rest[1]);
     } else if (subcommand === 'get') {
-      required(rest, 2, 'Usage: comet-state.sh get <change-name> <field>');
+      required(rest, 2, 'Usage: comet-state.mjs get <change-name> <field>');
       validateChangeName(rest[0]);
       output.stdout.push(await readField(rest[0], rest[1]));
     } else if (subcommand === 'set') {
-      required(rest, 3, 'Usage: comet-state.sh set <change-name> <field> <value>');
+      required(rest, 3, 'Usage: comet-state.mjs set <change-name> <field> <value>');
       validateChangeName(rest[0]);
       await setField(output, rest[0], rest[1], rest[2]);
     } else if (subcommand === 'transition') {
-      required(rest, 2, 'Usage: comet-state.sh transition <change-name> <event>');
+      required(rest, 2, 'Usage: comet-state.mjs transition <change-name> <event>');
       await transition(output, rest[0], rest[1]);
     } else if (subcommand === 'check') {
-      required(rest, 2, 'Usage: comet-state.sh check <change-name> <phase> [--recover]');
+      required(rest, 2, 'Usage: comet-state.mjs check <change-name> <phase> [--recover]');
       if (rest[2] === '--recover') await recover(output, rest[0]);
       else await check(output, rest[0], rest[1]);
     } else if (subcommand === 'scale') {
-      required(rest, 1, 'Usage: comet-state.sh scale <change-name>');
+      required(rest, 1, 'Usage: comet-state.mjs scale <change-name>');
       await scale(output, rest[0]);
     } else if (subcommand === 'task-checkoff') {
-      required(rest, 2, 'Usage: comet-state.sh task-checkoff <file> <task-text>');
+      required(rest, 2, 'Usage: comet-state.mjs task-checkoff <file> <task-text>');
       await taskCheckoff(output, rest[0], rest[1]);
     } else if (subcommand === 'next') {
-      required(rest, 1, 'Usage: comet-state.sh next <change-name>');
+      required(rest, 1, 'Usage: comet-state.mjs next <change-name>');
       await next(output, rest[0]);
     } else {
       fail(`Unknown subcommand: ${subcommand ?? ''}`);

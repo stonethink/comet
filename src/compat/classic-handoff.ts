@@ -418,7 +418,7 @@ export const classicHandoffCommand: ClassicCommandHandler = async (args) => {
 
     if (phase !== 'design' || mode !== '--write') {
       throw new HandoffFailure(
-        red('Usage: comet-handoff.sh <change-name> design --write [--full]'),
+        red('Usage: comet-handoff.mjs <change-name> design --write [--full]'),
       );
     }
     let handoffMode: string;
@@ -426,7 +426,7 @@ export const classicHandoffCommand: ClassicCommandHandler = async (args) => {
     else if (fullFlag === '--full') handoffMode = 'full';
     else
       throw new HandoffFailure(
-        red('Usage: comet-handoff.sh <change-name> design --write [--full]'),
+        red('Usage: comet-handoff.mjs <change-name> design --write [--full]'),
       );
 
     const yaml = `${changeDir}/.comet.yaml`;

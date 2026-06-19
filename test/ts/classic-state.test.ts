@@ -168,12 +168,16 @@ describe('Classic state projection', () => {
     expect(await fs.readFile(stateFile, 'utf8')).toBe(malformed);
   });
 
-  it('rejects incomplete legacy projections', async () => {
+  // The engine-persist refactor reads state leniently: an incomplete legacy
+  // projection degrades to a null Classic state (so callers can fall back to
+  // the legacy summary and migrate) instead of throwing. Strict rejection is
+  // enforced by the `validate` command, not the reader.
+  it('degrades incomplete legacy projections to a null Classic state', async () => {
     await fs.writeFile(stateFile, 'workflow: full\nphase: build\n');
 
-    await expect(readClassicState(changeDir)).rejects.toThrow(
-      'Invalid Classic state: missing required field design_doc',
-    );
+    const projection = await readClassicState(changeDir);
+    expect(projection.classic).toBeNull();
+    expect(projection.run).toBeNull();
   });
 
   it('validates a complete projection before replacing the existing file', async () => {

@@ -58,15 +58,15 @@ Prefer reading `openspec/changes/<name>/.comet.yaml`. If not available, fall bac
 - On every context resume, rerun Step 0 and Step 1; do not trust conversation history for phase detection
 - If there is an active change and the worktree has uncommitted changes, handle them through `comet/reference/dirty-worktree.md`. That protocol defines checks, attribution, and prohibitions; this file does not repeat them
 - If `phase: build`, first check `build_pause`, `plan`, `build_mode`, and `isolation` (see details below):
-  - If `build_pause: plan-ready` but `isolation` and `build_mode` are already set, treat as stale pause: first output `[COMET] Detected stale pause (build_pause=plan-ready but isolation/build_mode already set), auto-clearing and continuing`, then run `"$COMET_BASH" "$COMET_STATE" set <name> build_pause null`, then read the next unchecked task from tasks.md and resume execution per `build_mode`
+  - If `build_pause: plan-ready` but `isolation` and `build_mode` are already set, treat as stale pause: first output `[COMET] Detected stale pause (build_pause=plan-ready but isolation/build_mode already set), auto-clearing and continuing`, then run `node "$COMET_STATE" set <name> build_pause null`, then read the next unchecked task from tasks.md and resume execution per `build_mode`
   - If `build_pause: plan-ready` and the plan file exists, but `isolation` or `build_mode` is not yet set, return to the `/comet-build` plan-ready resume point, prompt the user to choose isolation and execution method, and do not regenerate the plan
   - If `build_pause: plan-ready` but the plan file is missing, return to `/comet-build` to handle corrupted state or regenerate the plan
   - If `build_mode`, `isolation`, or `tdd_mode` is unset, return to the corresponding `/comet-build` step to supplement before executing
   - If all are set, read the next unchecked task from tasks.md and continue:
     - If `build_mode: subagent-driven-development`, do not execute tasks directly in the main window; return to `/comet-build`'s background subagent dispatch rules, main window only coordinates
     - Other execution modes follow `/comet-build`'s corresponding rules
-- If `phase: verify` and `verify_result: fail`, enter the verification failure decision blocking point: pause and ask the user to fix or accept deviation; only after the user chooses fix, run `"$COMET_BASH" "$COMET_STATE" transition <name> verify-fail` and invoke `/comet-build`
-- If `phase: open` but proposal/design/tasks are complete, first run `"$COMET_BASH" "$COMET_GUARD" <change-name> open --apply` to repair state, then continue detection
+- If `phase: verify` and `verify_result: fail`, enter the verification failure decision blocking point: pause and ask the user to fix or accept deviation; only after the user chooses fix, run `node "$COMET_STATE" transition <name> verify-fail` and invoke `/comet-build`
+- If `phase: open` but proposal/design/tasks are complete, first run `node "$COMET_GUARD" <change-name> open --apply` to repair state, then continue detection
 - If `phase: archive`, only invoke `/comet-archive`; `/comet-archive` must first wait for final archive confirmation. After archive succeeds, the change moves to the archive directory, so do not run guard against the old active directory
 
 **Step 2: Phase Determination** (check in order, first match wins)
@@ -105,7 +105,7 @@ If metadata conflicts with file state, use verifiable file state as source of tr
 |----------|----------|
 | `openspec list --json` fails | Check if openspec is installed, prompt user to run `openspec init` |
 | Sub-skill unavailable | Stop workflow, prompt to install or enable the corresponding skill |
-| `.comet.yaml` malformed or missing | Use file state as source of truth, correct with `"$COMET_BASH" "$COMET_STATE" set` then continue |
+| `.comet.yaml` malformed or missing | Use file state as source of truth, correct with `node "$COMET_STATE" set` then continue |
 | Build/test fails | Return to build phase for fixes, do not enter verify |
 | Incomplete change directory structure | Fill missing files according to `comet-open` artifact requirements |
 
@@ -118,7 +118,7 @@ Flow chain: open → design → build → verify → archive
 
 **Continuous execution requirement**: starting from the detected phase, the agent automatically continues through all later phases. But **auto-advancing only applies at transition points without user decisions**. When encountering user decision points, **must use the current platform's available user input/confirmation mechanism to pause and wait for the user's explicit response**. Must not use recommendation rules, defaults, or historical preferences to substitute for user confirmation, and must not just output a text prompt and then continue executing.
 
-**Distinguish phase advancement vs automatic handoff**: each sub-skill runs phase guard `--apply` before exit to advance the `.comet.yaml` `phase` field. This step **always happens** and is not controlled by `auto_transition`. After that, the sub-skill runs `"$COMET_BASH" "$COMET_STATE" next <name>` to resolve the next action: when `auto_transition` is not `false`, output is `NEXT: auto` (auto-invoke next skill); when `auto_transition` is `false`, output is `NEXT: manual` (do not invoke next skill, show a manual run hint). Therefore `auto_transition` **only controls next skill invocation, not phase advancement**. Regardless of `auto_transition`, user decision points below remain blocking.
+**Distinguish phase advancement vs automatic handoff**: each sub-skill runs phase guard `--apply` before exit to advance the `.comet.yaml` `phase` field. This step **always happens** and is not controlled by `auto_transition`. After that, the sub-skill runs `node "$COMET_STATE" next <name>` to resolve the next action: when `auto_transition` is not `false`, output is `NEXT: auto` (auto-invoke next skill); when `auto_transition` is `false`, output is `NEXT: manual` (do not invoke next skill, show a manual run hint). Therefore `auto_transition` **only controls next skill invocation, not phase advancement**. Regardless of `auto_transition`, user decision points below remain blocking.
 
 **Decision points are blocking points**: whenever reaching any of the following nodes, the current `/comet` invocation must stop, and follow the `comet/reference/decision-point.md` protocol to obtain the user's explicit choice. Only after the user explicitly chooses can the corresponding state fields be written and operations executed, then auto-advance resumes.
 
@@ -187,7 +187,7 @@ Agents should not skip these decision points; other unambiguous phase transition
 - Before full workflow leaves build phase, `tdd_mode` must be selected as `tdd` or `direct`
 - `build_mode: direct` is allowed by default only for `hotfix` / `tweak`; full workflow requires `direct_override: true`
 - `build_pause` is not an execution method and must not be written to `build_mode`
-- These constraints are enforced by both `comet-guard.sh build --apply` and `comet-state.sh transition <name> build-complete`
+- These constraints are enforced by both `comet-guard.mjs build --apply` and `comet-state.mjs transition <name> build-complete`
 
 ### .comet.yaml Field Reference
 
@@ -215,20 +215,24 @@ See `comet/reference/debug-gate.md` for the complete debug gate protocol.
 
 ### Script Location
 
-Comet scripts are distributed in `comet/scripts/`. **Do not hardcode paths** — locate once, cache in env vars. This block is a standard boilerplate repeated in every sub-skill for independent loadability; changes must be kept in sync across all files (boilerplate version: `v2`, update this version when changing to help locate files needing sync):
+Comet scripts are distributed in `comet/scripts/`. **Do not hardcode paths** — locate once, cache in env vars. This block is a standard boilerplate repeated in every sub-skill for independent loadability; changes must be kept in sync across all files (boilerplate version: `v3`, update this version when changing to help locate files needing sync):
 
 ```bash
-COMET_ENV="${COMET_ENV:-$(find . "$HOME"/.*/skills "$HOME/.config" "$HOME/.gemini" -path '*/comet/scripts/comet-env.sh' -type f -print -quit 2>/dev/null)}"
+COMET_ENV="${COMET_ENV:-$(find . "$HOME"/.*/skills "$HOME/.config" "$HOME/.gemini" -path '*/comet/scripts/comet-env.mjs' -type f -print -quit 2>/dev/null)}"
 if [ -z "$COMET_ENV" ]; then
-  echo "ERROR: comet-env.sh not found. Ensure the comet skill is installed." >&2
+  echo "ERROR: comet-env.mjs not found. Ensure the comet skill is installed." >&2
   return 1
 fi
-. "$COMET_ENV"
+COMET_SCRIPTS_DIR="$(node "$COMET_ENV")"
+COMET_STATE="$COMET_SCRIPTS_DIR/comet-state.mjs"
+COMET_GUARD="$COMET_SCRIPTS_DIR/comet-guard.mjs"
+COMET_HANDOFF="$COMET_SCRIPTS_DIR/comet-handoff.mjs"
+COMET_ARCHIVE="$COMET_SCRIPTS_DIR/comet-archive.mjs"
+COMET_RUNTIME="$COMET_SCRIPTS_DIR/comet-runtime.mjs"
 
 # Stop workflow when script location fails
-if [ -z "$COMET_GUARD" ] || [ -z "$COMET_STATE" ] || [ -z "$COMET_HANDOFF" ] || [ -z "$COMET_ARCHIVE" ]; then
+if [ -z "$COMET_SCRIPTS_DIR" ]; then
   echo "ERROR: Comet scripts not found. Ensure the comet skill is installed." >&2
-  echo "Expected path pattern: */comet/scripts/comet-*.sh under project or platform skill directories" >&2
   return 1
 fi
 ```
@@ -236,24 +240,24 @@ fi
 **Auto state update**: Guard supports `--apply` flag, automatically updating `.comet.yaml` state fields after checks pass:
 
 ```bash
-"$COMET_BASH" "$COMET_GUARD" <change-name> <phase> --apply
+node "$COMET_GUARD" <change-name> <phase> --apply
 ```
 
 `--apply` delegates to `comet-state transition`. Use these semantic events when state changes need to be expressed directly:
 
 ```bash
-"$COMET_BASH" "$COMET_STATE" transition <change-name> open-complete
-"$COMET_BASH" "$COMET_STATE" transition <change-name> design-complete
-"$COMET_BASH" "$COMET_STATE" transition <change-name> build-complete
-"$COMET_BASH" "$COMET_STATE" transition <change-name> verify-pass
-"$COMET_BASH" "$COMET_STATE" transition <change-name> verify-fail
-"$COMET_BASH" "$COMET_STATE" transition <archive-name> archived
+node "$COMET_STATE" transition <change-name> open-complete
+node "$COMET_STATE" transition <change-name> design-complete
+node "$COMET_STATE" transition <change-name> build-complete
+node "$COMET_STATE" transition <change-name> verify-pass
+node "$COMET_STATE" transition <change-name> verify-fail
+node "$COMET_STATE" transition <archive-name> archived
 ```
 
 **Resolve next action**: after guard-based phase advancement, use the `next` subcommand to determine whether to auto-invoke the next skill:
 
 ```bash
-"$COMET_BASH" "$COMET_STATE" next <change-name>
+node "$COMET_STATE" next <change-name>
 ```
 
 Output format: `NEXT: auto|manual|done` + `SKILL: <skill-name>` (omitted for `done`) + `HINT` (for `manual` only). With `auto_transition: false`, output is `manual`, which pauses only the next skill invocation and does not block phase updates.
@@ -261,7 +265,7 @@ Output format: `NEXT: auto|manual|done` + `SKILL: <skill-name>` (omitted for `do
 **Archive script**: Complete all archive steps in one command:
 
 ```bash
-"$COMET_BASH" "$COMET_ARCHIVE" <change-name>
+node "$COMET_ARCHIVE" <change-name>
 ```
 
 After loading comet, agents should run the variable assignments above once, then reuse `$COMET_GUARD`, `$COMET_STATE`, `$COMET_HANDOFF`, `$COMET_ARCHIVE` throughout the session.
@@ -271,7 +275,7 @@ After loading comet, agents should run the variable assignments above once, then
 
 1. **brainstorming cannot be skipped** — Every change must undergo deep design (except hotfix and tweak)
 2. **delta spec is a living document** — Freely modify during phase 3, sync at archive
-3. **Handoff packages are generated by scripts** — OpenSpec → Superpowers context must be generated through `comet-handoff.sh` as compact traceable excerpts (use `--full` when needed), and validated by guard for source/hash/mode
+3. **Handoff packages are generated by scripts** — OpenSpec → Superpowers context must be generated through `comet-handoff.mjs` as compact traceable excerpts (use `--full` when needed), and validated by guard for source/hash/mode
 4. **Keep tasks.md in sync** — Check off each completed task
 5. **Commit frequently** — One commit per task, message reflects design intent
 6. **Verify before archive confirmation** — Enter `/comet-archive` only after `/comet-verify` passes, but wait for final user confirmation before running the archive script

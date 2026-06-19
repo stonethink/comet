@@ -24,6 +24,11 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Classic status and diagnostics**: `comet status` and `comet doctor` now reuse the typed Classic schema, silently migrate valid legacy changes, display the resolved Run step, and report malformed state without partially rewriting it.
 - **Test timeout ceiling**: Raised the vitest global `testTimeout` to 30s so the bash-spawn-heavy `comet-scripts` integration tests no longer time out at the 5s default on Windows under load.
 - **Eval suite layout**: Splits the Comet eval harness into selectable `local/` and `langsmith/` suites with a shared `scaffold/`, so local runs do not require LangSmith credentials while LangSmith runs can reuse the same task corpus with tracing enabled.
+- **Bash-free Node launchers**: Replaces the seven bash launcher scripts (`comet-env.sh`, `comet-state.sh`, `comet-guard.sh`, `comet-handoff.sh`, `comet-archive.sh`, `comet-yaml-validate.sh`, `comet-hook-guard.sh`) with thin Node.js (`.mjs`) facades that import the bundled `comet-runtime.mjs` and dispatch in a single process. Comet now requires only Node.js — no Bash, Git Bash, or WSL — removing the Windows WSL `bash.exe` false-detection workaround, the BSD/GNU `sed`/`sha256sum` portability hazards, and the `COMET_BASH` resolution dance that produced a poor cross-platform runtime experience.
+- **Node-based build/verify execution**: The Classic guard runs configured and inferred build/verify commands through the platform's default shell (`spawnSync(cmd, { shell: true })`) with `process.platform` Maven detection, instead of probing for a usable bash; the shell-metacharacter rejection guard is preserved.
+- **Node hook wiring**: Platform PreToolUse hooks now invoke `node <skillsDir>/.../comet-hook-guard.mjs` instead of `bash .../comet-hook-guard.sh`; uninstall recognizes both the current `node .../*.mjs` form and the legacy `bash .../*.sh` form so upgrades clean up previously-installed hooks.
+- **Skill boilerplate v3**: Every Comet skill (English + 中文) now locates `comet-env.mjs` once, resolves sibling launcher paths via `node "$COMET_ENV"`, and runs commands as `node "$COMET_STATE" ...` / `node "$COMET_GUARD" ...` — no `COMET_BASH`, no sourcing. Handoff provenance markers (`Generated-by: comet-handoff.sh`) are intentionally unchanged to preserve the frozen 0.3.8 differential contract.
+- **User-facing script references**: All runtime error messages, usage hints, and guidance text now reference `.mjs` launchers (e.g. `comet-state.mjs`, `comet-handoff.mjs`) instead of the removed `.sh` wrappers.
 
 ### Fixed
 
@@ -46,6 +51,11 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Bundle CLI lifecycle coverage**: Adds command-level and built-CLI coverage for draft optimization, status reconciliation, platform compilation, Eval workload planning, Eval result recording, review gates, publish gates, distribution installation, text/JSON output, and invalid non-interactive option combinations.
 - **`/comet-any` Skill coverage**: Adds Chinese workflow contract tests and bilingual parity assertions for Bundle model behavior, native platform execution, optional Engine metadata, creator fallback authorization, Eval token choices, review and distribution gates, candidate implementation reads, capability gaps, executable disclosures, and deterministic Bundle CLI commands.
 - **Eval scaffold coverage**: Adds Python scaffold tests for task loading, treatment loading, task index stability, and cross-platform pytest coordination helpers.
+- **Launcher migration coverage**: Rewrites `comet-scripts.test.ts` to drive the `.mjs` launchers through Node on every platform (dropping the Bash/Git-Bash requirement and the `describe.skipIf(!bash())` gate), ports `classic-contract.test.ts` to run the active `.mjs` launchers via Node against the frozen 0.3.8 `.sh` reference via Bash, and ports `engine-schema-compat.test.ts` to Node.
+
+### Removed
+
+- **Bash/shell test infrastructure**: Removes the `bats` shell tests (`test/shell/`), the `run-bats.js` runner and its test, the `test:shell` npm script, and the `shellcheck` / `bats-tests` CI jobs, now that Comet ships no bash scripts to validate. Skill prose and the README no longer list a Bash/Git-Bash requirement.
 
 ## What's Changed [0.3.9] - 2026-06-17
 

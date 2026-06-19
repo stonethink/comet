@@ -37,7 +37,6 @@
     "lint:fix": "eslint src/ --fix",
     "format": "prettier --write src/",
     "format:check": "prettier --check src/",
-    "test:shell": "node scripts/run-bats.js test/shell/*.bats",
     "benchmark:context": "node scripts/context-compression-benchmark.mjs",
     "benchmark:execution": "node scripts/context-execution-benchmark.mjs",
     "benchmark:classic": "node scripts/classic-baseline-benchmark.mjs",

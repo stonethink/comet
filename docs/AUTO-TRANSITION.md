@@ -6,14 +6,14 @@
 
 `auto_transition` 控制 Comet 工作流在阶段完成后是否自动调用下一个 Skill，还是暂停等待用户手动触发。
 
-**关键区分**：`auto_transition` 不控制阶段推进本身。阶段推进（更新 `.comet.yaml` 中的 `phase` 字段）由 `comet-guard.sh --apply` 执行，无论 `auto_transition` 如何设置都会发生。该配置仅控制阶段推进后是否自动调用下一个 Skill。
+**关键区分**：`auto_transition` 不控制阶段推进本身。阶段推进（更新 `.comet.yaml` 中的 `phase` 字段）由 `comet-guard.mjs --apply` 执行，无论 `auto_transition` 如何设置都会发生。该配置仅控制阶段推进后是否自动调用下一个 Skill。
 
 ## 工作原理
 
 ### 执行流程
 
 ```text
-comet-guard.sh --apply                comet-state next <change>
+comet-guard.mjs --apply                comet-state next <change>
 ┌──────────────────────┐              ┌──────────────────────┐
 │ 校验阶段前置条件       │              │ 读取 phase、workflow  │
 │ 更新 phase 字段       │ ──────────► │ 读取 auto_transition  │
@@ -132,7 +132,7 @@ export COMET_AUTO_TRANSITION=true
 
 ### Q: 设为 `false` 后阶段还会推进吗？
 
-会。`auto_transition: false` 仅暂停 Skill 调用，`comet-guard.sh --apply` 仍然会更新 `phase` 字段。暂停后用户需要手动运行下一个 Skill（如 `/comet-build`）继续流程。
+会。`auto_transition: false` 仅暂停 Skill 调用，`comet-guard.mjs --apply` 仍然会更新 `phase` 字段。暂停后用户需要手动运行下一个 Skill（如 `/comet-build`）继续流程。
 
 ### Q: 可以中途切换吗？
 

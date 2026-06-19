@@ -109,6 +109,10 @@ describe('Classic runtime bundle', () => {
       cwd: directory,
       encoding: 'utf8',
     });
+    const demoDir = path.join(directory, 'openspec', 'changes', 'demo');
+    await fs.writeFile(path.join(demoDir, 'proposal.md'), 'proposal\n');
+    await fs.writeFile(path.join(demoDir, 'design.md'), 'design\n');
+    await fs.writeFile(path.join(demoDir, 'tasks.md'), '- [x] seed\n');
     const get = spawnSync(process.execPath, [runtime, 'state', 'get', 'demo', 'phase'], {
       cwd: directory,
       encoding: 'utf8',
@@ -193,6 +197,15 @@ describe('Classic runtime bundle', () => {
       encoding: 'utf8',
     });
     spawnSync(process.execPath, [runtime, 'state', 'set', 'demo', 'phase', 'build'], {
+      cwd: directory,
+      encoding: 'utf8',
+      env: { ...process.env, COMET_FORCE_PHASE: '1' },
+    });
+    // Full-workflow build source writes require a recorded design_doc, otherwise
+    // the hook guard treats it as an illegal phase jump.
+    await fs.mkdir(path.join(directory, 'docs'), { recursive: true });
+    await fs.writeFile(path.join(directory, 'docs', 'design.md'), 'design\n');
+    spawnSync(process.execPath, [runtime, 'state', 'set', 'demo', 'design_doc', 'docs/design.md'], {
       cwd: directory,
       encoding: 'utf8',
     });

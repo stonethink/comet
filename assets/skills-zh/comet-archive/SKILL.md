@@ -22,20 +22,25 @@ description: "Comet 阶段 5：归档。用 /comet-archive 调用。按 OpenSpec
 执行入口验证：
 
 ```bash
-COMET_ENV="${COMET_ENV:-$(find . "$HOME"/.*/skills "$HOME/.config" "$HOME/.gemini" -path '*/comet/scripts/comet-env.sh' -type f -print -quit 2>/dev/null)}"
+COMET_ENV="${COMET_ENV:-$(find . "$HOME"/.*/skills "$HOME/.config" "$HOME/.gemini" -path '*/comet/scripts/comet-env.mjs' -type f -print -quit 2>/dev/null)}"
 if [ -z "$COMET_ENV" ]; then
-  echo "ERROR: comet-env.sh not found. Ensure the comet skill is installed." >&2
+  echo "ERROR: comet-env.mjs not found. Ensure the comet skill is installed." >&2
   return 1
 fi
-. "$COMET_ENV"
-"$COMET_BASH" "$COMET_STATE" check <name> archive
+COMET_SCRIPTS_DIR="$(node "$COMET_ENV")"
+COMET_STATE="$COMET_SCRIPTS_DIR/comet-state.mjs"
+COMET_GUARD="$COMET_SCRIPTS_DIR/comet-guard.mjs"
+COMET_HANDOFF="$COMET_SCRIPTS_DIR/comet-handoff.mjs"
+COMET_ARCHIVE="$COMET_SCRIPTS_DIR/comet-archive.mjs"
+COMET_RUNTIME="$COMET_SCRIPTS_DIR/comet-runtime.mjs"
+node "$COMET_STATE" check <name> archive
 ```
 
 验证通过后继续 Step 1。验证失败时脚本会输出具体失败原因。
 
 ### 1. 归档前最终确认（阻塞点）
 
-入口验证通过后，**必须按 `comet/reference/decision-point.md` 的协议暂停并等待用户确认是否立即归档**。不得在用户确认前运行 `"$COMET_BASH" "$COMET_ARCHIVE" "<change-name>"`。
+入口验证通过后，**必须按 `comet/reference/decision-point.md` 的协议暂停并等待用户确认是否立即归档**。不得在用户确认前运行 `node "$COMET_ARCHIVE" "<change-name>"`。
 
 确认前必须向用户展示简短摘要：
 - change 名称
@@ -45,7 +50,7 @@ fi
 
 用户确认问题必须以单选题形式呈现，包含以下选项：
 - 「确认归档」— 立即执行归档脚本，完成 spec 合并和 change 移动
-- 「需要调整或重新验证」— 不执行归档；运行 `"$COMET_BASH" "$COMET_STATE" transition <change-name> archive-reopen` 回到 `phase: verify`，再调用 `/comet-verify`。若验证阶段确认需要修复，再按 `/comet-verify` 的验证失败决策回到 `/comet-build`
+- 「需要调整或重新验证」— 不执行归档；运行 `node "$COMET_STATE" transition <change-name> archive-reopen` 回到 `phase: verify`，再调用 `/comet-verify`。若验证阶段确认需要修复，再按 `/comet-verify` 的验证失败决策回到 `/comet-build`
 - 「暂不归档」— 不执行归档，保留当前 `phase: archive` 状态，等待用户稍后再次调用 `/comet-archive`
 
 只有用户选择「确认归档」后，才允许继续 Step 2。用户选择「需要调整或重新验证」后，必须先执行 `archive-reopen` 状态回退，不得手动编辑 `.comet.yaml`。
@@ -55,7 +60,7 @@ fi
 运行归档脚本，自动完成以下全部步骤：
 
 ```bash
-"$COMET_BASH" "$COMET_ARCHIVE" "<change-name>"
+node "$COMET_ARCHIVE" "<change-name>"
 ```
 
 脚本自动执行：
@@ -89,7 +94,7 @@ brainstorming → delta spec → 实施 → 验证 → 主 spec 合并 → desig
 
 归档脚本会把 `openspec/changes/<name>/` 移动到 `openspec/changes/archive/YYYY-MM-DD-<name>/`。
 
-> **WARNING**: 归档成功后**不要再对原 change 名运行** `"$COMET_BASH" "$COMET_GUARD" <change-name> archive`，因为原活跃目录已经不存在。误调会导致 guard 报错"change directory not found"。归档完整性以脚本退出码和归档目录状态为准。
+> **WARNING**: 归档成功后**不要再对原 change 名运行** `node "$COMET_GUARD" <change-name> archive`，因为原活跃目录已经不存在。误调会导致 guard 报错"change directory not found"。归档完整性以脚本退出码和归档目录状态为准。
 
 ## 完成
 

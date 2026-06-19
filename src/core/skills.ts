@@ -450,20 +450,24 @@ async function installCometHooksForPlatform(
 
 /** Build the command path for a hook script given its manifest rel path and skillsDir */
 function buildHookCommand(skillsDir: string, scriptRelPath: string): string {
-  return `bash ${skillsDir}/skills/${scriptRelPath}`;
+  return `node ${skillsDir}/skills/${scriptRelPath}`;
 }
 
 function isManagedHookCommand(command: unknown, scriptRelPaths: string[]): boolean {
   if (typeof command !== 'string') return false;
 
+  // Match both the current `node .../comet-hook-guard.mjs` form and the legacy
+  // `bash .../comet-hook-guard.sh` form so uninstall also cleans up hooks
+  // written by older Comet releases. Compare basenames without extension.
   const commandPath = command
     .trim()
-    .match(/^bash\s+["']?([^"'\s]+)["']?(?:\s|$)/)?.[1]
+    .match(/^(?:node|bash|sh)\s+["']?([^"'\s]+)["']?(?:\s|$)/)?.[1]
     ?.replace(/\\/g, '/');
   if (!commandPath) return false;
+  const normalize = (value: string): string => value.replace(/\.(?:sh|mjs)$/u, '');
 
   return scriptRelPaths.some((scriptRelPath) =>
-    commandPath.endsWith(`/skills/${scriptRelPath.replace(/\\/g, '/')}`),
+    normalize(commandPath).endsWith(`/skills/${normalize(scriptRelPath.replace(/\\/g, '/'))}`),
   );
 }
 
@@ -711,8 +715,8 @@ async function installCopilotHooks(
   const scriptEntries: Array<{ bash: string; powershell: string }> = [];
   for (const [scriptRelPath] of Object.entries(hooksConfig)) {
     const cmd = buildHookCommand(skillsDir, scriptRelPath);
-    // Script requires bash; PowerShell field wraps bash invocation for Windows
-    scriptEntries.push({ bash: cmd, powershell: `bash -c '${cmd}'` });
+    // Hook runs through node on every platform; both fields use the same command
+    scriptEntries.push({ bash: cmd, powershell: cmd });
   }
 
   const hookConfig = {
@@ -739,7 +743,7 @@ async function installKiroHooks(
   const hooksDir = path.join(platformBase, 'hooks');
 
   for (const [scriptRelPath, config] of Object.entries(hooksConfig)) {
-    const hookFileName = path.basename(scriptRelPath).replace(/\.sh$/, '.kiro.hook');
+    const hookFileName = path.basename(scriptRelPath).replace(/\.mjs$/, '.kiro.hook');
     const hookFilePath = path.join(hooksDir, hookFileName);
 
     // Map Write|Edit matcher to Kiro's write tool category

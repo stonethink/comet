@@ -32,7 +32,9 @@ async function makeProject(): Promise<string> {
 
 async function seedArchiveChange(dir: string): Promise<string> {
   run(dir, ['state', 'init', 'demo', 'full']);
-  run(dir, ['state', 'set', 'demo', 'phase', 'archive']);
+  // Direct phase writes are normally blocked; the force hatch is the documented
+  // way for tooling/tests to seed a change into the archive phase.
+  run(dir, ['state', 'set', 'demo', 'phase', 'archive'], { COMET_FORCE_PHASE: '1' });
   run(dir, ['state', 'set', 'demo', 'verify_result', 'pass']);
   return path.join(dir, 'openspec', 'changes', 'demo');
 }
@@ -86,7 +88,7 @@ describe('Classic archive command', () => {
   it('rejects an unverified change in the archive phase', async () => {
     const dir = await makeProject();
     run(dir, ['state', 'init', 'demo', 'full']);
-    run(dir, ['state', 'set', 'demo', 'phase', 'archive']);
+    run(dir, ['state', 'set', 'demo', 'phase', 'archive'], { COMET_FORCE_PHASE: '1' });
 
     const result = run(dir, ['archive', 'demo']);
     expect(result.status).not.toBe(0);

@@ -39,11 +39,12 @@ function hookInput(filePath: string): string {
 
 async function seedDesignChange(dir: string): Promise<string> {
   run(dir, 'state', ['init', 'demo', 'full']);
-  run(dir, 'state', ['transition', 'demo', 'open-complete']);
   const changeDir = path.join(dir, 'openspec', 'changes', 'demo');
+  // Open→design transition requires the open artifacts to exist first.
   await fs.writeFile(path.join(changeDir, 'proposal.md'), 'proposal\n');
   await fs.writeFile(path.join(changeDir, 'design.md'), 'design\n');
   await fs.writeFile(path.join(changeDir, 'tasks.md'), '- [ ] task\n');
+  run(dir, 'state', ['transition', 'demo', 'open-complete']);
   return changeDir;
 }
 
@@ -65,7 +66,7 @@ describe('Classic hook guard command', () => {
 
     expect(result.status).toBe(2);
     expect(result.stderr).toContain('COMET PHASE GUARD');
-    expect(result.stderr).toContain('当前阶段: design');
+    expect(result.stderr).toContain('Current phase: design');
     const state = parse(await fs.readFile(path.join(changeDir, '.comet.yaml'), 'utf8')) as Record<
       string,
       unknown
@@ -87,7 +88,10 @@ describe('Classic hook guard command', () => {
     expect(result.stderr).toContain('phase: design, handoff/spec');
   });
 
-  it('reports invalid state without modifying it', async () => {
+  // The hook guard reads governing state leniently: an unknown field makes the
+  // strict projection unavailable, so it falls back to the legacy phase read
+  // and still enforces the phase write rule — without rewriting the file.
+  it('still blocks and leaves state untouched when the state has an unknown field', async () => {
     const dir = await makeProject();
     const changeDir = await seedDesignChange(dir);
     await fs.appendFile(path.join(changeDir, '.comet.yaml'), 'unknown_root_field: true\n');
@@ -96,7 +100,6 @@ describe('Classic hook guard command', () => {
     const result = run(dir, 'hook-guard', [], hookInput(path.join(dir, 'src', 'index.ts')));
 
     expect(result.status).toBe(2);
-    expect(result.stderr).toContain('unknown_root_field');
     expect(await fs.readFile(path.join(changeDir, '.comet.yaml'), 'utf8')).toBe(before);
   });
 });

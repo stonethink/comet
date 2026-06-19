@@ -27,12 +27,17 @@ description: "Comet 预设路径：Bug fix / 热修复。跳过 brainstorming，
 开始前先定位 Comet 脚本：
 
 ```bash
-COMET_ENV="${COMET_ENV:-$(find . "$HOME"/.*/skills "$HOME/.config" "$HOME/.gemini" -path '*/comet/scripts/comet-env.sh' -type f -print -quit 2>/dev/null)}"
+COMET_ENV="${COMET_ENV:-$(find . "$HOME"/.*/skills "$HOME/.config" "$HOME/.gemini" -path '*/comet/scripts/comet-env.mjs' -type f -print -quit 2>/dev/null)}"
 if [ -z "$COMET_ENV" ]; then
-  echo "ERROR: comet-env.sh not found. Ensure the comet skill is installed." >&2
+  echo "ERROR: comet-env.mjs not found. Ensure the comet skill is installed." >&2
   return 1
 fi
-. "$COMET_ENV"
+COMET_SCRIPTS_DIR="$(node "$COMET_ENV")"
+COMET_STATE="$COMET_SCRIPTS_DIR/comet-state.mjs"
+COMET_GUARD="$COMET_SCRIPTS_DIR/comet-guard.mjs"
+COMET_HANDOFF="$COMET_SCRIPTS_DIR/comet-handoff.mjs"
+COMET_ARCHIVE="$COMET_SCRIPTS_DIR/comet-archive.mjs"
+COMET_RUNTIME="$COMET_SCRIPTS_DIR/comet-runtime.mjs"
 ```
 
 ### 1. 快速开启（preset open）
@@ -50,25 +55,25 @@ fi
 初始化 Comet 状态文件：
 
 ```bash
-"$COMET_BASH" "$COMET_STATE" init <name> hotfix
+node "$COMET_STATE" init <name> hotfix
 ```
 
 初始化后验证状态：
 
 ```bash
-"$COMET_BASH" "$COMET_STATE" check <name> open
+node "$COMET_STATE" check <name> open
 ```
 
 阶段守卫完成 open → build 过渡：
 
 ```bash
-"$COMET_BASH" "$COMET_GUARD" <change-name> open --apply
+node "$COMET_GUARD" <change-name> open --apply
 ```
 
 检查 `auto_transition` 决定是否继续：
 
 ```bash
-"$COMET_BASH" "$COMET_STATE" next <name>
+node "$COMET_STATE" next <name>
 ```
 
 - `NEXT: auto` → 继续 Step 2
@@ -114,7 +119,7 @@ fi
 根因确认消除后，运行阶段守卫完成 build → verify 过渡：
 
 ```bash
-"$COMET_BASH" "$COMET_GUARD" <change-name> build --apply
+node "$COMET_GUARD" <change-name> build --apply
 ```
 
 状态文件自动更新为 `phase: verify`、`verify_result: pending`，然后进入验证。
@@ -125,7 +130,7 @@ fi
 
 **立即执行：** 使用 Skill 工具加载 `comet-verify` 技能。禁止跳过此步骤。
 
-无 delta spec 的小范围 hotfix 通常满足轻量验证条件（≤ 3 tasks、≤ 2 files），comet-verify 的规模评估会选择轻量验证路径（6 项快速检查；默认 `review_mode: off` 时不自动派发代码审查）。若用户希望增加审查，可在验证前运行 `"$COMET_BASH" "$COMET_STATE" set <name> review_mode standard` 或 `thorough`。若 hotfix 创建了 delta spec，则根据 comet-verify 的规模评估规则进入完整验证路径。
+无 delta spec 的小范围 hotfix 通常满足轻量验证条件（≤ 3 tasks、≤ 2 files），comet-verify 的规模评估会选择轻量验证路径（6 项快速检查；默认 `review_mode: off` 时不自动派发代码审查）。若用户希望增加审查，可在验证前运行 `node "$COMET_STATE" set <name> review_mode standard` 或 `thorough`。若 hotfix 创建了 delta spec，则根据 comet-verify 的规模评估规则进入完整验证路径。
 
 验证通过后，按 `/comet-verify` 的规则将 `.comet.yaml` 的 `verify_result` 记录为 `pass`，归档前不得跳过该状态。验证通过后仍必须进入 `/comet-archive` 的归档前最终确认，不得自动运行归档脚本。
 
@@ -172,8 +177,8 @@ Hotfix 流程默认 **一次性连续执行**。调用 `/comet-hotfix` 后，age
 用户确认升级后，**必须先更新 workflow 和 phase 字段**再进入完整流程：
 
 ```bash
-"$COMET_BASH" "$COMET_STATE" set <name> workflow full
-"$COMET_BASH" "$COMET_STATE" set <name> phase design
+node "$COMET_STATE" set <name> workflow full
+node "$COMET_STATE" set <name> phase design
 ```
 
 然后在当前 change 基础上补充 Design Doc：**立即使用 Skill 工具加载 `comet-design` skill**，后续正常走完整流程。若用户不确认升级，停止 hotfix 并报告当前变更已超出 hotfix 适用范围。
@@ -185,14 +190,14 @@ Hotfix 流程默认 **一次性连续执行**。调用 `/comet-hotfix` 后，age
 - Bug 已修复，测试通过
 - change 已归档
 - 如有 spec 变更，已同步到 main spec
-- **阶段守卫**：build → verify 前运行 `"$COMET_BASH" "$COMET_GUARD" <change-name> build --apply`，verify → archive 前按 `/comet-verify` 规则运行 `"$COMET_BASH" "$COMET_GUARD" <change-name> verify --apply`
+- **阶段守卫**：build → verify 前运行 `node "$COMET_GUARD" <change-name> build --apply`，verify → archive 前按 `/comet-verify` 规则运行 `node "$COMET_GUARD" <change-name> verify --apply`
 
 ## 自动衔接下一阶段
 
 按 `comet/reference/auto-transition.md` 执行。关键命令：
 
 ```bash
-"$COMET_BASH" "$COMET_STATE" next <name>
+node "$COMET_STATE" next <name>
 ```
 
 - `NEXT: auto` → 调用 `SKILL` 指向的 skill 继续 hotfix 流程（`phase: build` 返回 `comet-hotfix`，`verify` 返回 `comet-verify`，`archive` 返回 `comet-archive`）

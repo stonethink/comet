@@ -8,9 +8,16 @@ import { doctorCommand } from '../../src/commands/doctor.js';
 const runtime = path.resolve('assets', 'skills', 'comet', 'scripts', 'comet-runtime.mjs');
 
 function state(cwd: string, ...args: string[]) {
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  if (args[0] === 'set' && args[2] === 'phase') {
+    // Direct phase writes are normally blocked; the force hatch is the
+    // documented way for tooling/tests to seed a change into a specific phase.
+    env.COMET_FORCE_PHASE = '1';
+  }
   return spawnSync(process.execPath, [runtime, 'state', ...args], {
     cwd,
     encoding: 'utf8',
+    env,
   });
 }
 

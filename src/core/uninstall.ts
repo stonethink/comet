@@ -473,7 +473,7 @@ async function removeKiroHooks(
     // Match files that correspond to comet scripts
     const baseName = entry.replace('.kiro.hook', '');
     const isCometHook = scriptRelPaths.some((scriptPath) => {
-      const scriptBase = path.basename(scriptPath).replace('.sh', '');
+      const scriptBase = path.basename(scriptPath).replace(/\.mjs$/u, '');
       return scriptBase === baseName;
     });
 

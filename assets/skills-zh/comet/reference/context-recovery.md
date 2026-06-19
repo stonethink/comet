@@ -7,7 +7,7 @@
 ## 恢复步骤
 
 ```bash
-"$COMET_BASH" "$COMET_STATE" check <change-name> <phase> --recover
+node "$COMET_STATE" check <change-name> <phase> --recover
 ```
 
 脚本输出结构化恢复上下文（phase、已完成字段、待完成字段、恢复动作）。按 **Recovery action** 决定下一步。

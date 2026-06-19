@@ -194,35 +194,32 @@ Skill 设计建议：
 - **Reference Appendix**：字段说明、脚本位置、最佳实践放在底部。
 - 中文和英文版本要保持行为等价，表达可以自然不同。
 
-## Shell 脚本
+## 工作流脚本
 
-脚本位于 `assets/skills/comet/scripts/`，必须兼容 macOS、Linux 和 Windows Git Bash。
+工作流脚本位于 `assets/skills/comet/scripts/`，全部是 **Node.js 启动器（`.mjs`）**。每个启动器 import 内置的 `comet-runtime.mjs` 后在单个 Node 进程内分发命令，因此 Comet 只依赖 Node.js——无需 Bash、Git Bash 或 WSL——在 macOS、Linux、Windows 上行为一致。
 
-规则：
+- 所有真实逻辑在 `src/compat/` 下的 TypeScript 中，由 `scripts/build-classic-runtime.mjs`（esbuild）打包成 `assets/skills/comet/scripts/comet-runtime.mjs`。**修改 `src/compat/` 后必须 `pnpm build`**，否则测试跑的是旧 bundle，`classic-runtime.test.ts` 的新鲜度检查也会失败。
+- 跨平台由 Node 保证：hash 用 `node:crypto`，YAML 用 `yaml` 包，子进程用 `child_process`，不再有 `sed -i` / `sha256sum` / `pipefail` 等可移植性问题。
+- `comet-env.mjs` 打印自身所在目录，skill 通过 `node "$COMET_ENV"` 解析同级启动器路径。
+- 新增或重命名启动器时，同步更新 `assets/manifest.json`（`skills[]` 以及 `hooks` 里的 `comet-hook-guard.mjs`）、`test/ts/comet-scripts.test.ts` 的 `beforeEach` 拷贝列表，并保持 `.codex/skills/comet/scripts/` 本地一致（该目录 gitignored，由 install 重新生成）。
 
-- 禁止使用 `sed -i`；GNU 与 BSD 行为不同。字段替换使用 `awk`。
-- 同时兼容 GNU 系统的 `sha256sum` 与 BSD/macOS 的 `shasum -a 256`。
-- 所有可选 `grep` 结果都加 `|| true`，避免 `pipefail` 误杀脚本。
-- 新增脚本必须加入 `test/ts/comet-scripts.test.ts` 的 `beforeEach` 拷贝列表。
-- 新增脚本必须加入 `assets/manifest.json`。
-
-脚本依赖关系：
+运行时分发：
 
 ```text
-comet-state.sh <- comet-guard.sh, comet-handoff.sh, comet-archive.sh
-comet-yaml-validate.sh <- comet-guard.sh (preflight 阶段)
-comet-handoff.sh <- comet-state.sh (写入 handoff_context/handoff_hash)
+comet-runtime.mjs  <-  所有 comet-*.mjs 启动器 import 它
+  └─ src/compat/classic-cli.ts 分发：state / validate / guard / handoff / archive / hook-guard
+comet-hook-guard.mjs <- PreToolUse hook（install 写入 `node <skillsDir>/.../comet-hook-guard.mjs`）
 ```
-
-如果两个脚本需要同一个小工具函数，例如 hash 或 YAML 解析，允许在各自脚本中独立实现，不强制抽共享 shell 库。
 
 ## `.comet.yaml` 状态变更
 
-修改 `.comet.yaml` 状态文件字段时，需要同步三处：
+修改 `.comet.yaml` 状态文件字段时，需要同步三处（均在 TypeScript 中）：
 
-1. `assets/skills/comet/scripts/comet-state.sh`：`cmd_set` 白名单与 enum 校验。
-2. `assets/skills/comet/scripts/comet-yaml-validate.sh`：schema 校验与 `KNOWN_KEYS`。
+1. `src/compat/classic-state-command.ts`：`set` 白名单与 enum 校验（`SETTABLE_FIELDS` / `MACHINE_OWNED_FIELDS`）。
+2. `src/compat/classic-validate-command.ts`：schema 校验与已知字段集合。
 3. `test/ts/comet-scripts.test.ts`：测试中的 YAML 示例与断言。
+
+改完 1/2 后运行 `pnpm build` 重新生成 `comet-runtime.mjs`。
 
 ## Changelog
 

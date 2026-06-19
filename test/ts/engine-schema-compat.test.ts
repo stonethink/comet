@@ -6,51 +6,27 @@ import path from 'path';
 
 const sourceScripts = path.resolve('assets', 'skills', 'comet', 'scripts');
 
-function bash(): string | null {
-  const candidates = [
-    process.env.COMET_TEST_BASH,
-    process.env.COMET_BASH,
-    'bash',
-    ...(process.platform === 'win32'
-      ? ['C:\\Program Files\\Git\\bin\\bash.exe', 'C:\\Program Files\\Git\\usr\\bin\\bash.exe']
-      : []),
-  ].filter((value): value is string => Boolean(value));
-  return (
-    [...new Set(candidates)].find((candidate) => {
-      const result = spawnSync(candidate, ['-lc', 'uname -s'], { encoding: 'utf8' });
-      return result.status === 0 && !(process.platform === 'win32' && /linux/i.test(result.stdout));
-    }) ?? null
-  );
-}
-
-function bashPath(value: string): string {
-  const normalized = path.resolve(value).replaceAll('\\', '/');
-  const drive = normalized.match(/^([A-Za-z]):\/(.*)$/);
-  if (!drive) return normalized;
-  return `/${drive[1].toLowerCase()}/${drive[2]}`;
-}
-
-describe.skipIf(!bash())('Skill Engine shell schema compatibility', () => {
+describe('Skill Engine schema compatibility', () => {
   let root: string;
   let stateScript: string;
   let validateScript: string;
 
   beforeEach(async () => {
-    root = await fs.mkdtemp(path.join(os.tmpdir(), 'comet-engine-shell-'));
+    root = await fs.mkdtemp(path.join(os.tmpdir(), 'comet-engine-'));
     await fs.mkdir(path.join(root, 'assets'), { recursive: true });
     for (const name of [
-      'comet-state.sh',
-      'comet-yaml-validate.sh',
-      'comet-guard.sh',
-      'comet-handoff.sh',
-      'comet-archive.sh',
-      'comet-env.sh',
+      'comet-state.mjs',
+      'comet-yaml-validate.mjs',
+      'comet-guard.mjs',
+      'comet-handoff.mjs',
+      'comet-archive.mjs',
+      'comet-env.mjs',
       'comet-runtime.mjs',
     ]) {
       await fs.copyFile(path.join(sourceScripts, name), path.join(root, 'assets', name));
     }
-    stateScript = bashPath(path.join(root, 'assets', 'comet-state.sh'));
-    validateScript = bashPath(path.join(root, 'assets', 'comet-yaml-validate.sh'));
+    stateScript = path.join(root, 'assets', 'comet-state.mjs');
+    validateScript = path.join(root, 'assets', 'comet-yaml-validate.mjs');
   });
 
   afterEach(async () => {
@@ -58,18 +34,23 @@ describe.skipIf(!bash())('Skill Engine shell schema compatibility', () => {
   });
 
   function run(script: string, args: string[]) {
-    return spawnSync(bash()!, [script, ...args], {
+    return spawnSync(process.execPath, [script, ...args], {
       cwd: root,
       encoding: 'utf8',
     });
   }
 
-  it('sets and validates every Skill Engine projection field', () => {
-    expect(run(stateScript, ['init', 'demo', 'full']).status).toBe(0);
-    const values: Record<string, string> = {
+  // Run projection fields are machine-owned (the engine writes them via the
+  // Run store, never via `comet-state set`), so this writes them directly to
+  // .comet.yaml — exactly as the engine would — and confirms the schema
+  // accepts every field.
+  async function writeRunState(overrides: Record<string, string> = {}): Promise<void> {
+    const yamlPath = path.join(root, 'openspec', 'changes', 'demo', '.comet.yaml');
+    const base = await fs.readFile(yamlPath, 'utf8');
+    const fields: Record<string, string> = {
       run_id: 'run-1',
       skill: 'demo',
-      skill_version: '1',
+      skill_version: "'1'",
       skill_hash: 'a'.repeat(64),
       orchestration: 'deterministic',
       current_step: 'start',
@@ -81,11 +62,16 @@ describe.skipIf(!bash())('Skill Engine shell schema compatibility', () => {
       artifacts_ref: '.comet/artifacts.json',
       checkpoint_ref: '.comet/checkpoint.json',
       run_status: 'running',
-      run_retries: '"{}"',
+      run_retries: '{}',
     };
-    for (const [field, value] of Object.entries(values)) {
-      expect(run(stateScript, ['set', 'demo', field, value]).status, field).toBe(0);
-    }
+    Object.assign(fields, overrides);
+    const block = Object.entries(fields).map(([k, v]) => `${k}: ${v}`).join('\n') + '\n';
+    await fs.writeFile(yamlPath, base + block);
+  }
+
+  it('validates every Skill Engine projection field written as the engine would', async () => {
+    expect(run(stateScript, ['init', 'demo', 'full']).status).toBe(0);
+    await writeRunState();
     const result = run(validateScript, ['demo']);
     expect(result.status).toBe(0);
     expect(result.stderr).not.toContain('unknown field');
@@ -95,8 +81,10 @@ describe.skipIf(!bash())('Skill Engine shell schema compatibility', () => {
     ['orchestration', 'freeform'],
     ['iteration', '-1'],
     ['trajectory_ref', '../outside.jsonl'],
-  ])('rejects invalid %s=%s', (field, value) => {
+  ])('rejects invalid %s=%s', async (field, value) => {
     expect(run(stateScript, ['init', 'demo', 'full']).status).toBe(0);
-    expect(run(stateScript, ['set', 'demo', field, value]).status).not.toBe(0);
+    await writeRunState({ [field]: value });
+    const result = run(validateScript, ['demo']);
+    expect(result.status).not.toBe(0);
   });
 });

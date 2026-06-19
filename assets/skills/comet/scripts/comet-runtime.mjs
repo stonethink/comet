@@ -9393,13 +9393,6 @@ async function projectConfigValue(field2, changeDir) {
   }
   return "";
 }
-function resolveBash() {
-  return process.env.COMET_BASH || process.env.BASH || "bash";
-}
-function isWindowsBash() {
-  const uname = spawnSync2("uname", ["-s"], { encoding: "utf8" });
-  return /MINGW|MSYS|CYGWIN/u.test(uname.stdout ?? "");
-}
 function runCommandString(command) {
   if (!command) return { status: 1, output: red2("ERROR: build/verify command is empty") };
   if (/[;|&$`]/u.test(command)) {
@@ -9411,7 +9404,7 @@ ${red2(
       )}`
     };
   }
-  const result2 = spawnSync2(resolveBash(), ["-lc", command], { encoding: "utf8" });
+  const result2 = spawnSync2(command, { shell: true, encoding: "utf8" });
   const combined = `${result2.stdout ?? ""}${result2.stderr ?? ""}`.replace(/\n+$/u, "");
   return { status: result2.status ?? 1, output: `${red2(`+ ${command}`)}
 ${combined}` };
@@ -9498,7 +9491,7 @@ async function runChecks(output, builders) {
   return blocked2;
 }
 function runInferred(command) {
-  const result2 = spawnSync2(resolveBash(), ["-lc", command], { encoding: "utf8" });
+  const result2 = spawnSync2(command, { shell: true, encoding: "utf8" });
   return {
     status: result2.status ?? 1,
     output: `${result2.stdout ?? ""}${result2.stderr ?? ""}`.replace(/\n+$/u, "")
@@ -9512,11 +9505,11 @@ async function buildPasses(changeDir) {
     return runInferred("npm run build");
   }
   if (await exists3("pom.xml")) {
-    if (existsSync("mvnw")) return runInferred("./mvnw compile -q");
-    if (isWindowsBash()) {
-      const mvnCmd = spawnSync2(resolveBash(), ["-lc", "command -v mvn.cmd"], { encoding: "utf8" });
-      if (mvnCmd.status === 0 && mvnCmd.stdout.trim()) return runInferred("mvn.cmd compile -q");
+    if (process.platform === "win32") {
+      if (existsSync("mvnw.cmd")) return runInferred("mvnw.cmd compile -q");
+      return runInferred("mvn.cmd compile -q");
     }
+    if (existsSync("mvnw")) return runInferred("./mvnw compile -q");
     return runInferred("mvn compile -q");
   }
   if (await exists3("Cargo.toml")) return runInferred("cargo build");
@@ -9583,7 +9576,7 @@ async function isolationSelected(changeDir, change) {
   return fail(
     `isolation must be branch or worktree, got '${isolation || "null"}'
 Next: ask the user to choose branch or worktree, create the chosen isolation, then run:
-  "$COMET_BASH" "$COMET_STATE" set ${change} isolation <branch|worktree>`
+  node "$COMET_STATE" set ${change} isolation <branch|worktree>`
   );
 }
 async function buildModeSelected(changeDir, change) {
@@ -9593,7 +9586,7 @@ async function buildModeSelected(changeDir, change) {
   return fail(
     `build_mode must be selected before leaving build, got '${buildMode || "null"}'
 Next: ask the user to choose an execution mode, then run:
-  "$COMET_BASH" "$COMET_STATE" set ${change} build_mode <subagent-driven-development|executing-plans>`
+  node "$COMET_STATE" set ${change} build_mode <subagent-driven-development|executing-plans>`
   );
 }
 async function buildModeAllowedForWorkflow(changeDir) {
@@ -9615,9 +9608,9 @@ async function subagentDispatchConfirmed(changeDir, change) {
   return fail(
     `subagent_dispatch must be confirmed before using build_mode=subagent-driven-development
 Next: confirm the current platform has a real background subagent/Task/multi-agent dispatcher, then run:
-  "$COMET_BASH" "$COMET_STATE" set ${change} subagent_dispatch confirmed
+  node "$COMET_STATE" set ${change} subagent_dispatch confirmed
 Or ask the user to switch to executing-plans and run:
-  "$COMET_BASH" "$COMET_STATE" set ${change} build_mode executing-plans`
+  node "$COMET_STATE" set ${change} build_mode executing-plans`
   );
 }
 async function tddModeSelected(changeDir, change) {
@@ -9628,7 +9621,7 @@ async function tddModeSelected(changeDir, change) {
   return fail(
     `tdd_mode must be tdd or direct for full workflow, got '${tddMode || "null"}'
 Next: ask the user to choose TDD enforcement level, then run:
-  "$COMET_BASH" "$COMET_STATE" set ${change} tdd_mode <tdd|direct>`
+  node "$COMET_STATE" set ${change} tdd_mode <tdd|direct>`
   );
 }
 async function reviewModeSelected(changeDir, change) {
@@ -9641,7 +9634,7 @@ async function reviewModeSelected(changeDir, change) {
   return fail(
     `review_mode must be off, standard, or thorough before leaving build, got '${reviewMode || "null"}'
 Next: ask the user to choose review strength, then run:
-  "$COMET_BASH" "$COMET_STATE" set ${change} review_mode <off|standard|thorough>`
+  node "$COMET_STATE" set ${change} review_mode <off|standard|thorough>`
   );
 }
 async function verificationReportExists(changeDir) {
@@ -9672,7 +9665,7 @@ async function designDocRecorded(changeDir, change) {
   if (designDoc && designDoc !== "null" && existsSync(designDoc)) return pass();
   return fail(
     `design_doc must point to an existing Superpowers Design Doc for full workflow before leaving design.
-Next: create the Design Doc and run: "$COMET_BASH" "$COMET_STATE" set ${change} design_doc <path>`
+Next: create the Design Doc and run: node "$COMET_STATE" set ${change} design_doc <path>`
   );
 }
 async function designHandoffContextValid(changeDir, change) {
@@ -9681,19 +9674,19 @@ async function designHandoffContextValid(changeDir, change) {
   if (!context || context === "null") {
     return fail(
       `handoff_context is missing from .comet.yaml
-Next: run "$COMET_BASH" "$COMET_HANDOFF" ${change} design --write before invoking Superpowers.`
+Next: run node "$COMET_HANDOFF" ${change} design --write before invoking Superpowers.`
     );
   }
   if (!await nonempty(context)) {
     return fail(
       `handoff_context does not point to a non-empty file: ${context}
-Next: regenerate the design handoff with comet-handoff.sh.`
+Next: regenerate the design handoff with comet-handoff.mjs.`
     );
   }
   if (!/^[a-f0-9]{64}$/u.test(recordedHash)) {
     return fail(
       `handoff_hash is missing or invalid: ${recordedHash || "null"}
-Next: regenerate the design handoff with comet-handoff.sh.`
+Next: regenerate the design handoff with comet-handoff.mjs.`
     );
   }
   const actualHash = await computeHandoffHash(changeDir);
@@ -9702,14 +9695,14 @@ Next: regenerate the design handoff with comet-handoff.sh.`
       `OpenSpec artifacts changed after handoff was generated.
 Expected handoff_hash: ${recordedHash}
 Actual handoff_hash:   ${actualHash}
-Next: rerun comet-handoff.sh so Superpowers receives the current OpenSpec context.`
+Next: rerun comet-handoff.mjs so Superpowers receives the current OpenSpec context.`
     );
   }
   const markdown = `${context.replace(/\.json$/u, "")}.md`;
   if (!await nonempty(markdown)) {
     return fail(
       `design handoff markdown is missing or empty: ${markdown}
-Next: regenerate the design handoff with comet-handoff.sh.`
+Next: regenerate the design handoff with comet-handoff.mjs.`
     );
   }
   return pass();
@@ -10319,7 +10312,7 @@ var classicHandoffCommand = async (args) => {
     }
     if (phase !== "design" || mode !== "--write") {
       throw new HandoffFailure(
-        red3("Usage: comet-handoff.sh <change-name> design --write [--full]")
+        red3("Usage: comet-handoff.mjs <change-name> design --write [--full]")
       );
     }
     let handoffMode;
@@ -10327,7 +10320,7 @@ var classicHandoffCommand = async (args) => {
     else if (fullFlag === "--full") handoffMode = "full";
     else
       throw new HandoffFailure(
-        red3("Usage: comet-handoff.sh <change-name> design --write [--full]")
+        red3("Usage: comet-handoff.mjs <change-name> design --write [--full]")
       );
     const yaml = `${changeDir}/.comet.yaml`;
     if (!await exists4(changeDir)) {
@@ -10948,7 +10941,7 @@ async function setField(output, name, field2, value, options = {}) {
   }
   if (field2 === "phase" && !options.internal && process.env.COMET_FORCE_PHASE !== "1") {
     fail2(
-      "ERROR: Setting 'phase' directly is not allowed; it bypasses state machine evidence checks.\n  Use: comet-state.sh transition <change-name> <event>\n  Repair-only escape hatch: COMET_FORCE_PHASE=1 comet-state.sh set <change-name> phase <value>"
+      "ERROR: Setting 'phase' directly is not allowed; it bypasses state machine evidence checks.\n  Use: comet-state.mjs transition <change-name> <event>\n  Repair-only escape hatch: COMET_FORCE_PHASE=1 comet-state.mjs set <change-name> phase <value>"
     );
   }
   validateSetValue(field2, value);
@@ -10993,7 +10986,7 @@ async function setField(output, name, field2, value, options = {}) {
   if (field2 === "phase" && !options.internal) {
     output.stderr.push(
       yellow4("WARNING: Setting 'phase' directly bypasses state machine constraints."),
-      yellow4("  Consider using: comet-state.sh transition <change-name> <event>")
+      yellow4("  Consider using: comet-state.mjs transition <change-name> <event>")
     );
   }
   output.stderr.push(green4(`[SET] ${field2}=${value}`));
@@ -11467,31 +11460,31 @@ var classicStateCommand = async (args) => {
   try {
     const [subcommand, ...rest] = args;
     if (subcommand === "init") {
-      required(rest, 2, "Usage: comet-state.sh init <change-name> <workflow>");
+      required(rest, 2, "Usage: comet-state.mjs init <change-name> <workflow>");
       await init(output, rest[0], rest[1]);
     } else if (subcommand === "get") {
-      required(rest, 2, "Usage: comet-state.sh get <change-name> <field>");
+      required(rest, 2, "Usage: comet-state.mjs get <change-name> <field>");
       validateChangeName4(rest[0]);
       output.stdout.push(await readField3(rest[0], rest[1]));
     } else if (subcommand === "set") {
-      required(rest, 3, "Usage: comet-state.sh set <change-name> <field> <value>");
+      required(rest, 3, "Usage: comet-state.mjs set <change-name> <field> <value>");
       validateChangeName4(rest[0]);
       await setField(output, rest[0], rest[1], rest[2]);
     } else if (subcommand === "transition") {
-      required(rest, 2, "Usage: comet-state.sh transition <change-name> <event>");
+      required(rest, 2, "Usage: comet-state.mjs transition <change-name> <event>");
       await transition(output, rest[0], rest[1]);
     } else if (subcommand === "check") {
-      required(rest, 2, "Usage: comet-state.sh check <change-name> <phase> [--recover]");
+      required(rest, 2, "Usage: comet-state.mjs check <change-name> <phase> [--recover]");
       if (rest[2] === "--recover") await recover(output, rest[0]);
       else await check2(output, rest[0], rest[1]);
     } else if (subcommand === "scale") {
-      required(rest, 1, "Usage: comet-state.sh scale <change-name>");
+      required(rest, 1, "Usage: comet-state.mjs scale <change-name>");
       await scale(output, rest[0]);
     } else if (subcommand === "task-checkoff") {
-      required(rest, 2, "Usage: comet-state.sh task-checkoff <file> <task-text>");
+      required(rest, 2, "Usage: comet-state.mjs task-checkoff <file> <task-text>");
       await taskCheckoff(output, rest[0], rest[1]);
     } else if (subcommand === "next") {
-      required(rest, 1, "Usage: comet-state.sh next <change-name>");
+      required(rest, 1, "Usage: comet-state.mjs next <change-name>");
       await next(output, rest[0]);
     } else {
       fail2(`Unknown subcommand: ${subcommand ?? ""}`);

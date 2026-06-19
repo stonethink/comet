@@ -68,4 +68,4 @@ archived: false
 - full workflow 离开 build 阶段前 `review_mode` 必须已选择为 `off`、`standard` 或 `thorough`
 - `build_mode: direct` 默认只允许 `hotfix` / `tweak`；full workflow 需要 `direct_override: true`
 - `build_pause` 不是执行方式，不得写入 `build_mode`
-- 这些约束同时存在于 `comet-guard.sh build --apply` 和 `comet-state.sh transition <name> build-complete`
+- 这些约束同时存在于 `comet-guard.mjs build --apply` 和 `comet-state.mjs transition <name> build-complete`

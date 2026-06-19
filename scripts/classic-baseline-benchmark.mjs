@@ -25,7 +25,13 @@ function run(cwd, args, options = {}) {
 }
 
 function state(cwd, ...args) {
-  return run(cwd, ['state', ...args]);
+  const options = {};
+  if (args[0] === 'set' && args[2] === 'phase') {
+    // Direct phase writes are blocked; the force hatch seeds a phase for the
+    // benchmark scenarios.
+    options.env = { ...process.env, COMET_FORCE_PHASE: '1' };
+  }
+  return run(cwd, ['state', ...args], options);
 }
 
 async function readState(changeDir) {
@@ -132,11 +138,11 @@ async function handoffResumeScenario(workspace) {
   const startedAt = Date.now();
   const directory = await resetScenario(workspace, name);
   state(directory, 'init', name, 'full');
-  state(directory, 'transition', name, 'open-complete');
   const changeDir = path.join(directory, 'openspec', 'changes', name);
   await fs.writeFile(path.join(changeDir, 'proposal.md'), 'proposal\n');
   await fs.writeFile(path.join(changeDir, 'design.md'), 'design\n');
   await fs.writeFile(path.join(changeDir, 'tasks.md'), '- [ ] task\n');
+  state(directory, 'transition', name, 'open-complete');
 
   const first = run(directory, ['handoff', name, 'design', '--write']);
   const initial = await readState(changeDir);
@@ -289,7 +295,10 @@ async function malformedScenario(workspace) {
     startedAt,
     {
       transitionAccuracy: first.status === 2 && second.status === 2,
-      migrationSuccess: first.stderr.includes('unknown_root_field'),
+      // The reader is lenient about unknown fields (it falls back to the legacy
+      // summary rather than crashing); success here is that the malformed state
+      // is NOT silently migrated into a Classic Run.
+      migrationSuccess: !after.includes('classic_migration:') && before === after,
       idempotent: before === middle && middle === after,
       contractMatch: !before.includes('classic_migration:'),
     },

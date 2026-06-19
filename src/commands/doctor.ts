@@ -147,12 +147,12 @@ async function checkScriptsPresent(): Promise<CheckResult> {
   }
 
   const entries = await readDir(scriptsDir);
-  const shFiles = entries.filter((e) => e.endsWith('.sh'));
+  const scriptFiles = entries.filter((e) => e.endsWith('.mjs'));
 
   return {
-    check: 'scripts executable',
+    check: 'scripts present',
     status: 'pass',
-    message: `OK (${shFiles.length} scripts)`,
+    message: `OK (${scriptFiles.length} scripts)`,
   };
 }
 

@@ -65,4 +65,4 @@ archived: false
 - Full workflow must select `tdd_mode` as `tdd` or `direct` before leaving build
 - `build_mode: direct` defaults to `hotfix`/`tweak` only; full workflow requires `direct_override: true`
 - `build_pause` is not an execution mode; must not be written to `build_mode`
-- These constraints exist in both `comet-guard.sh build --apply` and `comet-state.sh transition <name> build-complete`
+- These constraints exist in both `comet-guard.mjs build --apply` and `comet-state.mjs transition <name> build-complete`

@@ -13,13 +13,13 @@
     "comet-any/SKILL.md",
     "comet-any/reference/bundle-authoring.md",
     "comet-any/reference/eval-provider.md",
-    "comet/scripts/comet-env.sh",
-    "comet/scripts/comet-guard.sh",
-    "comet/scripts/comet-state.sh",
-    "comet/scripts/comet-handoff.sh",
-    "comet/scripts/comet-archive.sh",
-    "comet/scripts/comet-yaml-validate.sh",
-    "comet/scripts/comet-hook-guard.sh",
+    "comet/scripts/comet-env.mjs",
+    "comet/scripts/comet-guard.mjs",
+    "comet/scripts/comet-state.mjs",
+    "comet/scripts/comet-handoff.mjs",
+    "comet/scripts/comet-archive.mjs",
+    "comet/scripts/comet-yaml-validate.mjs",
+    "comet/scripts/comet-hook-guard.mjs",
     "comet/scripts/comet-runtime.mjs",
     "comet-open/SKILL.md",
     "comet-design/SKILL.md",
@@ -39,7 +39,7 @@
     "comet/rules/comet-phase-guard.md"
   ],
   "hooks": {
-    "comet/scripts/comet-hook-guard.sh": {
+    "comet/scripts/comet-hook-guard.mjs": {
       "matcher": "Write|Edit",
       "description": "Block code writes in wrong Comet phase (open/design/archive)"
     }
