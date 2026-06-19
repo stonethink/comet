@@ -26,8 +26,8 @@ from scaffold.python.treatments import build_treatment_skills, load_treatments
 from scaffold.python.validation import run_validators
 
 # Timeouts
-CLAUDE_TIMEOUT = 600  # 10 minutes for Claude to complete task
-PYTEST_TIMEOUT = 900  # 15 minutes total including setup/teardown
+CLAUDE_TIMEOUT = 1500  # 25 minutes for Claude to complete task (multi-turn loop)
+PYTEST_TIMEOUT = 1800  # 30 minutes total including setup/teardown
 
 
 # =============================================================================
@@ -142,6 +142,16 @@ def test_task_treatment(task_name, treatment_name):
     }
 
     passed, failed = run_validators(validators, fixtures.test_dir, outputs)
+
+    # Rubric scoring: feed the baseline validator outcome as the "completion"
+    # dimension input, then append the eight [RUBRIC] messages as informational
+    # checks (they never produce hard failures).
+    from scaffold.python.validation.rubric import comet_rubric_validator
+
+    rubric_outputs = dict(outputs)
+    rubric_outputs["completion"] = {"passed": passed, "failed": failed}
+    rubric_passed, _ = comet_rubric_validator(fixtures.test_dir, rubric_outputs)
+    passed = passed + rubric_passed
 
     fixtures.record_result(events, passed, failed, run_id=run_id)
 

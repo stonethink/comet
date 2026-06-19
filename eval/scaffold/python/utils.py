@@ -12,8 +12,53 @@ load_dotenv(get_suite_root() / ".env", override=True)
 SHELL_DIR = Path(__file__).parent.parent / "shell"
 SCAFFOLD_PYTHON_DIR = Path(__file__).parent
 
+def _resolve_bash() -> str:
+    """Resolve a reliable bash executable for running MSYS shell scripts.
+
+    On Windows, ``subprocess.run(['bash', ...])`` may resolve ``bash`` via
+    CreateProcess's PATH search to WSL's ``C:\\Windows\\System32\\bash.exe``,
+    which cannot run MSYS scripts (it uses ``/mnt/d`` paths). ``shutil.which``
+    honours the Python/MSYS PATH ordering and returns the git-bash binary
+    first, and passing that full path to subprocess bypasses the ambiguous
+    bare-name lookup. Prefer an explicit ``GIT_BASH`` env var when set.
+    """
+    import shutil
+
+    if os.name != "nt":
+        return "bash"
+
+    env_bash = os.environ.get("GIT_BASH")
+    if env_bash and os.path.isfile(env_bash):
+        return env_bash
+
+    resolved = shutil.which("bash")
+    if resolved and os.path.isfile(resolved):
+        return resolved
+
+    return "bash"
+
+
+BASH_EXEC = _resolve_bash()
+
+
+def _to_bash_path(value) -> str:
+    """Normalise a path argument for git-bash (MSYS) on Windows.
+
+    MSYS bash only resolves script paths in POSIX form (``/d/...``). Windows
+    backslash paths get their separators eaten as escapes, and ``D:/...``
+    drive-letter form is rejected when passed as argv (no shell parsing).
+    Convert ``D:\\foo\\bar`` -> ``/d/foo/bar``. On non-Windows, pass through.
+    """
+    s = str(value)
+    if os.name == "nt":
+        s = s.replace("\\", "/")
+        if len(s) >= 2 and s[1] == ":" and s[0].isalpha():
+            s = "/" + s[0].lower() + s[2:]
+    return s
+
+
 def run_shell(script, *args, timeout=None, check=True):
-    cmd = ["bash", str(SHELL_DIR / script)] + [str(a) for a in args]
+    cmd = [BASH_EXEC, _to_bash_path(SHELL_DIR / script)] + [_to_bash_path(a) for a in args]
     return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=check, env=os.environ.copy())
 
 def check_docker_available():

@@ -241,6 +241,70 @@ def _checks_single(r) -> str:
     return f"{passed}/{total} ({pct:.0f}%)"
 
 
+# Rubric score extraction — parses ``[RUBRIC] dim: score - reason`` messages.
+_RUBRIC_RE = re.compile(r"\[RUBRIC\]\s+(\S+):\s*([0-9.]+)")
+
+
+def _rubric_scores(result: TreatmentResult) -> dict[str, float]:
+    """Extract per-dimension rubric scores from a run's passed checks."""
+    scores: dict[str, float] = {}
+    for check in result.checks_passed:
+        m = _RUBRIC_RE.search(check)
+        if m:
+            try:
+                scores[m.group(1)] = float(m.group(2))
+            except ValueError:
+                continue
+    return scores
+
+
+def rubric_column(dim: str) -> ReportColumn:
+    """Column showing the score (0.00-1.00) for one rubric dimension."""
+
+    def extract(r: TreatmentResult) -> str:
+        scores = _rubric_scores(r)
+        return f"{scores.get(dim, 0):.2f}" if dim in scores else "N/A"
+
+    def aggregate(runs: list[TreatmentResult]) -> str:
+        vals = [_rubric_scores(r).get(dim) for r in runs]
+        vals = [v for v in vals if v is not None]
+        if not vals:
+            return "N/A"
+        return f"{sum(vals) / len(vals):.2f}"
+
+    return ReportColumn(name=dim, extract=extract, aggregate=aggregate)
+
+
+def rubric_total_column() -> ReportColumn:
+    """Column showing the mean across all eight rubric dimensions."""
+
+    def total(scores: dict[str, float]) -> float | None:
+        if not scores:
+            return None
+        return sum(scores.values()) / len(scores)
+
+    def extract(r: TreatmentResult) -> str:
+        t = total(_rubric_scores(r))
+        return f"{t:.2f}" if t is not None else "N/A"
+
+    def aggregate(runs: list[TreatmentResult]) -> str:
+        per_run = [total(_rubric_scores(r)) for r in runs]
+        per_run = [t for t in per_run if t is not None]
+        if not per_run:
+            return "N/A"
+        return f"{sum(per_run) / len(per_run):.2f}"
+
+    return ReportColumn(name="RubricAvg", extract=extract, aggregate=aggregate)
+
+
+def rubric_columns() -> list[ReportColumn]:
+    """All eight rubric dimension columns plus the aggregate."""
+    from scaffold.python.validation.rubric import RUBRIC_DIMENSIONS
+
+    cols = [rubric_column(dim) for dim in RUBRIC_DIMENSIONS]
+    cols.append(rubric_total_column())
+    return cols
+
 def _checks_aggregate(runs: list) -> str:
     """Aggregate checks passed across runs."""
     total_passed = sum(len(r.checks_passed) for r in runs)
@@ -299,7 +363,7 @@ class ExperimentLogger:
         for d in [self.events_dir, self.reports_dir, self.raw_dir]:
             d.mkdir(parents=True, exist_ok=True)
 
-        self.columns = columns or []
+        self.columns = list(columns) if columns else rubric_columns()
         self.results: dict[str, list[TreatmentResult]] = {}
         self.metadata: dict[str, Any] = {
             "experiment_id": self.experiment_id,

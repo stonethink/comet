@@ -2,23 +2,49 @@ FROM python:3.12-slim
 
 WORKDIR /workspace
 
-# Install basic tools
+# Runtime tools for both comet baselines:
+# - bash: 0.3.9 classic shell scripts (bash 4+ arrays, [[ ]]; python:3.12-slim ships only dash)
+# - nodejs npm: v3 comet (.mjs launchers + comet-runtime.mjs) and OpenSpec CLI
+# - git curl jq: comet scripts and state inspection
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git curl jq && \
+    bash git curl jq ca-certificates \
+    nodejs npm && \
     rm -rf /var/lib/apt/lists/*
 
-# Install openspec CLI (mock - we just need the workflow structure)
 RUN pip install --no-cache-dir pyyaml
 
-# Create a sample project structure
+# OpenSpec CLI (comet drives openspec new/list/status/archive).
+# Use npmmirror for reproducible builds behind GFW.
+RUN npm config set registry https://registry.npmmirror.com && \
+    npm install -g @fission-ai/openspec@1.3.1 && \
+    npm config delete registry
+
+# Claude Code CLI (the agent runtime; version overridable via BENCH_CC_VERSION).
+ARG CLAUDE_CODE_VERSION=latest
+RUN npm config set registry https://registry.npmmirror.com && \
+    npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} && \
+    npm config delete registry
+
+# Sample project structure
 RUN mkdir -p wordcount-cli && \
     echo '# Word Count CLI\nA simple word counting tool.' > wordcount-cli/README.md
 
-# Copy the existing wordcount code
-COPY environment/wordcount.py /workspace/wordcount.py
-COPY environment/test_wordcount.py /workspace/test_wordcount.py
+# Existing wordcount code (extended during the task)
+COPY wordcount.py /workspace/wordcount.py
+COPY test_wordcount.py /workspace/test_wordcount.py
 
-# Create openspec directory structure
+# OpenSpec working tree (comet-open writes under openspec/changes/)
 RUN mkdir -p openspec/changes
+
+# Create a non-root user: claude --dangerously-skip-permissions refuses to run
+# as root, and most comet scripts also expect a normal HOME for git config etc.
+RUN useradd --create-home --shell /bin/bash agent && \
+    chown -R agent:agent /workspace
+USER agent
+ENV HOME=/home/agent
+# Minimal git identity so comet commits don't fail.
+RUN git config --global user.email "agent@eval.local" && \
+    git config --global user.name "Comet Eval Agent" && \
+    git config --global init.defaultBranch master
 
 CMD ["bash"]

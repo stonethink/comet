@@ -306,8 +306,8 @@ def verify_environment(project_root, request):
     if result.returncode != 0:
         pytest.skip("Docker not available")
 
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        pytest.skip("ANTHROPIC_API_KEY not set")
+    if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
+        pytest.skip("ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN not set")
 
     if shutil.which("claude") is None:
         pytest.skip("Claude CLI not available")
@@ -411,13 +411,27 @@ def setup_test_context(test_dir):
 
 @pytest.fixture
 def run_claude(test_dir, experiment_logger, request):
-    """Factory fixture to run Claude in Docker and capture artifacts."""
+    """Factory fixture to run Claude in Docker and capture artifacts.
+
+    For comet-category tasks the single-shot ``run-claude`` is replaced by the
+    multi-turn ``run-claude-loop`` driver, which simulates a user replying at
+    the workflow's decision points so the full open→archive flow can complete.
+    """
     default_model = os.environ.get("BENCH_CC_MODEL")
+    # Detect comet tasks by node id (parametrised task name contains "comet").
+    node_id = getattr(request, "node", None).nodeid if hasattr(request, "node") else ""
+    use_loop = "comet" in node_id.lower()
+    max_turns = os.environ.get("BENCH_LOOP_MAX_TURNS", "12")
 
     def _run(prompt: str, timeout: int = 600, model: str = None):
-        result = run_claude_in_docker(
-            test_dir, prompt, timeout=timeout, model=model or default_model
-        )
+        mdl = model or default_model
+        if use_loop:
+            loop_args = ["run-claude-loop", test_dir, prompt, "--max-turns", str(max_turns)]
+            if mdl:
+                loop_args += ["--model", mdl]
+            result = run_shell("docker.sh", *loop_args, timeout=timeout + 60, check=False)
+        else:
+            result = run_claude_in_docker(test_dir, prompt, timeout=timeout, model=mdl)
 
         if experiment_logger and hasattr(request, "node"):
             treatment_name = _get_treatment_name(request.node)

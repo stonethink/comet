@@ -160,16 +160,23 @@ copy_environment() {
         return 1
     fi
 
-    # Copy all files from environment directory
+    # Merge (rsync-like) instead of clobber: copy each top-level item, and for
+    # directories that already exist in test_dir (e.g. .claude/, openspec/),
+    # merge contents recursively so injected skills/commands are preserved.
     for item in "$env_dir"/*; do
-        if [[ -e "$item" ]]; then
-            local name
-            name=$(basename "$item")
-            cp -r "$item" "$test_dir/$name"
+        [[ -e "$item" ]] || continue
+        local name
+        name=$(basename "$item")
+        local dest="$test_dir/$name"
+        if [[ -d "$item" && -d "$dest" ]]; then
+            # Both dirs: copy contents into existing dest (merge).
+            cp -r "$item"/. "$dest"/ 2>/dev/null || cp -r "$item"/* "$dest"/ 2>/dev/null || true
+        else
+            cp -r "$item" "$dest"
         fi
     done
 
-    log_success "Copied environment from $(basename "$env_dir")/"
+    log_success "Copied environment from $(basename "$env_dir")/ (merged)"
 }
 
 # =============================================================================

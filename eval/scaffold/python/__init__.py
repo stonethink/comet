@@ -33,10 +33,13 @@ from .utils import (
 )
 from .validation import (
     ValidatorFn,
+    check_code_execution,
     check_file_exists,
     check_no_pattern,
     check_pattern,
+    check_python_execution,
     check_skill_invoked,
+    check_typescript_execution,
     compose_validators,
     run_validators,
 )
@@ -44,6 +47,7 @@ from .validation import (
 __all__ = [
     "NoiseTask", "Treatment", "ValidatorFn", "compose_validators", "run_validators",
     "check_file_exists", "check_pattern", "check_no_pattern", "check_skill_invoked",
+    "check_code_execution", "check_python_execution", "check_typescript_execution",
     "run_shell", "check_docker_available", "check_claude_available", "build_docker_image",
     "run_python_in_docker", "make_execution_validator", "run_eval_in_docker",
     "run_node_in_docker", "run_claude_in_docker", "retry_with_backoff", "read_json_file",

@@ -11,8 +11,29 @@
 
 set -euo pipefail
 
+# Docker on Windows runs as a native binary needing Windows-style host paths,
+# but git-bash (MSYS) rewrites POSIX-looking args. We want:
+#   - host paths (build context, volume source) in Windows form (C:\ or C:/)
+#   - container-internal paths (-w /workspace, image refs) left as POSIX
+# MSYS_NO_PATHCONV=1 stops ALL conversion, which breaks host paths. Instead we
+# disable the leading-slash heuristic only for args that are container paths,
+# by prefixing them with a double slash (//workspace) which MSYS leaves alone
+# and docker treats as /workspace. The host paths we pass are already normalised
+# to forward-slash drive form by the Python layer (_to_bash_path).
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
+
+# Normalise a host path to Windows drive form for docker.exe on Windows.
+# git-bash may hand us /d/... which docker.exe (a native binary) cannot resolve.
+# cygpath -w converts reliably when available; otherwise leave as-is on unix.
+_winpath() {
+    local p="$1"
+    if command -v cygpath &> /dev/null; then
+        cygpath -w "$p"
+    else
+        printf '%s' "$p"
+    fi
+}
 
 # Image prefix for all benchmark images
 IMAGE_PREFIX="skillbench"
@@ -49,6 +70,17 @@ ENV_KEYS=(
     # Eval trace context (nest LLM calls in test scripts under eval span)
     BENCH_EVAL_LANGSMITH_TRACE
     BENCH_EVAL_BAGGAGE
+    # Claude Code via Anthropic-compatible proxy (BigModel / mimo / OpenRouter etc.)
+    # When ANTHROPIC_API_KEY is unset, claude authenticates with these instead.
+    ANTHROPIC_AUTH_TOKEN
+    ANTHROPIC_BASE_URL
+    ANTHROPIC_MODEL
+    ANTHROPIC_DEFAULT_HAIKU_MODEL
+    ANTHROPIC_DEFAULT_SONNET_MODEL
+    ANTHROPIC_DEFAULT_OPUS_MODEL
+    ANTHROPIC_DEFAULT_OPUS_MODEL_NAME
+    ANTHROPIC_DEFAULT_SONNET_MODEL_NAME
+    CLAUDE_CODE_SUBAGENT_MODEL
 )
 
 # =============================================================================
@@ -143,9 +175,12 @@ docker_build() {
     fi
 
     # Build image (pass Claude Code version as build arg)
+    local windir windockerfile
+    windir=$(_winpath "$dir")
+    windockerfile=$(_winpath "$dockerfile")
     if docker build -t "$image_name" \
         --build-arg CLAUDE_CODE_VERSION="$CLAUDE_CODE_VERSION" \
-        -f "$dockerfile" "$dir" >&2; then
+        -f "$windockerfile" "$windir" >&2; then
         echo "$image_name"
         return 0
     else
@@ -181,10 +216,13 @@ docker_run() {
 
     build_env_args
 
+    local windir
+    windir=$(_winpath "$dir")
+
     docker run --rm \
-        -v "$dir:/workspace" \
-        -w /workspace \
-        -e PYTHONPATH=/workspace \
+        -v "$windir://workspace" \
+        -w //workspace \
+        -e PYTHONPATH=//workspace \
         "${ENV_ARGS[@]}" \
         "$image_name" \
         "${cmd[@]}"
@@ -257,21 +295,52 @@ docker_run_claude() {
         cmd+=(--model "$model")
     fi
 
+    local windir
+    windir=$(_winpath "$dir")
+
     if [[ -n "$TIMEOUT_CMD" ]]; then
         $TIMEOUT_CMD "$timeout" docker run --rm \
-            -v "$dir:/workspace" \
-            -w /workspace \
+            -v "$windir://workspace" \
+            -w //workspace \
             "${ENV_ARGS[@]}" \
             "$image_name" \
             "${cmd[@]}"
     else
         docker run --rm \
-            -v "$dir:/workspace" \
-            -w /workspace \
+            -v "$windir://workspace" \
+            -w //workspace \
             "${ENV_ARGS[@]}" \
             "$image_name" \
             "${cmd[@]}"
     fi
+}
+
+# Run the multi-turn interactive claude driver in Docker.
+# Usage: docker_run_claude_loop <directory> <prompt> [--max-turns N] [--model MODEL]
+# Mounts the scaffold shell dir so run-claude-loop.sh is available inside.
+docker_run_claude_loop() {
+    local dir="$1"
+    local prompt="$2"
+    shift 2
+
+    local image_name
+    image_name=$(docker_build "$dir") || return 1
+
+    build_env_args
+
+    local windir shell_dir
+    windir=$(_winpath "$dir")
+    shell_dir=$(_winpath "$SCRIPT_DIR")
+
+    # Mount the scaffold shell scripts read-only so the loop driver is available
+    # at /opt/scaffold-shell/ inside the container.
+    docker run --rm \
+        -v "$windir://workspace" \
+        -v "$shell_dir://opt/scaffold-shell:ro" \
+        -w //workspace \
+        "${ENV_ARGS[@]}" \
+        "$image_name" \
+        bash //opt/scaffold-shell/run-claude-loop.sh "$prompt" "$@"
 }
 
 # =============================================================================
@@ -332,6 +401,15 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
         fi
         shift 2
         docker_run_claude "$(realpath "$dir")" "$prompt" "$@"
+        ;;
+    run-claude-loop)
+        dir="${1:-}"
+        prompt="${2:-}"
+        if [[ -z "$dir" || -z "$prompt" ]]; then
+            die "Usage: $0 run-claude-loop <directory> <prompt> [--max-turns N] [--model MODEL]"
+        fi
+        shift 2
+        docker_run_claude_loop "$(realpath "$dir")" "$prompt" "$@"
         ;;
     help|*)
         cat <<EOF

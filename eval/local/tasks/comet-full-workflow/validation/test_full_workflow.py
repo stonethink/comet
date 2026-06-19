@@ -23,29 +23,38 @@ def failed(name: str, reason: str):
 
 
 def check_openspec_artifacts():
-    """Check that OpenSpec artifacts were created (proposal, design, tasks)."""
+    """Check that OpenSpec artifacts were created (proposal, design, tasks).
+
+    Looks for a change directory either directly under openspec/changes/ (active)
+    or under openspec/changes/archive/ (archived). Accepts the first change dir
+    that actually contains proposal.md + tasks.md.
+    """
     changes_dir = WORKSPACE / "openspec" / "changes"
     if not changes_dir.exists():
         return failed("openspec_artifacts", "openspec/changes/ directory not found")
 
-    # Look for any change directory
-    change_dirs = [d for d in changes_dir.iterdir() if d.is_dir()]
-    if not change_dirs:
+    # Candidate change dirs: direct children of openspec/changes/ (excluding the
+    # archive/ container itself) plus children of openspec/changes/archive/.
+    candidates = []
+    for d in changes_dir.iterdir():
+        if not d.is_dir():
+            continue
+        if d.name == "archive":
+            for sub in d.iterdir():
+                if sub.is_dir():
+                    candidates.append(sub)
+        else:
+            candidates.append(d)
+
+    if not candidates:
         return failed("openspec_artifacts", "No change directories found in openspec/changes/")
 
-    change_dir = change_dirs[0]
+    for change_dir in candidates:
+        if (change_dir / "proposal.md").exists() and (change_dir / "tasks.md").exists():
+            return passed("openspec_artifacts")
 
-    # Check for proposal.md
-    proposal = change_dir / "proposal.md"
-    if not proposal.exists():
-        return failed("openspec_artifacts", f"proposal.md not found in {change_dir}")
-
-    # Check for tasks.md
-    tasks = change_dir / "tasks.md"
-    if not tasks.exists():
-        return failed("openspec_artifacts", f"tasks.md not found in {change_dir}")
-
-    return passed("openspec_artifacts")
+    first = candidates[0]
+    return failed("openspec_artifacts", f"proposal.md/tasks.md not found together in any change dir (checked {len(candidates)}; e.g. {first})")
 
 
 def check_sentence_feature():
