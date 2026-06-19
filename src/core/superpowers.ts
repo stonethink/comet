@@ -37,12 +37,16 @@ const SKILLS_AGENT_MAP: Record<string, string | null> = {
   bob: 'bob',
   forgecode: 'forgecode',
   trae: 'trae',
+  // zcode is not a skills CLI agent; Superpowers are installed via the
+  // claude-code staging flow (see installSuperpowersForZCode).
+  zcode: null,
 };
 
 const VALID_PLATFORM_IDS = new Set(Object.keys(SKILLS_AGENT_MAP));
 const SUPERPOWERS_INSTALL_TIMEOUT_MS = 300_000;
 const LINGMA_PLATFORM_ID = 'lingma';
-const LINGMA_STAGE_AGENT = 'claude-code';
+const ZCODE_PLATFORM_ID = 'zcode';
+const STAGE_AGENT = 'claude-code';
 
 function buildSuperpowersInstallCommand(
   _projectPath: string,
@@ -77,7 +81,14 @@ function buildSuperpowersInstallCommand(
 function buildLingmaSuperpowersStageCommand(): { command: string; args: string[] } {
   return {
     command: getNpxExecutable(),
-    args: ['skills', 'add', 'obra/superpowers', '-y', '--agent', LINGMA_STAGE_AGENT],
+    args: ['skills', 'add', 'obra/superpowers', '-y', '--agent', STAGE_AGENT],
+  };
+}
+
+function buildZCodeSuperpowersStageCommand(): { command: string; args: string[] } {
+  return {
+    command: getNpxExecutable(),
+    args: ['skills', 'add', 'obra/superpowers', '-y', '--agent', STAGE_AGENT],
   };
 }
 
@@ -101,15 +112,48 @@ async function installSuperpowersForLingma(
   projectPath: string,
   scope: InstallScope,
 ): Promise<'installed' | 'failed'> {
-  const lingmaPlatform = PLATFORMS.find((platform) => platform.id === LINGMA_PLATFORM_ID);
-  if (!lingmaPlatform) {
-    console.error('    Superpowers install failed: Lingma platform is not registered');
+  return stageAndCopySuperpowers(
+    LINGMA_PLATFORM_ID,
+    buildLingmaSuperpowersStageCommand(),
+    projectPath,
+    scope,
+    'Lingma',
+  );
+}
+
+async function installSuperpowersForZCode(
+  projectPath: string,
+  scope: InstallScope,
+): Promise<'installed' | 'failed'> {
+  return stageAndCopySuperpowers(
+    ZCODE_PLATFORM_ID,
+    buildZCodeSuperpowersStageCommand(),
+    projectPath,
+    scope,
+    'ZCode',
+  );
+}
+
+/**
+ * Shared staging flow for platforms whose agent is not supported by the skills CLI
+ * (e.g. Lingma, ZCode). Superpowers are staged into a temp dir via the claude-code
+ * agent and then copied into the target platform's skills directory.
+ */
+async function stageAndCopySuperpowers(
+  platformId: string,
+  stageCommand: { command: string; args: string[] },
+  projectPath: string,
+  scope: InstallScope,
+  label: string,
+): Promise<'installed' | 'failed'> {
+  const platform = PLATFORMS.find((p) => p.id === platformId);
+  if (!platform) {
+    console.error(`    Superpowers install failed: ${label} platform is not registered`);
     return 'failed';
   }
 
-  const tempDir = await mkdtemp(path.join(os.tmpdir(), 'comet-lingma-superpowers-'));
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), `comet-${platformId}-superpowers-`));
   try {
-    const stageCommand = buildLingmaSuperpowersStageCommand();
     execFileSync(stageCommand.command, stageCommand.args, {
       cwd: tempDir,
       stdio: 'inherit',
@@ -119,15 +163,11 @@ async function installSuperpowersForLingma(
 
     const stagedSkillsDir = path.join(tempDir, '.claude', 'skills');
     const baseDir = scope === 'global' ? os.homedir() : projectPath;
-    const lingmaSkillsDir = path.join(
-      baseDir,
-      getPlatformSkillsDir(lingmaPlatform, scope),
-      'skills',
-    );
-    await copyDirectoryContents(stagedSkillsDir, lingmaSkillsDir);
+    const platformSkillsDir = path.join(baseDir, getPlatformSkillsDir(platform, scope), 'skills');
+    await copyDirectoryContents(stagedSkillsDir, platformSkillsDir);
     return 'installed';
   } catch (error) {
-    console.error(`    Lingma Superpowers install failed: ${(error as Error).message}`);
+    console.error(`    ${label} Superpowers install failed: ${(error as Error).message}`);
     printCommandErrorDetails(error);
     return 'failed';
   } finally {
@@ -152,6 +192,7 @@ async function installSuperpowersForPlatforms(
 
   const skillsCliPlatformIds = platformIds.filter((id) => SKILLS_AGENT_MAP[id]);
   const shouldInstallLingma = platformIds.includes(LINGMA_PLATFORM_ID);
+  const shouldInstallZCode = platformIds.includes(ZCODE_PLATFORM_ID);
   let failed = false;
 
   if (skillsCliPlatformIds.length > 0) {
@@ -176,6 +217,11 @@ async function installSuperpowersForPlatforms(
     if (lingmaStatus === 'failed') failed = true;
   }
 
+  if (shouldInstallZCode) {
+    const zcodeStatus = await installSuperpowersForZCode(projectPath, scope);
+    if (zcodeStatus === 'failed') failed = true;
+  }
+
   return failed ? 'failed' : 'installed';
 }
 
@@ -183,5 +229,6 @@ export {
   installSuperpowersForPlatforms,
   buildSuperpowersInstallCommand,
   buildLingmaSuperpowersStageCommand,
+  buildZCodeSuperpowersStageCommand,
   SKILLS_AGENT_MAP,
 };

@@ -16,6 +16,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Bundle lifecycle CLI**: Adds the `comet bundle` command group for candidate discovery, draft create/optimize, status, platform compile dry-runs, Eval planning and evidence recording, review approval/rejection, publishing, and ready Bundle distribution with stable JSON output for automation. Includes command-level and built-CLI tests for the full lifecycle.
 - **`/comet-any` Bundle creator**: Adds bilingual `/comet-any` guidance for creating or optimizing platform-independent multi-Skill Bundles, including candidate implementation reads, native `skill-creator` preference with authorized fallback, optional Engine metadata, Eval token choices, human review gates, capability-gap decisions, executable confirmation, and project/global distribution. Includes bilingual parity and deterministic Bundle CLI tests.
 - **Comet Skill Eval harness**: Adds a minimal Python benchmark harness under `eval/` for comparing the Comet workflow against a control treatment on full workflow, hotfix, and phase-resume tasks. Includes scaffold tests for task loading, treatment loading, and task index stability.
+- **ZCode 平台支持**: `comet init` 新增 ZCode 平台选项，将 Comet skills 和 rules 安装到项目级 `.zcode/skills/` 或全局 `~/.zcode/skills/`。ZCode 基于 OpenCode，OpenSpec 通过 `opencode` tool id 安装后镜像到 `.zcode/`，Superpowers 通过 `claude-code` staging 模式安装。同时新增通用 staging 函数供 Lingma/ZCode 复用 ([#122](https://github.com/rpamis/comet/issues/122))。
 
 ### Changed
 

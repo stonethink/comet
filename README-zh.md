@@ -273,7 +273,7 @@ skip 或失败 Eval 会阻止 ready；分发前必须再次询问用户。requir
 
 ## 支持平台
 
-`comet init` 支持 29 个 AI 编码平台：
+`comet init` 支持 30 个 AI 编码平台：
 
 <details>
 <summary>查看完整平台列表</summary>
@@ -294,12 +294,13 @@ skip 或失败 Eval 会阻止 ready；分发前必须再次询问用户。requir
 | iFlow              | `.iflow/`    | Pi         | `.pi/`        |
 | Qoder              | `.qoder/`    | Antigravity | `.agents/`   |
 | Bob Shell          | `.bob/`      | ForgeCode  | `.forge/`     |
-| Trae               | `.trae/`     |            |               |
+| Trae               | `.trae/`     | ZCode      | `.zcode/`     |
 
 </details>
 
 部分平台的项目级目录和全局目录不同。例如 OpenCode 全局安装使用 `.config/opencode`，Lingma 全局安装使用 `.lingma`
-，Antigravity 全局安装使用 `.gemini/antigravity`。
+，Antigravity 全局安装使用 `.gemini/antigravity`。ZCode 基于 OpenCode，从 `.zcode/` 读取 skills；安装时会将
+OpenSpec 的输出从 `.opencode/` 镜像到 `.zcode/`。
 
 ## 技能
 

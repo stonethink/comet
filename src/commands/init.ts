@@ -378,6 +378,13 @@ export async function initCommand(targetPath: string, options: InitOptions = {})
 
   const spPlatformIds = plans.filter((p) => p.spAction !== 'skip').map((p) => p.platform.id);
 
+  // zcode reuses the opencode openspec tool id; pass a flag so installOpenSpec
+  // mirrors the opencode output into .zcode/ as well.
+  const selectedPlatformIdsForOs = plans
+    .filter((p) => p.osAction !== 'skip')
+    .map((p) => p.platform.id);
+  const migrateZCode = selectedPlatformIdsForOs.includes('zcode');
+
   const selectedNpmDeps = await selectNpmDeps(projectPath, spPlatformIds, options, lang);
   const shouldInstallOpenSpecCli = selectedNpmDeps.has('openspec');
   const shouldInstallSuperpowers = selectedNpmDeps.has('superpowers');
@@ -386,7 +393,13 @@ export async function initCommand(targetPath: string, options: InitOptions = {})
   let osGlobalStatus: InstallStatus = 'skipped';
   if (osToolIds.length > 0) {
     log(`\n  ${t(lang, 'installingOS')} ${osToolIds.join(', ')}`);
-    osGlobalStatus = await installOpenSpec(projectPath, osToolIds, scope, shouldInstallOpenSpecCli);
+    osGlobalStatus = await installOpenSpec(
+      projectPath,
+      osToolIds,
+      scope,
+      shouldInstallOpenSpecCli,
+      migrateZCode,
+    );
     if (osGlobalStatus === 'skipped' && !shouldInstallOpenSpecCli) {
       log(`  OpenSpec: ${t(lang, 'osSkippedNoCli')}`);
     } else {

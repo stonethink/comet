@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { execFileSync } from 'child_process';
+import { mkdirSync } from 'fs';
+import path from 'path';
+import os from 'os';
 
 vi.mock('child_process', () => ({
   execFileSync: vi.fn(),
@@ -59,9 +62,10 @@ describe('superpowers', () => {
       expect(SKILLS_AGENT_MAP['amazon-q']).toBe('universal');
       expect(SKILLS_AGENT_MAP['costrict']).toBe('universal');
       expect(SKILLS_AGENT_MAP['lingma']).toBeNull();
+      expect(SKILLS_AGENT_MAP['zcode']).toBeNull();
     });
 
-    it('has entries for all 29 platforms', async () => {
+    it('has entries for all 30 platforms', async () => {
       const { SKILLS_AGENT_MAP } = await import('../../src/core/superpowers.js');
       const platformIds = [
         'claude',
@@ -93,11 +97,12 @@ describe('superpowers', () => {
         'bob',
         'forgecode',
         'trae',
+        'zcode',
       ];
       for (const id of platformIds) {
         expect(SKILLS_AGENT_MAP).toHaveProperty(id);
       }
-      expect(Object.keys(SKILLS_AGENT_MAP)).toHaveLength(29);
+      expect(Object.keys(SKILLS_AGENT_MAP)).toHaveLength(30);
     });
   });
 
@@ -154,6 +159,43 @@ describe('superpowers', () => {
         command: process.platform === 'win32' ? 'npx.cmd' : 'npx',
         args: ['skills', 'add', 'obra/superpowers', '-y', '--agent', 'claude-code'],
       });
+    });
+
+    it('builds a staging command for ZCode so skills can be copied into .zcode', async () => {
+      const { buildZCodeSuperpowersStageCommand } = await import('../../src/core/superpowers.js');
+
+      expect(buildZCodeSuperpowersStageCommand()).toEqual({
+        command: process.platform === 'win32' ? 'npx.cmd' : 'npx',
+        args: ['skills', 'add', 'obra/superpowers', '-y', '--agent', 'claude-code'],
+      });
+    });
+
+    it('installs ZCode superpowers via the claude-code staging flow', async () => {
+      mockedExecFileSync.mockImplementation((command: unknown, args?: unknown, opts?: unknown) => {
+        const cmd = String(command);
+        const cmdArgs = Array.isArray(args) ? args.map((arg) => String(arg)) : [];
+        if (
+          (cmd === 'npx' || cmd === 'npx.cmd') &&
+          cmdArgs[0] === 'skills' &&
+          cmdArgs.includes('claude-code')
+        ) {
+          const cwd = (opts as { cwd?: string } | undefined)?.cwd ?? os.tmpdir();
+          const stagedSkillsDir = path.join(cwd, '.claude', 'skills', 'brainstorming');
+          mkdirSync(stagedSkillsDir, { recursive: true });
+          return Buffer.from('installed');
+        }
+        return Buffer.from('');
+      });
+
+      const { installSuperpowersForPlatforms } = await import('../../src/core/superpowers.js');
+      const result = await installSuperpowersForPlatforms('/tmp/test', 'project', ['zcode']);
+
+      expect(result).toBe('installed');
+      const stagingCall = mockedExecFileSync.mock.calls.find((call) => {
+        const cmdArgs = Array.isArray(call[1]) ? call[1].map((a) => String(a)) : [];
+        return cmdArgs.includes('claude-code') && cmdArgs.includes('obra/superpowers');
+      });
+      expect(stagingCall).toBeDefined();
     });
 
     it('passes -g flag for global scope', async () => {

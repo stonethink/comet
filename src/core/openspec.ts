@@ -2,7 +2,7 @@ import { execFileSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { PLATFORMS } from './platforms.js';
+import { PLATFORMS, getPlatformSkillsDir } from './platforms.js';
 import { printCommandErrorDetails } from './command-error.js';
 import { quoteArgsForShell } from './shell-quote.js';
 
@@ -199,44 +199,101 @@ function migrateOpenCodeOpenSpecPaths(homeDir: string): void {
   // OpenSpec hardcodes skillsDir as '.opencode' in its AI_TOOLS, so it writes
   // to ~/.opencode/ even for global installs. OpenCode actually reads from
   // ~/.config/opencode/ (Comet's globalSkillsDir). Move the files over.
-  const wrongDir = path.join(homeDir, opencodePlatform.skillsDir);
-  const correctDir = path.join(homeDir, opencodePlatform.globalSkillsDir);
+  migrateOpenSpecPaths(
+    path.join(homeDir, opencodePlatform.skillsDir),
+    path.join(homeDir, opencodePlatform.globalSkillsDir),
+  );
+}
 
+/**
+ * ZCode shares openspec's opencode tool id (openspec has no zcode entry), so
+ * openspec writes its skills/commands into the opencode directory. Copy them
+ * into the zcode directory so ZCode actually reads them. Uses copy (not move)
+ * so that a simultaneous opencode install keeps its files too.
+ */
+function migrateZCodeOpenSpecPaths(baseDir: string, scope: InstallScope): void {
+  const zcodePlatform = PLATFORMS.find((p) => p.id === 'zcode');
+  const opencodePlatform = PLATFORMS.find((p) => p.id === 'opencode');
+  if (!zcodePlatform || !opencodePlatform) return;
+
+  const srcDir = path.join(baseDir, opencodePlatform.skillsDir);
+  const destDir = path.join(baseDir, getPlatformSkillsDir(zcodePlatform, scope));
+  copyOpenSpecPaths(srcDir, destDir);
+}
+
+/**
+ * Move openspec skills/commands from srcDir to destDir (used by opencode whose
+ * global dir differs from where openspec writes).
+ */
+function migrateOpenSpecPaths(srcDir: string, destDir: string): void {
+  if (srcDir === destDir) return;
   const migrations: Array<[string, string, string]> = [
-    [path.join(wrongDir, 'skills'), path.join(correctDir, 'skills'), 'skills'],
-    [path.join(wrongDir, 'commands'), path.join(correctDir, 'commands'), 'commands'],
+    [path.join(srcDir, 'skills'), path.join(destDir, 'skills'), 'skills'],
+    [path.join(srcDir, 'commands'), path.join(destDir, 'commands'), 'commands'],
   ];
 
-  for (const [srcDir, destDir, label] of migrations) {
-    if (srcDir === destDir) continue;
-    if (!fs.existsSync(srcDir)) continue;
+  for (const [from, to, label] of migrations) {
+    if (from === to) continue;
+    if (!fs.existsSync(from)) continue;
     try {
-      const entries = fs.readdirSync(srcDir);
+      const entries = fs.readdirSync(from);
       if (entries.length === 0) continue;
 
-      fs.mkdirSync(destDir, { recursive: true });
+      fs.mkdirSync(to, { recursive: true });
       for (const entry of entries) {
-        const srcPath = path.join(srcDir, entry);
-        const destPath = path.join(destDir, entry);
+        const srcPath = path.join(from, entry);
+        const destPath = path.join(to, entry);
         fs.cpSync(srcPath, destPath, { recursive: true, force: true });
       }
-      fs.rmSync(srcDir, { recursive: true, force: true });
+      fs.rmSync(from, { recursive: true, force: true });
     } catch (error) {
       console.error(
-        `    Warning: failed to migrate OpenSpec ${label} from ${srcDir} to ${destDir}: ${(error as Error).message}`,
+        `    Warning: failed to migrate OpenSpec ${label} from ${from} to ${to}: ${(error as Error).message}`,
       );
     }
   }
 
   // Remove wrong parent directory if both skills and commands have been migrated
-  if (fs.existsSync(wrongDir)) {
+  if (fs.existsSync(srcDir)) {
     try {
-      const remaining = fs.readdirSync(wrongDir);
+      const remaining = fs.readdirSync(srcDir);
       if (remaining.length === 0) {
-        fs.rmdirSync(wrongDir);
+        fs.rmdirSync(srcDir);
       }
     } catch {
       // Best-effort cleanup
+    }
+  }
+}
+
+/**
+ * Copy openspec skills/commands from srcDir to destDir (used by zcode which
+ * mirrors the opencode output without removing the source).
+ */
+function copyOpenSpecPaths(srcDir: string, destDir: string): void {
+  if (srcDir === destDir) return;
+  const copies: Array<[string, string, string]> = [
+    [path.join(srcDir, 'skills'), path.join(destDir, 'skills'), 'skills'],
+    [path.join(srcDir, 'commands'), path.join(destDir, 'commands'), 'commands'],
+  ];
+
+  for (const [from, to, label] of copies) {
+    if (from === to) continue;
+    if (!fs.existsSync(from)) continue;
+    try {
+      const entries = fs.readdirSync(from);
+      if (entries.length === 0) continue;
+
+      fs.mkdirSync(to, { recursive: true });
+      for (const entry of entries) {
+        const srcPath = path.join(from, entry);
+        const destPath = path.join(to, entry);
+        fs.cpSync(srcPath, destPath, { recursive: true, force: true });
+      }
+    } catch (error) {
+      console.error(
+        `    Warning: failed to copy OpenSpec ${label} from ${from} to ${to}: ${(error as Error).message}`,
+      );
     }
   }
 }
@@ -246,6 +303,7 @@ async function installOpenSpec(
   toolIds: string[],
   scope: InstallScope,
   shouldInstallCli = true,
+  migrateZCode = false,
 ): Promise<'installed' | 'failed' | 'skipped'> {
   const cliStatus = await ensureOpenSpecCli(scope, projectPath, shouldInstallCli);
   if (cliStatus === 'failed') {
@@ -313,7 +371,17 @@ async function installOpenSpec(
       }
     }
 
-    if (scope === 'global' && toolIds.includes('opencode')) {
+    const openspecWritesGlobal = scope === 'global';
+    const openspecTargetBase = openspecWritesGlobal ? os.homedir() : projectPath;
+
+    // ZCode mirrors the opencode openspec output. Copy first (before the
+    // opencode global migration potentially moves the source away) so both
+    // platforms end up with the files.
+    if (migrateZCode && toolIds.includes('opencode')) {
+      migrateZCodeOpenSpecPaths(openspecTargetBase, scope);
+    }
+
+    if (openspecWritesGlobal && toolIds.includes('opencode')) {
       migrateOpenCodeOpenSpecPaths(os.homedir());
     }
 
@@ -336,4 +404,5 @@ export {
   buildOpenSpecInitInvocation,
   getNpmExecutable,
   migrateOpenCodeOpenSpecPaths,
+  migrateZCodeOpenSpecPaths,
 };

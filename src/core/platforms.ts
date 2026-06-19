@@ -256,4 +256,16 @@ export const PLATFORMS: Platform[] = [
     rulesDir: 'rules',
     rulesFormat: 'md',
   },
+  {
+    id: 'zcode',
+    name: 'ZCode',
+    skillsDir: '.zcode',
+    globalSkillsDir: '.zcode',
+    // openspec CLI has no zcode tool id; zcode is built on opencode (it shares the
+    // opencode.ai config schema), so we reuse openspec's opencode support and migrate
+    // the .opencode/{skills,commands} output to .zcode/ after install.
+    openspecToolId: 'opencode',
+    rulesDir: 'rules',
+    rulesFormat: 'md',
+  },
 ];

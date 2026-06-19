@@ -62,6 +62,17 @@ describe('detect', () => {
       expect(lingma?.skillsDir).toBe('.lingma');
       expect(lingma?.globalSkillsDir).toBe('.lingma');
     });
+
+    it('declares ZCode skills under .zcode with opencode openspec tool id', () => {
+      const zcode = PLATFORMS.find((platform) => platform.id === 'zcode');
+
+      expect(zcode).toBeDefined();
+      expect(zcode?.skillsDir).toBe('.zcode');
+      expect(zcode?.globalSkillsDir).toBe('.zcode');
+      expect(zcode?.openspecToolId).toBe('opencode');
+      expect(zcode?.rulesDir).toBe('rules');
+      expect(zcode?.rulesFormat).toBe('md');
+    });
   });
 
   describe('detectPlatforms', () => {
