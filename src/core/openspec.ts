@@ -4,6 +4,7 @@ import os from 'os';
 import path from 'path';
 import { PLATFORMS } from './platforms.js';
 import { printCommandErrorDetails } from './command-error.js';
+import { quoteArgsForShell } from './shell-quote.js';
 
 import type { InstallScope } from './types.js';
 
@@ -270,14 +271,21 @@ async function installOpenSpec(
 
     configBackup = writeAllWorkflowsToDefaultConfig();
 
+    // Windows 上 openspec 是 .cmd shim，必须经 shell 解析才能执行。
+    // shell:true 时 Node.js 不对含空格的参数加引号，会导致形如
+    // "C:\Users\Test User\project" 的路径被拆成多个参数（issue #123），
+    // 因此在启用 shell 时对参数逐个引用。
+    const useShell = process.platform === 'win32';
+
     const invocation = buildOpenSpecInitInvocation(projectPath, toolIds, scope);
     try {
-      execFileSync(invocation.command, invocation.args, {
+      const initArgs = useShell ? quoteArgsForShell(invocation.args) : invocation.args;
+      execFileSync(invocation.command, initArgs, {
         cwd: projectPath,
         env: openspecEnv.env,
         stdio: ['inherit', 'inherit', 'pipe'],
         timeout: 120_000,
-        shell: process.platform === 'win32',
+        shell: useShell,
       });
     } catch (firstError) {
       const stderrText = (firstError as { stderr?: Buffer }).stderr?.toString() ?? '';
@@ -290,12 +298,15 @@ async function installOpenSpec(
           os.homedir(),
           false,
         );
-        execFileSync(fallbackInvocation.command, fallbackInvocation.args, {
+        const fallbackArgs = useShell
+          ? quoteArgsForShell(fallbackInvocation.args)
+          : fallbackInvocation.args;
+        execFileSync(fallbackInvocation.command, fallbackArgs, {
           cwd: projectPath,
           env: openspecEnv.env,
           stdio: 'inherit',
           timeout: 120_000,
-          shell: process.platform === 'win32',
+          shell: useShell,
         });
       } else {
         throw firstError;

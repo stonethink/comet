@@ -523,5 +523,104 @@ describe('openspec', () => {
       homedirSpy.mockRestore();
       fs.rmSync(tmpDir, { recursive: true, force: true });
     });
+
+    // Regression for issue #123: on Windows, project paths containing spaces
+    // must be quoted so the shell does not split them into multiple args.
+    describe('Windows paths with spaces (issue #123)', () => {
+      const realPlatform = process.platform;
+      function stubWin32() {
+        Object.defineProperty(process, 'platform', { value: 'win32' });
+      }
+      function restorePlatform() {
+        Object.defineProperty(process, 'platform', { value: realPlatform });
+      }
+      afterEach(restorePlatform);
+
+      it('quotes a project path with spaces when invoking openspec init on Windows', async () => {
+        // isCommandAvailable -> ready; npm upgrade; re-check -> ready; init succeeds.
+        mockedExecFileSync.mockReturnValueOnce(Buffer.from('C:\\openspec.cmd'));
+        mockedExecFileSync.mockReturnValueOnce(Buffer.from('upgraded'));
+        mockedExecFileSync.mockReturnValueOnce(Buffer.from('C:\\openspec.cmd'));
+        mockedExecFileSync.mockReturnValueOnce(Buffer.from('ok'));
+
+        stubWin32();
+        const { installOpenSpec } = await import('../../src/core/openspec.js');
+        const result = await installOpenSpec('C:\\Users\\Test User\\project', ['claude'], 'project');
+
+        expect(result).toBe('installed');
+        const initCall = mockedExecFileSync.mock.calls.find(
+          ([command, args]) =>
+            command === 'openspec' &&
+            Array.isArray(args) &&
+            args.includes('"C:\\Users\\Test User\\project"'),
+        );
+        expect(initCall).toBeDefined();
+        const initArgs = initCall?.[1] as string[];
+        // The space-containing path is a single quoted argument.
+        expect(initArgs).toContain('"C:\\Users\\Test User\\project"');
+        // Flags without spaces stay unquoted.
+        expect(initArgs).toContain('--tools');
+        expect(initArgs).toContain('claude');
+        // Shell must be enabled so the quotes are honored by cmd.exe.
+        const initOptions = mockedExecFileSync.mock.calls.find(
+          ([command, args]) =>
+            command === 'openspec' &&
+            Array.isArray(args) &&
+            args.includes('"C:\\Users\\Test User\\project"'),
+        )?.[2] as { shell?: boolean };
+        expect(initOptions?.shell).toBe(true);
+      });
+
+      it('quotes the fallback init invocation path when retrying without --profile', async () => {
+        mockedExecFileSync.mockReturnValueOnce(Buffer.from('C:\\openspec.cmd'));
+        mockedExecFileSync.mockReturnValueOnce(Buffer.from('upgraded'));
+        mockedExecFileSync.mockReturnValueOnce(Buffer.from('C:\\openspec.cmd'));
+        const profileError = new Error('Command failed: openspec init ...') as Error & {
+          stderr?: Buffer;
+        };
+        profileError.stderr = Buffer.from("error: unknown option '--profile'");
+        mockedExecFileSync.mockImplementationOnce(() => {
+          throw profileError;
+        });
+        mockedExecFileSync.mockReturnValueOnce(Buffer.from('ok'));
+
+        stubWin32();
+        const { installOpenSpec } = await import('../../src/core/openspec.js');
+        const result = await installOpenSpec('C:\\Users\\Test User\\project', ['claude'], 'project');
+
+        expect(result).toBe('installed');
+        // The retry call (without --profile) must also quote the spaced path.
+        const retryCall = mockedExecFileSync.mock.calls.find(
+          ([command, args]) =>
+            command === 'openspec' &&
+            Array.isArray(args) &&
+            args.includes('"C:\\Users\\Test User\\project"') &&
+            !args.includes('--profile'),
+        );
+        expect(retryCall).toBeDefined();
+      });
+
+      it('does not quote args on non-Windows platforms (no regression)', async () => {
+        mockedExecFileSync.mockReturnValueOnce(Buffer.from('/usr/bin/openspec'));
+        mockedExecFileSync.mockReturnValueOnce(Buffer.from('upgraded'));
+        mockedExecFileSync.mockReturnValueOnce(Buffer.from('/usr/bin/openspec'));
+        mockedExecFileSync.mockReturnValueOnce(Buffer.from('ok'));
+
+        // Force a non-Windows platform regardless of where the suite runs.
+        Object.defineProperty(process, 'platform', { value: 'linux' });
+        const { installOpenSpec } = await import('../../src/core/openspec.js');
+        await installOpenSpec('/home/test user/project', ['claude'], 'project');
+
+        const initCall = mockedExecFileSync.mock.calls.find(
+          ([command, args]) =>
+            command === 'openspec' && Array.isArray(args) && args[0] === 'init',
+        );
+        const initArgs = initCall?.[1] as string[];
+        // On non-Windows, args are passed to argv directly — no quoting.
+        expect(initArgs).toContain('/home/test user/project');
+        const initOptions = initCall?.[2] as { shell?: boolean };
+        expect(initOptions?.shell).toBe(false);
+      });
+    });
   });
 });

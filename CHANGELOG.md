@@ -34,6 +34,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 
 - **`review_mode` English documentation parity**: Syncs `review_mode` field documentation from Chinese to English skill files (`comet-yaml-fields.md`, `comet-build/SKILL.md`, `comet-verify/SKILL.md`, `subagent-dispatch.md`, `context-recovery.md`, `comet-hotfix/SKILL.md`) and documents that hotfix/tweak workflows skip `review_mode` selection, closing a behavioral divergence where English-speaking agents had no guidance on review mode selection. Includes transition guard tests blocking `build-complete` when `review_mode` is null for full workflow and verifying hotfix bypass.
 - **Manual CLI option handling**: Empty repeated Commander options no longer masquerade as submitted outcome fields, so a bare `comet skill resume` returns the existing pending action and `resume --upgrade` remains usable without synthetic status data.
+- **OpenSpec install with spaces in project path**: On Windows, `comet init` / `comet update` now shell-quotes arguments passed to `openspec init` so project paths containing spaces (e.g. `C:\Users\Test User\project`) are preserved as a single argument. Previously Node.js joined `shell: true` arguments without quoting, so the path was split into multiple tokens and OpenSpec failed with `too many arguments for 'init'. Expected 1 argument but got 2.` ([#123](https://github.com/rpamis/comet/issues/123)). Adds a shared `shell-quote` helper with unit tests and Windows regression coverage for both the primary and `--profile`-fallback init invocations.
 
 ### Removed
 
