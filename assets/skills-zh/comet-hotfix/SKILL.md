@@ -10,9 +10,9 @@ description: "Comet 预设路径：Bug fix / 热修复。跳过 brainstorming，
 **适用条件**（必须全部满足）：
 1. 修复已有功能的 bug，不新增 capability
 2. 不涉及接口变更或架构调整
-3. 改动范围可预估（通常 ≤ 2 个文件）
+3. 改动范围可预估（文件数仅作提示，不作为硬性升级条件，见下方升级判定）
 
-**不适用**：如修复过程发现需要架构调整，应升级为完整 `/comet` 流程。
+**不适用**：如修复过程命中质变信号（见「升级判定」章节），由用户决定是否升级为完整 `/comet` 流程。
 
 ---
 
@@ -83,7 +83,7 @@ node "$COMET_STATE" next <name>
 
 使用 hotfix 默认值：`build_mode: direct`，`review_mode: off`（hotfix/tweak 跳过 review_mode 选择——guard 不要求预设工作流选择此项）。跳过 Superpowers `brainstorming` 和 `writing-plans`（除非任务 > 3 个；若超过 3 个任务，转入 `/comet-build` 的计划与执行方式选择——注意这不触发 full workflow 升级，仅切换执行方式）。
 
-继续或开始修改前，按 `comet/reference/dirty-worktree.md` 协议处理未提交改动。若归因后发现修复范围超出 hotfix，按本文件“升级条件”处理。
+继续或开始修改前，按 `comet/reference/dirty-worktree.md` 协议处理未提交改动。若归因后发现修复命中质变信号或文件数 tripwire，按本文件「升级判定」处理。
 
 **立即执行：** 按 tasks.md 逐个执行任务：
 
@@ -112,9 +112,9 @@ node "$COMET_STATE" next <name>
 2. 搜索验证问题代码不再存在
 3. 如根因未消除，回到 Step 2 继续修复（此时仍在 build 阶段，无需状态回退）
 
-**升级条件**：
-- 根因消除检查发现深层架构问题 → 停止 hotfix，按升级条件阻塞确认处理
-- 修复需要额外接口变更 → 停止 hotfix，按升级条件阻塞确认处理
+**升级判定信号**：
+- 根因消除检查发现深层架构问题 → 命中质变信号，按「升级判定」章节暂停交用户决定
+- 修复需要额外接口变更 → 命中质变信号（引入新的 public API），按「升级判定」章节暂停交用户决定
 
 根因确认消除后，运行阶段守卫完成 build → verify 过渡：
 
@@ -130,7 +130,7 @@ node "$COMET_GUARD" <change-name> build --apply
 
 **立即执行：** 使用 Skill 工具加载 `comet-verify` 技能。禁止跳过此步骤。
 
-无 delta spec 的小范围 hotfix 通常满足轻量验证条件（≤ 3 tasks、≤ 2 files），comet-verify 的规模评估会选择轻量验证路径（6 项快速检查；默认 `review_mode: off` 时不自动派发代码审查）。若用户希望增加审查，可在验证前运行 `node "$COMET_STATE" set <name> review_mode standard` 或 `thorough`。若 hotfix 创建了 delta spec，则根据 comet-verify 的规模评估规则进入完整验证路径。
+无 delta spec 的小范围 hotfix 通常满足轻量验证条件（≤ 3 tasks、改动文件数低于 scale 阈值），comet-verify 的规模评估会选择轻量验证路径（6 项快速检查；默认 `review_mode: off` 时不自动派发代码审查）。若用户希望增加审查，可在验证前运行 `node "$COMET_STATE" set <name> review_mode standard` 或 `thorough`。若 hotfix 创建了 delta spec，则根据 comet-verify 的规模评估规则进入完整验证路径。
 
 验证通过后，按 `/comet-verify` 的规则将 `.comet.yaml` 的 `verify_result` 记录为 `pass`，归档前不得跳过该状态。验证通过后仍必须进入 `/comet-archive` 的归档前最终确认，不得自动运行归档脚本。
 
@@ -148,7 +148,7 @@ node "$COMET_GUARD" <change-name> build --apply
 <IMPORTANT>
 Hotfix 流程默认 **一次性连续执行**。调用 `/comet-hotfix` 后，agent 在 hotfix 自有步骤间自动推进，不主动停顿。**例外**：若 `auto_transition: false`，则在每个 phase 边界（build/verify/archive 之间）停下，由用户手动运行下一阶段命令——此时连续执行降级为逐阶段手动推进，详见下方「自动衔接下一阶段」。但无论 `auto_transition` 取何值，以下情况都必须暂停等待用户确认：
 
-1. 遇到升级条件（见"升级条件"章节），**必须使用当前平台可用的用户输入/确认机制暂停并等待用户明确确认**升级为完整流程
+1. 遇到升级判定信号（见「升级判定」章节），**必须使用当前平台可用的用户输入/确认机制暂停并等待用户明确选择**：继续 hotfix 流程，还是升级为完整 `/comet` 流程
 2. 任务超过 3 个转入 `/comet-build` 时的工作区隔离和执行方式选择
 3. 验证阶段（comet-verify）的验证失败决策和分支处理决策
 4. 归档前最终确认（comet-archive 执行归档脚本前）
@@ -160,28 +160,47 @@ Hotfix 流程默认 **一次性连续执行**。调用 `/comet-hotfix` 后，age
 
 ---
 
-## 升级条件
+## 升级判定
 
-满足以下**任一**条件时，停止 hotfix 流程，升级为完整 `/comet`：
+hotfix 的范围判定采用三层分工，避免「用纯文件数当硬性升级条件」误杀正常 bug 修复（真实修复常顺带改测试、类型、调用方，轻松突破 2~4 文件），又防不住「拆成很多小文件的大重构」：
 
-| 条件 | 说明 |
-|------|------|
-| 改动涉及 **3+ 文件** | 超出单点修复范围 |
-| 架构变更 | 新模块、新接口、新依赖 |
+### 1. 质变信号（agent 语义识别，命中任一即暂停）
+
+build 全程持续判断以下信号。命中任一时，**不得自行升级或自行判定可继续**，必须按 `comet/reference/decision-point.md` 暂停并把决策权交给用户：
+
+| 质变信号 | 说明 |
+|---------|------|
+| 跨模块协调修改 | 需要跨组件、跨层协同改动 |
+| 需要新增 capability | 修复引入了新能力 |
 | 数据库 schema 变更 | 结构性调整 |
 | 引入新的 public API | 修复产生了新的对外接口 |
-| 修复范围超出单一函数/模块 | 需要多处协调修改 |
+| 触及深层架构问题 | 根因消除检查发现修复需架构层面方案 |
 
-满足升级条件时**必须按 `comet/reference/decision-point.md` 的协议暂停并等待用户明确确认**升级为完整 `/comet` 流程。不得直接进入 `/comet-design`，不得自动补充 Design Doc。
+**决策点（用户二选一）**：
+- **选项 A — 继续 hotfix 流程**：用户确认范围可控、可由 hotfix 承载，继续 open → build → verify → archive
+- **选项 B — 升级为完整 `/comet`**：用户认为需要深度设计，升级到 full 流程补 Design Doc 和 Superpowers plan
 
-用户确认升级后，**必须先更新 workflow 和 phase 字段**再进入完整流程：
+### 2. 文件数 tripwire（用户拍板，非自动升级）
+
+改动文件数超过提示阈值（如 > 4 个文件）时，agent **不自行升级、也不自行判定可继续**，而是暂停并交用户决定：继续 hotfix、还是升级为完整 `/comet`。文件数是提示触发器，不是硬性升级条件——文件数多不等于改动有质变。
+
+### 3. 验证级别（scale 脚本判定）
+
+`comet-state scale` 仅决定 `verify_mode`（验证轻重），不卡流程、不触发升级。走重一点的验证是安全的，不会卡住开发。
+
+---
+
+命中质变信号或文件数 tripwire 时，**必须按 `comet/reference/decision-point.md` 的协议暂停并等待用户明确选择**。不得直接进入 `/comet-design`，不得自动补充 Design Doc。
+
+用户选择升级（选项 B）后，使用状态机合法的升级通道，单条命令完成 preset → full 转换并回退到 design 阶段：
 
 ```bash
-node "$COMET_STATE" set <name> workflow full
-node "$COMET_STATE" set <name> phase design
+node "$COMET_STATE" transition <name> preset-escalate
 ```
 
-然后在当前 change 基础上补充 Design Doc：**立即使用 Skill 工具加载 `comet-design` skill**，后续正常走完整流程。若用户不确认升级，停止 hotfix 并报告当前变更已超出 hotfix 适用范围。
+该命令原子地把 `workflow`/`classic_profile` 置为 `full`、`phase` 回退到 `design`、清空 `design_doc`（满足 comet-design 入口要求）。然后在当前 change 基础上补充 Design Doc：**立即使用 Skill 工具加载 `comet-design` skill**，后续正常走完整流程。
+
+用户选择继续（选项 A）时，继续 hotfix 流程，并记录用户确认继续的原因。
 
 ---
 

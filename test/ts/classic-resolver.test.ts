@@ -234,6 +234,24 @@ describe('Classic Resolver', () => {
     ).toBe('full.build.configure');
   });
 
+  it('resolves a preset-escalate terminal state to the design handoff step', () => {
+    // preset-escalate transitions (workflow/classic_profile → full, phase →
+    // design, design_doc → null). The resolver must accept this state and
+    // route to the design handoff step instead of tripping the
+    // (phase=design, profile!=full) invariant.
+    expect(
+      resolveClassicStepId(
+        state({
+          workflow: 'full',
+          classicProfile: 'full',
+          phase: 'design',
+          designDoc: null,
+        }),
+        [],
+      ),
+    ).toBe('full.design.handoff');
+  });
+
   it.each([
     {
       name: 'archived outside archive',

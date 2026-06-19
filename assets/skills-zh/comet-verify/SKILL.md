@@ -47,7 +47,7 @@ node "$COMET_STATE" check <change-name> verify
 node "$COMET_STATE" scale <change-name>
 ```
 
-脚本自动统计任务数、增量规格数、变更文件数，判断使用 light 或 full 验证模式，并设置 verify_mode 字段。判定规则（满足任一即 full）：任务数 > 3、delta spec 能力数 > 1、变更文件数 > 4。
+脚本自动统计任务数、增量规格数、变更文件数，判断使用 light 或 full 验证模式，并设置 verify_mode 字段。判定规则（满足任一即 full）：任务数 > 3、delta spec 能力数 > 1、变更文件数 > 8。
 
 验证开始前，按 `comet/reference/dirty-worktree.md` 协议检查并处理未提交改动。verify 阶段的特殊处理：
 
@@ -72,7 +72,7 @@ BASE_REF=$(grep '^base-ref:' "$PLAN" 2>/dev/null | head -1 | sed 's/^base-ref: *
 git diff --stat "$BASE_REF"...HEAD
 ```
 
-若提交区间显示改动超过轻量阈值（> 4 个文件、跨模块协调、或 delta spec 超过 1 个 capability），手动设置为完整验证：
+若提交区间显示改动超过轻量阈值（> 8 个文件、跨模块协调、或 delta spec 超过 1 个 capability），手动设置为完整验证：
 
 ```bash
 node "$COMET_STATE" set <change-name> verify_mode full

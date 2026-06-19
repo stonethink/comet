@@ -144,7 +144,14 @@ function runScript(
 }
 
 function normalizeOutput(value: string, root: string): string {
-  return value.replaceAll(root, '<ROOT>').replaceAll(toBashPath(root), '<ROOT>');
+  return value
+    .replaceAll(root, '<ROOT>')
+    .replaceAll(toBashPath(root), '<ROOT>')
+    // The active runtime may list transition events added after the frozen
+    // 0.3.9 baseline (e.g. preset-escalate) in the "Valid values:" error line.
+    // These are intentional enhancements; strip them so the differential
+    // contract compares rejection behavior, not the exact event enumeration.
+    .replace(/(Valid values: .*) preset-escalate/g, '$1');
 }
 
 function legacyProjection(document: Record<string, unknown>): Record<string, unknown> {

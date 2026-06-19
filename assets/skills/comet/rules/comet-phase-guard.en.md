@@ -30,6 +30,8 @@ Reading the `phase` field alone is not enough — you must also confirm **how** 
 | `phase: archive` + `verify_result` ≠ `pass` | Skipped verify | Return to `/comet-verify` to complete verification |
 
 Exception: `workflow: hotfix/tweak` intentionally skips design, so an empty `design_doc` is normal and not an illegal jump.
+
+Upgrade state note: after a preset (hotfix/tweak) hits an upgrade signal and the user confirms upgrading, `comet-state transition <name> preset-escalate` legally converts it to `workflow: full` + `phase: design` + `design_doc: null`. At this point `phase: design` with an empty `design_doc` **is a normal upgrade pre-state**, not an illegal jump — the agent should enter `/comet-design` to supplement the Design Doc. This terminal state does not match the "skipped design" row above (that row only detects `phase: build`).
 ### Skill Invocation (Cannot Replace with Normal Conversation)
 
 The following operations must be loaded through the Skill tool. When Skill is unavailable, stop the workflow and prompt to install:
@@ -47,7 +49,7 @@ The following operations must be loaded through the Skill tool. When Skill is un
 - **Phase exit**: `comet-guard <name> <phase> --apply` (must see ALL CHECKS PASSED)
 - **Compression recovery**: `comet-state check <name> <phase> --recover`
 - **State update**: After key operations, update fields through `comet-state set`; manually editing .comet.yaml is prohibited
-- **Phase advancement only via guard/transition**: directly running `comet-state set <name> phase <value>` to jump phases is prohibited (it bypasses evidence checks and the script now hard-blocks it); use the `COMET_FORCE_PHASE=1` escape hatch only to repair a malformed state
+- **Phase advancement only via guard/transition**: directly running `comet-state set <name> phase <value>` to jump phases is prohibited (it bypasses evidence checks and the script now hard-blocks it); use the `COMET_FORCE_PHASE=1` escape hatch only to repair a malformed state. A preset (hotfix/tweak) upgrade to full must use `comet-state transition <name> preset-escalate` — this is the only channel that can legally rewind phase to design and sync workflow/classic_profile; direct `set phase design` and `set classic_profile` are both hard-blocked
 - **handoff generation**: `comet-handoff <name> design --write` (handwriting summaries is prohibited)
 
 ### User Confirmation (Cannot Auto-Skip)
@@ -56,7 +58,7 @@ The following decision points must pause to wait for explicit user selection; do
 
 - **open**: Requirements clarification completion confirmation, artifact review confirmation
 - **design**: brainstorming proposal confirmation (Design Doc cannot be created before confirmation)
-- **build**: plan-ready pause, isolation/build_mode/tdd_mode selection, spec large-scale change confirmation
+- **build**: plan-ready pause, isolation/build_mode/tdd_mode selection, spec large-scale change confirmation, preset (hotfix/tweak) upgrade-assessment two-choice (when a qualitative-change signal or file-count tripwire is hit, let the user decide whether to continue the preset or upgrade to full)
 - **verify**: Verification failure handling strategy, branch handling selection
 - **archive**: Final confirmation before archiving
 

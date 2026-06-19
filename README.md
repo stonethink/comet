@@ -343,7 +343,7 @@ After `comet init`, three groups of skills are installed to the selected platfor
 | `/comet-verify`  | Phase 4: Verify and finish (testing, verification report)      |
 | `/comet-archive` | Phase 5: Archive (delta spec sync, status annotation)          |
 | `/comet-hotfix`  | Preset: Quick bug fix (skips brainstorming)                    |
-| `/comet-tweak`   | Preset: Small change (skips brainstorming and full plan)       |
+| `/comet-tweak`   | Preset: OpenSpec-chained medium change (delta spec is first-class, skips brainstorming and full plan) |
 | `/comet-any`     | Bundle creator — create/optimize multi-Skill Bundles           |
 
 </details>
@@ -387,8 +387,8 @@ Development methodology: brainstorming, TDD, subagent-driven development, code r
 /comet-hotfix (preset path, skips brainstorming)
   open  -->  build  -->  verify  -->  archive
 
-/comet-tweak (preset path, skips brainstorming and full plan)
-  open  -->  lightweight build  -->  light verify  -->  archive
+/comet-tweak (lightweight preset, chains OpenSpec, delta spec is first-class)
+  open  -->  build  -->  verify  -->  archive
 ```
 
 ### Five Phases

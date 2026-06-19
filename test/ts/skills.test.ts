@@ -595,20 +595,20 @@ describe('skills', () => {
       expect(zhArchive).toContain('`node "$COMET_STATE" transition <change-name> archive-reopen`');
       expect(zhVerify).toContain('不得因为验证已通过就自动归档');
       expect(zhHotfix).toContain(
-        '满足升级条件时**必须按 `comet/reference/decision-point.md` 的协议暂停并等待用户明确确认**升级为完整 `/comet` 流程',
+        '命中质变信号或文件数 tripwire 时，**必须按 `comet/reference/decision-point.md` 的协议暂停并等待用户明确选择**',
       );
       expect(zhHotfix).toContain('不得直接进入 `/comet-design`');
       expect(zhTweak).toContain(
-        '满足升级条件时**必须按 `comet/reference/decision-point.md` 的协议暂停并等待用户明确确认**升级为完整 `/comet` 流程',
+        '命中质变信号或文件数 tripwire 时，**必须按 `comet/reference/decision-point.md` 的协议暂停并等待用户明确选择**',
       );
       expect(zhTweak).toContain('不得直接进入 `/comet-design`');
       expect(zhComet).toContain('`verify_result: fail` → 进入验证失败决策阻塞点');
       expect(zhComet).not.toContain(
         '`verify_result: fail` → `node "$COMET_STATE" transition <name> verify-fail` 后 `/comet-build`',
       );
-      expect(zhHotfix).toContain('按升级条件阻塞确认处理');
+      expect(zhHotfix).toContain('若 hotfix 创建了 delta spec，则根据 comet-verify 的规模评估规则进入完整验证路径');
       expect(zhHotfix).not.toContain('停止 hotfix，升级为 `/comet`');
-      expect(zhTweak).toContain('按升级条件阻塞确认处理');
+      expect(zhTweak).toContain('带 delta spec 的验证分流');
 
       // HIGH: hotfix/tweak IMPORTANT blocks must acknowledge verify decision points
       expect(zhHotfix).toContain('验证阶段（comet-verify）的验证失败决策和分支处理决策');
@@ -902,11 +902,11 @@ describe('skills', () => {
       expect(enArchive).toContain('`node "$COMET_STATE" transition <change-name> archive-reopen`');
       expect(enVerify).toContain('Must not automatically archive just because verification passed');
       expect(enHotfix).toContain(
-        'must follow the `comet/reference/decision-point.md` protocol to pause and wait for the user to explicitly confirm',
+        'must pause per `comet/reference/decision-point.md` and delegate the decision to the user',
       );
       expect(enHotfix).toContain('Do not directly enter `/comet-design`');
       expect(enTweak).toContain(
-        'must follow the `comet/reference/decision-point.md` protocol to pause and wait for the user to explicitly confirm',
+        'must pause per `comet/reference/decision-point.md` and delegate the decision to the user',
       );
       expect(enTweak).toContain('Do not directly enter `/comet-design`');
       expect(enTweak).toContain('`comet/reference/debug-gate.md`');
@@ -917,8 +917,8 @@ describe('skills', () => {
         '`verify_result: fail` → `node "$COMET_STATE" transition <name> verify-fail` then `/comet-build`',
       );
 
-      expect(enHotfix).toContain('handle per "Upgrade Conditions" section');
-      expect(enTweak).toContain('handle per upgrade conditions blocking confirmation');
+      expect(enHotfix).toContain('handle it through this file\'s "Upgrade Assessment"');
+      expect(enTweak).toContain('handle it through this file\'s "Upgrade Assessment"');
       expect(enHotfix).toContain(
         'verify phase (comet-verify) verification-failure and branch-handling decisions',
       );

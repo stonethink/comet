@@ -26,6 +26,7 @@ const EVENTS = [
   'verify-fail',
   'archive-reopen',
   'archived',
+  'preset-escalate',
 ] as const;
 const MACHINE_OWNED_FIELDS = new Set<string>([
   ...RUN_WIRE_KEYS,
@@ -268,12 +269,12 @@ async function setField(
   name: string,
   field: string,
   value: string,
-  options: { internal?: boolean } = {},
+  options: { internal?: boolean; machineOwned?: boolean } = {},
 ): Promise<void> {
-  if (MACHINE_OWNED_FIELDS.has(field)) {
+  if (MACHINE_OWNED_FIELDS.has(field) && !options.machineOwned) {
     fail(`ERROR: '${field}' is a machine-owned Run field and cannot be set directly`);
   }
-  if (!SETTABLE_FIELDS.has(field)) {
+  if (!SETTABLE_FIELDS.has(field) && !MACHINE_OWNED_FIELDS.has(field)) {
     fail(`ERROR: Unknown field: '${field}'`);
   }
   if (field === 'phase' && !options.internal && process.env.COMET_FORCE_PHASE !== '1') {
@@ -489,6 +490,27 @@ async function transition(output: CommandOutput, name: string, event: string): P
     await requirePhase(name, 'verify');
     await setField(output, name, 'verify_result', 'fail');
     await setField(output, name, 'phase', 'build', { internal: true });
+  } else if (event === 'preset-escalate') {
+    // preset (hotfix/tweak) → full: rewind phase to design so the agent can
+    // supplement a Design Doc before continuing. Unlike verify-fail /
+    // archive-reopen, this event also lifts workflow to full. classic_profile
+    // MUST be synced alongside workflow, otherwise classic-resolver.ts throws
+    // on the (phase=design, profile!=full) invariant — profileFor() reads
+    // classicProfile first, which stays at the old preset value otherwise.
+    await requirePhase(name, 'build');
+    const workflow = await readField(name, 'workflow');
+    if (!['hotfix', 'tweak'].includes(workflow)) {
+      fail(
+        `ERROR: Cannot transition '${name}': preset-escalate only applies to hotfix/tweak, got workflow='${workflow}'`,
+      );
+    }
+    await setField(output, name, 'workflow', 'full', { internal: true });
+    await setField(output, name, 'classic_profile', 'full', {
+      internal: true,
+      machineOwned: true,
+    });
+    await setField(output, name, 'phase', 'design', { internal: true });
+    await setField(output, name, 'design_doc', 'null', { internal: true });
   } else if (event === 'archive-reopen') {
     await requirePhase(name, 'archive');
     if ((await readField(name, 'archived')) === 'true') {
@@ -902,13 +924,13 @@ async function scale(output: CommandOutput, name: string): Promise<void> {
     ...(baseRef && baseRef !== 'null' ? [`${baseRef}...HEAD`] : ['HEAD']),
   ]);
   const changedFiles = changed ? changed.split(/\r?\n/u).filter(Boolean).length : 0;
-  const result = taskCount > 3 || deltaSpecs > 1 || changedFiles > 4 ? 'full' : 'light';
+  const result = taskCount > 3 || deltaSpecs > 1 || changedFiles > 8 ? 'full' : 'light';
   await setField(new CommandOutput(), name, 'verify_mode', result);
   output.stderr.push(
     `=== Scale Assessment: ${name} ===`,
     `  Tasks: ${taskCount} (threshold: 3)`,
     `  Delta specs: ${deltaSpecs} capabilities (threshold: 1)`,
-    `  Changed files: ${changedFiles} (threshold: 4)`,
+    `  Changed files: ${changedFiles} (threshold: 8)`,
     `  → Result: ${result}`,
     green(`[SCALE] verify_mode=${result}`),
   );

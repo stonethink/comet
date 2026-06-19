@@ -1,21 +1,21 @@
 ---
 name: comet-tweak
-description: "Comet preset path: Non-bug small changes (tweak). Skip brainstorming and full plan, directly open → lightweight build → light verify → archive. Applicable for copy, configuration, documentation or prompt local optimization."
+description: "Comet preset path: OpenSpec-chained lightweight workflow (tweak). Skip brainstorming and full plan, directly open → build → verify → archive. Delta spec is a first-class normal artifact. Applicable for medium changes, configuration adjustments, documentation or prompt optimization, and spec-driven small changes that don't need architecture design."
 ---
 
 # Comet Preset Path: Tweak
 
-Tweak is a preset workflow of Comet's five-phase capabilities, not an independent parallel process. It reuses open, build, verify, archive capabilities, only skipping brainstorming and full plan.
+Tweak is a preset workflow of Comet's five-phase capabilities, not an independent parallel process. It chains OpenSpec's core flow, reusing open, build, verify, archive capabilities, only skipping brainstorming and full plan.
 
-Applicable for non-bug small scope changes, such as copy adjustment, configuration adjustment, documentation or prompt local optimization.
+Applicable for OpenSpec-chained lightweight changes, such as configuration adjustments, documentation or prompt optimization, and spec-driven (including delta spec) medium changes that don't need architecture design. Delta spec is a first-class normal artifact in tweak; needing delta spec alone does not constitute an upgrade reason.
 
 **Applicable conditions** (all must be met):
 1. No new capability
 2. No architecture changes
 3. No interface changes
-4. Typically no more than 3 tasks (file count constraint see upgrade conditions below)
+4. Task scope is estimable (file count and task count are hints only, not hard upgrade conditions; see Upgrade Assessment below)
 
-**Not applicable**: If change process discovers need for capability, architecture or interface adjustments, should upgrade to full `/comet` workflow.
+**Not applicable**: If the change process hits a qualitative-change signal (see "Upgrade Assessment" section), the user decides whether to upgrade to the full `/comet` workflow.
 
 ---
 
@@ -25,7 +25,7 @@ Applicable for non-bug small scope changes, such as copy adjustment, configurati
 
 Streamlined OpenSpec artifacts must use the language of the user request that triggered this workflow.
 
-Execution chain: open → lightweight build → light verify → archive. Tweak provides default decisions for each phase: streamlined open, lightweight build, lightweight verification, and final archive confirmation after verification passes.
+Execution chain: open → build → verify → archive. Tweak provides default decisions for each phase: streamlined open, direct build, scale- and delta-spec-driven verification weight, and final archive confirmation after verification passes.
 
 Locate Comet scripts before starting:
 
@@ -52,8 +52,8 @@ Reuse Comet open capability to create change, but use tweak defaults: do not exe
 After the skill loads, follow its guidance to create streamlined artifacts:
   - `proposal.md` — change motivation + goals + scope
   - `design.md` — brief implementation description (no solution comparison needed)
-  - `tasks.md` — no more than 3 tasks
-- **No delta spec needed** (unless change modifies existing spec acceptance scenarios; once delta spec is needed, upgrade to full `/comet`)
+  - `tasks.md` — task list (keep to a reasonable size; count itself does not trigger upgrade, see "Upgrade Assessment")
+  - `delta spec` (optional) — if the change affects existing spec acceptance scenarios, create it as a normal artifact (only `## MODIFIED Requirements` or `## ADDED Requirements`). Delta spec is the core artifact of OpenSpec brownfield changes; needing delta spec alone does not constitute an upgrade reason
 
 Initialize Comet state file:
 
@@ -77,7 +77,7 @@ node "$COMET_GUARD" <change-name> open --apply
 
 Use tweak defaults: `build_mode: direct`. Skip Superpowers `brainstorming` and `writing-plans`.
 
-Before continuing or starting changes, handle uncommitted changes through `comet/reference/dirty-worktree.md`. If attribution shows scope exceeds tweak, handle it through this file's "Upgrade Conditions".
+Before continuing or starting changes, handle uncommitted changes through `comet/reference/dirty-worktree.md`. If attribution shows a qualitative-change signal or file-count tripwire is hit, handle it through this file's "Upgrade Assessment".
 
 **Immediately execute:** Execute tasks one by one according to tasks.md:
 
@@ -89,6 +89,13 @@ Before continuing or starting changes, handle uncommitted changes through `comet
    - Check corresponding `- [ ]` to `- [x]` in tasks.md
    - Commit code, commit message format: `tweak: <brief change description>`
 3. After all tasks complete, explicitly run relevant project tests and build commands
+
+During tweak execution, whenever running programs, tests, builds, or manual verification results in crashes, abnormal behavior, test failures, or build failures, you must use the Skill tool to load the Superpowers `systematic-debugging` skill. Do not propose or implement source code fixes before completing root cause investigation.
+
+For specific investigation, minimal failing test, fix verification, and keeping the current change verification loop, follow `comet/reference/debug-gate.md`.
+
+**Upgrade assessment check**: Continuously judge throughout build, and do a consolidated re-check before running the build→verify guard. Assessment uses a three-layer division of labor (see "Upgrade Assessment" section): qualitative-change signals rely on agent semantic recognition, file count is only a hint delegated to the user, and the scale script only governs verification weight. When a qualitative-change signal or file-count tripwire is hit, **do not upgrade on your own or decide to continue on your own** — must pause per `comet/reference/decision-point.md` and delegate the decision to the user: continue the tweak lightweight flow, or upgrade to the full `/comet`.
+
 4. Run phase guard to transition build → verify:
 
 ```bash
@@ -97,17 +104,19 @@ node "$COMET_GUARD" <change-name> build --apply
 
 State automatically updates to `phase: verify`, `verify_result: pending`, then enter verification.
 
-During tweak execution, whenever running programs, tests, builds, or manual verification results in crashes, abnormal behavior, test failures, or build failures, you must use the Skill tool to load the Superpowers `systematic-debugging` skill. Do not propose or implement source code fixes before completing root cause investigation.
+### 3. Verification (preset verify)
 
-For specific investigation, minimal failing test, fix verification, and keeping the current change verification loop, follow `comet/reference/debug-gate.md`.
-
-### 3. Lightweight Verification (preset verify)
-
-Reuse `/comet-verify`. Tweak must maintain lightweight verification conditions: ≤ 3 tasks, ≤ 4 files, no delta spec, no new capability.
+Reuse `/comet-verify`; let comet-verify's scale assessment decide lightweight or full verification.
 
 **Immediately execute:** Use the Skill tool to load the `comet-verify` skill. Skipping this step is prohibited.
 
-If scale assessment enters full verification path, stop tweak, handle per upgrade conditions blocking confirmation.
+**Delta-spec verification routing**: tweak accepts delta spec as a normal artifact. If this change created a delta spec, explicitly set full verification mode before entering comet-verify, to run OpenSpec-native verification (`openspec-verify-change`) covering delta-spec consistency:
+
+```bash
+node "$COMET_STATE" set <change-name> verify_mode full
+```
+
+A tweak without delta spec usually meets lightweight verification conditions (≤ 3 tasks, changed files below the scale threshold); comet-verify's scale assessment selects the lightweight verification path (6 quick checks). If the user wants to add review, run `node "$COMET_STATE" set <name> review_mode standard` or `thorough` before verification.
 
 After verification passes, record `.comet.yaml` `verify_result` as `pass` according to `/comet-verify` rules, must not skip this status before archiving. After verification passes, still enter `/comet-archive`'s final archive confirmation; do not automatically run the archive script.
 
@@ -128,48 +137,66 @@ Exception: when `.comet.yaml` has `auto_transition: false`, after each phase gua
 
 The following situations must pause and wait for user confirmation:
 
-1. Encountering upgrade conditions (see "Upgrade Conditions" section). **Must use the current platform's available user input/confirmation mechanism to pause and wait for the user to explicitly confirm** upgrading to full workflow
+1. Encountering an upgrade-assessment signal (see "Upgrade Assessment" section). **Must use the current platform's available user input/confirmation mechanism to pause and wait for the user to explicitly choose**: continue the tweak lightweight flow, or upgrade to the full `/comet` workflow
 2. verify phase (comet-verify) verification-failure and branch-handling decisions
 3. Final archive confirmation (before comet-archive runs the archive script)
 
-Execution order: quick open → lightweight build → lightweight verification → archive → complete
+Execution order: quick open → build (with upgrade assessment) → verification → archive → complete
 
 After each phase completes, immediately enter next phase. Within each phase, must still call corresponding Comet/OpenSpec/Superpowers skill according to above requirements; if the called skill has its own user decision points, follow that skill's rules.
 </IMPORTANT>
 
 ---
 
-## Upgrade Conditions
+## Upgrade Assessment
 
-Upgrade to full `/comet` when **any** of the following conditions are met:
+tweak's scope assessment uses a three-layer division of labor, avoiding "using pure file count as a hard upgrade condition" that both wrongly blocks normal small changes and fails to catch "a big refactor split into many small files":
 
-| Condition | Explanation |
-|-----------|-------------|
-| Change involves **5+ files** | Exceeds small change scope |
-| Cross-module coordination required | Requires cross-component coordination |
-| **5+** new test cases needed | Change complexity rising |
-| Config item additions or deletions | Config changes beyond value modifications |
-| New capability needed | Exceeds local optimization |
-| Delta spec needed | Affects existing specs |
+### 1. Qualitative-change signals (agent semantic recognition; hitting any one pauses)
 
-When upgrade conditions are met, **must follow the `comet/reference/decision-point.md` protocol to pause and wait for the user to explicitly confirm** upgrading to the full `/comet` workflow. Do not directly enter `/comet-design`, and do not automatically supplement Design Doc.
+Continuously judge the following signals throughout build. When any is hit, **do not upgrade on your own or decide to continue on your own** — must pause per `comet/reference/decision-point.md` and delegate the decision to the user:
 
-After user confirms upgrade, **must first update the workflow and phase fields** before entering full flow:
+| Qualitative-change signal | Explanation |
+|---------------------------|-------------|
+| Cross-module coordinated change | Requires cross-component, cross-layer coordinated edits |
+| New capability needed | Exceeds local optimization, introduces new capability |
+| Database schema change | Structural adjustment |
+| Introduces new public API | Produces a new external interface |
+| Hits deep architecture issues | The fix requires an architecture-level solution, not a local change |
+
+**Decision point (user chooses one of two)**:
+- **Option A — Continue the tweak lightweight flow**: user confirms scope is manageable and tweak can carry it; continue open → build → verify → archive
+- **Option B — Upgrade to full `/comet`**: user believes deep design is needed; upgrade to the full flow to supplement Design Doc and Superpowers plan
+
+### 2. File-count tripwire (user decides; not an automatic upgrade)
+
+When changed files exceed a hint threshold (e.g., > 6 files), the agent **does not upgrade on its own or decide to continue on its own**; instead it pauses and lets the user decide: continue tweak, or upgrade to the full `/comet`. File count is a hint trigger, not a hard upgrade condition — many files do not equal a qualitative change, and using count as a hard block both wrongly blocks normal small changes and fails to catch "a big refactor split into many small files".
+
+### 3. Verification weight (scale script decides)
+
+`comet-state scale` only decides `verify_mode` (verification weight); it does not block the flow or trigger an upgrade. Running a heavier verification is safe and will not stall development.
+
+---
+
+When a qualitative-change signal or file-count tripwire is hit, **must follow the `comet/reference/decision-point.md` protocol to pause and wait for the user to explicitly choose**. Do not directly enter `/comet-design`, and do not automatically supplement Design Doc.
+
+When the user chooses to upgrade (Option B), use the state machine's legal upgrade channel — a single command completes the preset → full conversion and rewinds to the design phase:
 
 ```bash
-node "$COMET_STATE" set <name> workflow full
-node "$COMET_STATE" set <name> phase design
+node "$COMET_STATE" transition <name> preset-escalate
 ```
 
-Then on current change basis, supplement Design Doc: **Immediately use the Skill tool to load the `comet-design` skill**, proceed normally with full workflow. If user does not confirm upgrade, stop tweak and report that current change has exceeded tweak scope.
+This command atomically sets `workflow`/`classic_profile` to `full`, rewinds `phase` to `design`, and clears `design_doc` (satisfying the comet-design entry requirement). Then supplement the Design Doc on the current change basis: **Immediately use the Skill tool to load the `comet-design` skill**, and proceed normally with the full workflow.
+
+When the user chooses to continue (Option A), continue the tweak flow and record the reason the user confirmed continuing.
 
 ---
 
 ## Exit Conditions
 
-- Small change completed, tests pass
+- Change completed, tests pass
 - Change archived
-- No new capability, architecture adjustments or interface changes
+- If spec changed, synced to main spec
 - **Phase guard**: Before build → verify run `node "$COMET_GUARD" <change-name> build --apply`; before verify → archive follow `/comet-verify` and run `node "$COMET_GUARD" <change-name> verify --apply`
 
 ## Automatic Handoff to Next Phase

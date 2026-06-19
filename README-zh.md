@@ -320,7 +320,7 @@ OpenSpec 的输出从 `.opencode/` 镜像到 `.zcode/`。
 | `/comet-verify`  | 阶段 4：验证与完成（测试、验证报告）               |
 | `/comet-archive` | 阶段 5：归档（delta spec 同步、状态标注）       |
 | `/comet-hotfix`  | 快捷路径：快速 bug 修复（跳过头脑风暴，不需要能力设计）    |
-| `/comet-tweak`   | 快捷路径：小改动（文案调整、配置调整、文档或 Prompt 优化） |
+| `/comet-tweak`   | 轻量预设路径：串联 OpenSpec 的中等改动（delta spec 为一等公民，跳过头脑风暴和完整计划） |
 | `/comet-any`     | Bundle 创建器：创建/优化多 Skill Bundle       |
 
 </details>
@@ -364,8 +364,8 @@ Spec 生命周期管理：propose、explore、sync、verify、archive 等。
 /comet-hotfix（快捷路径，跳过头脑风暴）
   open  -->  build  -->  verify  -->  archive
 
-/comet-tweak（快捷路径，跳过头脑风暴和完整计划）
-  open  -->  轻量构建  -->  轻量验证  -->  archive
+/comet-tweak（轻量预设路径，串联 OpenSpec，delta spec 为一等公民）
+  open  -->  build  -->  verify  -->  archive
 ```
 
 ### 五个阶段

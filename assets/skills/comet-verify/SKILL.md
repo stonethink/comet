@@ -47,7 +47,7 @@ Execute scale assessment:
 node "$COMET_STATE" scale <change-name>
 ```
 
-The script automatically counts tasks, delta spec count, changed file count, determines light or full verification mode, and sets the verify_mode field. Decision rule (any condition triggers full): tasks > 3, delta spec capabilities > 1, changed files > 4.
+The script automatically counts tasks, delta spec count, changed file count, determines light or full verification mode, and sets the verify_mode field. Decision rule (any condition triggers full): tasks > 3, delta spec capabilities > 1, changed files > 8.
 
 Before verification begins, handle uncommitted changes through `comet/reference/dirty-worktree.md` protocol. Verify phase special handling:
 
@@ -72,7 +72,7 @@ BASE_REF=$(grep '^base-ref:' "$PLAN" 2>/dev/null | head -1 | sed 's/^base-ref: *
 git diff --stat "$BASE_REF"...HEAD
 ```
 
-If commit range shows changes exceed lightweight threshold (> 4 files, cross-module coordination, or delta spec spans more than 1 capability), manually set to full verification:
+If commit range shows changes exceed lightweight threshold (> 8 files, cross-module coordination, or delta spec spans more than 1 capability), manually set to full verification:
 
 ```bash
 node "$COMET_STATE" set <change-name> verify_mode full

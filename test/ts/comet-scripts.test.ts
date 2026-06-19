@@ -2534,7 +2534,7 @@ describe('comet scripts', () => {
       path.join(tmpDir, 'docs', 'superpowers', 'plans', 'large-change.md'),
       ['---', 'change: large-change', `base-ref: ${baseRef}`, '---', ''].join('\n'),
     );
-    for (let i = 1; i <= 6; i += 1) {
+    for (let i = 1; i <= 9; i += 1) {
       await writeFile(path.join(tmpDir, 'src', `file-${i}.txt`), `change ${i}\n`);
     }
     execFileSync('git', ['add', '.'], { cwd: tmpDir });
@@ -2634,7 +2634,7 @@ describe('comet scripts', () => {
         '',
       ].join('\n'),
     );
-    for (let i = 1; i <= 6; i += 1) {
+    for (let i = 1; i <= 9; i += 1) {
       await writeFile(path.join(tmpDir, 'src', `file-${i}.txt`), `change ${i}\n`);
     }
     execFileSync('git', ['add', '.'], { cwd: tmpDir });
@@ -3195,6 +3195,99 @@ describe('comet scripts', () => {
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain('expected phase build');
   });
+
+  it('escalates preset workflows from build to design via preset-escalate', async () => {
+    for (const workflow of ['hotfix', 'tweak'] as const) {
+      const name = `escalate-${workflow}`;
+      await createChange(
+        tmpDir,
+        name,
+        [
+          `workflow: ${workflow}`,
+          'phase: build',
+          'build_mode: direct',
+          'build_pause: null',
+          'tdd_mode: direct',
+          'isolation: branch',
+          'verify_mode: light',
+          'review_mode: off',
+          'design_doc: null',
+          'plan: null',
+          'verify_result: pending',
+          'verified_at: null',
+          'archived: false',
+          '',
+        ].join('\n'),
+      );
+
+      const result = runNode(tmpDir, stateScript, ['transition', name, 'preset-escalate']);
+      const phase = runNode(tmpDir, stateScript, ['get', name, 'phase']);
+      const escalatedWorkflow = runNode(tmpDir, stateScript, ['get', name, 'workflow']);
+      const profile = runNode(tmpDir, stateScript, ['get', name, 'classic_profile']);
+      const designDoc = runNode(tmpDir, stateScript, ['get', name, 'design_doc']);
+
+      expect(result.status).toBe(0);
+      expect(phase.stdout.trim()).toBe('design');
+      expect(escalatedWorkflow.stdout.trim()).toBe('full');
+      expect(profile.stdout.trim()).toBe('full');
+      expect(designDoc.stdout.trim()).toBe('null');
+    }
+  }, 20_000);
+
+  it('rejects preset-escalate for full workflow and non-build phases', async () => {
+    await createChange(
+      tmpDir,
+      'escalate-full',
+      [
+        'workflow: full',
+        'phase: build',
+        'build_mode: executing-plans',
+        'build_pause: null',
+        'tdd_mode: tdd',
+        'isolation: branch',
+        'verify_mode: null',
+        'design_doc: docs/superpowers/specs/x.md',
+        'plan: null',
+        'verify_result: pending',
+        'verified_at: null',
+        'archived: false',
+        '',
+      ].join('\n'),
+    );
+
+    const fullResult = runNode(tmpDir, stateScript, ['transition', 'escalate-full', 'preset-escalate']);
+    expect(fullResult.status).not.toBe(0);
+    expect(fullResult.stderr).toContain('preset-escalate only applies to hotfix/tweak');
+
+    await createChange(
+      tmpDir,
+      'escalate-wrong-phase',
+      [
+        'workflow: tweak',
+        'phase: verify',
+        'build_mode: direct',
+        'build_pause: null',
+        'tdd_mode: direct',
+        'isolation: branch',
+        'verify_mode: light',
+        'review_mode: off',
+        'design_doc: null',
+        'plan: null',
+        'verify_result: pending',
+        'verified_at: null',
+        'archived: false',
+        '',
+      ].join('\n'),
+    );
+
+    const wrongPhaseResult = runNode(tmpDir, stateScript, [
+      'transition',
+      'escalate-wrong-phase',
+      'preset-escalate',
+    ]);
+    expect(wrongPhaseResult.status).not.toBe(0);
+    expect(wrongPhaseResult.stderr).toContain('expected phase build');
+  }, 20_000);
 
   it('reports error for malformed .comet.yaml on get', async () => {
     const changeDir = path.join(tmpDir, 'openspec', 'changes', 'bad-yaml');

@@ -69,3 +69,4 @@ archived: false
 - `build_mode: direct` defaults to `hotfix`/`tweak` only; full workflow requires `direct_override: true`
 - `build_pause` is not an execution mode; must not be written to `build_mode`
 - These constraints exist in both `comet-guard.mjs build --apply` and `comet-state.mjs transition <name> build-complete`
+- `preset-escalate` event: only allows `hotfix`/`tweak` workflow at `phase: build`; atomically sets `workflow`/`classic_profile` to `full`, rewinds `phase` to `design`, and clears `design_doc` (satisfying the comet-design entry requirement). This is the only legal channel for a preset → full upgrade — direct `set phase design` is hard-blocked by the state machine, and `set classic_profile` is a machine-owned field that cannot be set manually

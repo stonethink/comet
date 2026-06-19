@@ -10,9 +10,9 @@ Quick bug fix workflow: open → build → verify → archive. Skip brainstormin
 **Applicable conditions** (all must be met):
 1. Fix bugs in existing functionality, no new capability
 2. No interface changes or architecture adjustments
-3. Change scope is predictable (usually ≤ 2 files)
+3. Change scope is predictable (file count is a hint only, not a hard upgrade condition; see Upgrade Assessment below)
 
-**Not applicable**: If fix process discovers need for architecture adjustments, should upgrade to full `/comet` workflow.
+**Not applicable**: If the fix process hits a qualitative-change signal (see "Upgrade Assessment" section), the user decides whether to upgrade to the full `/comet` workflow.
 
 ---
 
@@ -83,7 +83,7 @@ node "$COMET_STATE" next <name>
 
 Use hotfix defaults: `build_mode: direct`, `review_mode: off` (hotfix/tweak skip review_mode selection — the guard does not require it for preset workflows). Skip Superpowers `brainstorming` and `writing-plans` (unless tasks > 3; if exceeds 3 tasks, transfer to `/comet-build`'s plan and execution method selection — note this does NOT trigger full workflow upgrade, only switches execution method).
 
-Before continuing or starting changes, handle uncommitted changes through `comet/reference/dirty-worktree.md`. If attribution shows the fix scope exceeds hotfix, handle it through this file's "Upgrade Conditions".
+Before continuing or starting changes, handle uncommitted changes through `comet/reference/dirty-worktree.md`. If attribution shows a qualitative-change signal or file-count tripwire is hit, handle it through this file's "Upgrade Assessment".
 
 **Immediately execute:** Execute tasks one by one according to tasks.md:
 
@@ -112,9 +112,9 @@ For specific investigation, minimal failing test, fix verification, and keeping 
 2. Search and verify problem code no longer exists
 3. If root cause not eliminated, return to Step 2 to continue fix (still in build phase, no state transition needed)
 
-**Upgrade conditions**:
-- Root cause check reveals deep architecture issues → Stop hotfix, handle per "Upgrade Conditions" section
-- Fix requires additional interface changes → Stop hotfix, handle per "Upgrade Conditions" section
+**Upgrade assessment signals**:
+- Root cause check reveals deep architecture issues → Hits a qualitative-change signal; pause per the "Upgrade Assessment" section and let the user decide
+- Fix requires additional interface changes → Hits a qualitative-change signal (introduces new public API); pause per the "Upgrade Assessment" section and let the user decide
 
 After root cause is confirmed eliminated, run phase guard to transition build → verify:
 
@@ -130,7 +130,7 @@ Reuse `/comet-verify`, with comet-verify's scale assessment deciding lightweight
 
 **Immediately execute:** Use the Skill tool to load the `comet-verify` skill. Skipping this step is prohibited.
 
-Small-scale hotfixes without delta spec usually meet lightweight verification conditions (≤ 3 tasks, ≤ 2 files), comet-verify's scale assessment will select the lightweight verification path (6 quick checks; default `review_mode: off` does not dispatch automatic code review). If the user wants to increase review, they can run `node "$COMET_STATE" set <name> review_mode standard` or `thorough` before verification. If hotfix created delta spec, enter full verification path according to comet-verify's scale assessment rules.
+Small-scale hotfixes without delta spec usually meet lightweight verification conditions (≤ 3 tasks, changed files below the scale threshold), comet-verify's scale assessment will select the lightweight verification path (6 quick checks; default `review_mode: off` does not dispatch automatic code review). If the user wants to increase review, they can run `node "$COMET_STATE" set <name> review_mode standard` or `thorough` before verification. If hotfix created delta spec, enter full verification path according to comet-verify's scale assessment rules.
 
 After verification passes, record `.comet.yaml` `verify_result` as `pass` according to `/comet-verify` rules, must not skip this status before archiving. After verification passes, still enter `/comet-archive`'s final archive confirmation; do not automatically run the archive script.
 
@@ -152,7 +152,7 @@ Exception: when `.comet.yaml` has `auto_transition: false`, after each phase gua
 
 The following situations must also pause and wait for user confirmation:
 
-1. Encountering upgrade conditions (see "Upgrade Conditions" section). **Must use the current platform's available user input/confirmation mechanism to pause and wait for the user to explicitly confirm** upgrading to full workflow
+1. Encountering an upgrade-assessment signal (see "Upgrade Assessment" section). **Must use the current platform's available user input/confirmation mechanism to pause and wait for the user to explicitly choose**: continue the hotfix flow, or upgrade to the full `/comet` workflow
 2. workspace isolation and execution-method selection when tasks exceed 3 and transfer to `/comet-build`
 3. verify phase (comet-verify) verification-failure and branch-handling decisions
 4. Final archive confirmation (before comet-archive runs the archive script)
@@ -164,28 +164,47 @@ After each step completes, immediately enter next step. Within each phase, must 
 
 ---
 
-## Upgrade Conditions
+## Upgrade Assessment
 
-Upgrade to full `/comet` when **any** of the following conditions are met:
+hotfix's scope assessment uses a three-layer division of labor, avoiding "using pure file count as a hard upgrade condition" that wrongly blocks normal bug fixes (real fixes often touch tests, types, and callers along the way, easily exceeding 2–4 files) and fails to catch "a big refactor split into many small files":
 
-| Condition | Explanation |
-|-----------|-------------|
-| Change involves **3+ files** | Exceeds single-point fix scope |
-| Architecture changes | New modules, new interfaces, new dependencies |
-| Database schema changes | Structural adjustments |
-| Introduces new public API | Fix creates new external interface |
-| Fix scope exceeds single function/module | Requires coordinated changes |
+### 1. Qualitative-change signals (agent semantic recognition; hitting any one pauses)
 
-When upgrade conditions are met, **must follow the `comet/reference/decision-point.md` protocol to pause and wait for the user to explicitly confirm** upgrading to the full `/comet` workflow. Do not directly enter `/comet-design`, and do not automatically supplement Design Doc.
+Continuously judge the following signals throughout build. When any is hit, **do not upgrade on your own or decide to continue on your own** — must pause per `comet/reference/decision-point.md` and delegate the decision to the user:
 
-After user confirms upgrade, **must first update the workflow and phase fields** before entering full flow:
+| Qualitative-change signal | Explanation |
+|---------------------------|-------------|
+| Cross-module coordinated change | Requires cross-component, cross-layer coordinated edits |
+| New capability needed | The fix introduces a new capability |
+| Database schema change | Structural adjustment |
+| Introduces new public API | The fix creates a new external interface |
+| Hits deep architecture issues | Root cause check reveals the fix requires an architecture-level solution |
+
+**Decision point (user chooses one of two)**:
+- **Option A — Continue the hotfix flow**: user confirms scope is manageable and hotfix can carry it; continue open → build → verify → archive
+- **Option B — Upgrade to full `/comet`**: user believes deep design is needed; upgrade to the full flow to supplement Design Doc and Superpowers plan
+
+### 2. File-count tripwire (user decides; not an automatic upgrade)
+
+When changed files exceed a hint threshold (e.g., > 4 files), the agent **does not upgrade on its own or decide to continue on its own**; instead it pauses and lets the user decide: continue hotfix, or upgrade to the full `/comet`. File count is a hint trigger, not a hard upgrade condition — many files do not equal a qualitative change.
+
+### 3. Verification weight (scale script decides)
+
+`comet-state scale` only decides `verify_mode` (verification weight); it does not block the flow or trigger an upgrade. Running a heavier verification is safe and will not stall development.
+
+---
+
+When a qualitative-change signal or file-count tripwire is hit, **must follow the `comet/reference/decision-point.md` protocol to pause and wait for the user to explicitly choose**. Do not directly enter `/comet-design`, and do not automatically supplement Design Doc.
+
+When the user chooses to upgrade (Option B), use the state machine's legal upgrade channel — a single command completes the preset → full conversion and rewinds to the design phase:
 
 ```bash
-node "$COMET_STATE" set <name> workflow full
-node "$COMET_STATE" set <name> phase design
+node "$COMET_STATE" transition <name> preset-escalate
 ```
 
-Then on current change basis, supplement Design Doc: **Immediately use the Skill tool to load the `comet-design` skill**, proceed normally with full workflow. If user does not confirm upgrade, stop hotfix and report that current change has exceeded hotfix scope.
+This command atomically sets `workflow`/`classic_profile` to `full`, rewinds `phase` to `design`, and clears `design_doc` (satisfying the comet-design entry requirement). Then supplement the Design Doc on the current change basis: **Immediately use the Skill tool to load the `comet-design` skill**, and proceed normally with the full workflow.
+
+When the user chooses to continue (Option A), continue the hotfix flow and record the reason the user confirmed continuing.
 
 ---
 

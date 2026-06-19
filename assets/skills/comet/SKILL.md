@@ -82,22 +82,19 @@ Prefer reading `openspec/changes/<name>/.comet.yaml`. If not available, fall bac
 
 If metadata conflicts with file state, use verifiable file state as source of truth and correct `.comet.yaml` before continuing.
 
-### Preset Upgrade Criteria
+### Preset Upgrade Assessment
 
-**hotfix → full** (upgrade if any condition met):
-- Change involves **3+ files**
-- Architecture changes (new modules, new interfaces, new dependencies)
-- Database schema changes
-- Fix introduces new public API
-- Fix scope exceeds a single function/module
+hotfix/tweak scope assessment uses a three-layer division of labor, avoiding "using pure file count as a hard upgrade condition" that wrongly blocks normal small changes:
 
-**tweak → full** (upgrade if any condition met):
-- Change involves **5+ files**
-- Cross-module coordination required
-- **5+** new test cases needed
-- Config item additions or deletions (not value changes)
-- New capability needed
-- Delta spec needed (existing spec affected)
+1. **Qualitative-change signals** (agent semantic recognition; hitting any one pauses and delegates a two-choice decision to the user): cross-module coordinated change, new capability needed, database schema change, introduces new public API, hits deep architecture issues
+2. **File-count tripwire** (user decides; not an automatic upgrade): when changed files exceed a hint threshold, pause and let the user decide whether to continue the preset or upgrade to full; do not auto-kick
+3. **Verification weight** (scale script decides): `comet-state scale` only decides `verify_mode` (verification weight); it does not block the flow or trigger an upgrade
+
+**Upgrade decision point (user chooses one of two)**:
+- Continue the preset lightweight flow (user confirms scope is manageable)
+- Upgrade to full `/comet` (use `node "$COMET_STATE" transition <name> preset-escalate` to legally rewind to the design phase, supplementing Design Doc and Superpowers plan)
+
+See the "Upgrade Assessment" section of each `comet-hotfix` / `comet-tweak` for detailed rules.
 
 ### Error Handling Quick Reference
 
@@ -129,7 +126,7 @@ Nodes requiring user participation (pause only at these nodes):
 4. Decide to fix or accept deviation when verify fails (including Spec drift handling)
 5. Choose branch handling method for finishing-branch
 6. Archive phase final confirmation before running the archive script
-7. Encounter upgrade conditions (hotfix/tweak → full workflow)
+7. Encounter an upgrade-assessment signal (hotfix/tweak → user chooses one of two: continue preset / upgrade to full workflow)
 8. Build phase scope expansion requiring redesign or new change split
 9. Open phase large PRD requiring confirmation to split into multiple changes
 
@@ -158,7 +155,7 @@ Agents should not skip these decision points; other unambiguous phase transition
 | `/comet-verify` | 4. Verify and Close | Both | Verification report, branch handling |
 | `/comet-archive` | 5. Archive | OpenSpec | delta→main spec sync, design doc markup, archive |
 | `/comet-hotfix` | Preset path | Both | Quick fix (skip brainstorming) |
-| `/comet-tweak` | Preset path | Both | Small change (skip brainstorming and full plan) |
+| `/comet-tweak` | Preset path | Both | OpenSpec-chained medium change (delta spec is first-class, skip brainstorming and full plan) |
 
 ```
 /comet
@@ -168,11 +165,11 @@ Agents should not skip these decision points; other unambiguous phase transition
 
 /comet-hotfix (preset, skip brainstorming)
   open ──→ build ──→ verify ──→ archive
-    ↑ If upgrade triggered → block for confirmation → supplement Design Doc → return to full workflow
+    ↑ Upgrade-assessment signal hit → user chooses one of two (continue preset / upgrade full) → if upgrade, transition preset-escalate → supplement Design Doc → return to full workflow
 
-/comet-tweak (preset, skip brainstorming and full plan)
-  open ──→ lightweight build ──→ light verify ──→ archive
-    ↑ If upgrade triggered → block for confirmation → supplement Design Doc → return to full workflow
+/comet-tweak (lightweight preset, chains OpenSpec, delta spec is first-class)
+  open ──→ build ──→ verify ──→ archive
+    ↑ Upgrade-assessment signal hit → user chooses one of two (continue preset / upgrade full) → if upgrade, transition preset-escalate → supplement Design Doc → return to full workflow
 ```
 
 ---
@@ -284,4 +281,4 @@ After loading comet, agents should run the variable assignments above once, then
 8. **Plan must associate with change** — File header contains `change:` and `design-doc:` metadata
 9. **Archive closure** — design doc and plan must mark `archived-with` status
 10. **Modifying existing features** — Just open a new change
-11. **Preset has limits** — Switch to full workflow promptly when hotfix/tweak meet upgrade conditions
+11. **Preset upgrade assessment** — When hotfix/tweak hit a qualitative-change signal or file-count tripwire, pause and let the user choose one of two (continue preset / upgrade full); upgrade uses `transition preset-escalate`

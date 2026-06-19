@@ -10869,7 +10869,8 @@ var EVENTS = [
   "verify-pass",
   "verify-fail",
   "archive-reopen",
-  "archived"
+  "archived",
+  "preset-escalate"
 ];
 var MACHINE_OWNED_FIELDS = /* @__PURE__ */ new Set([
   ...RUN_WIRE_KEYS,
@@ -11071,10 +11072,10 @@ function validateSetValue(field2, value) {
   }
 }
 async function setField(output, name, field2, value, options = {}) {
-  if (MACHINE_OWNED_FIELDS.has(field2)) {
+  if (MACHINE_OWNED_FIELDS.has(field2) && !options.machineOwned) {
     fail2(`ERROR: '${field2}' is a machine-owned Run field and cannot be set directly`);
   }
-  if (!SETTABLE_FIELDS.has(field2)) {
+  if (!SETTABLE_FIELDS.has(field2) && !MACHINE_OWNED_FIELDS.has(field2)) {
     fail2(`ERROR: Unknown field: '${field2}'`);
   }
   if (field2 === "phase" && !options.internal && process.env.COMET_FORCE_PHASE !== "1") {
@@ -11277,6 +11278,21 @@ async function transition(output, name, event) {
     await requirePhase(name, "verify");
     await setField(output, name, "verify_result", "fail");
     await setField(output, name, "phase", "build", { internal: true });
+  } else if (event === "preset-escalate") {
+    await requirePhase(name, "build");
+    const workflow = await readField3(name, "workflow");
+    if (!["hotfix", "tweak"].includes(workflow)) {
+      fail2(
+        `ERROR: Cannot transition '${name}': preset-escalate only applies to hotfix/tweak, got workflow='${workflow}'`
+      );
+    }
+    await setField(output, name, "workflow", "full", { internal: true });
+    await setField(output, name, "classic_profile", "full", {
+      internal: true,
+      machineOwned: true
+    });
+    await setField(output, name, "phase", "design", { internal: true });
+    await setField(output, name, "design_doc", "null", { internal: true });
   } else if (event === "archive-reopen") {
     await requirePhase(name, "archive");
     if (await readField3(name, "archived") === "true") {
@@ -11619,13 +11635,13 @@ async function scale(output, name) {
     ...baseRef && baseRef !== "null" ? [`${baseRef}...HEAD`] : ["HEAD"]
   ]);
   const changedFiles = changed ? changed.split(/\r?\n/u).filter(Boolean).length : 0;
-  const result2 = taskCount > 3 || deltaSpecs > 1 || changedFiles > 4 ? "full" : "light";
+  const result2 = taskCount > 3 || deltaSpecs > 1 || changedFiles > 8 ? "full" : "light";
   await setField(new CommandOutput(), name, "verify_mode", result2);
   output.stderr.push(
     `=== Scale Assessment: ${name} ===`,
     `  Tasks: ${taskCount} (threshold: 3)`,
     `  Delta specs: ${deltaSpecs} capabilities (threshold: 1)`,
-    `  Changed files: ${changedFiles} (threshold: 4)`,
+    `  Changed files: ${changedFiles} (threshold: 8)`,
     `  → Result: ${result2}`,
     green4(`[SCALE] verify_mode=${result2}`)
   );

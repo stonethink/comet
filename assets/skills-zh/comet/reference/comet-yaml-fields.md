@@ -69,3 +69,4 @@ archived: false
 - `build_mode: direct` 默认只允许 `hotfix` / `tweak`；full workflow 需要 `direct_override: true`
 - `build_pause` 不是执行方式，不得写入 `build_mode`
 - 这些约束同时存在于 `comet-guard.mjs build --apply` 和 `comet-state.mjs transition <name> build-complete`
+- `preset-escalate` 事件：仅允许 `hotfix`/`tweak` workflow 在 `phase: build` 时调用，原子地把 `workflow`/`classic_profile` 置为 `full`、`phase` 回退到 `design`、清空 `design_doc`（满足 comet-design 入口要求）。这是 preset 升级到 full 的唯一合法通道——直接 `set phase design` 会被状态机硬拦截，`set classic_profile` 属于 machine-owned 字段不可手动设置
