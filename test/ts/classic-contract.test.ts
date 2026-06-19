@@ -6,7 +6,7 @@ import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
 
-const sourceCommit = '367887e';
+const sourceCommit = '053f76d';
 const scriptNames = [
   'comet-env.sh',
   'comet-state.sh',
@@ -17,7 +17,7 @@ const scriptNames = [
   'comet-hook-guard.sh',
 ] as const;
 
-// Active (migrated) launchers run through node; the frozen 0.3.8 reference
+// Active (migrated) launchers run through node; the frozen 0.3.9 reference
 // launchers are bash. The differential contract compares their observable
 // behavior (stdout/stderr/exit/.comet.yaml), not the invocation mechanism.
 const activeScriptNames = [
@@ -39,7 +39,7 @@ interface ScriptVariant {
   executor: 'bash' | 'node';
 }
 
-const referenceRoot = path.resolve('test', 'fixtures', 'classic-0.3.8');
+const referenceRoot = path.resolve('test', 'fixtures', 'classic-0.3.9');
 const referenceScripts = path.join(referenceRoot, 'scripts');
 const activeScripts = path.resolve('assets', 'skills', 'comet', 'scripts');
 const temporaryRoots: string[] = [];
@@ -148,10 +148,10 @@ function normalizeOutput(value: string, root: string): string {
 }
 
 function legacyProjection(document: Record<string, unknown>): Record<string, unknown> {
-  // Strip Run/engine projection keys (not part of the 0.3.8 contract) plus
-  // review_mode, a post-0.3.8 optional field that defaults to null and does
-  // not change 0.3.8 behavior, so the differential contract compares only the
-  // 0.3.8-era behavior surface.
+  // Strip Run/engine projection keys that only the active TypeScript runtime
+  // adds (not part of the 0.3.9 bash contract). All other fields — including
+  // review_mode, build_command, verify_command, direct_override, base_ref —
+  // are 0.3.9-era fields that both frozen and active produce.
   const runKeys = new Set([
     'skill',
     'classic_profile',
@@ -170,10 +170,11 @@ function legacyProjection(document: Record<string, unknown>): Record<string, unk
     'checkpoint_ref',
     'run_status',
     'run_retries',
-    'review_mode',
+    // The active runtime writes these with null defaults during init; the
+    // frozen 0.3.9 bash scripts only write them when explicitly set.
     'build_command',
-    'verify_command',
     'direct_override',
+    'verify_command',
   ]);
   return Object.fromEntries(Object.entries(document).filter(([key]) => !runKeys.has(key)));
 }
@@ -353,7 +354,7 @@ afterEach(async () => {
   );
 });
 
-describe('frozen Classic 0.3.8 reference', () => {
+describe('frozen Classic 0.3.9 reference', () => {
   it('records the source commit and checksums for every compatibility script', async () => {
     const readme = await fs.readFile(path.join(referenceRoot, 'README.md'), 'utf8');
     const checksums = JSON.parse(
@@ -369,7 +370,7 @@ describe('frozen Classic 0.3.8 reference', () => {
   });
 });
 
-describeBash('Classic 0.3.8 differential contract', () => {
+describeBash('Classic 0.3.9 differential contract', () => {
   for (const profile of ['full', 'hotfix', 'tweak'] as const) {
     it(`preserves ${profile} initialization`, async () => {
       expect(await observeState(activeScripts, profile)).toEqual(
@@ -396,16 +397,11 @@ describeBash('Classic 0.3.8 differential contract', () => {
     );
   });
 
-  // Hotfix/tweak intentionally relax the open guard's design.md check
-  // post-0.3.8 (preset workflows skip brainstorming), so the stderr wording
-  // diverges from 0.3.8. The preserved contract is that the guard still BLOCKS
-  // an incomplete change (non-zero exit).
   for (const profile of ['hotfix', 'tweak'] as const) {
-    it(`preserves ${profile} open guard block (exit status)`, async () => {
-      const active = await observeGuard(activeScripts, profile, 'open');
-      const frozen = await observeGuard(referenceScripts, profile, 'open');
-      expect(active.status).toBe(frozen.status);
-      expect(active.status).not.toBe(0);
+    it(`preserves ${profile} open guard block (strict output parity)`, async () => {
+      expect(await observeGuard(activeScripts, profile, 'open')).toEqual(
+        await observeGuard(referenceScripts, profile, 'open'),
+      );
     });
   }
 
@@ -415,9 +411,9 @@ describeBash('Classic 0.3.8 differential contract', () => {
     );
   });
 
-  // 0.3.8 emitted localized (Chinese) hook messages; the current runtime
-  // emits English by contract. The preserved behavior is that a design-phase
-  // source write is still BLOCKED (exit 2).
+  // The active runtime updated hook guard messages (English wording, relative
+  // paths) beyond what 0.3.9 shipped. The preserved contract is that a
+  // design-phase source write is still BLOCKED (exit 2).
   it('preserves hook guard blocking for source writes in design (exit status)', async () => {
     const active = await observeHook(activeScripts);
     const frozen = await observeHook(referenceScripts);

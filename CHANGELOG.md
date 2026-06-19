@@ -51,7 +51,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Bundle CLI lifecycle coverage**: Adds command-level and built-CLI coverage for draft optimization, status reconciliation, platform compilation, Eval workload planning, Eval result recording, review gates, publish gates, distribution installation, text/JSON output, and invalid non-interactive option combinations.
 - **`/comet-any` Skill coverage**: Adds Chinese workflow contract tests and bilingual parity assertions for Bundle model behavior, native platform execution, optional Engine metadata, creator fallback authorization, Eval token choices, review and distribution gates, candidate implementation reads, capability gaps, executable disclosures, and deterministic Bundle CLI commands.
 - **Eval scaffold coverage**: Adds Python scaffold tests for task loading, treatment loading, task index stability, and cross-platform pytest coordination helpers.
-- **Launcher migration coverage**: Rewrites `comet-scripts.test.ts` to drive the `.mjs` launchers through Node on every platform (dropping the Bash/Git-Bash requirement and the `describe.skipIf(!bash())` gate), ports `classic-contract.test.ts` to run the active `.mjs` launchers via Node against the frozen 0.3.8 `.sh` reference via Bash, and ports `engine-schema-compat.test.ts` to Node.
+- **Launcher migration coverage**: Rewrites `comet-scripts.test.ts` to drive the `.mjs` launchers through Node on every platform (dropping the Bash/Git-Bash requirement and the `describe.skipIf(!bash())` gate), ports `classic-contract.test.ts` to run the active `.mjs` launchers via Node against the frozen 0.3.9 `.sh` reference via Bash, and ports `engine-schema-compat.test.ts` to Node.
 
 ### Removed
 
