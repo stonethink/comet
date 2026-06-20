@@ -172,6 +172,29 @@ def run_eval_in_docker(test_dir, validation_dir, test_script, timeout=120, data_
         return result
     return {"error": f"No JSON output. success={success}, output={output[:300]}"}
 
+
+def _format_structured_check(check):
+    name = str(check.get("check") or check.get("name") or "check")
+    detail = check.get("message") or check.get("reason") or check.get("error") or ""
+    return f"{name}: {detail}" if detail else name
+
+
+def _normalise_validation_results(results):
+    passed = list(results.get("passed") or [])
+    failed = list(results.get("failed") or [])
+
+    for check in results.get("checks") or []:
+        if not isinstance(check, dict):
+            continue
+        status = str(check.get("status") or "").lower()
+        message = _format_structured_check(check)
+        if status in {"passed", "pass", "ok", "success"}:
+            passed.append(message)
+        elif status in {"failed", "fail", "error"}:
+            failed.append(message)
+
+    return passed, failed
+
 def make_execution_validator(validation_dir, test_scripts, target_artifacts, timeout=120, data_dir=None):
     test_scripts = [test_scripts] if isinstance(test_scripts, str) else test_scripts
     artifacts = [target_artifacts] if isinstance(target_artifacts, str) else target_artifacts
@@ -191,9 +214,10 @@ def make_execution_validator(validation_dir, test_scripts, target_artifacts, tim
         (test_dir / TEST_CONTEXT_FILE).write_text(json.dumps(context, default=str))
         for script in test_scripts:
             results = run_eval_in_docker(test_dir, validation_dir, script, timeout=timeout, data_dir=data_dir)
-            passed.extend(results.get("passed", []))
-            failed.extend(results.get("failed", []))
-            if results.get("error") and not results.get("passed") and not results.get("failed"):
+            script_passed, script_failed = _normalise_validation_results(results)
+            passed.extend(script_passed)
+            failed.extend(script_failed)
+            if results.get("error") and not script_passed and not script_failed:
                 failed.append(f"Test execution error ({script}): {results['error']}")
         return passed, failed
 

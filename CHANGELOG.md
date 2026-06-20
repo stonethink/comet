@@ -42,10 +42,15 @@ All notable changes to @rpamis/comet will be documented in this file.
 
 ### Fixed
 
+- **Eval completion rubric**: Normalizes structured validator output (`checks` with per-check status) into the existing passed/failed baseline lists so the rubric completion dimension reports real baseline coverage instead of `no baseline checks ran`, while preserving pass@k's task-level success semantics.
 - **`review_mode` English documentation parity**: Syncs `review_mode` field documentation from Chinese to English skill files (`comet-yaml-fields.md`, `comet-build/SKILL.md`, `comet-verify/SKILL.md`, `subagent-dispatch.md`, `context-recovery.md`, `comet-hotfix/SKILL.md`) and documents that hotfix/tweak workflows skip `review_mode` selection, closing a behavioral divergence where English-speaking agents had no guidance on review mode selection. Includes transition guard tests blocking `build-complete` when `review_mode` is null for full workflow and verifying hotfix bypass.
 - **Manual CLI option handling**: Empty repeated Commander options no longer masquerade as submitted outcome fields, so a bare `comet skill resume` returns the existing pending action and `resume --upgrade` remains usable without synthetic status data.
 - **OpenSpec install with spaces in project path**: On Windows, `comet init` / `comet update` now shell-quotes arguments passed to `openspec init` so project paths containing spaces (e.g. `C:\Users\Test User\project`) are preserved as a single argument. Previously Node.js joined `shell: true` arguments without quoting, so the path was split into multiple tokens and OpenSpec failed with `too many arguments for 'init'. Expected 1 argument but got 2.` ([#123](https://github.com/rpamis/comet/issues/123)). Adds a shared `shell-quote` helper with unit tests and Windows regression coverage for both the primary and `--profile`-fallback init invocations.
 - **Preset upgrade command hard-blocked**: The hotfix/tweak SKILL upgrade sequence `set workflow full` + `set phase design` silently failed because the state machine hard-blocks direct `phase` writes (no build→design rewind event existed) and `classic_profile` is a machine-owned field. Replaced with the new `preset-escalate` transition event, the only legal channel that rewinds phase to design and syncs workflow/classic_profile atomically ([#121](https://github.com/rpamis/comet/issues/121)).
+
+### Tests
+
+- **Eval validator protocol**: Adds scaffold regression coverage for structured validator `checks` output so task validators that share `comet_workflow.write_results()` continue to feed baseline completion scoring.
 
 ### Removed
 
