@@ -42,6 +42,9 @@ RUN useradd --create-home --shell /bin/bash agent && \
     chown -R agent:agent /workspace
 USER agent
 ENV HOME=/home/agent
+# Validator scripts import scaffold.*; bake PYTHONPATH so it never crosses the
+# MSYS path-conversion boundary on the docker run command line.
+ENV PYTHONPATH=/workspace
 # Minimal git identity so comet commits don't fail.
 RUN git config --global user.email "agent@eval.local" && \
     git config --global user.name "Comet Eval Agent" && \
