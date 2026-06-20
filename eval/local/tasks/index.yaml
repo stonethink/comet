@@ -1,8 +1,50 @@
 tasks:
+  # ── Default / canonical full-workflow task ──────────────────────────────
   - name: comet-full-workflow
     category: comet
     default_treatments:
       - CONTROL
       - COMET_FULL
       - COMET_FULL_039
-    description: Full open-design-build-verify-archive workflow on a sentence-counting feature. Evaluates the comet main entry across all five phases.
+    description: Full open-design-build-verify-archive workflow on a sentence-counting feature. The canonical 5-phase task.
+
+  # ── Dimension coverage tasks (bug fix / refactor / perf / api / robustness) ──
+  - name: comet-fix-median
+    category: comet
+    default_treatments:
+      - CONTROL
+      - COMET_FULL
+      - COMET_FULL_039
+    description: Bug-fix dimension. Fix median() for even-length lists in a stats library; diagnose, fix, verify no regressions.
+
+  - name: comet-refactor-counter
+    category: comet
+    default_treatments:
+      - CONTROL
+      - COMET_FULL
+      - COMET_FULL_039
+    description: Refactor dimension. Collapse three duplicated count_* functions into a count(text, unit) dispatcher while preserving behavior.
+
+  - name: comet-perf-dedupe
+    category: comet
+    default_treatments:
+      - CONTROL
+      - COMET_FULL
+      - COMET_FULL_039
+    description: Performance dimension. Optimize an O(n^2) dedupe function to O(n) using a set while preserving first-occurrence order.
+
+  - name: comet-api-cache-ttl
+    category: comet
+    default_treatments:
+      - CONTROL
+      - COMET_FULL
+      - COMET_FULL_039
+    description: API-design dimension. Add optional TTL expiration to an in-memory cache while keeping the existing API backward compatible.
+
+  - name: comet-robust-config
+    category: comet
+    default_treatments:
+      - CONTROL
+      - COMET_FULL
+      - COMET_FULL_039
+    description: Robustness dimension. Add structured ConfigError handling to a brittle INI config loader so malformed input raises clear errors.
