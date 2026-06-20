@@ -23,6 +23,7 @@ from pathlib import Path
 
 from scaffold.python.paths import get_logs_dir
 from scaffold.python.validation.rubric import RUBRIC_DIMENSIONS
+from scaffold.python.pass_at_k import pass_metrics_table
 
 RUBRIC_RE = re.compile(r"\[RUBRIC\]\s+(\S+):\s*([0-9.]+)")
 RUBRIC_JUDGE_RE = re.compile(r"\[RUBRIC-JUDGE\]\s+(\S+):\s*([0-9.]+)")
@@ -40,6 +41,20 @@ def _latest_experiment(logs: Path) -> Path | None:
         return None
     dirs = sorted([d for d in exp_root.iterdir() if d.is_dir()], key=lambda p: p.stat().st_mtime)
     return dirs[-1] if dirs else None
+
+
+def _run_passed(report: dict) -> bool:
+    """A run 'passes' when its task-level validator has zero failures.
+
+    Rubric [RUBRIC]/[RUBRIC-JUDGE] checks are informational and never appear in
+    checks_failed, so this reflects whether the feature was actually completed.
+    """
+    return len(report.get("checks_failed", [])) == 0
+
+
+def _pass_fail_by_treatment(by_treatment: dict[str, list[dict]]) -> dict[str, list[bool]]:
+    """Per-run pass/fail booleans keyed by treatment id."""
+    return {t: [_run_passed(r) for r in reps] for t, reps in by_treatment.items()}
 
 
 def _load_reports(experiment_dir: Path) -> dict[str, list[dict]]:
@@ -233,6 +248,47 @@ def build_report(experiment_dir: Path) -> str:
     lines.append("")
 
     has_dist = any(len(by_treatment.get(t, [])) >= 2 for t in TREATMENTS)
+
+    # --- pass@k / pass^k (capability ceiling vs reliability floor) ---
+    pass_fail = _pass_fail_by_treatment(by_treatment)
+    max_n = max((len(v) for v in pass_fail.values()), default=0)
+    # Choose k values to report: always include k=1 (single-attempt rate),
+    # plus k near the available run count so the metrics are meaningful.
+    ks = [k for k in (1, 2, 5) if k <= max_n] or [1]
+    ptable = pass_metrics_table(pass_fail, ks=ks)
+
+    lines.append("## pass@k / pass^k — capability vs reliability")
+    lines.append("")
+    lines.append("- **pass@k**: probability ≥1 of k attempts succeeds (capability ceiling)")
+    lines.append("- **pass^k**: probability all k attempts succeed (reliability floor)")
+    lines.append("- The gap (pass@k − pass^k) measures instability: high ceiling, low floor = unreliable.")
+    lines.append("")
+    # Header
+    k_cols = ks * 2
+    header_cells = ["Treatment"]
+    for k in ks:
+        header_cells.append(f"pass@{k}")
+    for k in ks:
+        header_cells.append(f"pass^{k}")
+    header_cells.append("pass/fail")
+    lines.append("| " + " | ".join(header_cells) + " |")
+    lines.append("|" + "|".join(["---"] * len(header_cells)) + "|")
+    for t in TREATMENTS:
+        if t not in ptable:
+            continue
+        cells = [t]
+        for k in ks:
+            cells.append(f"{ptable[t][k]['pass_at_k']:.2f}")
+        for k in ks:
+            cells.append(f"{ptable[t][k]['pass_pow_k']:.0f}")
+        c = ptable[t][ks[0]]["c"]
+        n = ptable[t][ks[0]]["n"]
+        cells.append(f"{c}/{n}")
+        lines.append("| " + " | ".join(cells) + " |")
+    lines.append("")
+    if max_n < 2:
+        lines.append(f"_Only {max_n} run per treatment — pass@k/pass^k for k>1 need ≥2 runs to be meaningful. Use ``--count 5``._")
+        lines.append("")
 
     # Dimension comparison table
     label = "(mean±stdev, pass-rate across runs; 0.00–1.00)" if has_dist else "(mean, 0.00–1.00)"
