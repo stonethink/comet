@@ -161,6 +161,11 @@ docker_build() {
 
     local dockerfile="$dir/Dockerfile"
     if [[ ! -f "$dockerfile" ]]; then
+        # Fall back to environment/Dockerfile (the eval layout: conftest's
+        # copy_environment places it there, and validator test dirs reuse it).
+        dockerfile="$dir/environment/Dockerfile"
+    fi
+    if [[ ! -f "$dockerfile" ]]; then
         echo "ERROR: No Dockerfile in $dir" >&2
         return 1
     fi

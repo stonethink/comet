@@ -117,6 +117,14 @@ def _copy_scaffold_to_docker(test_dir):
     if py_validation.is_dir():
         shutil.copytree(py_validation, py_dest / "validation", dirs_exist_ok=True)
 
+    # Copy the shared comet-workflow checks as a TOP-LEVEL module (comet_checks)
+    # so validators can `from comet_checks import ...` without triggering the
+    # scaffold package __init__ chain (which depends on host-side libs like
+    # dotenv that are absent in the validator container).
+    comet_checks_src = py_validation / "comet_workflow.py"
+    if comet_checks_src.exists():
+        shutil.copy(comet_checks_src, test_dir / "comet_checks.py")
+
 def _parse_json_output(output):
     stripped = output.strip()
     try:

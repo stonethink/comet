@@ -8,7 +8,7 @@ import re
 import subprocess
 import sys
 
-from scaffold.python.validation.comet_workflow import (
+from comet_checks import (
     run_comet_checks,
     write_results,
     _passed,
