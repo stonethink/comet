@@ -48,6 +48,13 @@ def extract_events(parsed: dict[str, Any]) -> dict[str, Any]:
         "skills_invoked": [],
         "duration_seconds": None,
         "num_turns": None,
+        "input_tokens": None,
+        "output_tokens": None,
+        "cache_read_input_tokens": None,
+        "cache_creation_input_tokens": None,
+        "total_tokens": None,
+        "total_cost_usd": None,
+        "model_usage": {},
     }
 
     # Map tool_use_id -> index in tool_calls list for matching outputs
@@ -57,6 +64,20 @@ def extract_events(parsed: dict[str, Any]) -> dict[str, Any]:
         if msg.get("type") == "result":
             events["duration_seconds"] = msg.get("duration_ms", 0) / 1000
             events["num_turns"] = msg.get("num_turns")
+            usage = msg.get("usage") or {}
+            input_tokens = usage.get("input_tokens")
+            output_tokens = usage.get("output_tokens")
+            cache_read = usage.get("cache_read_input_tokens")
+            cache_creation = usage.get("cache_creation_input_tokens")
+            events["input_tokens"] = input_tokens
+            events["output_tokens"] = output_tokens
+            events["cache_read_input_tokens"] = cache_read
+            events["cache_creation_input_tokens"] = cache_creation
+            token_parts = [input_tokens, output_tokens, cache_read, cache_creation]
+            if any(v is not None for v in token_parts):
+                events["total_tokens"] = sum(v or 0 for v in token_parts)
+            events["total_cost_usd"] = msg.get("total_cost_usd")
+            events["model_usage"] = msg.get("modelUsage") or {}
 
         if msg.get("type") == "assistant":
             for item in msg.get("message", {}).get("content", []):
@@ -141,6 +162,14 @@ class TreatmentResult:
     @property
     def tool_calls(self) -> int | None:
         return self.events_summary.get("tool_calls")
+
+    @property
+    def total_tokens(self) -> int | None:
+        return self.events_summary.get("total_tokens")
+
+    @property
+    def total_cost_usd(self) -> float | None:
+        return self.events_summary.get("total_cost_usd")
 
     @property
     def skills_invoked(self) -> list[str]:
@@ -229,6 +258,16 @@ def default_columns() -> list[ReportColumn]:
             name="Tools",
             extract=lambda r: str(r.tool_calls) if r.tool_calls else "N/A",
             aggregate=lambda runs: _avg([r.tool_calls for r in runs if r.tool_calls], "{:.0f}"),
+        ),
+        ReportColumn(
+            name="Tokens",
+            extract=lambda r: _format_tokens(r.total_tokens),
+            aggregate=lambda runs: _format_tokens(_sum([r.total_tokens for r in runs])),
+        ),
+        ReportColumn(
+            name="Cost",
+            extract=lambda r: _format_cost(r.total_cost_usd),
+            aggregate=lambda runs: _format_cost(_sum([r.total_cost_usd for r in runs])),
         ),
     ]
 
@@ -319,6 +358,23 @@ def _avg(values: list, fmt: str = "{:.1f}") -> str:
     if not values:
         return "N/A"
     return fmt.format(sum(values) / len(values))
+
+
+def _sum(values: list) -> int | float | None:
+    values = [v for v in values if v is not None]
+    return sum(values) if values else None
+
+
+def _format_tokens(value: int | float | None) -> str:
+    if value is None:
+        return "N/A"
+    return f"{value:,.0f}"
+
+
+def _format_cost(value: int | float | None) -> str:
+    if value is None:
+        return "N/A"
+    return f"${value:.4f}"
 
 
 # =============================================================================
@@ -465,10 +521,10 @@ class ExperimentLogger:
         if base_treatments and len(base_treatments) < len(self.results):
             lines.append("## Aggregated by Treatment\n")
             lines.append(
-                "| Treatment | Reps Passed | Checks | Avg Turns | Avg Duration | Skills | Scripts |"
+                "| Treatment | Reps Passed | Checks | Avg Turns | Avg Duration | Tokens | Cost | Skills | Scripts |"
             )
             lines.append(
-                "|-----------|-------------|--------|-----------|--------------|--------|---------|"
+                "|-----------|-------------|--------|-----------|--------------|--------|------|--------|---------|"
             )
             for base_name, all_runs in base_treatments.items():
                 # A rep passes if all checks pass (no failures)
@@ -479,6 +535,8 @@ class ExperimentLogger:
                 pct = (total_passed / total_all * 100) if total_all > 0 else 0
                 avg_turns = _avg([r.turns for r in all_runs if r.turns], "{:.0f}")
                 avg_dur = _avg([r.duration for r in all_runs if r.duration], "{:.0f}s")
+                total_tokens = _format_tokens(_sum([r.total_tokens for r in all_runs]))
+                total_cost = _format_cost(_sum([r.total_cost_usd for r in all_runs]))
                 # Get skills/scripts from first run (should be same for all reps)
                 skills = (
                     ", ".join(all_runs[0].skills_invoked) if all_runs[0].skills_invoked else "none"
@@ -487,7 +545,7 @@ class ExperimentLogger:
                     ", ".join(all_runs[0].scripts_used) if all_runs[0].scripts_used else "none"
                 )
                 lines.append(
-                    f"| {base_name} | {reps_passed}/{total_reps} | {total_passed}/{total_all} ({pct:.0f}%) | {avg_turns} | {avg_dur} | {skills} | {scripts} |"
+                    f"| {base_name} | {reps_passed}/{total_reps} | {total_passed}/{total_all} ({pct:.0f}%) | {avg_turns} | {avg_dur} | {total_tokens} | {total_cost} | {skills} | {scripts} |"
                 )
             lines.append("")
 
@@ -519,6 +577,10 @@ class ExperimentLogger:
                     metrics.append(f"Duration: {r.duration:.0f}s")
                 if r.tool_calls:
                     metrics.append(f"Tool calls: {r.tool_calls}")
+                if r.total_tokens is not None:
+                    metrics.append(f"Tokens: {_format_tokens(r.total_tokens)}")
+                if r.total_cost_usd is not None:
+                    metrics.append(f"Cost: {_format_cost(r.total_cost_usd)}")
                 if metrics:
                     lines.append(f"- Metrics: {', '.join(metrics)}")
 

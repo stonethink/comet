@@ -176,7 +176,24 @@ def _fmt_dim(stats: dict[str, float] | None, with_dist: bool = False) -> str:
     mean = stats["mean"]
     if not with_dist or stats["n"] < 2:
         return f"{mean:.2f}"
-    return f"{mean:.2f}±{stats['stdev']:.2f} ({stats['pass_rate']*100:.0f}%)"
+        return f"{mean:.2f}±{stats['stdev']:.2f} ({stats['pass_rate']*100:.0f}%)"
+
+
+def _sum_metric(reports: list[dict], key: str) -> int | float | None:
+    values = [
+        rep.get("events_summary", {}).get(key)
+        for rep in reports
+        if rep.get("events_summary", {}).get(key) is not None
+    ]
+    return sum(values) if values else None
+
+
+def _fmt_tokens(value: int | float | None) -> str:
+    return "N/A" if value is None else f"{value:,.0f}"
+
+
+def _fmt_cost(value: int | float | None) -> str:
+    return "N/A" if value is None else f"${value:.4f}"
 
 
 # --- Attribution (improvement 2) -------------------------------------------
@@ -289,6 +306,24 @@ def build_report(experiment_dir: Path) -> str:
     if max_n < 2:
         lines.append(f"_Only {max_n} run per treatment — pass@k/pass^k for k>1 need ≥2 runs to be meaningful. Use ``--count 5``._")
         lines.append("")
+
+    # Spend summary
+    lines.append("## Spend summary")
+    lines.append("")
+    lines.append("| Treatment | Runs | Tokens | Cost | Avg Tokens/Run | Avg Cost/Run |")
+    lines.append("|-----------|------|--------|------|----------------|--------------|")
+    for t in TREATMENTS:
+        reps = by_treatment.get(t, [])
+        if not reps:
+            continue
+        total_tokens = _sum_metric(reps, "total_tokens")
+        total_cost = _sum_metric(reps, "total_cost_usd")
+        avg_tokens = (total_tokens / len(reps)) if total_tokens is not None else None
+        avg_cost = (total_cost / len(reps)) if total_cost is not None else None
+        lines.append(
+            f"| {t} | {len(reps)} | {_fmt_tokens(total_tokens)} | {_fmt_cost(total_cost)} | {_fmt_tokens(avg_tokens)} | {_fmt_cost(avg_cost)} |"
+        )
+    lines.append("")
 
     # Dimension comparison table
     label = "(mean±stdev, pass-rate across runs; 0.00–1.00)" if has_dist else "(mean, 0.00–1.00)"

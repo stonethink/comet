@@ -23,6 +23,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Eval LLM-as-judge**: Adds `scaffold/python/llm_judge.py` that re-scores the three qualitative dimensions (artifact_quality, spec_drift, main_flow) by reading the actual artifacts via a judge LLM (host-side claude CLI, reuses the proxy). `[RUBRIC-JUDGE]` overlay scores are emitted alongside the rule-based `[RUBRIC]` scores, and the comparison report shows a rule-vs-judge gap table. Enabled via `BENCH_LLM_JUDGE=1`; prompt is piped via stdin to dodge the Windows command-line length limit.
 - **Eval 回归闭环**: Adds `regression_check.py` and a `eval-regression.yml` GitHub Actions workflow that gate merges on rubric regressions. The gate compares the workflow treatment against a stored `regression_baseline.json` (committed), exits non-zero when any dimension drops beyond tolerance (default ±0.10), and refreshes the baseline on pass — closing the eval→improve loop.
 - **Eval pass@k / pass^k**: Adds the classic capability-vs-reliability metrics. `pass@k` (HumanEval unbiased estimator, `1 − C(n−c,k)/C(n,k)`) measures the capability ceiling — the chance at least one of k attempts succeeds. `pass^k` measures the reliability floor — the chance all k attempts succeed. The gap between them quantifies instability, which matters most for a workflow skill users run repeatedly. The comparison report now includes a pass@k/pass^k table per treatment; "pass" is defined at the task level (zero validator failures).
+- **Eval token and cost accounting**: Captures token usage and `total_cost_usd` from Claude stream-json result events, persists them in per-run reports, and shows total tokens and cost in console, markdown summaries, and baseline comparison reports so workflow quality can be compared against spend.
 - **ZCode 平台支持**: `comet init` 新增 ZCode 平台选项，将 Comet skills 和 rules 安装到项目级 `.zcode/skills/` 或全局 `~/.zcode/skills/`。ZCode 基于 OpenCode，OpenSpec 通过 `opencode` tool id 安装后镜像到 `.zcode/`，Superpowers 通过 `claude-code` staging 模式安装。同时新增通用 staging 函数供 Lingma/ZCode 复用 ([#122](https://github.com/rpamis/comet/issues/122))。
 - **`preset-escalate` state machine event**: Adds a legal preset (hotfix/tweak) → full upgrade channel. `comet-state transition <name> preset-escalate` atomically sets `workflow`/`classic_profile` to `full`, rewinds `phase` to `design`, and clears `design_doc` during the build phase, satisfying the comet-design entry requirement. `setField` gains a `machineOwned` option usable only inside transitions to write machine-owned fields like `classic_profile`; the external `set` command still blocks them ([#121](https://github.com/rpamis/comet/issues/121)).
 
@@ -51,6 +52,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 ### Tests
 
 - **Eval validator protocol**: Adds scaffold regression coverage for structured validator `checks` output so task validators that share `comet_workflow.write_results()` continue to feed baseline completion scoring.
+- **Eval spend reporting**: Adds scaffold coverage for stream-json token/cost extraction and summary table rendering of Tokens and Cost columns.
 
 ### Removed
 

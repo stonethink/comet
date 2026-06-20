@@ -188,7 +188,9 @@ class ExperimentPlugin:
         print("  RESULTS")
         print(f"{'=' * 120}\n")
 
-        print(f"{'Treatment':<25} {'Checks':<15} {'Turns':<8} {'Dur':<8} {'Skills':<40}")
+        print(
+            f"{'Treatment':<25} {'Checks':<15} {'Turns':<8} {'Dur':<8} {'Tokens':<12} {'Cost':<10} {'Skills':<40}"
+        )
         print("-" * 120)
 
         for treatment, runs in self.logger.results.items():
@@ -199,11 +201,15 @@ class ExperimentPlugin:
                 checks_str = f"{checks_passed}/{checks_total} ({check_pct:.0f}%)"
                 turns = str(r.turns) if r.turns else "?"
                 dur = f"{r.duration:.0f}s" if r.duration else "?"
+                tokens = f"{r.total_tokens:,}" if r.total_tokens is not None else "?"
+                cost = f"${r.total_cost_usd:.4f}" if r.total_cost_usd is not None else "?"
                 skills = r.events_summary.get("skills_invoked", [])
                 skills_str = ", ".join(skills) if skills else "none"
                 if len(skills_str) > 38:
                     skills_str = skills_str[:35] + "..."
-                print(f"{treatment:<25} {checks_str:<15} {turns:<8} {dur:<8} {skills_str:<40}")
+                print(
+                    f"{treatment:<25} {checks_str:<15} {turns:<8} {dur:<8} {tokens:<12} {cost:<10} {skills_str:<40}"
+                )
 
         print("-" * 120)
         total_passed = sum(
@@ -489,6 +495,13 @@ def record_result(test_dir, experiment_logger, request):
                 "duration_seconds": events.get("duration_seconds"),
                 "num_turns": events.get("num_turns"),
                 "tool_calls": len(events.get("tool_calls", [])),
+                "input_tokens": events.get("input_tokens"),
+                "output_tokens": events.get("output_tokens"),
+                "cache_read_input_tokens": events.get("cache_read_input_tokens"),
+                "cache_creation_input_tokens": events.get("cache_creation_input_tokens"),
+                "total_tokens": events.get("total_tokens"),
+                "total_cost_usd": events.get("total_cost_usd"),
+                "model_usage": events.get("model_usage", {}),
                 "files_created": events.get("files_created", []),
                 "skills_invoked": events.get("skills_invoked", []),
                 "scripts_used": scripts_used,
@@ -508,6 +521,13 @@ def record_result(test_dir, experiment_logger, request):
                     "num_turns": events.get("num_turns"),
                     "duration_seconds": events.get("duration_seconds"),
                     "tool_calls": len(events.get("tool_calls", [])),
+                    "input_tokens": events.get("input_tokens"),
+                    "output_tokens": events.get("output_tokens"),
+                    "cache_read_input_tokens": events.get("cache_read_input_tokens"),
+                    "cache_creation_input_tokens": events.get("cache_creation_input_tokens"),
+                    "total_tokens": events.get("total_tokens"),
+                    "total_cost_usd": events.get("total_cost_usd"),
+                    "model_usage": events.get("model_usage", {}),
                     "skills_invoked": events.get("skills_invoked", []),
                     "scripts_used": scripts_used,
                 },
