@@ -17,6 +17,15 @@ from comet_checks import (
 )
 
 
+def _subprocess_output(result: subprocess.CompletedProcess) -> str:
+    output = "\n".join(
+        part.strip()
+        for part in (result.stdout or "", result.stderr or "")
+        if part and part.strip()
+    )
+    return output[-600:]
+
+
 def check_count_dispatcher() -> dict:
     """A count(text, unit) dispatcher exists and wrappers delegate to it."""
     src_path = WORKSPACE / "text_processor.py"
@@ -31,7 +40,7 @@ def check_count_dispatcher() -> dict:
     # Wrappers must delegate (contain a count( call), not their own tally loop.
     for wrapper in ("count_words", "count_lines", "count_chars"):
         # Find the function body.
-        m = re.search(rf"def {wrapper}\([^)]*\):(.*?)(?=\ndef |\Z)", src, re.DOTALL)
+        m = re.search(rf"def {wrapper}\([^)]*\)\s*(?:->\s*[^:]+)?:(.*?)(?=\ndef |\Z)", src, re.DOTALL)
         if not m:
             return _failed("count_dispatcher", f"wrapper {wrapper} missing")
         body = m.group(1)
@@ -51,7 +60,7 @@ def check_behavior_preserved() -> dict:
         capture_output=True, text=True, cwd=str(WORKSPACE),
     )
     if result.returncode != 0:
-        return _failed("behavior_preserved", f"tests failing:\n{result.stdout[-300:]}")
+        return _failed("behavior_preserved", f"tests failing:\n{_subprocess_output(result)}")
     return _passed("behavior_preserved", "all existing tests pass")
 
 

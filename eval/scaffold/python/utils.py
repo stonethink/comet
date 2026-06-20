@@ -59,7 +59,16 @@ def _to_bash_path(value) -> str:
 
 def run_shell(script, *args, timeout=None, check=True):
     cmd = [BASH_EXEC, _to_bash_path(SHELL_DIR / script)] + [_to_bash_path(a) for a in args]
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=check, env=os.environ.copy())
+    return subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=timeout,
+        check=check,
+        env=os.environ.copy(),
+    )
 
 def check_docker_available():
     try:

@@ -51,7 +51,7 @@ class TestAnalyze:
     def test_combined(self):
         text = "hello world\nfoo bar"
         result = analyze(text)
-        assert result == {"words": 4, "lines": 2, "chars": 18}
+        assert result == {"words": 4, "lines": 2, "chars": 19}
 
     def test_empty(self):
         assert analyze("") == {"words": 0, "lines": 0, "chars": 0}

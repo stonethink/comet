@@ -16,6 +16,15 @@ from comet_checks import (
 )
 
 
+def _subprocess_output(result: subprocess.CompletedProcess) -> str:
+    output = "\n".join(
+        part.strip()
+        for part in (result.stdout or "", result.stderr or "")
+        if part and part.strip()
+    )
+    return output[-600:]
+
+
 def check_ttl_implementation() -> dict:
     """set() has a ttl param and all tests pass (TTL + backward compat)."""
     # set() must accept a ttl parameter.
@@ -35,7 +44,7 @@ def check_ttl_implementation() -> dict:
         capture_output=True, text=True, cwd=str(WORKSPACE),
     )
     if test_result.returncode != 0:
-        return _failed("ttl_implementation", f"tests failing:\n{test_result.stdout[-300:]}")
+        return _failed("ttl_implementation", f"tests failing:\n{_subprocess_output(test_result)}")
     return _passed("ttl_implementation", "set(ttl=...) works, all 10 tests pass")
 
 

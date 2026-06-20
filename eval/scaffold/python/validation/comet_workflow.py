@@ -65,6 +65,13 @@ def check_comet_state() -> dict:
                 state_files.append(Path(root) / f)
 
     if not state_files:
+        archive_dir = changes_dir / "archive"
+        if archive_dir.exists():
+            for change_dir in archive_dir.iterdir():
+                if not change_dir.is_dir():
+                    continue
+                if (change_dir / "proposal.md").exists() and (change_dir / "tasks.md").exists():
+                    return _passed("comet_state", "phase=archived")
         return _failed("comet_state", "No .comet.yaml found under openspec/changes/")
 
     # Read the first one and check it has a recognised phase.
@@ -97,8 +104,12 @@ def check_workflow_phases() -> dict:
     # Phase 3 (build): plan.md, docs/superpowers/plans/, or .comet/ handoff
     if _glob_exists("openspec/changes/**/plan.md") or _glob_exists("docs/superpowers/plans/*.md") or _glob_exists("openspec/changes/**/.comet/"):
         evidence += 1; found.append("build")
-    # Phase 4 (verify): verification.md or docs/superpowers/reports/
-    if _glob_exists("openspec/changes/**/verification.md") or _glob_exists("docs/superpowers/reports/*.md"):
+    # Phase 4 (verify): verification report or docs/superpowers/reports/
+    if (
+        _glob_exists("openspec/changes/**/verification.md")
+        or _glob_exists("openspec/changes/**/verification-report.md")
+        or _glob_exists("docs/superpowers/reports/*.md")
+    ):
         evidence += 1; found.append("verify")
     # Phase 5 (archive): openspec/changes/archive/
     if (WORKSPACE / "openspec" / "changes" / "archive").exists():

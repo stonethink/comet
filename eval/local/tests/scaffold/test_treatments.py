@@ -65,9 +65,9 @@ def test_build_treatment_skills_accepts_inline_content_and_generated_names():
 def test_load_treatments_keeps_comet_core_categories_only():
     treatments = load_treatments()
 
-    assert set(treatments) == {"CONTROL", "COMET_FULL"}
+    assert set(treatments) == {"CONTROL", "COMET_FULL", "COMET_FULL_039"}
     assert all(isinstance(treatment, TreatmentConfig) for treatment in treatments.values())
 
 
 def test_list_treatments_is_sorted_for_stable_cli_output():
-    assert list_treatments() == ["COMET_FULL", "CONTROL"]
+    assert list_treatments() == ["COMET_FULL", "COMET_FULL_039", "CONTROL"]

@@ -43,6 +43,8 @@ All notable changes to @rpamis/comet will be documented in this file.
 
 ### Fixed
 
+- **Eval task validators**: Fixes Comet eval false negatives by installing `pytest` in Python task images, preserving UTF-8 subprocess output on Windows, surfacing validator stderr, accepting archived `.comet.yaml`-less changes as `phase=archived`, and recognizing `verification-report.md` as verification evidence.
+- **Eval refactor fixture**: Corrects the `comet-refactor-counter` baseline test to preserve the original newline-counting character behavior, so the task starts from a passing test suite before the agent refactors it.
 - **Eval completion rubric**: Normalizes structured validator output (`checks` with per-check status) into the existing passed/failed baseline lists so the rubric completion dimension reports real baseline coverage instead of `no baseline checks ran`, while preserving pass@k's task-level success semantics.
 - **`review_mode` English documentation parity**: Syncs `review_mode` field documentation from Chinese to English skill files (`comet-yaml-fields.md`, `comet-build/SKILL.md`, `comet-verify/SKILL.md`, `subagent-dispatch.md`, `context-recovery.md`, `comet-hotfix/SKILL.md`) and documents that hotfix/tweak workflows skip `review_mode` selection, closing a behavioral divergence where English-speaking agents had no guidance on review mode selection. Includes transition guard tests blocking `build-complete` when `review_mode` is null for full workflow and verifying hotfix bypass.
 - **Manual CLI option handling**: Empty repeated Commander options no longer masquerade as submitted outcome fields, so a bare `comet skill resume` returns the existing pending action and `resume --upgrade` remains usable without synthetic status data.
@@ -51,6 +53,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 
 ### Tests
 
+- **Eval task validation**: Adds regression coverage for pytest-equipped task images, validator stderr reporting, annotated wrapper detection, archived change state detection, `verification-report.md` workflow evidence, UTF-8 task loading, and current treatment/task indexes.
 - **Eval validator protocol**: Adds scaffold regression coverage for structured validator `checks` output so task validators that share `comet_workflow.write_results()` continue to feed baseline completion scoring.
 - **Eval spend reporting**: Adds scaffold coverage for stream-json token/cost extraction and summary table rendering of Tokens and Cost columns.
 

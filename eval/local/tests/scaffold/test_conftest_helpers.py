@@ -7,11 +7,12 @@ import conftest
 
 def test_file_lock_context_manager_allows_exclusive_writes(tmp_path: Path):
     lock_file = tmp_path / "coordination.lock"
+    data_file = tmp_path / "coordination.txt"
 
     with conftest.file_lock(lock_file):
-        lock_file.write_text("held")
+        data_file.write_text("held")
 
-    assert lock_file.read_text() == "held"
+    assert data_file.read_text() == "held"
 
 
 def test_unit_test_detection_handles_scaffold_and_script_paths():

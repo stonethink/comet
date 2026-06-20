@@ -18,6 +18,15 @@ from comet_checks import (
 )
 
 
+def _subprocess_output(result: subprocess.CompletedProcess) -> str:
+    output = "\n".join(
+        part.strip()
+        for part in (result.stdout or "", result.stderr or "")
+        if part and part.strip()
+    )
+    return output[-600:]
+
+
 def check_median_fix() -> dict:
     """median() returns 2.5 for [1,2,3,4] and all existing tests pass."""
     # Import the (presumably fixed) stats module and check the even case.
@@ -37,7 +46,7 @@ def check_median_fix() -> dict:
         capture_output=True, text=True, cwd=str(WORKSPACE),
     )
     if test_result.returncode != 0:
-        return _failed("median_fix", f"existing tests still failing:\n{test_result.stdout[-300:]}")
+        return _failed("median_fix", f"existing tests still failing:\n{_subprocess_output(test_result)}")
     return _passed("median_fix", "median([1,2,3,4])==2.5, all tests pass")
 
 

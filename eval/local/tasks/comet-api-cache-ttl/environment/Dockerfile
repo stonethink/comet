@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     nodejs npm && \
     rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir pyyaml
+RUN pip install --no-cache-dir pyyaml pytest
 
 RUN npm config set registry https://registry.npmmirror.com && \
     npm install -g @fission-ai/openspec@1.3.1 && \

@@ -30,3 +30,18 @@ def test_execution_validator_converts_structured_checks(monkeypatch, tmp_path: P
         "median_fix: all tests pass",
     ]
     assert failed == ["tests_written: missing assertions"]
+
+
+def test_run_shell_decodes_subprocess_output_as_utf8(monkeypatch):
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        captured["kwargs"] = kwargs
+
+    monkeypatch.setattr(utils.subprocess, "run", fake_run)
+
+    utils.run_shell("docker.sh", "check", check=False)
+
+    assert captured["kwargs"]["encoding"] == "utf-8"
+    assert captured["kwargs"]["errors"] == "replace"

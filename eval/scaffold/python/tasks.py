@@ -234,7 +234,7 @@ def load_task(name: str, tasks_dir: Path | None = None) -> Task:
     if not instruction_path.exists():
         raise FileNotFoundError(f"instruction.md not found in {task_path}")
 
-    instruction_template = instruction_path.read_text()
+    instruction_template = instruction_path.read_text(encoding="utf-8")
 
     return Task(path=task_path, config=config, instruction_template=instruction_template)
 

@@ -75,12 +75,28 @@ def test_render_prompt_requires_declared_template_variables(mock_tasks_dir: Path
     assert prompt == "Run 123 and write result-123.json."
 
 
+def test_load_task_reads_instruction_as_utf8(mock_tasks_dir: Path):
+    task_dir = mock_tasks_dir / "test-basic"
+    (task_dir / "instruction.md").write_text("Fix Bob’s task {run_id}.", encoding="utf-8")
+
+    task = load_task("test-basic", mock_tasks_dir)
+
+    assert task.render_prompt(run_id="123", artifact_name="unused") == "Fix Bob’s task 123."
+
+
 def test_comet_task_index_lists_real_tasks():
     index_path = get_tasks_dir() / "index.yaml"
 
     assert index_path.exists()
 
-    index = yaml.safe_load(index_path.read_text())
+    index = yaml.safe_load(index_path.read_text(encoding="utf-8"))
     names = [task["name"] for task in index["tasks"]]
-    assert names == sorted(list_tasks())
-    assert set(names) == {"comet-full-workflow", "comet-hotfix", "comet-phase-guard"}
+    assert sorted(names) == sorted(list_tasks())
+    assert set(names) == {
+        "comet-api-cache-ttl",
+        "comet-fix-median",
+        "comet-full-workflow",
+        "comet-perf-dedupe",
+        "comet-refactor-counter",
+        "comet-robust-config",
+    }
