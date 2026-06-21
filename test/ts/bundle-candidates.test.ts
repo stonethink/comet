@@ -69,7 +69,37 @@ brainstorming
       preferences: ['../outside'],
     });
 
-    expect(result).toEqual([{ name: '../outside', status: 'missing', sources: [] }]);
+    expect(result).toEqual([
+      { name: '../outside', preferenceIndex: 0, status: 'missing', sources: [] },
+    ]);
+  });
+
+  it('preserves preference order on candidates and sources', async () => {
+    const brainstormingSkill = path.join(projectRoot, '.codex', 'skills', 'brainstorming');
+    const writingPlansSkill = path.join(homeDir, '.agents', 'skills', 'writing-plans');
+    await writeSkill(brainstormingSkill, 'brainstorming', 'Explore intent before implementation.');
+    await writeSkill(writingPlansSkill, 'writing-plans', 'Write implementation plans.');
+
+    const result = await discoverBundleCandidates({
+      projectRoot,
+      homeDir,
+      preferences: ['brainstorming', 'writing-plans'],
+    });
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        name: 'brainstorming',
+        preferenceIndex: 0,
+        status: 'available',
+        sources: [expect.objectContaining({ preferenceIndex: 0 })],
+      }),
+      expect.objectContaining({
+        name: 'writing-plans',
+        preferenceIndex: 1,
+        status: 'available',
+        sources: [expect.objectContaining({ preferenceIndex: 1 })],
+      }),
+    ]);
   });
 
   it('reads actual SKILL.md descriptions and reports ambiguous providers', async () => {
@@ -89,10 +119,12 @@ brainstorming
     expect(result).toEqual([
       {
         name: 'brainstorming',
+        preferenceIndex: 0,
         status: 'ambiguous',
         sources: [
           expect.objectContaining({
             name: 'brainstorming',
+            preferenceIndex: 0,
             platform: 'claude-code',
             scope: 'project',
             root: realClaudeSkill,
@@ -102,6 +134,7 @@ brainstorming
           }),
           expect.objectContaining({
             name: 'brainstorming',
+            preferenceIndex: 0,
             platform: 'codex',
             scope: 'global',
             root: realCodexSkill,
@@ -111,7 +144,7 @@ brainstorming
           }),
         ],
       },
-      { name: 'missing', status: 'missing', sources: [] },
+      { name: 'missing', preferenceIndex: 1, status: 'missing', sources: [] },
     ]);
   });
 
