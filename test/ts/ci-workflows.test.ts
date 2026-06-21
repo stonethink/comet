@@ -89,7 +89,7 @@ describe('CI workflows', () => {
     expect(workflow).toContain('days-before-close: 30');
     expect(workflow).toContain("stale-pr-label: 'stale'");
     expect(workflow).toContain("close-pr-label: 'closed-stale'");
-    expect(workflow).toContain('stale-issue-label: ""');
+    expect(workflow).toContain("stale-issue-label: 'stale-issue'");
     expect(workflow).toContain('days-before-issue-stale: -1');
     expect(workflow).toContain('days-before-issue-close: -1');
   });

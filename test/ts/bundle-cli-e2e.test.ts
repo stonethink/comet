@@ -49,6 +49,78 @@ engine:
   );
 }
 
+async function writeFactoryState(projectRoot: string): Promise<void> {
+  const draftPath = path.join(projectRoot, '.comet', 'bundle-drafts', 'factory-bundle');
+  const statePath = path.join(projectRoot, '.comet', 'bundle-authoring', 'factory-bundle.json');
+  await fs.mkdir(draftPath, { recursive: true });
+  await fs.mkdir(path.dirname(statePath), { recursive: true });
+  await fs.writeFile(
+    statePath,
+    JSON.stringify(
+      {
+        schemaVersion: 1,
+        name: 'factory-bundle',
+        mode: 'create',
+        status: 'draft',
+        draftPath,
+        currentHash: null,
+        candidates: [
+          {
+            name: 'brainstorming',
+            preferenceIndex: 0,
+            platform: 'codex',
+            scope: 'project',
+            origin: 'project',
+            factory: { query: 'brainstorming' },
+            root: path.join(projectRoot, '.codex', 'skills', 'brainstorming'),
+            description: 'Explore intent.',
+            skillMd: '# Brainstorming\n',
+            hash: 'a'.repeat(64),
+          },
+        ],
+        creator: 'native',
+        defaultLocale: 'zh',
+        locales: ['zh', 'en'],
+        engineEnabled: true,
+        factory: {
+          goal: 'Create a review-oriented Comet-native Skill.',
+          preferredSkills: ['brainstorming', 'writing-plans'],
+          resolvedSkills: [
+            {
+              query: 'brainstorming',
+              preferenceIndex: 0,
+              status: 'available',
+              sources: [
+                {
+                  name: 'brainstorming',
+                  preferenceIndex: 0,
+                  platform: 'codex',
+                  scope: 'project',
+                  origin: 'project',
+                  factory: { query: 'brainstorming' },
+                  root: path.join(projectRoot, '.codex', 'skills', 'brainstorming'),
+                  description: 'Explore intent.',
+                  skillMd: '# Brainstorming\n',
+                  hash: 'a'.repeat(64),
+                },
+              ],
+            },
+          ],
+          callChain: [
+            { skill: 'brainstorming', preferenceIndex: 0 },
+            { skill: 'writing-plans', preferenceIndex: 1 },
+          ],
+          deviations: [],
+          engineMode: 'deterministic',
+          runnerMode: 'standalone',
+        },
+      },
+      null,
+      2,
+    ),
+  );
+}
+
 function passingResult(hash: string): BundleEvalResult {
   return {
     schemaVersion: 1,
@@ -200,5 +272,54 @@ describe('comet bundle CLI end to end', () => {
     await expect(
       fs.access(path.join(projectRoot, '.claude', 'skills', 'alpha', '.comet')),
     ).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('generates a factory-authored Bundle draft and compiles it through the CLI', async () => {
+    await writeFactoryState(projectRoot);
+
+    const generated = runJson(
+      'bundle',
+      'factory-generate',
+      'factory-bundle',
+      '--project',
+      projectRoot,
+    );
+    const compiled = runJson(
+      'bundle',
+      'compile',
+      'factory-bundle',
+      '--project',
+      projectRoot,
+      '--platform',
+      'claude',
+    );
+
+    expect(generated).toMatchObject({
+      name: 'factory-bundle',
+      status: 'draft',
+      factory: {
+        generatedSkillPackage: {
+          entrySkill: 'factory-bundle',
+        },
+      },
+    });
+    expect(compiled).toMatchObject({
+      platform: 'claude',
+      entrySkills: ['factory-bundle'],
+    });
+    await expect(
+      fs.access(
+        path.join(
+          projectRoot,
+          '.comet',
+          'bundle-drafts',
+          'factory-bundle',
+          'skills',
+          'factory-bundle',
+          'comet',
+          'skill.yaml',
+        ),
+      ),
+    ).resolves.toBeUndefined();
   });
 });

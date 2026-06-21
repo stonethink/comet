@@ -21,6 +21,7 @@ import {
   bundleDraftOptimizeCommand,
   bundleEvalPlanCommand,
   bundleEvalRecordCommand,
+  bundleFactoryGenerateCommand,
   bundlePublishCommand,
   bundleReviewCommand,
   bundleStatusCommand,
@@ -225,6 +226,15 @@ bundle
   .option('--json', 'Output as JSON')
   .action(async (name, options) => {
     await bundleStatusCommand(name, options);
+  });
+
+bundle
+  .command('factory-generate <name>')
+  .description('Generate Bundle draft source from stored factory metadata')
+  .option('--project <dir>', 'Project root', '.')
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await bundleFactoryGenerateCommand(name, options);
   });
 
 bundle

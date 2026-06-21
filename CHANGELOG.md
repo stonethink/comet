@@ -6,6 +6,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 
 ### Added
 
+- **Factory draft generation backend**: Adds an internal `comet bundle factory-generate` path that turns stored `/comet-any` factory metadata into a real Bundle draft source tree, including `bundle.yaml` plus a generated Comet-native entry Skill package under `skills/<bundle-name>/`. This gives the Skill Factory a deterministic backend bridge from ordered preference planning to compileable Bundle output.
 - **Comet Skill Engine Foundation**: Adds the internal Skill Engine foundation layer — Skill Package loading, structural and semantic validation, stable content hashing and snapshots, Run state projection, Trajectory, Context, Artifacts, Checkpoints, action Guardrails, deterministic Runtime Evals, and the Runtime Adapter contract — providing a single runtime basis for the upcoming classic migration and agentic Skill orchestration. Ships behind new opt-in `.comet.yaml` fields and does not change 0.3.8 user behavior. Includes comprehensive contract tests for loading, validation, snapshots, Run state read-write, fail-closed recovery, action authorization, lifecycle guards, and end-to-end recovery through persisted Artifacts and Trajectory.
 - **Internal Classic Skill**: Adds a bilingual, non-user-facing `comet-classic` Skill Package and deterministic Classic Resolver covering full, hotfix, and tweak workflows while keeping the existing user-visible Skill names and command count unchanged. Includes Classic compatibility tests that freeze the 0.3.8 shell contracts, compare state and command behavior through new facades, exercise Run migration and recovery, and require all four deterministic benchmark rates to remain `1.0`.
 - **Classic baseline benchmark**: Adds a deterministic seven-scenario benchmark for profile migration, retry/fix routing, handoff resume, archive recovery, malformed-state rejection, idempotency, and legacy contract preservation without LLM or network dependencies.
@@ -54,6 +55,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 
 ### Tests
 
+- **Factory generation E2E**: Adds command-level and CLI end-to-end coverage for the new factory-generation backend, including state-backed draft source emission, generated `comet/skill.yaml`, and compile-time validation through the existing Bundle lifecycle.
 - **Skill Factory coverage**: Adds finder, preference-order, Factory metadata, generated Skill package, and bilingual `/comet-any` contract coverage so ordered local Skill preferences and Engine-aware generated Skills remain stable.
 - **Eval task validation**: Adds regression coverage for pytest-equipped task images, validator stderr reporting, annotated wrapper detection, archived change state detection, `verification-report.md` workflow evidence, UTF-8 task loading, and current treatment/task indexes.
 - **Eval validator protocol**: Adds scaffold regression coverage for structured validator `checks` output so task validators that share `comet_workflow.write_results()` continue to feed baseline completion scoring.

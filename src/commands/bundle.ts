@@ -1,6 +1,7 @@
 import path from 'path';
 import os from 'os';
 import { discoverBundleCandidates } from '../bundle/candidates.js';
+import { generateBundleDraftFromFactoryState } from '../bundle/factory.js';
 import { readSkillPreferences } from '../bundle/preferences.js';
 import { createBundleDraft, optimizeBundleDraft } from '../bundle/draft.js';
 import { loadBundle } from '../bundle/load.js';
@@ -122,6 +123,20 @@ export async function bundleStatusCommand(
       `Draft: ${state.draftPath}`,
       ...(state.ready ? [`Ready: ${state.ready.path}`] : []),
     ].join('\n'),
+  );
+}
+
+export async function bundleFactoryGenerateCommand(
+  name: string,
+  options: BundleCommandOptions = {},
+): Promise<void> {
+  const root = projectRoot(options);
+  const state = await reconcileBundleAuthoringState(root, name);
+  const updated = await generateBundleDraftFromFactoryState({ projectRoot: root, state });
+  emit(
+    updated,
+    options.json,
+    `Generated factory Bundle draft ${updated.name}\nDraft: ${updated.draftPath}`,
   );
 }
 

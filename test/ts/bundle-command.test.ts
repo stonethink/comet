@@ -10,11 +10,13 @@ import {
   bundleDraftOptimizeCommand,
   bundleEvalPlanCommand,
   bundleEvalRecordCommand,
+  bundleFactoryGenerateCommand,
   bundlePublishCommand,
   bundleReviewCommand,
   bundleStatusCommand,
 } from '../../src/commands/bundle.js';
 import type { BundleEvalResult } from '../../src/bundle/eval.js';
+import { createBundleDraft } from '../../src/bundle/draft.js';
 
 async function writeBundle(
   root: string,
@@ -188,6 +190,110 @@ describe('bundle commands', () => {
     expect(optimized).toMatchObject({ name: 'optimized-bundle', status: 'draft' });
     expect(status).toMatchObject({ name: 'optimized-bundle', status: 'draft' });
     expect(status.currentHash).toMatch(/^[a-f0-9]{64}$/u);
+  });
+
+  it('generates a draft bundle source from stored factory metadata', async () => {
+    await createBundleDraft({
+      projectRoot,
+      name: 'factory-bundle',
+      candidates: [
+        {
+          name: 'brainstorming',
+          preferenceIndex: 0,
+          platform: 'codex',
+          scope: 'project',
+          origin: 'project',
+          factory: { query: 'brainstorming' },
+          root: path.join(projectRoot, '.codex', 'skills', 'brainstorming'),
+          description: 'Explore intent.',
+          skillMd: '# Brainstorming\n',
+          hash: 'a'.repeat(64),
+        },
+      ],
+      creator: 'native',
+      defaultLocale: 'zh',
+      locales: ['zh', 'en'],
+      engineEnabled: true,
+      factory: {
+        goal: 'Create a review-oriented Comet-native Skill.',
+        preferredSkills: ['brainstorming', 'writing-plans'],
+        resolvedSkills: [
+          {
+            query: 'brainstorming',
+            preferenceIndex: 0,
+            status: 'available',
+            sources: [
+              {
+                name: 'brainstorming',
+                preferenceIndex: 0,
+                platform: 'codex',
+                scope: 'project',
+                origin: 'project',
+                factory: { query: 'brainstorming' },
+                root: path.join(projectRoot, '.codex', 'skills', 'brainstorming'),
+                description: 'Explore intent.',
+                skillMd: '# Brainstorming\n',
+                hash: 'a'.repeat(64),
+              },
+            ],
+          },
+        ],
+        callChain: [
+          { skill: 'brainstorming', preferenceIndex: 0 },
+          { skill: 'writing-plans', preferenceIndex: 1 },
+        ],
+        deviations: [],
+        engineMode: 'deterministic',
+        runnerMode: 'standalone',
+      },
+    });
+
+    const generated = await captureJson(() =>
+      bundleFactoryGenerateCommand('factory-bundle', { project: projectRoot, json: true }),
+    );
+    const compiled = await captureJson(() =>
+      bundleCompileCommand('factory-bundle', {
+        project: projectRoot,
+        platform: 'claude',
+        json: true,
+      }),
+    );
+
+    expect(generated).toMatchObject({
+      name: 'factory-bundle',
+      status: 'draft',
+      factory: {
+        generatedSkillPackage: {
+          entrySkill: 'factory-bundle',
+          internalSkills: [],
+        },
+      },
+    });
+    expect(compiled).toMatchObject({
+      platform: 'claude',
+      entrySkills: ['factory-bundle'],
+    });
+    await expect(
+      fs.readFile(
+        path.join(projectRoot, '.comet', 'bundle-drafts', 'factory-bundle', 'bundle.yaml'),
+        'utf8',
+      ),
+    ).resolves.toContain('name: factory-bundle');
+    await expect(
+      fs.readFile(
+        path.join(
+          projectRoot,
+          '.comet',
+          'bundle-drafts',
+          'factory-bundle',
+          'skills',
+          'factory-bundle',
+          'comet',
+          'skill.yaml',
+        ),
+        'utf8',
+      ),
+    ).resolves.toContain('kind: Skill');
   });
 
   it('compiles a Bundle, plans Eval, records Eval, approves, publishes, and distributes', async () => {
