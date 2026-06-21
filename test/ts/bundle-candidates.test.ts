@@ -102,6 +102,37 @@ brainstorming
     ]);
   });
 
+  it('preserves explicit path sources instead of collapsing them to project scope', async () => {
+    const explicitSkill = path.join(root, 'external-skill', 'skill-a');
+    await writeSkill(explicitSkill, 'skill-a', 'Use an explicitly referenced Skill.');
+    const realExplicitSkill = await fs.realpath(explicitSkill);
+
+    const result = await discoverBundleCandidates({
+      projectRoot,
+      homeDir,
+      preferences: [explicitSkill],
+    });
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        name: explicitSkill,
+        preferenceIndex: 0,
+        status: 'available',
+        sources: [
+          expect.objectContaining({
+            name: 'skill-a',
+            preferenceIndex: 0,
+            platform: 'explicit',
+            scope: 'explicit',
+            origin: 'explicit',
+            root: realExplicitSkill,
+            description: 'Use an explicitly referenced Skill.',
+          }),
+        ],
+      }),
+    ]);
+  });
+
   it('reads actual SKILL.md descriptions and reports ambiguous providers', async () => {
     const claudeSkill = path.join(projectRoot, '.claude', 'skills', 'brainstorming');
     const codexSkill = path.join(homeDir, '.codex', 'skills', 'brainstorming');

@@ -6,7 +6,7 @@ export interface BundleCandidateSource {
   name: string;
   preferenceIndex: number | null;
   platform: string;
-  scope: 'project' | 'global';
+  scope: FoundSkillSource['origin'];
   origin: FoundSkillSource['origin'];
   root: string;
   description: string;
@@ -19,10 +19,6 @@ export interface BundleCandidate {
   preferenceIndex: number | null;
   status: 'available' | 'missing' | 'ambiguous';
   sources: BundleCandidateSource[];
-}
-
-function bundleScope(origin: FoundSkillSource['origin']): BundleCandidateSource['scope'] {
-  return origin === 'global' ? 'global' : 'project';
 }
 
 export async function discoverBundleCandidates(options: {
@@ -50,7 +46,7 @@ export async function discoverBundleCandidates(options: {
       name: source.name,
       preferenceIndex: candidate.preferenceIndex,
       platform: source.platform ?? source.origin,
-      scope: bundleScope(source.origin),
+      scope: source.origin,
       origin: source.origin,
       root: source.root,
       description: source.description,
