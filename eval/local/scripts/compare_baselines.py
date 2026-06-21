@@ -22,7 +22,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from scaffold.python.paths import get_logs_dir
-from scaffold.python.validation.rubric import RUBRIC_DIMENSIONS
+from scaffold.python.validation.rubric import RUBRIC_DIMENSIONS, _DIMENSION_WEIGHTS
 from scaffold.python.pass_at_k import pass_metrics_table
 
 RUBRIC_RE = re.compile(r"\[RUBRIC\]\s+(\S+):\s*([0-9.]+)")
@@ -164,7 +164,12 @@ def _aggregate(reports: list[dict]) -> dict[str, dict[str, float]]:
 
 
 def _overall(agg: dict[str, dict[str, float]]) -> float:
-    """Mean of per-dimension means (treats each dimension equally)."""
+    """Use weighted_score if available, otherwise fall back to unweighted mean."""
+    # weighted_score is computed by the new binary-check + weighted aggregation
+    weighted = agg.get("weighted_score", {})
+    if weighted and weighted.get("n", 0) > 0:
+        return weighted["mean"]
+    # Fallback: mean of per-dimension means (legacy behavior)
     vals = [agg.get(d, {}).get("mean", 0.0) for d in RUBRIC_DIMENSIONS]
     return statistics.fmean(vals) if vals else 0.0
 
@@ -329,6 +334,8 @@ def build_report(experiment_dir: Path) -> str:
     label = "(mean±stdev, pass-rate across runs; 0.00–1.00)" if has_dist else "(mean, 0.00–1.00)"
     lines.append(f"## Rubric dimensions {label}")
     lines.append("")
+    lines.append("_Scores are binary pass-rates (0.0-1.0). Overall uses weighted average (see weights below)._")
+    lines.append("")
     header = "| Dimension | " + " | ".join(TREATMENTS) + " | Δ (workflow−baseline) |"
     sep = "|-----------|" + "|".join(["------"] * len(TREATMENTS)) + "|------|"
     lines.append(header)
@@ -358,6 +365,16 @@ def build_report(experiment_dir: Path) -> str:
         f"{_overall(aggregated[WORKFLOW]) - _overall(aggregated[BASELINE]):+.2f}"
         if WORKFLOW in aggregated and BASELINE in aggregated else "—"
     ) + " |")
+    lines.append("")
+
+    # Dimension weights (for weighted average)
+    lines.append("### Dimension weights")
+    lines.append("")
+    lines.append("| Dimension | Weight |")
+    lines.append("|-----------|--------|")
+    for dim in RUBRIC_DIMENSIONS:
+        weight = _DIMENSION_WEIGHTS.get(dim, 1.0)
+        lines.append(f"| {dim} | {weight:.1f} |")
     lines.append("")
 
     # --- Attribution (improvement 2) ---

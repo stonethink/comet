@@ -1,29 +1,38 @@
 """Comet skill rubric validator.
 
-Scores a comet full-workflow run across eight dimensions by analysing the
+Scores a comet full-workflow run across nine dimensions by analysing the
 captured Claude events and the artifacts left in the test directory. Every
 dimension emits a single check message of the form::
 
     [RUBRIC] <dim>: <score> - <reason>
 
-where ``<score>`` is 0.0 / 0.5 / 1.0 (higher is better) and ``<reason>`` is a
+where ``<score>`` is 0.0-1.0 (pass rate of binary checks) and ``<reason>`` is a
 short human-readable justification. The logging layer parses these messages to
 build per-dimension columns in the experiment summary.
 
+Scoring methodology (aligned with industry best practices from Galileo, Hebbia,
+τ-bench):
+- Each dimension contains N binary pass/fail checks
+- Dimension score = passed / total checks (0.0-1.0)
+- Final weighted score = Σ(dimension_score × weight) / Σ(weight)
+- Weights reflect dimension importance to workflow quality
+
 Dimensions
 ----------
-1. main_flow              - how many of the 5 phases (open→design→build→verify→archive) left evidence
-2. gate_guard             - whether comet-guard / comet-state transition / --apply were used
-3. skill_invocation       - whether the comet main entry and sub-skills were invoked in order
-4. spec_drift             - whether delta specs created during build were reconciled before archive
-5. completion             - fraction of the task's baseline validators that passed
-6. efficiency             - normalised cost (turns / tool calls / duration; lower is better)
-7. decision_point_compliance - whether agent paused at blocking decision points instead of auto-deciding
-8. artifact_quality       - whether proposal/design/tasks/test artefacts have substantive content
+1. main_flow              - how many of the 5 phases (open→design→build→verify→archive) left evidence (weight 1.5)
+2. gate_guard             - whether comet-guard / comet-state transition / --apply were used (weight 1.5)
+3. skill_invocation       - whether the comet main entry and sub-skills were invoked in order (weight 1.0)
+4. spec_drift             - whether delta specs created during build were reconciled before archive (weight 1.0)
+5. completion             - fraction of the task's baseline validators that passed (weight 2.0)
+6. efficiency             - normalised cost (turns / tool calls / duration; lower is better) (weight 0.8)
+7. decision_point_compliance - whether agent paused at blocking decision points instead of auto-deciding (weight 1.0)
+8. artifact_quality       - whether proposal/design/tasks/test artefacts have substantive content (weight 1.2)
+9. recovery_resilience    - whether the agent preserved and restored state correctly across interruptions (weight 1.0)
 """
 
 from __future__ import annotations
 
+import json
 import os
 import re
 from pathlib import Path
@@ -31,7 +40,7 @@ from typing import Any
 
 from scaffold.python.validation.core import ValidatorFn
 
-# All eight rubric dimensions, in display order.
+# All nine rubric dimensions, in display order.
 RUBRIC_DIMENSIONS = (
     "main_flow",
     "gate_guard",
@@ -41,7 +50,22 @@ RUBRIC_DIMENSIONS = (
     "efficiency",
     "decision_point_compliance",
     "artifact_quality",
+    "recovery_resilience",
 )
+
+# Dimension weights: critical dimensions get higher weight.
+# Weights are normalized internally so Σweights = 1.0.
+_DIMENSION_WEIGHTS: dict[str, float] = {
+    "completion": 2.0,               # Must complete the task
+    "main_flow": 1.5,                # Core 5-phase workflow
+    "gate_guard": 1.5,               # Quality gate enforcement
+    "artifact_quality": 1.2,         # Substantive deliverables
+    "skill_invocation": 1.0,         # Correct skill ordering
+    "spec_drift": 1.0,               # Spec reconciliation
+    "decision_point_compliance": 1.0, # User confirmation at gates
+    "recovery_resilience": 1.0,      # State preservation
+    "efficiency": 0.8,               # Nice-to-have, not critical
+}
 
 # Comet sub-skills that should appear (in roughly this order) during a full run.
 _EXPECTED_SKILL_ORDER = (
@@ -97,93 +121,131 @@ def _fmt(dim: str, score: float, reason: str) -> str:
     return f"[RUBRIC] {dim}: {score:.2f} - {reason}"
 
 
+def _fmt_weighted(score: float) -> str:
+    return f"[RUBRIC] weighted_score: {score:.2f}"
+
+
 def _join_commands(events: dict[str, Any]) -> str:
     return "\n".join(events.get("commands_run", []) or [])
 
 
+def _binary_score(checks: list[bool]) -> tuple[float, str]:
+    """Convert a list of binary checks to a pass-rate score.
+
+    Returns (pass_rate, summary) where pass_rate = passed / total.
+    """
+    total = len(checks)
+    if total == 0:
+        return 0.0, "no checks"
+    passed = sum(1 for c in checks if c)
+    return passed / total, f"{passed}/{total} passed"
+
+
+def _find_change_dir(test_dir: Path) -> Path | None:
+    """Find the comet change directory (active or archived)."""
+    changes_root = test_dir / "openspec" / "changes"
+    if not changes_root.exists():
+        return None
+
+    for d in changes_root.iterdir():
+        if not d.is_dir():
+            continue
+        if d.name == "archive":
+            for sub in d.iterdir():
+                if sub.is_dir() and (sub / ".comet.yaml").exists():
+                    return sub
+        elif (d / ".comet.yaml").exists():
+            return d
+    return None
+
+
 def _score_main_flow(events: dict[str, Any], test_dir: Path) -> tuple[float, str]:
+    """Check which of the 5 phases left evidence. Binary: each phase is pass/fail."""
     files = list(events.get("files_created", [])) + list(events.get("files_modified", []))
-    # Also consider files actually present on disk (some are written by scripts).
     try:
         on_disk = [str(p.relative_to(test_dir)).replace("\\", "/") for p in test_dir.rglob("*") if p.is_file()]
     except Exception:
         on_disk = []
     haystack = "\n".join(files + on_disk)
 
-    reached = []
+    # Binary check per phase: did it leave evidence?
+    phase_checks: list[bool] = []
+    phases_reached: list[str] = []
     for phase, patterns in _PHASE_SIGNALS.items():
-        if any(p.search(haystack) for p in patterns):
-            reached.append(phase)
+        found = any(p.search(haystack) for p in patterns)
+        phase_checks.append(found)
+        if found:
+            phases_reached.append(phase)
 
-    n = len(reached)
-    if n >= 4:
-        return 1.0, f"reached {n}/5 phases ({', '.join(reached)})"
-    if n >= 3:
-        return 0.75, f"reached {n}/5 phases ({', '.join(reached)})"
-    if n >= 2:
-        return 0.5, f"reached {n}/5 phases ({', '.join(reached)})"
-    if n >= 1:
-        return 0.25, f"reached only {n}/5 phases ({', '.join(reached)})"
-    return 0.0, "no phase artefacts detected"
+    score, _ = _binary_score(phase_checks)
+    return score, f"{len(phases_reached)}/5 phases ({', '.join(phases_reached) if phases_reached else 'none'})"
 
 
 def _score_gate_guard(events: dict[str, Any]) -> tuple[float, str]:
+    """Check guard/state/apply usage. Binary checks: guard used, transitions used, apply used."""
     cmds = _join_commands(events)
     if not cmds:
         return 0.0, "no commands captured"
 
+    guard_used = bool(re.search(r"comet-guard", cmds))
+    transition_used = bool(re.search(r"transition\s+\S+\s+(?:open|design|build|verify|archive)", cmds))
+    apply_used = bool(re.search(r"--apply", cmds))
+
+    checks = [guard_used, transition_used, apply_used]
+    score, _ = _binary_score(checks)
+
     guard_hits = len(re.findall(r"comet-guard", cmds))
     transition_hits = len(re.findall(r"transition\s+\S+\s+(?:open|design|build|verify|archive)", cmds))
     apply_hits = len(re.findall(r"--apply", cmds))
-    total = guard_hits + transition_hits + apply_hits
 
-    if total >= 6:
-        return 1.0, f"guard={guard_hits} transition={transition_hits} apply={apply_hits}"
-    if total >= 3:
-        return 0.5, f"guard={guard_hits} transition={transition_hits} apply={apply_hits}"
-    if total >= 1:
-        return 0.25, f"guard={guard_hits} transition={transition_hits} apply={apply_hits}"
-    return 0.0, "no guard/state/apply invocations"
+    return score, f"guard={guard_hits} transition={transition_hits} apply={apply_hits}"
 
 
 def _score_skill_invocation(events: dict[str, Any]) -> tuple[float, str]:
+    """Check if core skills were invoked in order. Binary checks per skill."""
     invoked = events.get("skills_invoked", []) or []
     if not invoked:
         return 0.0, "no skills invoked"
 
-    present = [s for s in _EXPECTED_SKILL_ORDER if s in invoked]
-    # Bonus for invoking the dispatcher first.
+    # Binary check per expected skill: was it invoked?
+    skill_checks: list[bool] = []
+    present: list[str] = []
+    for skill in _EXPECTED_SKILL_ORDER:
+        found = skill in invoked
+        skill_checks.append(found)
+        if found:
+            present.append(skill)
+
     dispatcher_first = bool(invoked) and invoked[0] in {"comet", "brainstorming"}
 
-    if len(present) >= 5 and dispatcher_first:
-        return 1.0, f"{len(present)}/6 core skills, dispatcher first ({', '.join(present)})"
-    if len(present) >= 4:
-        return 0.75, f"{len(present)}/6 core skills ({', '.join(present)})"
-    if len(present) >= 2:
-        return 0.5, f"{len(present)}/6 core skills ({', '.join(present)})"
-    if len(present) >= 1:
-        return 0.25, f"only {len(present)}/6 core skills ({', '.join(present)})"
-    return 0.1, f"invoked {len(invoked)} skills but none of the comet core ({', '.join(invoked[:5])})"
+    score, _ = _binary_score(skill_checks)
+    # Bonus: dispatcher invoked first adds 0.1 (capped at 1.0)
+    if dispatcher_first:
+        score = min(1.0, score + 0.1)
+
+    return score, f"{len(present)}/6 core skills ({', '.join(present) if present else 'none'})"
 
 
 def _score_spec_drift(events: dict[str, Any], test_dir: Path) -> tuple[float, str]:
+    """Check delta spec reconciliation. Binary: spec written AND synced."""
     cmds = _join_commands(events)
     files = list(events.get("files_modified", [])) + list(events.get("files_created", []))
 
-    # Delta-spec activity during build (specs/ writes under a change dir).
     spec_touched = any("specs/" in f and "openspec/changes" in f for f in files)
     spec_synced = bool(re.search(r"openspec\s+(?:sync|archive)", cmds))
 
     if not spec_touched:
-        # No delta spec written — neither drift nor reconciliation needed.
-        return 0.75, "no delta spec written (n/a)"
-    if spec_synced:
-        return 1.0, "delta spec written and reconciled (sync/archive)"
-    return 0.25, "delta spec written but not reconciled before archive"
+        # No delta spec needed — neutral pass (not applicable)
+        return 1.0, "no delta spec needed (n/a)"
+
+    # Binary: was it synced?
+    checks = [spec_touched, spec_synced]
+    score, _ = _binary_score(checks)
+    return score, f"spec_written={spec_touched} spec_synced={spec_synced}"
 
 
 def _score_completion(outputs: dict[str, Any]) -> tuple[float, str]:
-    # outputs carries the upstream task validator results under "completion".
+    """Check baseline validator pass rate. Already a ratio (0.0-1.0)."""
     checks = outputs.get("completion") or {}
     passed = checks.get("passed", [])
     failed = checks.get("failed", [])
@@ -195,35 +257,29 @@ def _score_completion(outputs: dict[str, Any]) -> tuple[float, str]:
 
 
 def _score_efficiency(events: dict[str, Any]) -> tuple[float, str]:
+    """Check efficiency via binary thresholds. Each metric is pass/fail at threshold."""
     turns = events.get("num_turns") or 0
     tool_calls = len(events.get("tool_calls", []))
     duration = events.get("duration_seconds") or 0
 
-    # Normalise each metric to a 0..1 sub-score (lower cost => higher score)
-    # with generous thresholds: a full 5-phase run legitimately uses many turns.
-    def subscore(value: float, lo: float, hi: float) -> float:
-        if value <= lo:
-            return 1.0
-        if value >= hi:
-            return 0.0
-        return 1.0 - (value - lo) / (hi - lo)
+    # Binary thresholds: "good enough" vs "too expensive"
+    turns_ok = turns <= 80
+    tools_ok = tool_calls <= 150
+    duration_ok = duration <= 600
 
-    s_turns = subscore(turns, 15, 80)
-    s_tools = subscore(tool_calls, 20, 150)
-    s_dur = subscore(duration, 60, 600)
-    score = round((s_turns + s_tools + s_dur) / 3, 2)
+    checks = [turns_ok, tools_ok, duration_ok]
+    score, _ = _binary_score(checks)
     return score, f"turns={turns} tools={tool_calls} dur={duration:.0f}s"
 
 
 def _score_decision_point_compliance(events: dict[str, Any]) -> tuple[float, str]:
+    """Check if agent asked user at decision points. Binary: ratio >= 0.5."""
     cmds = _join_commands(events)
     tool_calls = events.get("tool_calls", []) or []
 
     if not cmds:
         return 0.0, "no commands captured"
 
-    # Detect explicit "ask user" signals: AskUserQuestion tool use, or assistant
-    # text containing confirmation prompts.
     ask_signals = sum(
         1
         for tc in tool_calls
@@ -232,29 +288,19 @@ def _score_decision_point_compliance(events: dict[str, Any]) -> tuple[float, str
 
     mutations = sum(len(rx.findall(cmds)) for rx in _DECISION_MUTATIONS)
 
-    # If the agent never reached a phase transition, there is nothing to judge;
-    # treat as neutral rather than penalising.
     if mutations == 0:
-        return 0.5, "no decision-point mutations observed"
+        # No decision points reached — neutral pass
+        return 1.0, "no decision mutations observed"
 
-    # Every mutation ideally has at least one preceding ask signal.
+    # Binary: did the agent ask at least once per mutation?
     ratio = ask_signals / max(mutations, 1)
-    if ratio >= 1.0:
-        return 1.0, f"{ask_signals} asks for {mutations} decision mutations"
-    if ratio >= 0.5:
-        return 0.75, f"{ask_signals} asks for {mutations} decision mutations"
-    if ask_signals > 0:
-        return 0.4, f"{ask_signals} asks for {mutations} decision mutations (under-confirmed)"
-    return 0.1, f"{mutations} decision mutations with no explicit ask"
+    checks = [ratio >= 0.5]
+    score, _ = _binary_score(checks)
+    return score, f"{ask_signals} asks for {mutations} mutations (ratio={ratio:.2f})"
 
 
 def _score_artifact_quality(test_dir: Path) -> tuple[float, str]:
-    """Inspect proposal/design/tasks/test artefacts for substantive content."""
-    scores: list[float] = []
-    notes: list[str] = []
-
-    # Find the change dir: either directly under openspec/changes/ (active) or
-    # under openspec/changes/archive/ (archived by comet-archive).
+    """Check artifact quality via binary checks per artifact type."""
     changes_root = test_dir / "openspec" / "changes"
     change_dirs: list[Path] = []
     if changes_root.exists():
@@ -270,40 +316,36 @@ def _score_artifact_quality(test_dir: Path) -> tuple[float, str]:
         return 0.0, "no openspec change directory"
 
     cdir = change_dirs[0]
-    prop = (cdir / "proposal.md")
-    prop_text = prop.read_text(errors="ignore").lower() if prop.exists() else ""
-    prop_lines = prop_text.count("\n") if prop_text else 0
-    if prop_lines >= 10:
-        scores.append(1.0); notes.append(f"proposal {prop_lines}L")
-    elif prop_lines >= 3:
-        scores.append(0.5); notes.append(f"proposal {prop_lines}L")
-    else:
-        scores.append(0.0); notes.append("proposal stub")
+    checks: list[bool] = []
+    notes: list[str] = []
 
+    # Check 1: Proposal has substance (>= 10 lines)
+    prop = cdir / "proposal.md"
+    prop_text = prop.read_text(errors="ignore") if prop.exists() else ""
+    prop_ok = prop_text.count("\n") >= 10
+    checks.append(prop_ok)
+    notes.append(f"proposal={'ok' if prop_ok else 'stub'}")
+
+    # Check 2: Design doc exists with depth keywords
     design = cdir / "design.md"
     if design.exists():
         dtext = design.read_text(errors="ignore").lower()
         depth_hits = sum(1 for kw in _DESIGN_DEPTH_KEYWORDS if kw in dtext)
-        if depth_hits >= 2:
-            scores.append(1.0); notes.append(f"design depth {depth_hits}")
-        elif depth_hits >= 1:
-            scores.append(0.5); notes.append(f"design depth {depth_hits}")
-        else:
-            scores.append(0.25); notes.append("design shallow")
-    # design.md optional for hotfix/tweak; for full workflow it is expected.
+        design_ok = depth_hits >= 2
+        checks.append(design_ok)
+        notes.append(f"design={'deep' if design_ok else 'shallow'}")
+    # design.md optional for hotfix/tweak
 
+    # Check 3: Tasks has checkboxes
     tasks = cdir / "tasks.md"
     if tasks.exists():
         ttext = tasks.read_text(errors="ignore")
         checkboxes = len(re.findall(r"- \[[ x]\]", ttext))
-        if checkboxes >= 3:
-            scores.append(1.0); notes.append(f"tasks {checkboxes} boxes")
-        elif checkboxes >= 1:
-            scores.append(0.5); notes.append(f"tasks {checkboxes} boxes")
-        else:
-            scores.append(0.25); notes.append("tasks no checkboxes")
+        tasks_ok = checkboxes >= 3
+        checks.append(tasks_ok)
+        notes.append(f"tasks={checkboxes} boxes")
 
-    # Tests written by the agent with real assertions.
+    # Check 4: Tests have assertions
     test_files = list(test_dir.glob("test_*.py")) + list(test_dir.glob("**/test_*.py"))
     test_has_assert = False
     for tf in test_files:
@@ -313,25 +355,109 @@ def _score_artifact_quality(test_dir: Path) -> tuple[float, str]:
                 break
         except Exception:
             continue
-    if test_has_assert:
-        scores.append(1.0); notes.append("tests w/ assert")
-    elif test_files:
-        scores.append(0.3); notes.append("tests no assert")
-    else:
-        scores.append(0.0); notes.append("no tests")
+    checks.append(test_has_assert)
+    notes.append(f"tests={'w/ assert' if test_has_assert else 'no assert'}")
 
-    if not scores:
-        return 0.0, "no artefacts to score"
-    avg = round(sum(scores) / len(scores), 2)
-    return avg, "; ".join(notes)
+    score, _ = _binary_score(checks)
+    return score, "; ".join(notes)
+
+
+def _score_recovery_resilience(events: dict[str, Any], test_dir: Path) -> tuple[float, str]:
+    """Check recovery artifacts via binary checks."""
+    cdir = _find_change_dir(test_dir)
+    if not cdir:
+        return 0.0, "no comet change directory"
+
+    comet_dir = cdir / ".comet"
+    checks: list[bool] = []
+    notes: list[str] = []
+
+    # Check 1: Checkpoint exists and valid
+    checkpoint_path = comet_dir / "checkpoint.json"
+    if checkpoint_path.exists():
+        try:
+            checkpoint = json.loads(checkpoint_path.read_text(errors="ignore"))
+            checkpoint_ok = all(
+                checkpoint.get(k)
+                for k in ("runId", "contextHash", "artifactsHash", "createdAt")
+            )
+            checks.append(checkpoint_ok)
+            notes.append(f"checkpoint={'valid' if checkpoint_ok else 'invalid'}")
+        except Exception:
+            checks.append(False)
+            notes.append("checkpoint=unreadable")
+    else:
+        checks.append(False)
+        notes.append("checkpoint=missing")
+
+    # Check 2: Trajectory exists
+    trajectory_files = list(comet_dir.glob("trajectory*.jsonl"))
+    trajectory_ok = bool(trajectory_files)
+    checks.append(trajectory_ok)
+    notes.append(f"trajectory={'exists' if trajectory_ok else 'missing'}")
+
+    # Check 3: Context snapshot exists
+    context_files = list(comet_dir.glob("**/context.*"))
+    handoff_dir = comet_dir / "handoff"
+    handoff_files = list(handoff_dir.glob("*.md")) + list(handoff_dir.glob("*.json")) if handoff_dir.exists() else []
+    context_ok = bool(context_files or handoff_files)
+    checks.append(context_ok)
+    notes.append(f"context={'exists' if context_ok else 'missing'}")
+
+    # Check 4: No orphaned pending actions
+    pending_files = list(comet_dir.glob("**/pending*.json"))
+    pending_clean = True
+    for pf in pending_files:
+        try:
+            content = json.loads(pf.read_text(errors="ignore"))
+            if content:
+                pending_clean = False
+                break
+        except Exception:
+            pass
+    checks.append(pending_clean)
+    notes.append(f"pending={'clean' if pending_clean else 'orphaned'}")
+
+    # Check 5: .comet.yaml has phase field
+    yaml_path = cdir / ".comet.yaml"
+    if yaml_path.exists():
+        try:
+            yaml_content = yaml_path.read_text(errors="ignore")
+            yaml_ok = bool(re.search(r"phase:\s*\w+", yaml_content))
+            checks.append(yaml_ok)
+            notes.append(f"state={'ok' if yaml_ok else 'incomplete'}")
+        except Exception:
+            checks.append(False)
+            notes.append("state=unreadable")
+    else:
+        checks.append(False)
+        notes.append("state=missing")
+
+    score, _ = _binary_score(checks)
+    return score, "; ".join(notes)
+
+
+def _compute_weighted_score(dimension_scores: dict[str, float]) -> float:
+    """Compute weighted average across all dimensions."""
+    total_weight = 0.0
+    weighted_sum = 0.0
+    for dim in RUBRIC_DIMENSIONS:
+        weight = _DIMENSION_WEIGHTS.get(dim, 1.0)
+        score = dimension_scores.get(dim, 0.0)
+        weighted_sum += score * weight
+        total_weight += weight
+    return weighted_sum / total_weight if total_weight > 0 else 0.0
 
 
 def comet_rubric_validator(test_dir: Path, outputs: dict) -> tuple[list[str], list[str]]:
-    """Run all eight rubric dimensions and return (passed_messages, []).
+    """Run all nine rubric dimensions and return (passed_messages, []).
 
     Rubric dimensions are informational scores (never hard failures); the
     comparison report aggregates them across treatments. Every dimension always
     emits exactly one ``[RUBRIC]`` message.
+
+    Scoring: each dimension uses binary checks, score = pass rate (0.0-1.0).
+    Final weighted score uses dimension weights to aggregate.
     """
     events = (outputs or {}).get("events", {}) or {}
     completion = (outputs or {}).get("completion") or {}
@@ -345,9 +471,19 @@ def comet_rubric_validator(test_dir: Path, outputs: dict) -> tuple[list[str], li
         ("efficiency", *_score_efficiency(events)),
         ("decision_point_compliance", *_score_decision_point_compliance(events)),
         ("artifact_quality", *_score_artifact_quality(test_dir)),
+        ("recovery_resilience", *_score_recovery_resilience(events, test_dir)),
     ]
 
-    passed = [_fmt(dim, score, reason) for dim, score, reason in scored]
+    # Build dimension scores dict for weighted computation
+    dimension_scores: dict[str, float] = {}
+    passed: list[str] = []
+    for dim, score, reason in scored:
+        dimension_scores[dim] = score
+        passed.append(_fmt(dim, score, reason))
+
+    # Add weighted overall score
+    weighted = _compute_weighted_score(dimension_scores)
+    passed.append(_fmt_weighted(weighted))
 
     # Optional LLM-as-judge overlay: when BENCH_LLM_JUDGE=1, a judge model
     # re-scores the three qualitative dimensions (artifact_quality, spec_drift,
