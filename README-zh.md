@@ -259,10 +259,10 @@ comet bundle publish my-bundle --platform claude --json
 comet bundle distribute my-bundle --platform claude --scope project --confirm-executables --json
 ```
 
-`/comet-any` 会引导完整创作流程：读取 `.comet/skills.txt` 偏好或扫描平台 Skill，读取每个候选实现，优先使用原生
-`skill-creator`，回退到 Comet fallback 前必须询问用户；在 provider 工作前展示 quick/full Eval 的 token 消耗；
-skip 或失败 Eval 会阻止 ready；分发前必须再次询问用户。required 能力缺口会取消对应平台，optional 缺口需要显式
-`--skip-capability`，hooks/scripts 需要可执行确认。分发同时支持 `project` 和 `global` scope。
+`/comet-any` 是 Comet Skill Factory：用户只调用 Skill，描述想创建或优化的工作流；Comet 会读取
+`.comet/skills.txt` 偏好、定位本地真实 Skill 内容、尽量遵守推荐调用顺序，并在内部使用 CLI 后端完成校验、Eval、
+发布和可选分发。required 能力缺口会取消对应平台，optional 缺口需要显式 `--skip-capability`，hooks/scripts
+需要可执行确认。分发同时支持 `project` 和 `global` scope。
 
 </details>
 
@@ -321,7 +321,7 @@ OpenSpec 的输出从 `.opencode/` 镜像到 `.zcode/`。
 | `/comet-archive` | 阶段 5：归档（delta spec 同步、状态标注）       |
 | `/comet-hotfix`  | 快捷路径：快速 bug 修复（跳过头脑风暴，不需要能力设计）    |
 | `/comet-tweak`   | 轻量预设路径：串联 OpenSpec 的中等改动（delta spec 为一等公民，跳过头脑风暴和完整计划） |
-| `/comet-any`     | Bundle 创建器：创建/优化多 Skill Bundle       |
+| `/comet-any`     | Comet Skill Factory：创建/优化可分发的 Comet-native Skill |
 
 </details>
 

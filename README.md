@@ -280,10 +280,10 @@ comet bundle publish my-bundle --platform claude --json
 comet bundle distribute my-bundle --platform claude --scope project --confirm-executables --json
 ```
 
-`/comet-any` guides the authoring flow: it reads `.comet/skills.txt` preferences or scans platform Skills, reads each
-candidate implementation, prefers native `skill-creator`, asks before using the Comet fallback, shows quick/full Eval
-token workload before provider work, blocks ready state when Eval is skipped or fails, and asks before distribution.
-Required capability gaps cancel a platform, optional gaps require explicit `--skip-capability`, and hooks/scripts require
+`/comet-any` is the Comet Skill Factory: users invoke the Skill and describe the workflow they want to create or
+optimize. Comet reads `.comet/skills.txt`, locates real local Skill contents, preserves the recommended call order when
+possible, and internally uses CLI backends for validation, Eval, publishing, and optional distribution. Required
+capability gaps cancel a platform, optional gaps require explicit `--skip-capability`, and hooks/scripts require
 executable confirmation. Distribution supports both `project` and `global` scopes.
 
 </details>
@@ -344,7 +344,7 @@ After `comet init`, three groups of skills are installed to the selected platfor
 | `/comet-archive` | Phase 5: Archive (delta spec sync, status annotation)          |
 | `/comet-hotfix`  | Preset: Quick bug fix (skips brainstorming)                    |
 | `/comet-tweak`   | Preset: OpenSpec-chained medium change (delta spec is first-class, skips brainstorming and full plan) |
-| `/comet-any`     | Bundle creator — create/optimize multi-Skill Bundles           |
+| `/comet-any`     | Comet Skill Factory — create/optimize distributable Comet-native Skills |
 
 </details>
 

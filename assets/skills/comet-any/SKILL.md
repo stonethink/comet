@@ -1,24 +1,34 @@
 ---
 name: comet-any
-description: "Create or optimize platform-independent multi-Skill Bundles. Use /comet-any to read candidate Skills, generate a Bundle draft, run Eval, require human review, publish, and optionally distribute."
+description: "Create or optimize a user-facing Comet-native Skill. Use /comet-any to read `.comet/skills.txt`, resolve real local Skills, generate Skill Factory output, and internally use CLI backends for validation, Eval, publishing, and optional distribution."
 ---
 
-# Comet Any - Multi-Skill Bundle Authoring
+# Comet Any - Comet Skill Factory
 
-`/comet-any` turns multiple existing Skills or a new workflow into a platform-independent Comet Skill Bundle. A Bundle can include multiple entry Skills, internal Skill components, rules, hooks, scripts, references, assets, and optional Engine metadata; after distribution, the target platform executes native Skills, rules, hooks, and scripts.
+`/comet-any` is the Comet Skill Factory. The user only invokes this Skill and describes the
+workflow they want to create or optimize. This Skill reads user preferences, uses `find-skill`
+to locate real local Skill contents, composes a Comet-native Skill, and internally calls CLI
+backends for validation, Eval, publishing, and optional distribution. CLI is the internal
+deterministic backend, not the user-facing workflow.
 
 <IMPORTANT>
-This Skill must not claim generated Skills require Engine execution. Engine is only optional metadata or future runtime information; after distribution, the target platform executes the Skill, rules, hooks, and scripts natively.
+Engine is the runtime semantic foundation for generated Skills. Generated workflows with multiple
+steps, recovery needs, guardrails, runtime evals, or script side effects must generate
+`comet/skill.yaml`, `guardrails.yaml`, and `evals.yaml`. A lightweight single-step Skill may skip
+Engine, but the user must be told that Run recovery and runtime evals will be unavailable.
 </IMPORTANT>
 
 ## References
 
-- `comet-any/reference/bundle-authoring.md`: Bundle authoring state, candidate reads, and CLI lifecycle.
-- `comet-any/reference/eval-provider.md`: Eval choices, evidence format, and creator/provider fallback gates.
+- `comet-any/reference/bundle-authoring.md`: Skill Factory backend, Factory metadata, and Bundle/CLI lifecycle.
+- `comet-any/reference/eval-provider.md`: Eval choices, evidence format, review summaries, and fallback gates.
 
 ## Hard Gates
 
-- Modify only the approved `assets/skills/comet-any/` English variant at this stage; do not change the approved Chinese behavior except for parity tests or manifest release wiring.
+- The user only invokes this Skill; do not make manual `comet bundle` or `comet skill` commands the user-facing workflow.
+- Use `find-skill` to resolve real local Skills. Do not infer capability from names alone.
+- The line order in `.comet/skills.txt` is the recommended call order. The generated call chain should follow it when possible; if it deviates from the preferred order, the review summary must explain why.
+- Missing or ambiguous candidates must pause for user input. Never ignore them or choose for the user.
 - Use the `comet bundle` CLI to maintain deterministic state. Do not hand-write `.comet/bundle-*` state files.
 - Show Eval workload and token workload before asking the user to choose `skip / quick / full Eval`.
 - If Eval is skipped or fails, do not enter ready, publish, or distribute.
@@ -35,18 +45,18 @@ First run:
 comet bundle status <name> --json
 ```
 
-If the user has not provided `<name>`, ask for the Bundle name or ask whether to derive it from candidate Skills. If state exists, resume from it; if not, continue to the next step.
+If the user has not provided `<name>`, ask for the Skill/Bundle name or ask whether to derive it from the target workflow. If state exists, resume from it; otherwise continue to the next step.
 
 ### 2. Choose create/optimize and Language
 
 Ask the user to choose:
 
-- `create`: create a new Bundle from a goal.
-- `optimize`: optimize existing Skill candidates into a Bundle.
+- `create`: create new Skill Factory output from a goal.
+- `optimize`: read existing Skills or candidate Skills and optimize them into a new Comet-native Skill.
 
-Also confirm the default language and locales. Record at least the default locale; for multilingual Bundles, explain which files are overridden by locale overlays.
+Also confirm the default language and locales. Record at least the default locale; for multilingual Skills, explain which files are overridden by locale overlays.
 
-### 3. Read Preferences or Scan Candidates
+### 3. Read Preferences and Resolve Real Skills
 
 Read `.comet/skills.txt` first. If it exists, preserve its order and run:
 
@@ -54,7 +64,7 @@ Read `.comet/skills.txt` first. If it exists, preserve its order and run:
 comet bundle candidates --json
 ```
 
-If preferences are absent, scan platform Skill directories and still use `comet bundle candidates --json` to obtain available, missing, and ambiguous candidates.
+Then pass candidates through `find-skill` to resolve real sources. Do not infer capability from names alone; read the final candidates' real `SKILL.md`, direct references, rules, scripts, and hooks.
 
 ### 4. Resolve Missing or Ambiguous Candidates
 
@@ -64,17 +74,22 @@ List every `missing` and `ambiguous` item, then pause and ask the user how to ha
 
 Read candidate `SKILL.md`, then read referenced references, rules, scripts, and hooks as needed. This step only reads real implementation files; never execute candidate scripts.
 
-### 6. Clarify the Bundle Goal
+### 6. Propose the Default Call Chain
+
+Start with the recommended call order from `.comet/skills.txt` and record each Skill's `preferenceIndex`.
+If goals, dependencies, risk, recovery needs, safety confirmations, or platform constraints require a different order, record every item that deviates from the preferred order and explain why.
+
+### 7. Clarify the Skill Factory Goal
 
 Confirm with the user:
 
-- Bundle goal and usage scenario.
-- Which Skills are multiple entry Skills and which are internal Skill components.
-- Shared resources, security boundaries, Hook/script side effects.
-- Target platforms, required/optional capabilities, and capability gaps strategy.
-- Whether optional Engine metadata is needed.
+- The new Skill's goal, usage scenario, and success criteria.
+- Which pieces are entry Skills and which are internal Skill components.
+- Shared resources, security boundaries, and Hook/script side effects.
+- Target platforms, required/optional capabilities, and capability-gap strategy.
+- Whether Engine, runner recovery, and runtime evals are required.
 
-### 7. Initialize the Draft Through CLI
+### 8. Initialize the Draft and Factory Metadata Through CLI
 
 create mode:
 
@@ -94,15 +109,20 @@ Then run:
 comet bundle status <name> --json
 ```
 
-### 8. Invoke Native Creator or Request Fallback Authorization
+Write preferred order, resolved real Skills, default call chain, deviation reasons, and Engine mode into Factory metadata so the CLI maintains deterministic state.
 
-Prefer native `skill-creator` to generate or optimize Bundle content. If the native creator is unavailable, explain the difference and risk first, then ask whether the user allows the Comet fallback. Use the fallback only after explicit approval.
+### 9. Generate Comet-native Skill Source
 
-### 9. Adapt Creator Output into Bundle Source
+Prefer native `skill-creator` to generate or optimize the Comet-native Skill. If the native creator is unavailable, explain the difference and risk first, then ask whether the user allows the Comet fallback.
 
-Write creator output into the draft directory as `bundle.yaml`, `skills/`, `rules/`, `hooks/`, `scripts/`, `references/`, `assets/`, and related resources. Multiple entry Skills and internal Skill components must be explicitly marked in the manifest.
+Generate entry Skills, internal Skills, references, and scripts. The user does not need to run `comet bundle` or `comet skill` manually; those are internal backend steps.
 
-### 10. Compile and Validate
+### 10. Generate the Engine Package
+
+For multi-step or higher-risk output, generate `comet/skill.yaml`, `guardrails.yaml`, and `evals.yaml`.
+The Engine Package must match the call chain, guardrails, runtime evals, and script side-effect declarations.
+
+### 11. Compile and Validate
 
 Run at least one reference-platform compile:
 
@@ -112,7 +132,7 @@ comet bundle compile <name> --platform <id> --json
 
 If there are capability gaps or executable disclosures, show them to the user. Required capability gaps block that platform; optional capability gaps require the user to explicitly choose skip.
 
-### 11. Show Eval Workload and Ask skip/quick/full
+### 12. Show Eval Workload and Ask skip/quick/full
 
 Run:
 
@@ -123,7 +143,7 @@ comet bundle eval-plan <name> --level full --json
 
 Explain quick/full token workload, estimated runs, and coverage. Then ask the user to choose `skip / quick / full Eval`. If the user chooses skip, keep the state in draft and do not continue to ready.
 
-### 12. Record Eval Evidence
+### 13. Record Eval Evidence
 
 After the user chooses quick/full, call the Eval provider, produce a structured result file, then run:
 
@@ -133,9 +153,9 @@ comet bundle eval-record <name> --result <file> --json
 
 If Eval fails or the hash does not match, stop and return to draft repair.
 
-### 13. Show Review Summary and Wait for Explicit Approval
+### 14. Show Review Summary and Wait for Explicit Approval
 
-Summarize Bundle entries, internal Skill components, capability gaps, executable disclosures, Eval result, and target platforms. Wait for explicit approval or rejection.
+Summarize entry Skills, internal Skills, recommended call order, deviations from the preferred order, capability gaps, executable disclosures, Eval result, and target platforms. If the call chain deviates from the preferred order, the review summary must explain why.
 
 Approve:
 
@@ -149,7 +169,7 @@ Reject:
 comet bundle review <name> --reject --reviewer <reviewer> --json
 ```
 
-### 14. Publish
+### 15. Publish
 
 Only after the current hash has passed Eval and received human approval, run:
 
@@ -157,7 +177,7 @@ Only after the current hash has passed Eval and received human approval, run:
 comet bundle publish <name> --platform <reference-platform> --json
 ```
 
-### 15. Ask Whether to Distribute
+### 16. Ask Whether to Distribute
 
 After publish, ask the user whether to distribute. Do not distribute automatically.
 

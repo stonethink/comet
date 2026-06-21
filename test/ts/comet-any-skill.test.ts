@@ -31,7 +31,7 @@ async function readCometAnyEn(): Promise<{
 }
 
 describe('Chinese comet-any Skill', () => {
-  it('defines the Bundle authoring workflow and hard gates', async () => {
+  it('defines the Skill Factory workflow and hard gates', async () => {
     const { skill, authoring, evalProvider } = await readCometAnyZh();
     const combined = `${skill}\n${authoring}\n${evalProvider}`;
 
@@ -39,11 +39,20 @@ describe('Chinese comet-any Skill', () => {
       'create',
       'optimize',
       '.comet/skills.txt',
+      '用户只需要调用本 Skill',
+      'CLI 是内部确定性后端',
+      'Comet-native',
+      'find-skill',
+      '推荐调用顺序',
+      '偏离偏好顺序',
+      '必须说明原因',
+      'Engine 是运行语义底座',
+      '生成 `comet/skill.yaml`',
       '扫描平台 Skill',
       '读取候选 `SKILL.md`',
-      '多个 entry',
+      'entry Skill',
       'internal Skill',
-      'Engine 元数据',
+      'Engine Package',
       '原生 `skill-creator`',
       '回退前必须询问用户',
       'comet bundle',
@@ -52,7 +61,6 @@ describe('Chinese comet-any Skill', () => {
       'skip 或失败 Eval 时不得进入 ready',
       '人工批准',
       '分发前必须询问用户',
-      '不得声称生成的 Skill 需要 Engine 执行',
     ]) {
       expect(combined).toContain(expected);
     }
@@ -63,19 +71,20 @@ describe('Chinese comet-any Skill', () => {
     const ordered = [
       '恢复现有创作状态',
       '选择 create/optimize 与语言',
-      '读取偏好或扫描候选',
+      '读取偏好并解析真实 Skill',
       '解决缺失/歧义候选',
       '读取候选的真实实现',
-      '澄清 Bundle 目标',
-      '通过 CLI 初始化草稿',
-      '调用原生 creator 或请求回退授权',
-      '将 creator 输出适配为 Bundle 源码',
+      '提出默认调用链',
+      '澄清 Skill Factory 目标',
+      '通过 CLI 初始化草稿与 Factory metadata',
+      '生成 Comet-native Skill 源码',
+      '生成 Engine Package',
       '编译并校验',
       '展示 Eval 工作量并询问 skip/quick/full',
       '记录 Eval 证据',
       '展示评审摘要并等待显式批准',
-      '### 14. 发布',
-      '### 15. 询问是否分发',
+      '### 15. 发布',
+      '### 16. 询问是否分发',
     ];
 
     let previous = -1;
@@ -116,14 +125,17 @@ describe('Bilingual comet-any Skill parity', () => {
     const enCombined = `${en.skill}\n${en.authoring}\n${en.evalProvider}`;
 
     const parity: Array<{ zh: string; en: string }> = [
-      { zh: '多个 entry', en: 'multiple entry' },
+      { zh: '用户只需要调用本 Skill', en: 'The user only invokes this Skill' },
+      { zh: 'CLI 是内部确定性后端', en: 'internal deterministic backend' },
+      { zh: 'Comet-native Skill', en: 'Comet-native Skill' },
+      { zh: 'find-skill', en: 'find-skill' },
+      { zh: '推荐调用顺序', en: 'recommended call order' },
+      { zh: '偏离偏好顺序', en: 'deviates from the preferred order' },
+      { zh: '必须说明原因', en: 'must explain why' },
+      { zh: 'Engine 是运行语义底座', en: 'Engine is the runtime semantic foundation' },
+      { zh: '生成 `comet/skill.yaml`', en: 'generate `comet/skill.yaml`' },
+      { zh: 'entry Skill', en: 'entry Skills' },
       { zh: 'internal Skill', en: 'internal Skill' },
-      { zh: '目标平台原生执行', en: 'target platform executes' },
-      { zh: 'Engine 元数据', en: 'Engine metadata' },
-      {
-        zh: '不得声称生成的 Skill 需要 Engine 执行',
-        en: 'must not claim generated Skills require Engine',
-      },
       { zh: '原生 `skill-creator`', en: 'native `skill-creator`' },
       { zh: '回退前必须询问用户', en: 'must ask the user before fallback' },
       { zh: 'skip / quick / full Eval', en: 'skip / quick / full Eval' },

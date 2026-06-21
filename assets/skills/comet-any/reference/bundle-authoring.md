@@ -1,5 +1,14 @@
 # Bundle Authoring Reference
 
+## Skill Factory Backend
+
+`comet bundle` is the internal deterministic backend for `/comet-any`. The user does not need to run
+Bundle CLI directly. This Skill must adapt creator output into a Comet-native Skill Package before
+passing it to the Bundle backend for compile, Eval, publish, and distribution.
+
+The order in `.comet/skills.txt` must be preserved as Factory metadata. If the generated call chain
+deviates from that order, the review summary must include the reason.
+
 ## Authoring Modes
 
 `/comet-any` supports two modes:
@@ -12,10 +21,11 @@ Both modes must use `comet bundle` commands to maintain state. Do not write inte
 ## Candidate Reads
 
 1. Prefer project `.comet/skills.txt`.
-2. If preferences are absent, scan platform Skill directories.
-3. Use `comet bundle candidates --json` to obtain `available`, `missing`, and `ambiguous`.
-4. For every available candidate, read candidate `SKILL.md`.
-5. Pause and ask the user about missing or ambiguous candidates.
+2. Use `find-skill` to resolve real local Skill sources and contents.
+3. If preferences are absent, scan platform Skill directories.
+4. Use `comet bundle candidates --json` to obtain `available`, `missing`, and `ambiguous`.
+5. For every available candidate, read candidate `SKILL.md`.
+6. Pause and ask the user about missing or ambiguous candidates.
 
 Candidate scripts are read-only inputs and must never be executed.
 
@@ -27,9 +37,9 @@ A Bundle must explicitly define:
 - internal Skill components: shared workflow pieces referenced by entries.
 - references/rules/hooks/scripts/assets: the shared resource graph.
 - required/optional capabilities: used for platform compilation and capability gaps.
-- Engine metadata: optional descriptive metadata, never an execution prerequisite.
+- Engine Package: multi-step, recoverable, or higher-risk output must generate `comet/skill.yaml`, `guardrails.yaml`, and `evals.yaml`.
 
-Must not claim generated Skills require Engine execution.
+Engine is the runtime semantic foundation, but CLI remains the internal deterministic backend and not the user-facing workflow.
 
 ## CLI Lifecycle
 

@@ -30,7 +30,9 @@ Passing Eval still requires human approval. The review summary must include at l
 
 - Bundle name, version, and hash.
 - Multiple entry and internal Skill lists.
-- Whether Engine metadata is enabled.
+- Recommended call order and `preferenceIndex`.
+- Every item that deviates from the preferred order, plus the reason.
+- Whether `comet/skill.yaml`, `guardrails.yaml`, and `evals.yaml` were generated.
 - Capability gaps and executable disclosures.
 - Eval choice, token workload, and result summary.
 
