@@ -32,6 +32,20 @@ Read the nearby reference when needed.
   await fs.writeFile(path.join(root, 'scripts', 'run.mjs'), `console.log('${name}');\n`);
 }
 
+async function writeMinimalSkill(root: string, name: string): Promise<void> {
+  await fs.mkdir(root, { recursive: true });
+  await fs.writeFile(
+    path.join(root, 'SKILL.md'),
+    `---
+name: ${name}
+description: ${name} description.
+---
+
+# ${name}
+`,
+  );
+}
+
 describe('findPreferredSkills', () => {
   let root: string;
   let projectRoot: string;
@@ -197,5 +211,60 @@ ${explicit}
     expect(result).toEqual([
       { query: '../outside', preferenceIndex: 0, status: 'missing', sources: [] },
     ]);
+  });
+
+  it('does not follow search-root symlinks or junctions to skills outside the root', async (context) => {
+    const outside = path.join(root, 'outside-skills', 'linked');
+    const link = path.join(projectRoot, '.codex', 'skills', 'linked');
+    await writeMarkdownSkill(outside, 'linked', 'Outside linked skill.');
+    await fs.mkdir(path.dirname(link), { recursive: true });
+    try {
+      await fs.symlink(outside, link, process.platform === 'win32' ? 'junction' : 'dir');
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'EPERM' || code === 'EACCES' || code === 'ENOTSUP') {
+        context.skip();
+      }
+      throw error;
+    }
+
+    const result = await findPreferredSkills({
+      projectRoot,
+      homeDir,
+      builtinRoot,
+      preferences: [{ query: 'linked', preferenceIndex: 0 }],
+    });
+
+    expect(result).toEqual([
+      { query: 'linked', preferenceIndex: 0, status: 'missing', sources: [] },
+    ]);
+  });
+
+  it('uses length-framed hashing so embedded NUL content cannot collide with file framing', async () => {
+    const first = path.join(root, 'framing-a');
+    const second = path.join(root, 'framing-b');
+    await writeMinimalSkill(first, 'framing-a');
+    await writeMinimalSkill(second, 'framing-b');
+    await fs.writeFile(
+      path.join(first, 'SKILL.md'),
+      await fs.readFile(path.join(second, 'SKILL.md')),
+    );
+    await fs.writeFile(path.join(first, 'a'), Buffer.from('b\0file\0c\0d'));
+    await fs.writeFile(path.join(second, 'a'), Buffer.from('b'));
+    await fs.writeFile(path.join(second, 'c'), Buffer.from('d'));
+
+    const result = await findPreferredSkills({
+      projectRoot,
+      homeDir,
+      builtinRoot,
+      preferences: [
+        { query: first, preferenceIndex: 0 },
+        { query: second, preferenceIndex: 1 },
+      ],
+    });
+
+    expect(result[0].status).toBe('available');
+    expect(result[1].status).toBe('available');
+    expect(result[0].sources[0].hash).not.toBe(result[1].sources[0].hash);
   });
 });

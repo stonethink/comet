@@ -187,10 +187,14 @@ async function collectOptionalHashFiles(root: string, relative: string): Promise
 async function hashSkillDirectory(root: string): Promise<string> {
   const hash = createHash('sha256');
   for (const file of await collectHashFiles(root)) {
-    const normalizedPath = file.relativePath.replaceAll('\\', '/');
+    const normalizedPath = Buffer.from(file.relativePath.replaceAll('\\', '/'));
     hash.update(file.kind);
     hash.update('\0');
+    hash.update(String(normalizedPath.length));
+    hash.update('\0');
     hash.update(normalizedPath);
+    hash.update('\0');
+    hash.update(String(file.content.length));
     hash.update('\0');
     hash.update(file.content);
     hash.update('\0');
@@ -241,6 +245,10 @@ async function readSkillSource(
   let skillMd: string;
   try {
     realRoot = await fs.realpath(candidatePath);
+    if (searchRoot.origin !== 'explicit') {
+      const realSearchRoot = await fs.realpath(resolvedRoot);
+      if (!isInsideRoot(realSearchRoot, realRoot)) return null;
+    }
     if (!(await fs.stat(realRoot)).isDirectory()) return null;
     skillMd = await fs.readFile(path.join(realRoot, 'SKILL.md'), 'utf8');
   } catch (error) {
