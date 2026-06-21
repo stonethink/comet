@@ -67,8 +67,11 @@ describe('Bundle authoring lifecycle', () => {
       candidates: [
         {
           name: 'brainstorming',
+          preferenceIndex: 0,
           platform: 'codex',
           scope: 'project',
+          origin: 'project',
+          factory: { query: 'brainstorming' },
           root: path.join(projectRoot, '.codex', 'skills', 'brainstorming'),
           description: 'Explore intent.',
           skillMd: '# Brainstorming\n',
@@ -100,6 +103,99 @@ describe('Bundle authoring lifecycle', () => {
     expect(await fs.readdir(path.join(projectRoot, '.comet', 'bundle-authoring'))).toEqual([
       'demo-bundle.json',
     ]);
+  });
+
+  it('persists factory metadata with ordered preferences and deviation reasons', async () => {
+    const resolvedSource = {
+      name: 'brainstorming',
+      preferenceIndex: 0,
+      platform: 'codex',
+      scope: 'project' as const,
+      origin: 'project' as const,
+      factory: { query: 'brainstorming' },
+      root: path.join(projectRoot, '.codex', 'skills', 'brainstorming'),
+      description: 'Explore intent.',
+      skillMd: '# Brainstorming\n',
+      hash: 'b'.repeat(64),
+    };
+
+    const state = await createBundleDraft({
+      projectRoot,
+      name: 'factory-bundle',
+      candidates: [resolvedSource],
+      creator: 'native',
+      defaultLocale: 'zh',
+      locales: ['zh', 'en'],
+      engineEnabled: true,
+      factory: {
+        goal: 'Create a Comet-native workflow authoring Skill.',
+        preferredSkills: ['brainstorming', 'writing-plans'],
+        resolvedSkills: [
+          {
+            query: 'brainstorming',
+            preferenceIndex: 0,
+            status: 'available',
+            sources: [resolvedSource],
+          },
+          {
+            query: 'writing-plans',
+            preferenceIndex: 1,
+            status: 'missing',
+            sources: [],
+          },
+        ],
+        callChain: [
+          { skill: 'brainstorming', preferenceIndex: 0 },
+          { skill: 'writing-plans', preferenceIndex: 1 },
+        ],
+        deviations: [
+          {
+            skill: 'writing-plans',
+            expectedIndex: 1,
+            actualIndex: 0,
+            reason: 'Planning starts first because the user already supplied a concrete workflow.',
+          },
+        ],
+        engineMode: 'deterministic',
+        runnerMode: 'standalone',
+      },
+    });
+
+    expect(state.factory).toEqual({
+      goal: 'Create a Comet-native workflow authoring Skill.',
+      preferredSkills: ['brainstorming', 'writing-plans'],
+      resolvedSkills: [
+        {
+          query: 'brainstorming',
+          preferenceIndex: 0,
+          status: 'available',
+          sources: [resolvedSource],
+        },
+        {
+          query: 'writing-plans',
+          preferenceIndex: 1,
+          status: 'missing',
+          sources: [],
+        },
+      ],
+      callChain: [
+        { skill: 'brainstorming', preferenceIndex: 0 },
+        { skill: 'writing-plans', preferenceIndex: 1 },
+      ],
+      deviations: [
+        {
+          skill: 'writing-plans',
+          expectedIndex: 1,
+          actualIndex: 0,
+          reason: 'Planning starts first because the user already supplied a concrete workflow.',
+        },
+      ],
+      engineMode: 'deterministic',
+      runnerMode: 'standalone',
+    });
+    await expect(readBundleAuthoringState(projectRoot, 'factory-bundle')).resolves.toMatchObject({
+      factory: state.factory,
+    });
   });
 
   it('never overwrites an existing draft directory', async () => {

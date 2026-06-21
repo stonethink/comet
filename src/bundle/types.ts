@@ -112,6 +112,43 @@ export interface ExecutableDisclosure {
   destination: string;
 }
 
+export interface BundleFactoryCallChainItem {
+  skill: string;
+  preferenceIndex: number | null;
+}
+
+export interface BundleFactoryOrderDeviation {
+  skill: string;
+  expectedIndex: number;
+  actualIndex: number;
+  reason: string;
+}
+
+export interface BundleFactoryResolvedSkill {
+  query: string;
+  preferenceIndex: number | null;
+  status: 'available' | 'missing' | 'ambiguous';
+  sources: BundleCandidateSource[];
+}
+
+export interface BundleGeneratedSkillPackage {
+  entrySkill: string;
+  internalSkills: string[];
+  packageRoot: string;
+  enginePath: string | null;
+}
+
+export interface BundleFactoryMetadata {
+  goal: string;
+  preferredSkills: string[];
+  resolvedSkills: BundleFactoryResolvedSkill[];
+  callChain: BundleFactoryCallChainItem[];
+  deviations: BundleFactoryOrderDeviation[];
+  engineMode: 'none' | 'deterministic' | 'adaptive';
+  runnerMode: 'change' | 'standalone';
+  generatedSkillPackage?: BundleGeneratedSkillPackage;
+}
+
 export interface PlatformInstallFile {
   source: string;
   destination: string;
@@ -154,6 +191,7 @@ export interface BundleAuthoringState {
   defaultLocale: string;
   locales: string[];
   engineEnabled: boolean;
+  factory?: BundleFactoryMetadata;
   eval?: { level: 'quick' | 'full'; hash: string; resultPath: string; passed: boolean };
   review?: {
     hash: string;
