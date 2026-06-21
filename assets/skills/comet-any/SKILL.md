@@ -69,6 +69,7 @@ Then pass candidates through `find-skill` to resolve real sources. Do not infer 
 ### 4. Resolve Missing or Ambiguous Candidates
 
 List every `missing` and `ambiguous` item, then pause and ask the user how to handle it. Do not silently ignore missing candidates, and do not choose among multiple sources on the user's behalf.
+If the backend returns `unresolved factory Skill candidates`, return to this step and resolve the missing or ambiguous items before generation continues.
 
 ### 5. Read Real Candidate Implementations
 
@@ -91,31 +92,35 @@ Confirm with the user:
 
 ### 8. Initialize the Draft and Factory Metadata Through CLI
 
-create mode:
+First produce a structured plan file, then run:
+
+```bash
+comet bundle factory-init <name> --file <plan.json> --json
+```
+
+This command must handle both responsibilities:
+
+- Create the draft in create/optimize mode when no draft exists yet.
+- Write preferred order, resolved real Skills, default call chain, deviation reasons, and Engine mode into Factory metadata so the CLI maintains deterministic state.
+- Persist the normalized plan to `.comet/bundle-factory-plans/<name>/plan.json` and record `planHash` in metadata for recovery, review, and audit.
+
+Only when resuming old state, debugging backend behavior, or explicitly optimizing an existing Bundle should the Skill use these commands separately:
 
 ```bash
 comet bundle draft create <name> --json
-```
-
-optimize mode:
-
-```bash
 comet bundle draft optimize <bundle> --json
-```
-
-Then run:
-
-```bash
 comet bundle status <name> --json
 ```
-
-Write preferred order, resolved real Skills, default call chain, deviation reasons, and Engine mode into Factory metadata so the CLI maintains deterministic state.
 
 ### 9. Generate Comet-native Skill Source
 
 Prefer native `skill-creator` to generate or optimize the Comet-native Skill. If the native creator is unavailable, explain the difference and risk first, then ask whether the user allows the Comet fallback.
 
 Generate entry Skills, internal Skills, references, and scripts. The user does not need to run `comet bundle` or `comet skill` manually; those are internal backend steps.
+
+Generated output must include a real Skill evidence summary and write structured evidence to
+`reference/resolved-skills.json`. The summary should cite resolved Skill names, sources,
+descriptions, and hashes to prove composition used real local content instead of name-only guesses.
 
 ### 10. Generate the Engine Package
 
@@ -155,7 +160,13 @@ If Eval fails or the hash does not match, stop and return to draft repair.
 
 ### 14. Show Review Summary and Wait for Explicit Approval
 
-Summarize entry Skills, internal Skills, recommended call order, deviations from the preferred order, capability gaps, executable disclosures, Eval result, and target platforms. If the call chain deviates from the preferred order, the review summary must explain why.
+First run:
+
+```bash
+comet bundle review-summary <name> --platform <reference-platform> --json
+```
+
+Use that summary to show entry Skills, internal Skills, planHash, real Skill evidence, recommended call order, deviations from the preferred order, capability gaps, executable disclosures, quick/full Eval workload, Eval result, and target platforms. If the call chain deviates from the preferred order, the review summary must explain why.
 
 Approve:
 

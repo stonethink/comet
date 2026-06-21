@@ -261,8 +261,9 @@ comet bundle distribute my-bundle --platform claude --scope project --confirm-ex
 
 `/comet-any` 是 Comet Skill Factory：用户只调用 Skill，描述想创建或优化的工作流；Comet 会读取
 `.comet/skills.txt` 偏好、定位本地真实 Skill 内容、尽量遵守推荐调用顺序，并在内部使用 CLI 后端完成校验、Eval、
-发布和可选分发。required 能力缺口会取消对应平台，optional 缺口需要显式 `--skip-capability`，hooks/scripts
-需要可执行确认。分发同时支持 `project` 和 `global` scope。
+发布和可选分发。生成过程会固化规范化 plan、真实 Skill 证据和评审摘要，缺失或歧义候选会先让用户处理。
+required 能力缺口会取消对应平台，optional 缺口需要显式 `--skip-capability`，hooks/scripts 需要可执行确认。
+分发同时支持 `project` 和 `global` scope。
 
 </details>
 

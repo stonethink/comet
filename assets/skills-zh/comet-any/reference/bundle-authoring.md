@@ -28,6 +28,8 @@ Eval、发布和分发。
 6. 对缺失或歧义候选暂停询问用户。
 
 候选脚本只能读取，不能执行。
+`factory-generate` 会在存在 `missing` 或 `ambiguous` 候选时以 `unresolved factory Skill candidates`
+失败关闭；`/comet-any` 必须先让用户选择明确来源、移除缺失项或更新偏好，再重新运行 `factory-init`。
 
 ## Bundle 建模
 
@@ -38,15 +40,57 @@ Bundle 必须明确：
 - references/rules/hooks/scripts/assets：共享资源图。
 - required/optional 能力：用于平台编译和能力缺口展示。
 - Engine Package：多步骤、可恢复或高风险生成物必须生成 `comet/skill.yaml`、`guardrails.yaml` 和 `evals.yaml`。
+- 真实 Skill 证据：生成物必须包含 `reference/resolved-skills.json`，记录 resolved Skill 的来源、描述、hash、reference 和脚本摘要。
 
 Engine 是运行语义底座，但 CLI 仍是内部确定性后端，用户主流程不需要直接操作 CLI。
 
 ## CLI 生命周期
 
+`factory-init` 使用的 `plan.json` 应采用稳定结构。推荐最小形状：
+
+```json
+{
+  "goal": "Create a review-oriented Comet-native Skill.",
+  "preferredSkills": ["brainstorming", "writing-plans"],
+  "callChain": [
+    "brainstorming",
+    { "skill": "writing-plans", "preferenceIndex": 1 }
+  ],
+  "deviations": [
+    {
+      "skill": "writing-plans",
+      "expectedIndex": 1,
+      "actualIndex": 0,
+      "reason": "The user already provided a concrete workflow."
+    }
+  ],
+  "engineMode": "deterministic",
+  "runnerMode": "standalone",
+  "mode": "create",
+  "creator": "native",
+  "defaultLocale": "zh",
+  "locales": ["zh", "en"]
+}
+```
+
+字段约定：
+
+- `goal`：最终要生成什么 Skill，必须是用户可读目标。
+- `preferredSkills`：显式偏好顺序；未提供时由 `.comet/skills.txt` 与 `callChain` 合并推导。
+- `callChain`：最终建议调用链。字符串写法适合常规步骤；对象写法用于显式指定 `preferenceIndex`。
+- `deviations`：当 `callChain` 偏离偏好顺序时必须填写，供评审摘要直接复用。
+- `mode=optimize` 时必须提供 `sourceRoot`。
+- `engineMode=none` 时默认 `engineEnabled=false`；否则默认开启。
+
+`factory-init` 读取 plan 后，会把规范化结果写入 `.comet/bundle-factory-plans/<name>/plan.json`，
+并在 Factory metadata 中记录 `planPath` 和 `planHash`。`/comet-any` 的后续评审摘要应使用这两个
+字段说明当前生成物对应的计划证据；如果 plan 改动，必须重新运行 `factory-init`。
+
 常用命令：
 
 ```bash
 comet bundle candidates --json
+comet bundle factory-init <name> --file <plan.json> --json
 comet bundle draft create <name> --json
 comet bundle draft optimize <bundle> --json
 comet bundle status <name> --json
@@ -54,6 +98,7 @@ comet bundle compile <name> --platform <id> --json
 comet bundle eval-plan <name> --level quick --json
 comet bundle eval-plan <name> --level full --json
 comet bundle eval-record <name> --result <file> --json
+comet bundle review-summary <name> --platform <reference-platform> --json
 comet bundle review <name> --approve --reviewer <reviewer> --json
 comet bundle review <name> --reject --reviewer <reviewer> --json
 comet bundle publish <name> --platform <reference-platform> --json

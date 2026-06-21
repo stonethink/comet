@@ -28,8 +28,11 @@ The result must bind to the current Bundle hash, cover every entry Skill, and in
 
 Passing Eval still requires human approval. The review summary must include at least:
 
+First run `comet bundle review-summary <name> --platform <reference-platform> --json`, then use its output to show:
+
 - Bundle name, version, and hash.
 - Multiple entry and internal Skill lists.
+- `planHash` and `reference/resolved-skills.json` real Skill evidence.
 - Recommended call order and `preferenceIndex`.
 - Every item that deviates from the preferred order, plus the reason.
 - Whether `comet/skill.yaml`, `guardrails.yaml`, and `evals.yaml` were generated.

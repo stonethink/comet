@@ -10,8 +10,10 @@ import {
   bundleDraftOptimizeCommand,
   bundleEvalPlanCommand,
   bundleEvalRecordCommand,
+  bundleFactoryInitCommand,
   bundleFactoryGenerateCommand,
   bundlePublishCommand,
+  bundleReviewSummaryCommand,
   bundleReviewCommand,
   bundleStatusCommand,
 } from '../../src/commands/bundle.js';
@@ -192,6 +194,96 @@ describe('bundle commands', () => {
     expect(status.currentHash).toMatch(/^[a-f0-9]{64}$/u);
   });
 
+  it('initializes factory metadata from a structured plan file', async () => {
+    const skillRoot = path.join(projectRoot, '.claude', 'skills', 'brainstorming');
+    await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
+    await fs.mkdir(skillRoot, { recursive: true });
+    await fs.writeFile(
+      path.join(projectRoot, '.comet', 'skills.txt'),
+      'brainstorming\nwriting-plans\n',
+    );
+    await fs.writeFile(
+      path.join(skillRoot, 'SKILL.md'),
+      '---\nname: brainstorming\ndescription: Brainstorming.\n---\n# Brainstorming\n',
+    );
+    const planFile = path.join(root, 'factory-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Create a review-oriented Comet-native Skill.',
+          callChain: ['brainstorming', 'writing-plans', 'requesting-code-review'],
+          deviations: [
+            {
+              skill: 'requesting-code-review',
+              expectedIndex: 2,
+              actualIndex: 1,
+              reason: 'Review should happen before final drafting for this workflow.',
+            },
+          ],
+          engineMode: 'deterministic',
+          runnerMode: 'standalone',
+          defaultLocale: 'zh',
+          locales: ['zh', 'en'],
+        },
+        null,
+        2,
+      ),
+    );
+
+    const initialized = await captureJson(() =>
+      bundleFactoryInitCommand('factory-bundle', {
+        project: projectRoot,
+        file: planFile,
+        json: true,
+      }),
+    );
+
+    expect(initialized).toMatchObject({
+      name: 'factory-bundle',
+      status: 'draft',
+      defaultLocale: 'zh',
+      locales: ['zh', 'en'],
+      factory: {
+        preferredSkills: ['brainstorming', 'writing-plans', 'requesting-code-review'],
+        callChain: [
+          { skill: 'brainstorming', preferenceIndex: 0 },
+          { skill: 'writing-plans', preferenceIndex: 1 },
+          { skill: 'requesting-code-review', preferenceIndex: 2 },
+        ],
+        deviations: [
+          {
+            skill: 'requesting-code-review',
+            expectedIndex: 2,
+            actualIndex: 1,
+            reason: 'Review should happen before final drafting for this workflow.',
+          },
+        ],
+      },
+    });
+    expect(initialized.factory).toMatchObject({
+      resolvedSkills: [
+        { query: 'brainstorming', status: 'ambiguous', preferenceIndex: 0 },
+        { query: 'writing-plans', status: 'available', preferenceIndex: 1 },
+        { query: 'requesting-code-review', status: 'available', preferenceIndex: 2 },
+      ],
+      planPath: path.join(
+        projectRoot,
+        '.comet',
+        'bundle-factory-plans',
+        'factory-bundle',
+        'plan.json',
+      ),
+      planHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
+    });
+    await expect(
+      fs.readFile(
+        path.join(projectRoot, '.comet', 'bundle-factory-plans', 'factory-bundle', 'plan.json'),
+        'utf8',
+      ),
+    ).resolves.toContain('"schemaVersion": 1');
+  });
+
   it('generates a draft bundle source from stored factory metadata', async () => {
     await createBundleDraft({
       projectRoot,
@@ -294,6 +386,136 @@ describe('bundle commands', () => {
         'utf8',
       ),
     ).resolves.toContain('kind: Skill');
+  });
+
+  it('blocks factory generation when candidates still need user resolution', async () => {
+    await createBundleDraft({
+      projectRoot,
+      name: 'blocked-factory',
+      candidates: [],
+      creator: 'native',
+      defaultLocale: 'zh',
+      locales: ['zh', 'en'],
+      engineEnabled: true,
+      factory: {
+        goal: 'Create a workflow that still has unresolved candidates.',
+        preferredSkills: ['ambiguous-skill', 'missing-skill'],
+        resolvedSkills: [
+          {
+            query: 'ambiguous-skill',
+            preferenceIndex: 0,
+            status: 'ambiguous',
+            sources: [
+              {
+                name: 'ambiguous-skill',
+                preferenceIndex: 0,
+                platform: 'codex',
+                scope: 'project',
+                origin: 'project',
+                factory: { query: 'ambiguous-skill' },
+                root: path.join(projectRoot, '.codex', 'skills', 'ambiguous-skill'),
+                description: 'First candidate.',
+                skillMd: '# Ambiguous\n',
+                hash: 'a'.repeat(64),
+              },
+              {
+                name: 'ambiguous-skill',
+                preferenceIndex: 0,
+                platform: 'agents',
+                scope: 'global',
+                origin: 'global',
+                factory: { query: 'ambiguous-skill' },
+                root: path.join(root, 'global', 'ambiguous-skill'),
+                description: 'Second candidate.',
+                skillMd: '# Ambiguous\n',
+                hash: 'b'.repeat(64),
+              },
+            ],
+          },
+          {
+            query: 'missing-skill',
+            preferenceIndex: 1,
+            status: 'missing',
+            sources: [],
+          },
+        ],
+        callChain: [{ skill: 'ambiguous-skill', preferenceIndex: 0 }],
+        deviations: [],
+        engineMode: 'deterministic',
+        runnerMode: 'standalone',
+      },
+    });
+
+    await expect(
+      bundleFactoryGenerateCommand('blocked-factory', { project: projectRoot, json: true }),
+    ).rejects.toThrow(/ambiguous-skill.*missing-skill|missing-skill.*ambiguous-skill/iu);
+  });
+
+  it('builds a factory review summary with compile and Eval workload evidence', async () => {
+    const skillRoot = path.join(projectRoot, '.claude', 'skills', 'factory-alpha');
+    await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
+    await fs.mkdir(skillRoot, { recursive: true });
+    await fs.writeFile(path.join(projectRoot, '.comet', 'skills.txt'), 'factory-alpha\n');
+    await fs.writeFile(
+      path.join(skillRoot, 'SKILL.md'),
+      '---\nname: factory-alpha\ndescription: Alpha factory step.\n---\n# Alpha\n',
+    );
+    const planFile = path.join(root, 'review-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify({
+        goal: 'Create a reviewable factory Skill.',
+        callChain: ['factory-alpha'],
+        engineMode: 'deterministic',
+        runnerMode: 'standalone',
+        defaultLocale: 'zh',
+        locales: ['zh', 'en'],
+      }),
+    );
+    await bundleFactoryInitCommand('review-factory', {
+      project: projectRoot,
+      file: planFile,
+      json: true,
+    });
+    await bundleFactoryGenerateCommand('review-factory', { project: projectRoot, json: true });
+
+    const summary = await captureJson(() =>
+      bundleReviewSummaryCommand('review-factory', {
+        project: projectRoot,
+        platform: 'claude',
+        json: true,
+      }),
+    );
+
+    expect(summary).toMatchObject({
+      schemaVersion: 1,
+      name: 'review-factory',
+      status: 'draft',
+      factory: {
+        goal: 'Create a reviewable factory Skill.',
+        planPath: path.join(
+          projectRoot,
+          '.comet',
+          'bundle-factory-plans',
+          'review-factory',
+          'plan.json',
+        ),
+        planHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
+        generatedSkillPackage: {
+          entrySkill: 'review-factory',
+        },
+      },
+      compile: {
+        platform: 'claude',
+        entrySkills: ['review-factory'],
+      },
+      evalPlans: {
+        quick: { level: 'quick', tokenWorkload: 'low' },
+        full: { level: 'full', tokenWorkload: 'high' },
+      },
+      eval: null,
+      review: null,
+    });
   });
 
   it('compiles a Bundle, plans Eval, records Eval, approves, publishes, and distributes', async () => {

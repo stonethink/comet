@@ -282,9 +282,10 @@ comet bundle distribute my-bundle --platform claude --scope project --confirm-ex
 
 `/comet-any` is the Comet Skill Factory: users invoke the Skill and describe the workflow they want to create or
 optimize. Comet reads `.comet/skills.txt`, locates real local Skill contents, preserves the recommended call order when
-possible, and internally uses CLI backends for validation, Eval, publishing, and optional distribution. Required
-capability gaps cancel a platform, optional gaps require explicit `--skip-capability`, and hooks/scripts require
-executable confirmation. Distribution supports both `project` and `global` scopes.
+possible, and internally uses CLI backends for validation, Eval, publishing, and optional distribution. The generation
+flow persists a normalized plan, real Skill evidence, and a review summary; missing or ambiguous candidates pause for
+user resolution first. Required capability gaps cancel a platform, optional gaps require explicit `--skip-capability`,
+and hooks/scripts require executable confirmation. Distribution supports both `project` and `global` scopes.
 
 </details>
 

@@ -68,6 +68,7 @@ comet bundle candidates --json
 ### 4. 解决缺失/歧义候选
 
 列出 `missing` 和 `ambiguous` 项，暂停询问用户如何处理。不得静默忽略缺失候选，也不得在多个来源中替用户选择。
+若后端返回 `unresolved factory Skill candidates`，必须回到本步骤处理缺失或歧义项，不得继续生成。
 
 ### 5. 读取候选的真实实现
 
@@ -90,25 +91,25 @@ comet bundle candidates --json
 
 ### 8. 通过 CLI 初始化草稿与 Factory metadata
 
-create 模式：
+优先生成结构化 plan 文件，并运行：
+
+```bash
+comet bundle factory-init <name> --file <plan.json> --json
+```
+
+这个命令必须负责两件事：
+
+- 若 draft 尚不存在，则按 create/optimize 模式创建 draft。
+- 把偏好顺序、解析后的真实 Skill、默认调用链、偏离原因和 Engine 模式写入 Factory metadata，由 CLI 维护确定性状态。
+- 将规范化后的计划固化到 `.comet/bundle-factory-plans/<name>/plan.json`，并在 metadata 中记录 `planHash`，供恢复、评审和审计使用。
+
+只有在需要恢复旧状态、排查后端问题或显式优化既有 Bundle 时，才单独使用：
 
 ```bash
 comet bundle draft create <name> --json
-```
-
-optimize 模式：
-
-```bash
 comet bundle draft optimize <bundle> --json
-```
-
-随后运行：
-
-```bash
 comet bundle status <name> --json
 ```
-
-把偏好顺序、解析后的真实 Skill、默认调用链、偏离原因和 Engine 模式写入 Factory metadata，由 CLI 维护确定性状态。
 
 ### 9. 生成 Comet-native Skill 源码
 
@@ -116,6 +117,9 @@ comet bundle status <name> --json
 
 生成 entry Skill、internal Skill、references 和 scripts。用户不需要手动运行 `comet bundle`
 或 `comet skill`；所有这些都是内部后端步骤。
+
+生成物必须包含真实 Skill 证据摘要，并把结构化证据写入 `reference/resolved-skills.json`。
+摘要应引用 resolved Skill 的名称、来源、描述和 hash，证明组合基于本地真实内容而不是只按名称猜测。
 
 ### 10. 生成 Engine Package
 
@@ -155,7 +159,13 @@ Eval 失败或哈希不匹配时停止，回到草稿修复。
 
 ### 14. 展示评审摘要并等待显式批准
 
-总结 entry Skill、internal Skill、推荐调用顺序、偏离偏好顺序、能力缺口、可执行披露、Eval 结果和目标平台。偏离偏好顺序时必须说明原因。
+先运行：
+
+```bash
+comet bundle review-summary <name> --platform <reference-platform> --json
+```
+
+基于该摘要展示 entry Skill、internal Skill、planHash、真实 Skill 证据、推荐调用顺序、偏离偏好顺序、能力缺口、可执行披露、quick/full Eval 工作量、Eval 结果和目标平台。偏离偏好顺序时必须说明原因。
 
 批准：
 

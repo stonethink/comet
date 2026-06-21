@@ -1,9 +1,10 @@
-import { execFileSync, spawnSync } from 'child_process';
+import { spawnSync } from 'child_process';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
 import type { BundleEvalResult } from '../../src/bundle/eval.js';
+import { ensureCliBuilt } from './helpers/ensure-cli-built.js';
 
 const repositoryRoot = path.resolve('.');
 const cli = path.join(repositoryRoot, 'bin', 'comet.js');
@@ -49,71 +50,21 @@ engine:
   );
 }
 
-async function writeFactoryState(projectRoot: string): Promise<void> {
-  const draftPath = path.join(projectRoot, '.comet', 'bundle-drafts', 'factory-bundle');
-  const statePath = path.join(projectRoot, '.comet', 'bundle-authoring', 'factory-bundle.json');
-  await fs.mkdir(draftPath, { recursive: true });
-  await fs.mkdir(path.dirname(statePath), { recursive: true });
+async function writeFactoryPlan(planFile: string): Promise<void> {
   await fs.writeFile(
-    statePath,
+    planFile,
     JSON.stringify(
       {
-        schemaVersion: 1,
-        name: 'factory-bundle',
-        mode: 'create',
-        status: 'draft',
-        draftPath,
-        currentHash: null,
-        candidates: [
-          {
-            name: 'brainstorming',
-            preferenceIndex: 0,
-            platform: 'codex',
-            scope: 'project',
-            origin: 'project',
-            factory: { query: 'brainstorming' },
-            root: path.join(projectRoot, '.codex', 'skills', 'brainstorming'),
-            description: 'Explore intent.',
-            skillMd: '# Brainstorming\n',
-            hash: 'a'.repeat(64),
-          },
-        ],
-        creator: 'native',
+        goal: 'Create a review-oriented Comet-native Skill.',
+        preferredSkills: ['factory-alpha'],
+        callChain: ['factory-alpha'],
+        deviations: [],
+        engineMode: 'deterministic',
+        runnerMode: 'standalone',
         defaultLocale: 'zh',
         locales: ['zh', 'en'],
+        creator: 'native',
         engineEnabled: true,
-        factory: {
-          goal: 'Create a review-oriented Comet-native Skill.',
-          preferredSkills: ['brainstorming', 'writing-plans'],
-          resolvedSkills: [
-            {
-              query: 'brainstorming',
-              preferenceIndex: 0,
-              status: 'available',
-              sources: [
-                {
-                  name: 'brainstorming',
-                  preferenceIndex: 0,
-                  platform: 'codex',
-                  scope: 'project',
-                  origin: 'project',
-                  factory: { query: 'brainstorming' },
-                  root: path.join(projectRoot, '.codex', 'skills', 'brainstorming'),
-                  description: 'Explore intent.',
-                  skillMd: '# Brainstorming\n',
-                  hash: 'a'.repeat(64),
-                },
-              ],
-            },
-          ],
-          callChain: [
-            { skill: 'brainstorming', preferenceIndex: 0 },
-            { skill: 'writing-plans', preferenceIndex: 1 },
-          ],
-          deviations: [],
-          engineMode: 'deterministic',
-          runnerMode: 'standalone',
-        },
       },
       null,
       2,
@@ -162,11 +113,8 @@ describe('comet bundle CLI end to end', () => {
   let projectRoot: string;
   let sourceRoot: string;
 
-  beforeAll(() => {
-    execFileSync(process.execPath, ['build.js'], {
-      cwd: repositoryRoot,
-      stdio: 'pipe',
-    });
+  beforeAll(async () => {
+    await ensureCliBuilt(repositoryRoot);
   }, 120_000);
 
   beforeEach(async () => {
@@ -274,8 +222,28 @@ describe('comet bundle CLI end to end', () => {
     ).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
-  it('generates a factory-authored Bundle draft and compiles it through the CLI', async () => {
-    await writeFactoryState(projectRoot);
+  it('runs the factory path from plan to review summary through the CLI', async () => {
+    await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
+    await fs.mkdir(path.join(projectRoot, '.claude', 'skills', 'factory-alpha'), {
+      recursive: true,
+    });
+    await fs.writeFile(path.join(projectRoot, '.comet', 'skills.txt'), 'factory-alpha\n');
+    await fs.writeFile(
+      path.join(projectRoot, '.claude', 'skills', 'factory-alpha', 'SKILL.md'),
+      '---\nname: factory-alpha\ndescription: Alpha factory step.\n---\n# Alpha\n',
+    );
+    const planFile = path.join(root, 'factory-plan.json');
+    await writeFactoryPlan(planFile);
+
+    const initialized = runJson(
+      'bundle',
+      'factory-init',
+      'factory-bundle',
+      '--project',
+      projectRoot,
+      '--file',
+      planFile,
+    );
 
     const generated = runJson(
       'bundle',
@@ -293,6 +261,33 @@ describe('comet bundle CLI end to end', () => {
       '--platform',
       'claude',
     );
+    const quickEvalPlan = runJson(
+      'bundle',
+      'eval-plan',
+      'factory-bundle',
+      '--project',
+      projectRoot,
+      '--level',
+      'quick',
+    );
+    const fullEvalPlan = runJson(
+      'bundle',
+      'eval-plan',
+      'factory-bundle',
+      '--project',
+      projectRoot,
+      '--level',
+      'full',
+    );
+    const reviewSummary = runJson(
+      'bundle',
+      'review-summary',
+      'factory-bundle',
+      '--project',
+      projectRoot,
+      '--platform',
+      'claude',
+    );
 
     expect(generated).toMatchObject({
       name: 'factory-bundle',
@@ -303,9 +298,33 @@ describe('comet bundle CLI end to end', () => {
         },
       },
     });
+    expect(initialized).toMatchObject({
+      name: 'factory-bundle',
+      factory: {
+        preferredSkills: ['factory-alpha'],
+        planPath: path.join(
+          projectRoot,
+          '.comet',
+          'bundle-factory-plans',
+          'factory-bundle',
+          'plan.json',
+        ),
+        planHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
+      },
+    });
     expect(compiled).toMatchObject({
       platform: 'claude',
       entrySkills: ['factory-bundle'],
+    });
+    expect(quickEvalPlan).toMatchObject({ level: 'quick', tokenWorkload: 'low' });
+    expect(fullEvalPlan).toMatchObject({ level: 'full', tokenWorkload: 'high' });
+    expect(reviewSummary).toMatchObject({
+      name: 'factory-bundle',
+      compile: { platform: 'claude', entrySkills: ['factory-bundle'] },
+      evalPlans: {
+        quick: { level: 'quick' },
+        full: { level: 'full' },
+      },
     });
     await expect(
       fs.access(
@@ -321,5 +340,20 @@ describe('comet bundle CLI end to end', () => {
         ),
       ),
     ).resolves.toBeUndefined();
+    await expect(
+      fs.readFile(
+        path.join(
+          projectRoot,
+          '.comet',
+          'bundle-drafts',
+          'factory-bundle',
+          'skills',
+          'factory-bundle',
+          'reference',
+          'resolved-skills.json',
+        ),
+        'utf8',
+      ),
+    ).resolves.toContain('factory-alpha');
   });
 });

@@ -1,11 +1,19 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { stringify } from 'yaml';
+import { discoverBundleCandidates } from './candidates.js';
+import { createBundleDraft, optimizeBundleDraft } from './draft.js';
+import {
+  normalizeBundleFactoryPlan,
+  readBundleFactoryPlan,
+  writeBundleFactoryPlanArtifact,
+} from './factory-plan.js';
+import { readSkillPreferences } from './preferences.js';
+import { reconcileBundleAuthoringState, writeBundleAuthoringState } from './state.js';
 import { generateFactorySkillPackage } from '../factory/package.js';
 import { hashBundle } from './hash.js';
 import { loadBundle } from './load.js';
-import { writeBundleAuthoringState } from './state.js';
-import type { BundleAuthoringState, BundleManifest } from './types.js';
+import type { BundleAuthoringState, BundleFactoryMetadata, BundleManifest } from './types.js';
 
 function slug(value: string): string {
   return value
@@ -16,6 +24,12 @@ function slug(value: string): string {
 
 function entrySkillId(state: BundleAuthoringState): string {
   return slug(state.name);
+}
+
+function isMissingStateError(error: unknown): boolean {
+  return (
+    error instanceof Error && 'code' in error && (error as NodeJS.ErrnoException).code === 'ENOENT'
+  );
 }
 
 function bundleManifest(state: BundleAuthoringState, skillId: string): BundleManifest {
@@ -67,6 +81,18 @@ async function clearDirectory(root: string): Promise<void> {
   );
 }
 
+function assertFactoryCandidatesResolved(state: BundleAuthoringState): void {
+  const unresolved = state.factory?.resolvedSkills.filter(
+    (skill) => skill.status === 'missing' || skill.status === 'ambiguous',
+  );
+  if (!unresolved || unresolved.length === 0) return;
+  throw new Error(
+    `Bundle ${state.name} has unresolved factory Skill candidates: ${unresolved
+      .map((skill) => `${skill.query} (${skill.status})`)
+      .join(', ')}`,
+  );
+}
+
 export async function generateBundleDraftFromFactoryState(options: {
   projectRoot: string;
   state: BundleAuthoringState;
@@ -75,6 +101,7 @@ export async function generateBundleDraftFromFactoryState(options: {
   if (!state.factory) {
     throw new Error(`Bundle ${state.name} does not have factory metadata`);
   }
+  assertFactoryCandidatesResolved(state);
 
   const skillId = entrySkillId(state);
   await clearDirectory(state.draftPath);
@@ -92,6 +119,7 @@ export async function generateBundleDraftFromFactoryState(options: {
     goal: state.factory.goal,
     defaultLocale: state.defaultLocale,
     callChain: state.factory.callChain,
+    resolvedSkills: state.factory.resolvedSkills,
     deviations: state.factory.deviations,
     engineMode: state.factory.engineMode,
   });
@@ -117,5 +145,101 @@ export async function generateBundleDraftFromFactoryState(options: {
   delete updated.ready;
   delete updated.conflict;
   await writeBundleAuthoringState(options.projectRoot, updated);
+  return updated;
+}
+
+export async function initializeBundleFactoryState(options: {
+  projectRoot: string;
+  name: string;
+  filePath: string;
+}): Promise<BundleAuthoringState> {
+  const projectRoot = path.resolve(options.projectRoot);
+  const plan = normalizeBundleFactoryPlan({
+    plan: await readBundleFactoryPlan(path.resolve(options.filePath)),
+    projectPreferredSkills: await readSkillPreferences(projectRoot),
+  });
+  const resolvedSkills = await discoverBundleCandidates({
+    projectRoot,
+    preferences: plan.preferredSkills.length > 0 ? plan.preferredSkills : null,
+  });
+  const planArtifact = await writeBundleFactoryPlanArtifact({
+    projectRoot,
+    name: options.name,
+    plan,
+  });
+  const flattenedCandidates = resolvedSkills.flatMap((candidate) => candidate.sources);
+  const factory: BundleFactoryMetadata = {
+    goal: plan.goal,
+    preferredSkills: plan.preferredSkills,
+    resolvedSkills: resolvedSkills.map((candidate) => ({
+      query: candidate.name,
+      preferenceIndex: candidate.preferenceIndex,
+      status: candidate.status,
+      sources: candidate.sources,
+    })),
+    callChain: plan.callChain,
+    deviations: structuredClone(plan.deviations),
+    engineMode: plan.engineMode,
+    runnerMode: plan.runnerMode,
+    planPath: planArtifact.planPath,
+    planHash: planArtifact.planHash,
+  };
+
+  let state: BundleAuthoringState | null = null;
+  try {
+    state = await reconcileBundleAuthoringState(projectRoot, options.name);
+  } catch (error) {
+    if (!isMissingStateError(error)) throw error;
+  }
+
+  if (!state) {
+    const optimizeSourceRoot =
+      plan.mode === 'optimize' ? path.resolve(projectRoot, plan.sourceRoot!) : null;
+    state =
+      plan.mode === 'optimize'
+        ? await optimizeBundleDraft({
+            projectRoot,
+            name: options.name,
+            sourceRoot: optimizeSourceRoot!,
+            candidates: flattenedCandidates,
+            creator: plan.creator,
+            defaultLocale: plan.defaultLocale,
+            locales: plan.locales,
+            engineEnabled: plan.engineEnabled,
+            factory,
+          })
+        : await createBundleDraft({
+            projectRoot,
+            name: options.name,
+            candidates: flattenedCandidates,
+            creator: plan.creator,
+            defaultLocale: plan.defaultLocale,
+            locales: plan.locales,
+            engineEnabled: plan.engineEnabled,
+            factory,
+          });
+    return state;
+  }
+
+  if (plan.mode && plan.mode !== state.mode) {
+    throw new Error(`Bundle ${state.name} already exists in ${state.mode} mode`);
+  }
+
+  const updated: BundleAuthoringState = {
+    ...state,
+    status: 'draft',
+    currentHash: null,
+    candidates: flattenedCandidates,
+    creator: plan.creator,
+    defaultLocale: plan.defaultLocale,
+    locales: plan.locales,
+    engineEnabled: plan.engineEnabled,
+    factory,
+  };
+  delete updated.eval;
+  delete updated.review;
+  delete updated.ready;
+  delete updated.conflict;
+  await writeBundleAuthoringState(projectRoot, updated);
   return updated;
 }

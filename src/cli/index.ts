@@ -21,8 +21,10 @@ import {
   bundleDraftOptimizeCommand,
   bundleEvalPlanCommand,
   bundleEvalRecordCommand,
+  bundleFactoryInitCommand,
   bundleFactoryGenerateCommand,
   bundlePublishCommand,
+  bundleReviewSummaryCommand,
   bundleReviewCommand,
   bundleStatusCommand,
 } from '../commands/bundle.js';
@@ -229,6 +231,16 @@ bundle
   });
 
 bundle
+  .command('factory-init <name>')
+  .description('Initialize or update Bundle factory metadata from a structured plan file')
+  .option('--project <dir>', 'Project root', '.')
+  .requiredOption('--file <path>', 'Factory plan JSON file')
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await bundleFactoryInitCommand(name, options);
+  });
+
+bundle
   .command('factory-generate <name>')
   .description('Generate Bundle draft source from stored factory metadata')
   .option('--project <dir>', 'Project root', '.')
@@ -270,6 +282,18 @@ bundle
   .option('--json', 'Output as JSON')
   .action(async (name, options) => {
     await bundleEvalRecordCommand(name, options);
+  });
+
+bundle
+  .command('review-summary <name>')
+  .description('Build a Bundle review summary before approval')
+  .option('--project <dir>', 'Project root', '.')
+  .requiredOption('--platform <id>', 'Reference platform id')
+  .addOption(new Option('--scope <scope>', 'Install scope').choices(['global', 'project']))
+  .option('--locale <locale>', 'Locale to compile')
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await bundleReviewSummaryCommand(name, options);
   });
 
 bundle

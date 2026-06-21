@@ -30,6 +30,27 @@ describe('Factory skill package generation', () => {
         { skill: 'writing-plans', preferenceIndex: 1 },
         { skill: 'requesting-code-review', preferenceIndex: 2 },
       ],
+      resolvedSkills: [
+        {
+          query: 'brainstorming',
+          preferenceIndex: 0,
+          status: 'available',
+          sources: [
+            {
+              name: 'brainstorming',
+              preferenceIndex: 0,
+              platform: 'codex',
+              scope: 'project',
+              origin: 'project',
+              factory: { query: 'brainstorming' },
+              root: path.join(root, '.codex', 'skills', 'brainstorming'),
+              description: 'Explore intent before implementation.',
+              skillMd: '# Brainstorming\n',
+              hash: 'a'.repeat(64),
+            },
+          ],
+        },
+      ],
       deviations: [],
       engineMode: 'deterministic',
     });
@@ -45,6 +66,23 @@ describe('Factory skill package generation', () => {
     expect(await fs.readFile(path.join(output.packageRoot, 'SKILL.md'), 'utf8')).toContain(
       'CLI 是内部后端',
     );
+    const skill = await fs.readFile(path.join(output.packageRoot, 'SKILL.md'), 'utf8');
+    expect(skill).toContain('真实 Skill 证据');
+    expect(skill).toContain('brainstorming');
+    expect(skill).toContain('Explore intent before implementation.');
+    const evidence = JSON.parse(
+      await fs.readFile(path.join(output.packageRoot, 'reference', 'resolved-skills.json'), 'utf8'),
+    ) as unknown;
+    expect(evidence).toMatchObject({
+      schemaVersion: 1,
+      resolvedSkills: [
+        {
+          query: 'brainstorming',
+          status: 'available',
+          sources: [{ hash: 'a'.repeat(64) }],
+        },
+      ],
+    });
   });
 
   it('records deviation reasons in the generated Skill guidance', async () => {

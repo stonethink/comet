@@ -10,6 +10,24 @@ export interface FactoryOrderDeviation {
   reason: string;
 }
 
+export interface FactoryResolvedSkill {
+  query: string;
+  preferenceIndex: number | null;
+  status: 'available' | 'missing' | 'ambiguous';
+  sources: Array<{
+    name: string;
+    preferenceIndex: number | null;
+    platform: string;
+    scope: 'project' | 'global' | 'builtin' | 'plugin' | 'explicit';
+    origin: 'project' | 'global' | 'builtin' | 'plugin' | 'explicit';
+    factory?: { query: string };
+    root: string;
+    description: string;
+    skillMd: string;
+    hash: string;
+  }>;
+}
+
 export interface FactorySkillPackagePlan {
   root: string;
   name: string;
@@ -18,6 +36,7 @@ export interface FactorySkillPackagePlan {
   goal: string;
   defaultLocale: string;
   callChain: FactoryCallChainItem[];
+  resolvedSkills?: FactoryResolvedSkill[];
   deviations: FactoryOrderDeviation[];
   engineMode: 'none' | 'deterministic' | 'adaptive';
 }

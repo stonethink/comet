@@ -19,6 +19,23 @@ function skillMarkdown(plan: FactorySkillPackagePlan): string {
     plan.callChain.length === 0
       ? '1. checkpoint'
       : plan.callChain.map((item, index) => `${index + 1}. ${item.skill}`).join('\n');
+  const evidence =
+    !plan.resolvedSkills || plan.resolvedSkills.length === 0
+      ? '尚未记录 resolved Skill 证据。'
+      : plan.resolvedSkills
+          .map((skill) => {
+            const sources =
+              skill.sources.length === 0
+                ? 'no sources'
+                : skill.sources
+                    .map((source) => {
+                      const description = source.description ? ` - ${source.description}` : '';
+                      return `${source.name}@${source.platform} ${source.hash.slice(0, 12)}${description}`;
+                    })
+                    .join('; ');
+            return `- ${skill.query} (${skill.status}, preferenceIndex=${skill.preferenceIndex ?? 'none'}): ${sources}`;
+          })
+          .join('\n');
   const deviations =
     plan.deviations.length === 0
       ? '无。'
@@ -49,6 +66,12 @@ ${callChain}
 ## 偏离偏好顺序
 
 ${deviations}
+
+## 真实 Skill 证据
+
+${evidence}
+
+完整结构化证据位于 \`reference/resolved-skills.json\`。
 
 ## 运行方式
 
@@ -123,9 +146,23 @@ export async function generateFactorySkillPackage(
 ): Promise<GeneratedFactorySkillPackage> {
   const packageRoot = path.resolve(plan.root, 'skills', plan.name);
   const cometRoot = path.join(packageRoot, 'comet');
+  const referenceRoot = path.join(packageRoot, 'reference');
 
   await fs.mkdir(packageRoot, { recursive: true });
   await fs.writeFile(path.join(packageRoot, 'SKILL.md'), skillMarkdown(plan), 'utf8');
+  await fs.mkdir(referenceRoot, { recursive: true });
+  await fs.writeFile(
+    path.join(referenceRoot, 'resolved-skills.json'),
+    JSON.stringify(
+      {
+        schemaVersion: 1,
+        resolvedSkills: plan.resolvedSkills ?? [],
+      },
+      null,
+      2,
+    ) + '\n',
+    'utf8',
+  );
 
   if (plan.engineMode !== 'none') {
     await fs.mkdir(cometRoot, { recursive: true });

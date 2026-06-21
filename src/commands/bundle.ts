@@ -1,13 +1,17 @@
 import path from 'path';
 import os from 'os';
 import { discoverBundleCandidates } from '../bundle/candidates.js';
-import { generateBundleDraftFromFactoryState } from '../bundle/factory.js';
+import {
+  generateBundleDraftFromFactoryState,
+  initializeBundleFactoryState,
+} from '../bundle/factory.js';
 import { readSkillPreferences } from '../bundle/preferences.js';
 import { createBundleDraft, optimizeBundleDraft } from '../bundle/draft.js';
 import { loadBundle } from '../bundle/load.js';
 import { reconcileBundleAuthoringState } from '../bundle/state.js';
 import { compileBundleIr } from '../bundle/compiler.js';
 import { compileBundleForPlatform } from '../bundle/platform.js';
+import { buildBundleReviewSummary } from '../bundle/review-summary.js';
 import { listBundlePlatformTargets } from '../core/bundle-platform.js';
 import { planBundleEval, recordBundleEval } from '../bundle/eval.js';
 import { publishBundle, reviewBundle } from '../bundle/publish.js';
@@ -32,6 +36,7 @@ interface BundleCommandOptions {
   defaultLocale?: string;
   localeOption?: string[];
   engine?: boolean;
+  file?: string;
 }
 
 function projectRoot(options: BundleCommandOptions): string {
@@ -140,6 +145,23 @@ export async function bundleFactoryGenerateCommand(
   );
 }
 
+export async function bundleFactoryInitCommand(
+  name: string,
+  options: BundleCommandOptions = {},
+): Promise<void> {
+  if (!options.file) throw new Error('--file is required');
+  const updated = await initializeBundleFactoryState({
+    projectRoot: projectRoot(options),
+    name,
+    filePath: options.file,
+  });
+  emit(
+    updated,
+    options.json,
+    `Initialized factory Bundle state ${updated.name}\nDraft: ${updated.draftPath}`,
+  );
+}
+
 export async function bundleCompileCommand(
   name: string,
   options: BundleCommandOptions = {},
@@ -207,6 +229,33 @@ export async function bundleReviewCommand(
     reviewer: options.reviewer,
   });
   emit(state, options.json, `Review ${state.review?.decision ?? 'recorded'}: ${state.status}`);
+}
+
+export async function bundleReviewSummaryCommand(
+  name: string,
+  options: BundleCommandOptions = {},
+): Promise<void> {
+  const ids = platformIds(options.platform);
+  if (ids.length !== 1) throw new Error('--platform is required exactly once');
+  const summary = await buildBundleReviewSummary({
+    projectRoot: projectRoot(options),
+    name,
+    platform: ids[0],
+    scope: options.scope ?? 'project',
+    locale: options.locale,
+  });
+  emit(
+    summary,
+    options.json,
+    [
+      `Bundle: ${summary.name}`,
+      `Status: ${summary.status}`,
+      `Hash: ${summary.hash ?? '(invalid)'}`,
+      `Platform: ${summary.compile.platform}`,
+      `Quick Eval runs: ${summary.evalPlans.quick.estimatedRuns}`,
+      `Full Eval runs: ${summary.evalPlans.full.estimatedRuns}`,
+    ].join('\n'),
+  );
 }
 
 export async function bundlePublishCommand(

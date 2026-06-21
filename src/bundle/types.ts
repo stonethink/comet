@@ -146,6 +146,8 @@ export interface BundleFactoryMetadata {
   deviations: BundleFactoryOrderDeviation[];
   engineMode: 'none' | 'deterministic' | 'adaptive';
   runnerMode: 'change' | 'standalone';
+  planPath?: string;
+  planHash?: string;
   generatedSkillPackage?: BundleGeneratedSkillPackage;
 }
 

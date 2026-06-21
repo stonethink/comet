@@ -1,8 +1,9 @@
-import { execFileSync, spawnSync } from 'child_process';
+import { spawnSync } from 'child_process';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
+import { ensureCliBuilt } from './helpers/ensure-cli-built.js';
 
 const repositoryRoot = path.resolve('.');
 const cli = path.join(repositoryRoot, 'bin', 'comet.js');
@@ -57,11 +58,8 @@ describe('comet skill CLI end to end', () => {
   let projectRoot: string;
   let changeDir: string;
 
-  beforeAll(() => {
-    execFileSync(process.execPath, ['build.js'], {
-      cwd: repositoryRoot,
-      stdio: 'pipe',
-    });
+  beforeAll(async () => {
+    await ensureCliBuilt(repositoryRoot);
   }, 120_000);
 
   beforeEach(async () => {
