@@ -42,6 +42,7 @@ A Bundle must explicitly define:
 - references/rules/hooks/scripts/assets: the shared resource graph.
 - required/optional capabilities: used for platform compilation and capability gaps.
 - Engine Package: multi-step, recoverable, or higher-risk output must generate `comet/skill.yaml`, `guardrails.yaml`, and `evals.yaml`.
+- Engine Eval manifest: Engine-enabled generated Skills must also write `comet/eval.yaml` using the `authoring-skill` profile and the `authoring-skill-smoke` quick eval.
 - real Skill evidence: generated output must include `reference/resolved-skills.json` with resolved Skill sources, descriptions, hashes, references, script summaries, and `sourceSummaries` distilled from `SKILL.md` bodies.
 
 Engine is the runtime semantic foundation, but CLI remains the internal deterministic backend and not the user-facing workflow.
@@ -109,6 +110,10 @@ comet bundle review <name> --reject --reviewer <reviewer> --json
 comet bundle publish <name> --platform <reference-platform> --json
 comet bundle distribute <name> --platform <id> --scope project --json
 ```
+
+Before publishing, read the review summary readiness state. If unresolved candidates, current-hash
+Eval evidence, current-hash human approval, capability gaps, or executable disclosures are missing,
+do not publish a ready Bundle. Missing Eval evidence blocks ready publish.
 
 ## Runner Modes
 

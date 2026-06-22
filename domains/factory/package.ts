@@ -134,6 +134,22 @@ function skillMarkdown(plan: FactorySkillPackagePlan): string {
               `- ${item.skill}: expected ${item.expectedIndex}, actual ${item.actualIndex}. ${item.reason}`,
           )
           .join('\n');
+  const stopPoints = [
+    '- 当候选 Skill 缺失、歧义或偏离用户偏好顺序且没有记录原因时，停止并要求恢复。',
+    '- 当生成脚本、hook 或外部副作用时，停止并要求用户确认。',
+    '- 当 Eval 被跳过或失败时，不发布 ready Bundle。',
+  ].join('\n');
+  const risks = [
+    '- 生成内容来自候选 Skill 摘要，不能声称完整复制原 Skill 的所有隐含经验。',
+    '- Engine 文件表达运行语义，但当前平台入口仍由 Agent 执行 action/outcome 协议。',
+    '- 偏离 `.comet/skills.txt` 顺序会降低用户偏好可预测性，必须在 review summary 中解释。',
+  ].join('\n');
+  const internalUsage =
+    plan.callChain.length === 0
+      ? '无内部 Skill。'
+      : plan.callChain
+          .map((item, index) => `${index + 1}. 调用 \`${item.skill}\` 处理该步骤的专门协议。`)
+          .join('\n');
 
   return `---
 name: ${plan.name}
@@ -165,6 +181,18 @@ ${deviations}
 ${evidence}
 
 完整结构化证据位于 \`reference/resolved-skills.json\`。
+
+## 停止点
+
+${stopPoints}
+
+## 风险
+
+${risks}
+
+## 内部 Skill 使用方式
+
+${internalUsage}
 
 ## 运行方式
 
@@ -234,6 +262,31 @@ function runtimeEvals(): Record<string, unknown> {
   };
 }
 
+function evalManifest(plan: FactorySkillPackagePlan): Record<string, unknown> {
+  return {
+    apiVersion: 'comet.eval/v1alpha1',
+    kind: 'SkillEvalManifest',
+    metadata: {
+      name: plan.name,
+      description: plan.description,
+    },
+    skill: {
+      name: plan.name,
+      source: '..',
+      profile: 'authoring-skill',
+    },
+    evaluation: {
+      recommendedTasks: ['authoring-skill-smoke'],
+      requiredSkills: plan.callChain.map((item) => item.skill),
+      expectedArtifacts: ['reference/resolved-skills.json'],
+    },
+    interaction: {
+      mode: 'none',
+      maxTurns: 8,
+    },
+  };
+}
+
 export async function generateFactorySkillPackage(
   plan: FactorySkillPackagePlan,
 ): Promise<GeneratedFactorySkillPackage> {
@@ -271,11 +324,13 @@ export async function generateFactorySkillPackage(
       'utf8',
     );
     await fs.writeFile(path.join(cometRoot, 'evals.yaml'), stringify(runtimeEvals()), 'utf8');
+    await fs.writeFile(path.join(cometRoot, 'eval.yaml'), stringify(evalManifest(plan)), 'utf8');
   }
 
   return {
     packageRoot,
     skillPath: path.join(packageRoot, 'SKILL.md'),
     enginePath: plan.engineMode === 'none' ? null : cometRoot,
+    evalManifestPath: plan.engineMode === 'none' ? null : path.join(cometRoot, 'eval.yaml'),
   };
 }

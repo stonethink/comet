@@ -136,6 +136,7 @@ export interface BundleGeneratedSkillPackage {
   internalSkills: string[];
   packageRoot: string;
   enginePath: string | null;
+  evalManifestPath: string | null;
 }
 
 export interface BundleFactoryMetadata {

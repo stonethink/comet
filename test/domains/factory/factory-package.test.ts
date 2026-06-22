@@ -133,4 +133,67 @@ Ask clarifying questions one at a time before presenting a design.
     expect(skill).toContain('偏离偏好顺序');
     expect(skill).toContain('The user already supplied enough requirements');
   });
+
+  it('explains stop points, risks, and internal Skill usage', async () => {
+    const output = await generateFactorySkillPackage({
+      root,
+      name: 'quality-workflow',
+      version: '1.0.0',
+      description: 'Quality workflow generated from preferred Skills.',
+      goal: 'Create a quality-oriented workflow.',
+      defaultLocale: 'zh',
+      callChain: [{ skill: 'brainstorming', preferenceIndex: 0 }],
+      resolvedSkills: [
+        {
+          query: 'brainstorming',
+          preferenceIndex: 0,
+          status: 'available',
+          sources: [
+            {
+              name: 'brainstorming',
+              preferenceIndex: 0,
+              platform: 'codex',
+              scope: 'project',
+              origin: 'project',
+              factory: { query: 'brainstorming' },
+              root: path.join(root, '.codex', 'skills', 'brainstorming'),
+              description: 'Explore intent before implementation.',
+              skillMd: '# Brainstorming\n\nAsk questions before changing behavior.\n',
+              hash: 'b'.repeat(64),
+            },
+          ],
+        },
+      ],
+      deviations: [],
+      engineMode: 'deterministic',
+    });
+
+    const skill = await fs.readFile(path.join(output.packageRoot, 'SKILL.md'), 'utf8');
+    expect(skill).toContain('## 停止点');
+    expect(skill).toContain('## 风险');
+    expect(skill).toContain('## 内部 Skill 使用方式');
+    expect(skill).toContain('brainstorming');
+  });
+
+  it('writes an authoring-skill eval manifest for Engine-enabled generated packages', async () => {
+    const output = await generateFactorySkillPackage({
+      root,
+      name: 'eval-workflow',
+      version: '1.0.0',
+      description: 'Workflow with eval metadata.',
+      goal: 'Create a workflow with eval metadata.',
+      defaultLocale: 'zh',
+      callChain: [{ skill: 'brainstorming', preferenceIndex: 0 }],
+      resolvedSkills: [],
+      deviations: [],
+      engineMode: 'deterministic',
+    });
+
+    expect(output.evalManifestPath).toBe(path.join(output.packageRoot, 'comet', 'eval.yaml'));
+    const manifest = await fs.readFile(output.evalManifestPath!, 'utf8');
+    expect(manifest).toContain('apiVersion: comet.eval/v1alpha1');
+    expect(manifest).toContain('kind: SkillEvalManifest');
+    expect(manifest).toContain('profile: authoring-skill');
+    expect(manifest).toContain('authoring-skill-smoke');
+  });
 });

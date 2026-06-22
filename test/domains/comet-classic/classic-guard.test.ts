@@ -93,4 +93,23 @@ describe('Classic guard command', () => {
     expect(result.stderr).toContain('Unknown phase: lint');
     expect(result.stderr).toContain('Valid phases: open, design, build, verify, archive');
   });
+
+  it('returns resolver diagnostics in json mode', async () => {
+    const dir = await makeProject();
+    expect(run(dir, 'state', 'init', 'demo', 'full').status).toBe(0);
+    await fs.writeFile(path.join(dir, 'openspec', 'changes', 'demo', 'proposal.md'), '# Proposal\n');
+    await fs.writeFile(path.join(dir, 'openspec', 'changes', 'demo', 'design.md'), '# Design\n');
+    await fs.writeFile(path.join(dir, 'openspec', 'changes', 'demo', 'tasks.md'), '- [ ] build\n');
+
+    const result = run(dir, 'guard', 'demo', 'open', '--json');
+    const wrapper = JSON.parse(result.stdout);
+    const payload = JSON.parse(wrapper.stdout);
+
+    expect(payload.diagnostics).toMatchObject({
+      change: 'demo',
+      phase: 'open',
+      currentStep: 'full.open',
+      runtimeEval: { stepId: 'full.open' },
+    });
+  });
 });

@@ -9224,6 +9224,96 @@ import { createHash as createHash4 } from "crypto";
 import { existsSync, promises as fs12, readFileSync } from "fs";
 import path12 from "path";
 
+// domains/comet-classic/classic-runtime-evals.ts
+var STEP_EVIDENCE = {
+  "full.open": ["openspec.proposal", "openspec.tasks"],
+  "full.design.handoff": ["openspec.proposal", "openspec.design", "openspec.tasks"],
+  "full.design.document": ["design.handoff"],
+  "full.build.plan": ["openspec.tasks"],
+  "full.build.plan-ready": ["build.plan"],
+  "full.build.configure": ["build.plan"],
+  "full.build.execute": ["build.plan"],
+  "full.build.complete": ["build.tasks-complete"],
+  "full.verify.run": ["build.tasks-complete"],
+  "full.verify.branch": ["verification.report"],
+  "full.archive.confirm": ["verification.report"],
+  "full.archive.execute": ["archive.confirmed"]
+};
+function requirementsFor(stepId) {
+  if (STEP_EVIDENCE[stepId]) return STEP_EVIDENCE[stepId];
+  if (stepId.endsWith(".open")) return ["openspec.proposal", "openspec.tasks"];
+  if (stepId.endsWith(".build.execute")) return [];
+  if (stepId.endsWith(".build.complete")) return ["build.tasks-complete"];
+  if (stepId.endsWith(".verify.run")) return ["build.tasks-complete"];
+  if (stepId.endsWith(".verify.branch")) return ["verification.report"];
+  if (stepId.endsWith(".archive.confirm")) return ["verification.report"];
+  if (stepId.endsWith(".archive.execute")) return ["archive.confirmed"];
+  return [];
+}
+function evaluateClassicRuntimeStep(stepId, evidence) {
+  const requiredEvidence = requirementsFor(stepId);
+  const missingEvidence = requiredEvidence.filter((code) => !evidenceSatisfied(evidence, code));
+  return {
+    stepId,
+    passed: missingEvidence.length === 0,
+    requiredEvidence,
+    missingEvidence
+  };
+}
+
+// domains/comet-classic/classic-diagnostics.ts
+function nextCommandForPhase(phase) {
+  switch (phase) {
+    case "open":
+      return "/comet-open";
+    case "design":
+      return "/comet-design";
+    case "build":
+      return "/comet-build";
+    case "verify":
+      return "/comet-verify";
+    case "archive":
+      return "/comet-archive";
+    default:
+      return null;
+  }
+}
+async function inspectClassicChange(changeDir, name) {
+  try {
+    const runtime = await ensureStrictClassicRuntimeRun(changeDir);
+    const evidence = await collectClassicEvidence(changeDir, {
+      classic: runtime.classic,
+      run: runtime.run,
+      unknownKeys: []
+    });
+    const currentStep = resolveClassicStepId(runtime.classic, evidence);
+    return {
+      name,
+      valid: true,
+      workflow: runtime.classic.workflow,
+      phase: runtime.classic.phase,
+      currentStep,
+      nextCommand: nextCommandForPhase(runtime.classic.phase),
+      runtimeMode: "engine-projection",
+      runtimeEval: evaluateClassicRuntimeStep(currentStep, evidence),
+      evidence
+    };
+  } catch (error) {
+    return {
+      name,
+      valid: false,
+      workflow: "unknown",
+      phase: "invalid",
+      currentStep: null,
+      nextCommand: null,
+      runtimeMode: "invalid",
+      runtimeEval: null,
+      evidence: [],
+      error: error instanceof Error ? error.message : String(error)
+    };
+  }
+}
+
 // domains/comet-classic/classic-validate-command.ts
 var import_yaml3 = __toESM(require_dist(), 1);
 import { promises as fs11 } from "fs";
@@ -9412,9 +9502,11 @@ var GuardFailure = class extends Error {
 };
 var GuardOutput = class {
   stderr = [];
+  diagnostics;
   toResult(exitCode = 0) {
     return {
       exitCode,
+      ...this.diagnostics ? { stdout: JSON.stringify({ diagnostics: this.diagnostics }) + "\n" } : {},
       ...this.stderr.length > 0 ? { stderr: this.stderr.join("\n") + "\n" } : {}
     };
   }
@@ -10108,7 +10200,7 @@ async function applyStateUpdate(output, changeDir, phase, context) {
   const message = phase === "open" ? template.replace("PLACEHOLDER", classic.phase) : template;
   output.stderr.push(green2(message));
 }
-var classicGuardCommand = async (args) => {
+var classicGuardCommand = async (args, options) => {
   const output = new GuardOutput();
   const [change, phase, flag] = args;
   try {
@@ -10122,6 +10214,15 @@ Valid phases: open, design, build, verify, archive`
     const changeDir = await resolveChangeDir(change);
     await preflight(changeDir, change);
     const runContext = await ensureClassicRuntimeRun(changeDir);
+    const diagnostic = await inspectClassicChange(changeDir, change);
+    if (options.json) {
+      output.diagnostics = {
+        change,
+        phase,
+        currentStep: diagnostic.currentStep,
+        runtimeEval: diagnostic.runtimeEval
+      };
+    }
     output.stderr.push(PHASE_HEADER[phase]);
     let blocked2;
     if (phase === "open") blocked2 = await guardOpenChecks(output, changeDir);

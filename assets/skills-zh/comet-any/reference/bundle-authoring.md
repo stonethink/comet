@@ -41,6 +41,7 @@ Bundle 必须明确：
 - references/rules/hooks/scripts/assets：共享资源图。
 - required/optional 能力：用于平台编译和能力缺口展示。
 - Engine Package：多步骤、可恢复或高风险生成物必须生成 `comet/skill.yaml`、`guardrails.yaml` 和 `evals.yaml`。
+- Engine Eval manifest：Engine-enabled 生成物必须写入 `comet/eval.yaml`，默认走 `authoring-skill` profile 与 `authoring-skill-smoke` quick eval。
 - 真实 Skill 证据：生成物必须包含 `reference/resolved-skills.json`，记录 resolved Skill 的来源、描述、hash、reference、脚本摘要和从 `SKILL.md` 正文提炼的 `sourceSummaries`。
 
 Engine 是运行语义底座，但 CLI 仍是内部确定性后端，用户主流程不需要直接操作 CLI。
@@ -107,6 +108,10 @@ comet bundle review <name> --reject --reviewer <reviewer> --json
 comet bundle publish <name> --platform <reference-platform> --json
 comet bundle distribute <name> --platform <id> --scope project --json
 ```
+
+发布前必须读取 review summary 的 readiness：存在 unresolved candidate、缺失当前 hash 的 Eval 证据、
+缺失当前 hash 的人工 approval、capability gap 或 executable disclosure 未确认时，不得发布 ready。
+Eval 证据缺失时不得发布 ready。
 
 ## Runner 模式
 

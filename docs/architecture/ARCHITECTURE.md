@@ -138,7 +138,22 @@ comet skill eval      # 运行 Eval 基准
 
 0.4.0 新增 ZCode 平台支持（`comet init` 新增选项），将 skills 和 rules 安装到项目级 `.zcode/skills/` 或全局 `~/.zcode/skills/`。ZCode 基于 OpenCode，OpenSpec 通过 `opencode` tool id 安装后镜像到 `.zcode/`，Superpowers 通过 `claude-code` staging 模式安装，并抽出通用 staging 函数供 Lingma/ZCode 复用。
 
-## 六、轻量路径可用性
+## 六、Classic 渐进 Engine-native 收敛
+
+Classic `/comet` 入口仍保持用户熟悉的命令形态，但内部判断正在逐步收敛到同一条
+Resolver 事实链。`status`、`doctor`、`guard` 和 runtime phase transition 共享 Classic
+Resolver 的 step/evidence 判断；`.comet.yaml` 保持用户可见投影，`.comet/run-state.json`
+持有 machine-owned Run state 与 trajectory。
+
+这意味着：
+
+- 轻量兼容入口继续可用，用户不需要理解内部 Skill Package。
+- 长流程、中断恢复、review/eval 绑定和 phase 诊断，越来越依赖 Engine-backed evidence，
+  而不是各命令各自做一套推断。
+- 对简单路径仍保留 compatibility projection；对需要恢复、guardrails、runtime eval 的路径，
+  逐步转向 Engine projection。
+
+## 七、轻量路径可用性
 
 hotfix/tweak 预设路径的范围判定从「文件数硬升级条件」改为「语义判定 + 用户决策」三层分工：
 

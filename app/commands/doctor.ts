@@ -14,7 +14,7 @@ import {
 } from '../../domains/skill/platform-install.js';
 import { PLATFORMS, getPlatformSkillsDirs } from '../../platform/install/platforms.js';
 import type { InstallScope } from '../../platform/install/types.js';
-import { ensureStrictClassicRuntimeRun } from '../../domains/comet-classic/classic-runtime-run.js';
+import { inspectClassicChange } from '../../domains/comet-classic/classic-diagnostics.js';
 
 interface CheckResult {
   check: string;
@@ -176,20 +176,20 @@ async function checkCometYamlValidity(projectPath: string): Promise<CheckResult[
     const yamlPath = path.join(changeDir, '.comet.yaml');
     if (!(await fileExists(yamlPath))) continue;
 
-    try {
-      const runtime = await ensureStrictClassicRuntimeRun(changeDir);
-      results.push({
-        check: `.comet.yaml: ${entry}`,
-        status: 'pass',
-        message: `valid (step: ${runtime.run.currentStep ?? 'completed'})`,
-      });
-    } catch (error) {
-      results.push({
-        check: `.comet.yaml: ${entry}`,
-        status: 'fail',
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
+    const diagnostic = await inspectClassicChange(changeDir, entry);
+    results.push(
+      diagnostic.valid
+        ? {
+            check: `.comet.yaml: ${entry}`,
+            status: 'pass',
+            message: `valid (step: ${diagnostic.currentStep ?? 'completed'}, mode: ${diagnostic.runtimeMode})`,
+          }
+        : {
+            check: `.comet.yaml: ${entry}`,
+            status: 'fail',
+            message: diagnostic.error ?? 'invalid Classic state',
+          },
+    );
   }
 
   return results;

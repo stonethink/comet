@@ -418,4 +418,109 @@ describe('comet bundle CLI end to end', () => {
       ),
     ).resolves.toContain('Alpha factory step.');
   });
+
+  it('recovers missing Factory candidates through factory-resolve and keeps generated state invalidated', async () => {
+    await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
+    await fs.writeFile(
+      path.join(projectRoot, '.comet', 'skills.txt'),
+      'factory-alpha\nmissing-skill\n',
+    );
+    await fs.mkdir(path.join(projectRoot, '.claude', 'skills', 'factory-alpha'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(projectRoot, '.claude', 'skills', 'factory-alpha', 'SKILL.md'),
+      '---\nname: factory-alpha\ndescription: Alpha factory step.\n---\n# Alpha\n',
+    );
+    const planFile = path.join(root, 'factory-missing-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Create a review-oriented Skill.',
+          preferredSkills: ['factory-alpha', 'missing-skill'],
+          callChain: ['factory-alpha', 'missing-skill'],
+          deviations: [],
+          engineMode: 'deterministic',
+          runnerMode: 'standalone',
+          defaultLocale: 'zh',
+          locales: ['zh', 'en'],
+          creator: 'native',
+          engineEnabled: true,
+        },
+        null,
+        2,
+      ),
+    );
+
+    const initialized = runJson(
+      'bundle',
+      'factory-init',
+      'factory-missing',
+      '--project',
+      projectRoot,
+      '--file',
+      planFile,
+    );
+    expect(initialized).toMatchObject({
+      factory: {
+        resolvedSkills: [
+          { query: 'factory-alpha', status: 'available' },
+          { query: 'missing-skill', status: 'missing' },
+        ],
+      },
+    });
+
+    const blocked = runCli(
+      'bundle',
+      'factory-generate',
+      'factory-missing',
+      '--project',
+      projectRoot,
+      '--json',
+    );
+    expect(blocked.status).not.toBe(0);
+    expect(blocked.stderr).toContain('unresolved factory Skill candidates');
+
+    const resolved = runJson(
+      'bundle',
+      'factory-resolve',
+      'factory-missing',
+      '--project',
+      projectRoot,
+      '--candidate',
+      'missing-skill',
+      '--ignore-missing',
+      '--reason',
+      'The target workflow can proceed with factory-alpha only.',
+    );
+    expect(resolved.factory).toMatchObject({
+      deviations: [expect.objectContaining({ skill: 'missing-skill', actualIndex: -1 })],
+    });
+
+    const generated = runJson(
+      'bundle',
+      'factory-generate',
+      'factory-missing',
+      '--project',
+      projectRoot,
+    );
+    const summary = runJson(
+      'bundle',
+      'review-summary',
+      'factory-missing',
+      '--project',
+      projectRoot,
+      '--platform',
+      'claude',
+    );
+    expect(generated.factory).toMatchObject({
+      generatedSkillPackage: {
+        entrySkill: 'factory-missing',
+      },
+    });
+    expect(summary.readiness).toMatchObject({
+      blockers: ['Eval evidence for the current draft hash is missing'],
+    });
+  });
 });

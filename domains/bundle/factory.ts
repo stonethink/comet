@@ -137,6 +137,7 @@ export async function generateBundleDraftFromFactoryState(options: {
         internalSkills: [],
         packageRoot: generated.packageRoot,
         enginePath: generated.enginePath,
+        evalManifestPath: generated.evalManifestPath,
       },
     },
   };

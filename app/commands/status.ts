@@ -1,7 +1,8 @@
 import path from 'path';
-import { fileExists, readDir } from '../../platform/fs/file-system.js';
 import { promises as fs } from 'fs';
-import { ensureStrictClassicRuntimeRun } from '../../domains/comet-classic/classic-runtime-run.js';
+import { fileExists, readDir } from '../../platform/fs/file-system.js';
+import { inspectClassicChange } from '../../domains/comet-classic/classic-diagnostics.js';
+import { readClassicState } from '../../domains/comet-classic/classic-store.js';
 
 interface ChangeStatus {
   name: string;
@@ -17,24 +18,8 @@ interface ChangeStatus {
   tasksTotal: number;
   nextCommand: string | null;
   currentStep: string | null;
+  runtimeMode: string;
   error?: string;
-}
-
-function getNextCommand(phase: string): string | null {
-  switch (phase) {
-    case 'open':
-      return '/comet-open';
-    case 'design':
-      return '/comet-design';
-    case 'build':
-      return '/comet-build';
-    case 'verify':
-      return '/comet-verify';
-    case 'archive':
-      return '/comet-archive';
-    default:
-      return null;
-  }
 }
 
 async function countTasks(tasksPath: string): Promise<{ done: number; total: number }> {
@@ -62,23 +47,48 @@ async function getActiveChanges(projectPath: string): Promise<ChangeStatus[]> {
     const yamlPath = path.join(changeDir, '.comet.yaml');
     if (!(await fileExists(yamlPath))) continue;
     try {
-      const runtime = await ensureStrictClassicRuntimeRun(changeDir);
-      if (runtime.classic.archived) continue;
+      const projection = await readClassicState(changeDir);
+      if (projection.classic?.archived) continue;
+
       const { done, total } = await countTasks(path.join(changeDir, 'tasks.md'));
+      const diagnostic = await inspectClassicChange(changeDir, entry);
+
+      if (diagnostic.valid && projection.classic) {
+        changes.push({
+          name: entry,
+          workflow: diagnostic.workflow,
+          phase: diagnostic.phase,
+          buildMode: projection.classic.buildMode ?? 'null',
+          isolation: projection.classic.isolation ?? 'null',
+          verifyMode: projection.classic.verifyMode ?? 'null',
+          verifyResult: projection.classic.verifyResult,
+          designDoc: projection.classic.designDoc,
+          plan: projection.classic.plan,
+          tasksCompleted: done,
+          tasksTotal: total,
+          nextCommand: diagnostic.nextCommand,
+          currentStep: diagnostic.currentStep,
+          runtimeMode: diagnostic.runtimeMode,
+        });
+        continue;
+      }
+
       changes.push({
         name: entry,
-        workflow: runtime.classic.workflow,
-        phase: runtime.classic.phase,
-        buildMode: runtime.classic.buildMode ?? 'null',
-        isolation: runtime.classic.isolation ?? 'null',
-        verifyMode: runtime.classic.verifyMode ?? 'null',
-        verifyResult: runtime.classic.verifyResult,
-        designDoc: runtime.classic.designDoc,
-        plan: runtime.classic.plan,
+        workflow: diagnostic.workflow,
+        phase: diagnostic.phase,
+        buildMode: projection.classic?.buildMode ?? 'null',
+        isolation: projection.classic?.isolation ?? 'null',
+        verifyMode: projection.classic?.verifyMode ?? 'null',
+        verifyResult: projection.classic?.verifyResult ?? 'pending',
+        designDoc: projection.classic?.designDoc ?? null,
+        plan: projection.classic?.plan ?? null,
         tasksCompleted: done,
         tasksTotal: total,
-        nextCommand: getNextCommand(runtime.classic.phase),
-        currentStep: runtime.run.currentStep,
+        nextCommand: diagnostic.nextCommand,
+        currentStep: diagnostic.currentStep,
+        runtimeMode: diagnostic.runtimeMode,
+        error: diagnostic.error,
       });
     } catch (error) {
       changes.push({
@@ -95,6 +105,7 @@ async function getActiveChanges(projectPath: string): Promise<ChangeStatus[]> {
         tasksTotal: 0,
         nextCommand: null,
         currentStep: null,
+        runtimeMode: 'invalid',
         error: error instanceof Error ? error.message : String(error),
       });
     }
@@ -122,6 +133,7 @@ function displayStatus(changes: ChangeStatus[]): void {
     }
     console.log(`     workflow: ${c.workflow} | build_mode: ${c.buildMode}`);
     if (c.currentStep) console.log(`     run_step: ${c.currentStep}`);
+    console.log(`     runtime_mode: ${c.runtimeMode}`);
     if (c.designDoc) console.log(`     design: ${c.designDoc}`);
     if (c.plan) console.log(`     plan:   ${c.plan}`);
     if (c.phase === 'verify') console.log(`     verify_result: ${c.verifyResult}`);

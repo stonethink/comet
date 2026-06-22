@@ -218,6 +218,45 @@ describe('Classic legacy migration', () => {
     expect((await readClassicState(changeDir)).run).toBeNull();
   });
 
+  it('migrates old Classic state idempotently on repeated reads', async () => {
+    await fs.writeFile(
+      path.join(changeDir, '.comet.yaml'),
+      `workflow: full
+phase: build
+context_compression: off
+build_mode: executing-plans
+build_pause: null
+subagent_dispatch: null
+tdd_mode: tdd
+isolation: worktree
+verify_mode: full
+auto_transition: true
+base_ref: null
+design_doc: null
+plan: docs/superpowers/plans/demo.md
+verify_result: pending
+verification_report: null
+branch_status: pending
+created_at: 2026-06-22
+verified_at: null
+archived: false
+direct_override: null
+build_command: null
+verify_command: null
+handoff_context: null
+handoff_hash: null
+`,
+    );
+
+    const first = await ensureClassicRun(changeDir, { skillPackage: pkg });
+    const afterFirst = await fs.readFile(path.join(changeDir, '.comet.yaml'), 'utf8');
+    const second = await ensureClassicRun(changeDir, { skillPackage: pkg });
+    const afterSecond = await fs.readFile(path.join(changeDir, '.comet.yaml'), 'utf8');
+
+    expect(second.run.runId).toBe(first.run.runId);
+    expect(afterSecond).toBe(afterFirst);
+  });
+
   async function writeProjectFile(relativePath: string, content: string): Promise<void> {
     const file = path.join(projectRoot, relativePath);
     await fs.mkdir(path.dirname(file), { recursive: true });

@@ -88,4 +88,22 @@ describe('doctor command', () => {
     });
     expect(await fs.readFile(path.join(invalidChangeDir, '.comet.yaml'), 'utf8')).toBe(before);
   });
+
+  it('uses Classic diagnostics for comet yaml validity messages', async () => {
+    state(tmpDir, 'init', 'demo', 'full');
+
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    let json = '';
+    try {
+      await doctorCommand(tmpDir, { json: true });
+      json = log.mock.calls.map((call) => call.join(' ')).join('\n');
+    } finally {
+      log.mockRestore();
+    }
+    const payload = JSON.parse(json);
+    const cometYaml = payload.results.find((item: { check: string }) => item.check === '.comet.yaml: demo');
+
+    expect(cometYaml.message).toContain('step: full.open');
+    expect(cometYaml.message).toContain('mode: engine-projection');
+  });
 });

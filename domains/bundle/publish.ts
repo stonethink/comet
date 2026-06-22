@@ -66,6 +66,9 @@ export async function publishBundle(options: {
   referencePlatform: string;
 }): Promise<BundleAuthoringState> {
   const state = await reconcileBundleAuthoringState(options.projectRoot, options.name);
+  if (state.factory && !state.factory.generatedSkillPackage) {
+    throw new Error('Factory publish requires generated Skill package evidence');
+  }
   const bundle = await loadBundle(state.draftPath);
   await assertValidBundle(bundle);
   const currentHash = await hashBundle(bundle);

@@ -50,4 +50,5 @@ export interface GeneratedFactorySkillPackage {
   packageRoot: string;
   skillPath: string;
   enginePath: string | null;
+  evalManifestPath: string | null;
 }

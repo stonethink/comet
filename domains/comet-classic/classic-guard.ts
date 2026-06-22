@@ -4,6 +4,7 @@ import { existsSync, promises as fs, readFileSync } from 'fs';
 import path from 'path';
 import { parseDocument } from 'yaml';
 import type { ClassicCommandHandler, ClassicCommandResult } from './classic-cli.js';
+import { inspectClassicChange } from './classic-diagnostics.js';
 import { openSpecChangeNameError, resolveClassicChangeDirectory } from './classic-paths.js';
 import { ensureClassicRuntimeRun, transitionClassicRuntimeRun } from './classic-runtime-run.js';
 import type { ClassicRunContext } from './classic-migrate.js';
@@ -58,10 +59,14 @@ class GuardFailure extends Error {
 
 class GuardOutput {
   readonly stderr: string[] = [];
+  diagnostics?: Record<string, unknown>;
 
   toResult(exitCode = 0): ClassicCommandResult {
     return {
       exitCode,
+      ...(this.diagnostics
+        ? { stdout: JSON.stringify({ diagnostics: this.diagnostics }) + '\n' }
+        : {}),
       ...(this.stderr.length > 0 ? { stderr: this.stderr.join('\n') + '\n' } : {}),
     };
   }
@@ -831,7 +836,7 @@ async function applyStateUpdate(
   output.stderr.push(green(message));
 }
 
-export const classicGuardCommand: ClassicCommandHandler = async (args) => {
+export const classicGuardCommand: ClassicCommandHandler = async (args, options) => {
   const output = new GuardOutput();
   const [change, phase, flag] = args;
   try {
@@ -844,6 +849,15 @@ export const classicGuardCommand: ClassicCommandHandler = async (args) => {
     const changeDir = await resolveChangeDir(change);
     await preflight(changeDir, change);
     const runContext = await ensureClassicRuntimeRun(changeDir);
+    const diagnostic = await inspectClassicChange(changeDir, change);
+    if (options.json) {
+      output.diagnostics = {
+        change,
+        phase,
+        currentStep: diagnostic.currentStep,
+        runtimeEval: diagnostic.runtimeEval,
+      };
+    }
     output.stderr.push(PHASE_HEADER[phase]);
 
     let blocked: boolean;

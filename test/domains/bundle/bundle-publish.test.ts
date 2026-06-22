@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
-import { optimizeBundleDraft } from '../../../domains/bundle/draft.js';
+import { createBundleDraft, optimizeBundleDraft } from '../../../domains/bundle/draft.js';
 import { recordBundleEval, type BundleEvalResult } from '../../../domains/bundle/eval.js';
 import { publishBundle, reviewBundle } from '../../../domains/bundle/publish.js';
 import { reconcileBundleAuthoringState } from '../../../domains/bundle/state.js';
@@ -291,6 +291,34 @@ describe('Bundle review and publish', () => {
     expect(
       (await fs.readdir(path.dirname(destination))).some((entry) => entry.includes('.backup-')),
     ).toBe(false);
+  });
+
+  it('blocks Factory publish when generated package evidence is missing', async () => {
+    const state = await createBundleDraft({
+      projectRoot,
+      name: 'factory-no-generated-package',
+      candidates: [],
+      creator: 'native',
+      defaultLocale: 'en',
+      locales: ['en'],
+      engineEnabled: true,
+      factory: {
+        goal: 'Demo',
+        preferredSkills: ['demo'],
+        resolvedSkills: [],
+        callChain: [{ skill: 'demo', preferenceIndex: 0 }],
+        deviations: [],
+        engineMode: 'deterministic',
+        runnerMode: 'standalone',
+      },
+    });
+    await expect(
+      publishBundle({
+        projectRoot,
+        name: state.name,
+        referencePlatform: 'claude',
+      }),
+    ).rejects.toThrow('Factory publish requires generated Skill package evidence');
   });
 
   async function createDraft(name: string, requiresHooks = false) {

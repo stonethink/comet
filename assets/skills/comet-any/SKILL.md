@@ -15,7 +15,8 @@ deterministic backend, not the user-facing workflow.
 Engine is the runtime semantic foundation for generated Skills. Generated workflows with multiple
 steps, recovery needs, guardrails, runtime evals, or script side effects must generate
 `comet/skill.yaml`, `guardrails.yaml`, and `evals.yaml`. A lightweight single-step Skill may skip
-Engine, but the user must be told that Run recovery and runtime evals will be unavailable.
+Engine, but the user must be told that Run recovery and runtime evals will be unavailable. In other
+words, lightweight single-step Skills can skip Engine only when the capability loss is disclosed.
 </IMPORTANT>
 
 ## References
@@ -32,6 +33,9 @@ Engine, but the user must be told that Run recovery and runtime evals will be un
 - Use the `comet bundle` CLI to maintain deterministic state. Do not hand-write `.comet/bundle-*` state files.
 - Show Eval workload and token workload before asking the user to choose `skip / quick / full Eval`.
 - If Eval is skipped or fails, do not enter ready, publish, or distribute.
+- Before publish, read the review summary readiness state. If unresolved candidates, current-hash
+  Eval evidence, current-hash human approval, capability gaps, or executable disclosures are
+  missing, do not publish ready.
 - Require human approval before publish; ask the user before distribution.
 - Prefer native `skill-creator`; must ask the user before fallback to the Comet fallback.
 
@@ -140,6 +144,8 @@ instead of name-only guesses.
 
 For multi-step or higher-risk output, generate `comet/skill.yaml`, `guardrails.yaml`, and `evals.yaml`.
 The Engine Package must match the call chain, guardrails, runtime evals, and script side-effect declarations.
+For Engine-enabled generated Skills, Factory also writes `comet/eval.yaml` using the `authoring-skill`
+profile and the `authoring-skill-smoke` quick eval.
 
 If `runnerMode` is `standalone`, the generated Skill should instruct the Agent to store run state
 under `.comet/runs/<run-id>`. When persistent execution is needed, the internal runner entry is:
@@ -190,6 +196,7 @@ comet bundle review-summary <name> --platform <reference-platform> --json
 ```
 
 Use that summary to show entry Skills, internal Skills, planHash, real Skill evidence, recommended call order, deviations from the preferred order, capability gaps, executable disclosures, quick/full Eval workload, Eval result, and target platforms. If the call chain deviates from the preferred order, the review summary must explain why.
+Read the readiness field explicitly. If readiness is not `publishable`, or if it says Missing Eval evidence blocks ready publish, stop before publish.
 
 Approve:
 
