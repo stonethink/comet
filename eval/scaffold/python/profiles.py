@@ -12,6 +12,10 @@ from scaffold.python.validation.generic_rubric import (
     GENERIC_RUBRIC_DIMENSIONS,
     generic_rubric_validator,
 )
+from scaffold.python.validation.authoring_rubric import (
+    AUTHORING_RUBRIC_DIMENSIONS,
+    authoring_skill_rubric_validator,
+)
 
 GENERIC_PROFILE = "generic"
 COMET_WORKFLOW_PROFILE = "comet-workflow"
@@ -66,13 +70,13 @@ def _build_profiles() -> dict[str, ProfileSpec]:
         ),
         AUTHORING_SKILL_PROFILE: ProfileSpec(
             name=AUTHORING_SKILL_PROFILE,
-            rubric_dimensions=GENERIC_RUBRIC_DIMENSIONS + ("weighted_score",),
+            rubric_dimensions=AUTHORING_RUBRIC_DIMENSIONS + ("weighted_score",),
             default_interaction=InteractionConfig(
                 mode="auto_user",
                 max_turns=8,
                 simulator_prompt=GENERIC_SIMULATOR_PROMPT,
             ),
-            rubric=generic_rubric_validator,
+            rubric=authoring_skill_rubric_validator,
         ),
     }
 

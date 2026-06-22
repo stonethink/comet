@@ -134,6 +134,7 @@ def test_comet_task_index_lists_real_tasks():
     names = [task["name"] for task in index["tasks"]]
     assert sorted(names) == sorted(list_tasks())
     assert set(names) == {
+        "authoring-skill-smoke",
         "comet-api-cache-ttl",
         "comet-fix-median",
         "comet-full-workflow",

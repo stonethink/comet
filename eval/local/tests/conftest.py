@@ -31,6 +31,8 @@ from scaffold import run_claude_in_docker, run_node_in_docker, run_python_in_doc
 from scaffold.python import (
     ExperimentLogger,
     TreatmentResult,
+    build_eval_artifact_references,
+    classify_failures,
     get_profile,
     load_report_output_config,
     save_events,
@@ -628,8 +630,14 @@ def record_result(test_dir, experiment_logger, request):
 
         save_events(base_dir, treatment_name, rep, events)
         _save_artifacts(base_dir, treatment_name, rep, test_dir)
+        artifact_references = build_eval_artifact_references(base_dir, treatment_name, rep)
 
         scripts_used = _extract_scripts_used(events)
+        failure_attribution = classify_failures(
+            failed,
+            events,
+            events.get("profile"),
+        )
 
         report = {
             "name": treatment_name,
@@ -656,6 +664,8 @@ def record_result(test_dir, experiment_logger, request):
                 "skill_sources": events.get("skill_sources", []),
                 "eval_manifest": events.get("eval_manifest"),
                 "interaction": events.get("interaction", {}),
+                "artifact_references": artifact_references,
+                "failure_attribution": failure_attribution,
             },
             "timestamp": datetime.now().isoformat(),
         }
@@ -685,6 +695,8 @@ def record_result(test_dir, experiment_logger, request):
                     "skill_sources": events.get("skill_sources", []),
                     "eval_manifest": events.get("eval_manifest"),
                     "interaction": events.get("interaction", {}),
+                    "artifact_references": artifact_references,
+                    "failure_attribution": failure_attribution,
                 },
                 run_id=run_id,
             ),

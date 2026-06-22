@@ -185,7 +185,7 @@ def _fmt_dim(stats: dict[str, float] | None, with_dist: bool = False) -> str:
     mean = stats["mean"]
     if not with_dist or stats["n"] < 2:
         return f"{mean:.2f}"
-        return f"{mean:.2f}±{stats['stdev']:.2f} ({stats['pass_rate']*100:.0f}%)"
+    return f"{mean:.2f}±{stats['stdev']:.2f} ({stats['pass_rate']*100:.0f}%)"
 
 
 def _sum_metric(reports: list[dict], key: str) -> int | float | None:
@@ -203,6 +203,24 @@ def _fmt_tokens(value: int | float | None) -> str:
 
 def _fmt_cost(value: int | float | None) -> str:
     return "N/A" if value is None else f"${value:.4f}"
+
+
+def _source_summary(report: dict) -> str:
+    events = report.get("events_summary", {})
+    run_id = report.get("run_id") or "n/a"
+    profile = events.get("profile") or "n/a"
+    sources = events.get("skill_sources") or []
+    source_text = ", ".join(
+        (
+            f"{item.get('name', 'skill')}@{item.get('hash', item.get('path', 'unknown'))}"
+            if isinstance(item, dict)
+            else str(item)
+        )
+        for item in sources
+    ) or "none"
+    manifest = events.get("eval_manifest") or "none"
+    report_ref = (events.get("artifact_references") or {}).get("report", "none")
+    return f"| `{run_id}` | {profile} | {source_text} | {manifest} | {report_ref} |"
 
 
 # --- Attribution (improvement 2) -------------------------------------------
@@ -239,6 +257,14 @@ def _attributions(reports: list[dict]) -> dict[str, list[str]]:
     """Bucket all failed checks across a treatment's runs by attribution."""
     buckets: dict[str, list[str]] = defaultdict(list)
     for rep in reports:
+        structured = rep.get("events_summary", {}).get("failure_attribution") or []
+        if structured:
+            for item in structured:
+                bucket = item.get("bucket", "model")
+                buckets[bucket].append(
+                    f"{item.get('check', '')}  ->  [{bucket}] {item.get('reason', '')}"
+                )
+            continue
         for fail in rep.get("checks_failed", []):
             # Skip rubric informational checks (they never fail, but be safe)
             if "[RUBRIC]" in fail:
@@ -334,6 +360,15 @@ def build_report(experiment_dir: Path) -> str:
         )
     lines.append("")
 
+    lines.append("## Source evidence")
+    lines.append("")
+    lines.append("| Run | Profile | Skill sources | Eval manifest | Report |")
+    lines.append("|-----|---------|---------------|---------------|--------|")
+    for treatment in TREATMENTS:
+        for rep in by_treatment.get(treatment, []):
+            lines.append(_source_summary(rep))
+    lines.append("")
+
     # Dimension comparison table
     label = "(mean±stdev, pass-rate across runs; 0.00–1.00)" if has_dist else "(mean, 0.00–1.00)"
     lines.append(f"## Rubric dimensions {label}")
@@ -384,8 +419,11 @@ def build_report(experiment_dir: Path) -> str:
     # --- Attribution (improvement 2) ---
     lines.append("## Failure attribution")
     lines.append("")
-    lines.append("Each failed baseline check is bucketed as **workflow** (skill guidance issue), "
-                 "**task** (task/validator issue), or **model** (LLM capability issue).")
+    lines.append(
+        "Each failed baseline check is bucketed as **harness** (runner/trigger issue), "
+        "**workflow** (skill guidance issue), **task** (task/validator issue), "
+        "or **model** (LLM capability issue)."
+    )
     lines.append("")
     any_failures = False
     for t in TREATMENTS:
@@ -396,7 +434,7 @@ def build_report(experiment_dir: Path) -> str:
         any_failures = True
         lines.append(f"### {t} ({total} failure(s))")
         lines.append("")
-        for bucket in ("workflow", "task", "model"):
+        for bucket in ("harness", "workflow", "task", "model"):
             items = attr.get(bucket, [])
             if not items:
                 continue

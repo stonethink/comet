@@ -62,3 +62,66 @@ def test_compare_report_honors_html_report_output_config(monkeypatch, tmp_path: 
     html_report = experiment / "comparison_report.html"
     assert html_report.exists()
     assert "Comet Baseline Comparison Report" in html_report.read_text(encoding="utf-8")
+
+
+def test_compare_report_uses_structured_failure_attribution(tmp_path: Path):
+    experiment = tmp_path / "experiment"
+    reports = experiment / "reports"
+    reports.mkdir(parents=True)
+    _write_report(reports, "CONTROL", 100, 0.01)
+    _write_report(reports, "COMET_FULL_039", 300, 0.03)
+    workflow = {
+        "name": "comet-full-workflow-COMET_FULL",
+        "passed": False,
+        "checks_passed": [],
+        "checks_failed": ["Required skill not invoked: comet"],
+        "events_summary": {
+            "total_tokens": 200,
+            "total_cost_usd": 0.02,
+            "failure_attribution": [
+                {
+                    "bucket": "harness",
+                    "check": "Required skill not invoked: comet",
+                    "reason": "target Skill was never invoked",
+                }
+            ],
+        },
+    }
+    (reports / "comet_full_report.json").write_text(json.dumps(workflow))
+
+    report = build_report(experiment)
+
+    assert "**harness**" in report
+    assert "[harness] target Skill was never invoked" in report
+
+
+def test_compare_report_lists_source_evidence(tmp_path: Path):
+    experiment = tmp_path / "experiment"
+    reports = experiment / "reports"
+    reports.mkdir(parents=True)
+    _write_report(reports, "CONTROL", 100, 0.01)
+    _write_report(reports, "COMET_FULL_039", 300, 0.03)
+    workflow = {
+        "name": "comet-full-workflow-COMET_FULL",
+        "passed": True,
+        "run_id": "run-123",
+        "checks_passed": ["[RUBRIC] weighted_score: 1.00 - ok"],
+        "checks_failed": [],
+        "events_summary": {
+            "profile": "comet-workflow",
+            "skill_sources": [{"name": "comet", "hash": "sha256:abc"}],
+            "eval_manifest": "demo/comet/eval.yaml",
+            "artifact_references": {"report": "reports/comet_full_report.json"},
+            "total_tokens": 200,
+            "total_cost_usd": 0.02,
+        },
+    }
+    (reports / "comet_full_report.json").write_text(json.dumps(workflow))
+
+    report = build_report(experiment)
+
+    assert "## Source evidence" in report
+    assert "`run-123`" in report
+    assert "comet-workflow" in report
+    assert "sha256:abc" in report
+    assert "reports/comet_full_report.json" in report

@@ -195,6 +195,7 @@ def test_task_treatment(task_name, treatment_name):
         "expected_artifacts": skill_hints.get("expected_artifacts")
         or task.config.evaluation.expected_artifacts,
         "require_skill_invocation": task.config.evaluation.require_skill_invocation,
+        "skill_package_path": skill_hints.get("path"),
         "interaction": {
             "mode": interaction.mode,
             "max_turns": interaction.max_turns,

@@ -54,3 +54,9 @@ tasks:
     default_treatments:
       - CONTROL
     description: Generic smoke task for arbitrary Skill eval; creates and validates result.md.
+
+  - name: authoring-skill-smoke
+    category: generic
+    default_treatments:
+      - CONTROL
+    description: Smoke task for generated Comet-native Skill packages.

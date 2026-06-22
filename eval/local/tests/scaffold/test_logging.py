@@ -135,8 +135,12 @@ def test_treatment_result_exposes_eval_metadata():
             "skill_sources": [{"name": "demo", "hash": "sha256:abc"}],
             "eval_manifest": "demo/comet/eval.yaml",
             "interaction": {"mode": "none"},
+            "artifact_references": {"report": "logs/reports/demo_report.json"},
+            "failure_attribution": [{"bucket": "task", "check": "validator missing", "reason": "task or validator path assumption failed"}],
         },
     )
 
     assert result.events_summary["profile"] == "generic"
     assert result.events_summary["skill_sources"][0]["hash"] == "sha256:abc"
+    assert result.events_summary["artifact_references"]["report"].endswith("demo_report.json")
+    assert result.events_summary["failure_attribution"][0]["bucket"] == "task"

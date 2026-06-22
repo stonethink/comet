@@ -41,6 +41,13 @@ uv run pytest local/tests/tasks/test_tasks.py \
   --eval-manifest=/path/to/my-skill/comet/eval.yaml -v
 ```
 
+### Evidence And Attribution
+
+Each local eval report records the selected profile, Skill source/hash metadata,
+interaction config, run id, report output config, artifact references, and
+structured failure attribution. Attribution uses four buckets: `harness`,
+`workflow`, `task`, and `model`.
+
 Local results are written to:
 
 ```text
@@ -94,7 +101,8 @@ eval/langsmith/logs/experiments/
 ## Current Tasks
 
 The local task corpus lives in `eval/local/tasks/index.yaml`, including the
-Comet workflow tasks plus `generic-skill-smoke` for arbitrary Skill packages.
+Comet workflow tasks plus `generic-skill-smoke` and `authoring-skill-smoke`
+for arbitrary and generated Skill packages.
 
 ## Requirements
 

@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from scaffold.python.profiles import (
+    AUTHORING_SKILL_PROFILE,
     COMET_WORKFLOW_PROFILE,
     GENERIC_PROFILE,
     get_profile,
@@ -18,11 +19,14 @@ def test_profile_registry_exposes_generic_and_comet_workflow():
 
     generic = get_profile(GENERIC_PROFILE)
     comet = get_profile(COMET_WORKFLOW_PROFILE)
+    authoring = get_profile(AUTHORING_SKILL_PROFILE)
 
     assert generic.name == "generic"
     assert comet.name == "comet-workflow"
+    assert authoring.name == "authoring-skill"
     assert "completion" in generic.rubric_dimensions
     assert "main_flow" in comet.rubric_dimensions
+    assert "generated_package" in authoring.rubric_dimensions
 
 
 def test_get_profile_rejects_unknown_names():
@@ -81,3 +85,75 @@ def test_generic_profile_can_fail_required_skill_invocation(tmp_path: Path):
 
     assert any("Required skill not invoked: target-skill" in msg for msg in failed)
     assert any("[RUBRIC] skill_invocation: 0.00" in msg for msg in passed)
+
+
+def test_authoring_profile_scores_generated_package_and_engine_contract(tmp_path: Path):
+    package = tmp_path / "authoring-skill"
+    (package / "reference").mkdir(parents=True)
+    (package / "comet").mkdir(parents=True)
+    (package / "SKILL.md").write_text(
+        "# Demo\n\n## 调用链\n- step\n\n## 停止点\n- stop here\n",
+        encoding="utf-8",
+    )
+    (package / "reference" / "resolved-skills.json").write_text(
+        '{"sourceSummaries":[{"name":"demo-source"}]}',
+        encoding="utf-8",
+    )
+    for name in ("skill.yaml", "guardrails.yaml", "evals.yaml"):
+        (package / "comet" / name).write_text("name: demo\n", encoding="utf-8")
+
+    outputs = {
+        "completion": {"passed": ["validator ok"], "failed": []},
+        "events": {
+            "skills_invoked": ["comet-any"],
+            "num_turns": 4,
+            "tool_calls": [{"tool": "Read", "input": {}}],
+            "duration_seconds": 20,
+            "commands_run": [],
+        },
+        "required_skills": ["comet-any"],
+        "expected_artifacts": [],
+        "interaction": {"mode": "auto_user", "max_turns": 8},
+        "skill_package_path": str(package),
+    }
+
+    passed, failed = run_profile_rubric("authoring-skill", tmp_path, outputs)
+
+    assert failed == []
+    assert any("[RUBRIC] generated_package: 1.00" in msg for msg in passed)
+    assert any("[RUBRIC] resolved_skill_evidence: 1.00" in msg for msg in passed)
+    assert any("[RUBRIC] engine_contract: 1.00" in msg for msg in passed)
+    assert any("[RUBRIC] weighted_score:" in msg for msg in passed)
+
+
+def test_authoring_profile_allows_lightweight_package_without_engine_files(tmp_path: Path):
+    package = tmp_path / "authoring-skill"
+    (package / "reference").mkdir(parents=True)
+    (package / "SKILL.md").write_text(
+        "# Demo\n\n## call chain\n- step\n\n## stop\n- done\n",
+        encoding="utf-8",
+    )
+    (package / "reference" / "resolved-skills.json").write_text(
+        '{"sourceSummaries":[{"name":"demo-source"}]}',
+        encoding="utf-8",
+    )
+
+    outputs = {
+        "completion": {"passed": ["validator ok"], "failed": []},
+        "events": {
+            "skills_invoked": ["comet-any"],
+            "num_turns": 2,
+            "tool_calls": [],
+            "duration_seconds": 10,
+            "commands_run": [],
+        },
+        "required_skills": ["comet-any"],
+        "expected_artifacts": [],
+        "interaction": {"mode": "auto_user", "max_turns": 8},
+        "skill_package_path": str(package),
+    }
+
+    passed, failed = run_profile_rubric("authoring-skill", tmp_path, outputs)
+
+    assert failed == []
+    assert any("[RUBRIC] engine_contract: 1.00 - Engine disabled for lightweight package" in msg for msg in passed)

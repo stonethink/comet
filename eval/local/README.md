@@ -17,6 +17,15 @@ Quick generic smoke run:
 uv run pytest local/tests/tasks/test_tasks.py --task=generic-skill-smoke --treatment=CONTROL -v
 ```
 
+Generated Skill authoring smoke run:
+
+```bash
+uv run pytest local/tests/tasks/test_tasks.py \
+  --task=authoring-skill-smoke \
+  --eval-manifest=/path/to/generated-skill/comet/eval.yaml \
+  --profile=authoring-skill -v
+```
+
 Task index:
 
 ```text
@@ -47,3 +56,7 @@ uv run python local/scripts/compare_baselines.py --report-config report-config.j
 ```
 
 You can also set `COMET_EVAL_REPORT_CONFIG=/path/to/report-config.json`.
+
+Each per-run report includes profile, Skill source metadata, run id, artifact
+references, and structured failure attribution with `harness`, `workflow`,
+`task`, and `model` buckets.
