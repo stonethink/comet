@@ -62,6 +62,40 @@ def test_build_treatment_skills_accepts_inline_content_and_generated_names():
     assert skills["explicit-name"]["sections"] == ["Explicit content"]
 
 
+def test_build_treatment_skills_accepts_path_skill_source(tmp_path: Path):
+    skill_dir = tmp_path / "local-skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text(
+        "---\nname: local-skill\ndescription: Local test skill.\n---\n\nUse this skill.",
+        encoding="utf-8",
+    )
+    scripts_dir = skill_dir / "scripts"
+    scripts_dir.mkdir()
+    (scripts_dir / "helper.py").write_text("print('ok')", encoding="utf-8")
+
+    skills = build_treatment_skills(
+        [{"name": "local-skill", "source": "path", "path": str(skill_dir)}]
+    )
+
+    assert skills["local-skill"]["sections"] == [
+        "---\nname: local-skill\ndescription: Local test skill.\n---\n\nUse this skill."
+    ]
+    assert skills["local-skill"]["scripts_dir"] == scripts_dir
+    assert skills["local-skill"]["script_filter"] is None
+    assert skills["local-skill"]["source"]["source_type"] == "path"
+    assert skills["local-skill"]["source"]["hash"].startswith("sha256:")
+
+
+def test_build_treatment_skills_rejects_path_without_skill_md(tmp_path: Path):
+    skill_dir = tmp_path / "broken-skill"
+    skill_dir.mkdir()
+
+    with pytest.raises(FileNotFoundError, match="SKILL.md"):
+        build_treatment_skills(
+            [{"name": "broken-skill", "source": "path", "path": str(skill_dir)}]
+        )
+
+
 def test_load_treatments_keeps_comet_core_categories_only():
     treatments = load_treatments()
 

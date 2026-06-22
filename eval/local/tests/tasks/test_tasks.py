@@ -17,6 +17,7 @@ Usage:
 import uuid
 
 import pytest
+import conftest
 from conftest import get_fixtures
 
 from scaffold import NoiseTask, Treatment
@@ -58,11 +59,18 @@ def expand_treatment_patterns(patterns: list[str], all_treatments: dict) -> list
     return list(dict.fromkeys(expanded))
 
 
-def generate_test_params(task_filter: str | None, treatment_filter: str | None):
+def generate_test_params(task_filter: str | None, treatment_filter: str | None, config=None):
     """Generate (task_name, treatment_name) pairs based on filters."""
     params = []
     all_treatments = load_treatments()
     all_tasks = list_tasks()
+
+    if config is not None:
+        dynamic = conftest._get_dynamic_treatment_config(config)
+        if dynamic:
+            all_treatments[dynamic.name] = dynamic
+            if not treatment_filter:
+                treatment_filter = dynamic.name
 
     if task_filter and task_filter not in all_tasks:
         raise ValueError(f"Task not found: {task_filter}. Available: {all_tasks}")
@@ -97,7 +105,7 @@ def pytest_generate_tests(metafunc):
         task_filter = metafunc.config.getoption("--task")
         treatment_filter = metafunc.config.getoption("--treatment")
         count = int(metafunc.config.getoption("--count") or 1)
-        base_params = generate_test_params(task_filter, treatment_filter)
+        base_params = generate_test_params(task_filter, treatment_filter, metafunc.config)
         # pytest ids stay (task, treatment); the rep number is tracked separately
         # by the experiment plugin's get_rep_number per treatment. To force N
         # distinct test invocations we append a rep suffix to the param id.
@@ -119,6 +127,9 @@ def test_task_treatment(task_name, treatment_name):
     fixtures = get_fixtures()
     task = load_task(task_name)
     treatments = load_treatments()
+    dynamic = conftest._get_dynamic_treatment_config(fixtures.request_config)
+    if dynamic:
+        treatments[dynamic.name] = dynamic
     if treatment_name not in treatments:
         pytest.skip(f"Treatment {treatment_name} not found")
     treatment_cfg = treatments[treatment_name]

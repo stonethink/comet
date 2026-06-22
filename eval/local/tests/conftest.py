@@ -82,6 +82,24 @@ def pytest_addoption(parser):
         default=1,
         help="Repeat each task/treatment combination N times for distribution stats (default: 1)",
     )
+    parser.addoption(
+        "--skill-path",
+        action="store",
+        default=None,
+        help="Local Skill directory or SKILL.md to evaluate",
+    )
+    parser.addoption(
+        "--skill-name",
+        action="store",
+        default=None,
+        help="Skill name to inject for --skill-path",
+    )
+    parser.addoption(
+        "--profile",
+        action="store",
+        default=None,
+        help="Eval profile override",
+    )
 
 
 def pytest_configure(config):
@@ -250,6 +268,28 @@ def _get_experiment_name(session) -> str:
         return first_item.callspec.params["task_name"].replace("-", "_")
 
     return "experiment"
+
+
+def _get_dynamic_treatment_config(config):
+    skill_path = config.getoption("--skill-path")
+    if not skill_path:
+        return None
+    skill_name = config.getoption("--skill-name") or Path(skill_path).resolve().parent.name
+    profile = config.getoption("--profile")
+    skill_cfg = {
+        "name": skill_name,
+        "source": "path",
+        "path": skill_path,
+    }
+    if profile:
+        skill_cfg["profile"] = profile
+    from scaffold.python.treatments import TreatmentConfig
+
+    return TreatmentConfig(
+        name="DYNAMIC_SKILL",
+        description=f"Dynamic Skill target: {skill_name}",
+        skills=[skill_cfg],
+    )
 
 
 def _get_or_create_experiment_id(name: str, use_coordination: bool) -> str:
@@ -556,6 +596,7 @@ def fixtures(
     setup_test_context,
     run_claude,
     record_result,
+    request,
 ):
     """Bundle test fixtures and make them accessible via get_fixtures()."""
     global _current_fixtures
@@ -564,6 +605,7 @@ def fixtures(
         setup_test_context=setup_test_context,
         run_claude=run_claude,
         record_result=record_result,
+        request_config=request.config,
     )
     yield _current_fixtures
     _current_fixtures = None

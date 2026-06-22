@@ -1,5 +1,6 @@
 """Treatment loader for comet skill benchmark experiments."""
 
+import hashlib
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -26,6 +27,15 @@ class TreatmentConfig:
     noise_tasks: list[str] = field(default_factory=list)
 
 
+@dataclass
+class SkillSource:
+    name: str
+    source_type: str
+    path: str | None = None
+    hash: str = ""
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
 def _add_language_suffix(content: str, lang: str) -> str:
     suffix = "(Python)" if lang == "py" else "(TypeScript)"
     return re.sub(
@@ -39,6 +49,45 @@ def _add_language_suffix(content: str, lang: str) -> str:
 
 def _filter_related_skills(sections: list[str]) -> list[str]:
     return [s for s in sections if s and "<related_skills>" not in s]
+
+
+def _find_skill_md(path: Path) -> Path:
+    if path.is_file():
+        if path.name != "SKILL.md":
+            raise FileNotFoundError(f"Expected SKILL.md file, got: {path}")
+        return path
+    skill_md = path / "SKILL.md"
+    if not skill_md.exists():
+        raise FileNotFoundError(f"SKILL.md not found in {path}")
+    return skill_md
+
+
+def _hash_skill_dir(skill_path: Path) -> str:
+    if skill_path.is_file():
+        data = skill_path.read_bytes()
+        return "sha256:" + hashlib.sha256(data).hexdigest()
+    digest = hashlib.sha256()
+    for item in sorted(skill_path.rglob("*")):
+        if item.is_file():
+            digest.update(str(item.relative_to(skill_path)).replace("\\", "/").encode())
+            digest.update(item.read_bytes())
+    return "sha256:" + digest.hexdigest()
+
+
+def _build_path_skill_config(name: str, path_value: str) -> dict:
+    source_path = Path(path_value).expanduser().resolve()
+    skill_md = _find_skill_md(source_path)
+    skill_dir = skill_md.parent
+    scripts_dir = skill_dir / "scripts"
+    content = skill_md.read_text(encoding="utf-8")
+    cfg = skill_config([content], scripts_dir if scripts_dir.exists() else None, None)
+    cfg["source"] = {
+        "name": name,
+        "source_type": "path",
+        "path": str(source_path),
+        "hash": _hash_skill_dir(skill_dir),
+    }
+    return cfg
 
 
 def _build_skill_config(
@@ -137,6 +186,9 @@ def build_treatment_skills(skill_configs: list[dict[str, Any]]) -> dict[str, dic
         skill_dir = cfg.get("skill")
         if not name and skill_dir:
             name = skill_dir.replace("_", "-")
+        if cfg.get("source") == "path":
+            skills[name] = _build_path_skill_config(name, cfg["path"])
+            continue
         if "content" in cfg:
             skills[name] = skill_config([cfg["content"]], None, None)
             continue
