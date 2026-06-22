@@ -14,6 +14,7 @@ from .logging import (
     save_report,
     strip_ansi,
 )
+from .manifests import SkillEvalManifest, load_eval_manifest
 from .profiles import (
     AUTHORING_SKILL_PROFILE,
     COMET_WORKFLOW_PROFILE,
@@ -65,6 +66,7 @@ __all__ = [
     "get_field", "get_nested_field", "normalize_score", "parse_output", "extract_events",
     "strip_ansi", "ExperimentLogger", "TreatmentResult", "save_events", "save_raw",
     "save_report", "ReportColumn", "bool_column", "quality_column", "default_columns",
+    "SkillEvalManifest", "load_eval_manifest",
     "AUTHORING_SKILL_PROFILE", "COMET_WORKFLOW_PROFILE", "GENERIC_PROFILE",
     "ProfileSpec", "all_rubric_dimensions", "get_profile", "list_profiles",
     "resolve_profile_name", "run_profile_rubric",

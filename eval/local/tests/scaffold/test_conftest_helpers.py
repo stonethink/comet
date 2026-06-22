@@ -96,3 +96,43 @@ def test_resolve_interaction_config_uses_profile_default_prompt():
     assert interaction.mode == "auto_user"
     assert interaction.max_turns == 12
     assert interaction.simulator_prompt is not None
+
+
+def test_dynamic_treatment_config_from_eval_manifest(tmp_path: Path):
+    package = tmp_path / "manifest-skill"
+    package.mkdir()
+    (package / "SKILL.md").write_text("---\nname: manifest-skill\n---\n\nBody.", encoding="utf-8")
+    comet_dir = package / "comet"
+    comet_dir.mkdir()
+    manifest = comet_dir / "eval.yaml"
+    manifest.write_text(
+        """
+apiVersion: comet.eval/v1alpha1
+kind: SkillEvalManifest
+metadata:
+  name: manifest-skill
+skill:
+  name: manifest-skill
+  source: ..
+  profile: generic
+evaluation:
+  recommendedTasks:
+    - generic-skill-smoke
+  requiredSkills:
+    - manifest-skill
+interaction:
+  mode: none
+""",
+        encoding="utf-8",
+    )
+
+    class Config:
+        def getoption(self, name):
+            return {"--eval-manifest": str(manifest)}.get(name)
+
+    cfg = conftest._get_dynamic_treatment_config(Config())
+
+    assert cfg.name == "DYNAMIC_SKILL"
+    assert cfg.skills[0]["name"] == "manifest-skill"
+    assert cfg.skills[0]["source"] == "path"
+    assert cfg.skills[0]["profile"] == "generic"

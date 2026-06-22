@@ -48,3 +48,9 @@ tasks:
       - COMET_FULL
       - COMET_FULL_039
     description: Robustness dimension. Add structured ConfigError handling to a brittle INI config loader so malformed input raises clear errors.
+
+  - name: generic-skill-smoke
+    category: generic
+    default_treatments:
+      - CONTROL
+    description: Generic smoke task for arbitrary Skill eval; creates and validates result.md.

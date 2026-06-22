@@ -1,6 +1,6 @@
 # Comet Skill Eval
 
-Minimal benchmark harness for evaluating the Comet skill workflow.
+Minimal benchmark harness for evaluating Comet and arbitrary local Skills through pytest.
 
 The eval tree is split into two selectable suites:
 
@@ -17,9 +17,28 @@ Use this when you want local experiment logs and Docker-based validation only.
 
 ```bash
 cd eval
-uv run pytest local/tests/tasks/test_tasks.py --task=comet-hotfix --treatment=COMET_FULL -v
+uv run pytest local/tests/tasks/test_tasks.py --task=comet-fix-median --treatment=COMET_FULL -v
 uv run pytest local/tests/tasks/test_tasks.py --task=comet-full-workflow --treatment=CONTROL,COMET_FULL -v
 uv run pytest local/tests/tasks/test_tasks.py -v
+```
+
+### Arbitrary Local Skill
+
+```bash
+cd eval
+uv run pytest local/tests/tasks/test_tasks.py \
+  --task=generic-skill-smoke \
+  --skill-path=/path/to/my-skill \
+  --skill-name=my-skill \
+  --profile=generic -v
+```
+
+### Generated Skill Manifest
+
+```bash
+cd eval
+uv run pytest local/tests/tasks/test_tasks.py \
+  --eval-manifest=/path/to/my-skill/comet/eval.yaml -v
 ```
 
 Local results are written to:
@@ -36,7 +55,7 @@ by default, and writes its own reports under `langsmith/logs`.
 
 ```bash
 cd eval
-uv run pytest langsmith/tests/tasks/test_tasks.py --task=comet-hotfix --treatment=COMET_FULL -v
+uv run pytest langsmith/tests/tasks/test_tasks.py --task=comet-fix-median --treatment=COMET_FULL -v
 ```
 
 Required environment:
@@ -56,11 +75,8 @@ eval/langsmith/logs/experiments/
 
 ## Current Tasks
 
-The initial local task corpus lives in `eval/local/tasks/index.yaml`:
-
-- `comet-full-workflow`
-- `comet-hotfix`
-- `comet-phase-guard`
+The local task corpus lives in `eval/local/tasks/index.yaml`, including the
+Comet workflow tasks plus `generic-skill-smoke` for arbitrary Skill packages.
 
 ## Requirements
 

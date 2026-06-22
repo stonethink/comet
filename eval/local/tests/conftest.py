@@ -102,6 +102,12 @@ def pytest_addoption(parser):
         help="Eval profile override",
     )
     parser.addoption(
+        "--eval-manifest",
+        action="store",
+        default=None,
+        help="Path to comet/eval.yaml",
+    )
+    parser.addoption(
         "--interaction-mode",
         action="store",
         default=None,
@@ -290,6 +296,28 @@ def _get_experiment_name(session) -> str:
 
 
 def _get_dynamic_treatment_config(config):
+    manifest_path = config.getoption("--eval-manifest")
+    if manifest_path:
+        from scaffold.python.manifests import load_eval_manifest
+        from scaffold.python.treatments import TreatmentConfig
+
+        manifest = load_eval_manifest(manifest_path)
+        return TreatmentConfig(
+            name="DYNAMIC_SKILL",
+            description=f"Dynamic Skill target: {manifest.skill_name}",
+            skills=[
+                {
+                    "name": manifest.skill_name,
+                    "source": "path",
+                    "path": str(manifest.skill_path),
+                    "profile": manifest.profile,
+                    "manifest": str(manifest.path),
+                    "required_skills": manifest.required_skills,
+                    "expected_artifacts": manifest.expected_artifacts,
+                }
+            ],
+        )
+
     skill_path = config.getoption("--skill-path")
     if not skill_path:
         return None
@@ -612,6 +640,10 @@ def record_result(test_dir, experiment_logger, request):
                 "files_created": events.get("files_created", []),
                 "skills_invoked": events.get("skills_invoked", []),
                 "scripts_used": scripts_used,
+                "profile": events.get("profile"),
+                "skill_sources": events.get("skill_sources", []),
+                "eval_manifest": events.get("eval_manifest"),
+                "interaction": events.get("interaction", {}),
             },
             "timestamp": datetime.now().isoformat(),
         }
@@ -637,6 +669,10 @@ def record_result(test_dir, experiment_logger, request):
                     "model_usage": events.get("model_usage", {}),
                     "skills_invoked": events.get("skills_invoked", []),
                     "scripts_used": scripts_used,
+                    "profile": events.get("profile"),
+                    "skill_sources": events.get("skill_sources", []),
+                    "eval_manifest": events.get("eval_manifest"),
+                    "interaction": events.get("interaction", {}),
                 },
                 run_id=run_id,
             ),

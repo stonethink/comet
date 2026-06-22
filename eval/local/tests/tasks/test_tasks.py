@@ -71,6 +71,11 @@ def generate_test_params(task_filter: str | None, treatment_filter: str | None, 
             all_treatments[dynamic.name] = dynamic
             if not treatment_filter:
                 treatment_filter = dynamic.name
+    manifest_tasks = None
+    if config is not None and config.getoption("--eval-manifest"):
+        from scaffold.python.manifests import load_eval_manifest
+
+        manifest_tasks = load_eval_manifest(config.getoption("--eval-manifest")).recommended_tasks
 
     if task_filter and task_filter not in all_tasks:
         raise ValueError(f"Task not found: {task_filter}. Available: {all_tasks}")
@@ -80,7 +85,7 @@ def generate_test_params(task_filter: str | None, treatment_filter: str | None, 
         patterns = [t.strip() for t in treatment_filter.split(",")]
         treatment_list = expand_treatment_patterns(patterns, all_treatments)
 
-    tasks_to_run = [task_filter] if task_filter else all_tasks
+    tasks_to_run = [task_filter] if task_filter else (manifest_tasks or all_tasks)
 
     for task_name in tasks_to_run:
         task = load_task(task_name)
@@ -133,9 +138,19 @@ def test_task_treatment(task_name, treatment_name):
     if treatment_name not in treatments:
         pytest.skip(f"Treatment {treatment_name} not found")
     treatment_cfg = treatments[treatment_name]
+    skill_hints = treatment_cfg.skills[0] if treatment_cfg.skills else {}
     validators = task.load_validators()
 
     skills = build_treatment_skills(treatment_cfg.skills) if treatment_cfg.skills else {}
+    skill_sources = [
+        skill.get("source")
+        for skill in skills.values()
+        if isinstance(skill, dict) and skill.get("source")
+    ]
+    eval_manifest = next(
+        (cfg.get("manifest") for cfg in treatment_cfg.skills if cfg.get("manifest")),
+        None,
+    )
     treatment = Treatment(
         description=treatment_cfg.description,
         skills=skills,
@@ -173,14 +188,22 @@ def test_task_treatment(task_name, treatment_name):
         "treatment_name": treatment_name,
         "events": events,
         "profile": profile_name,
-        "required_skills": task.config.evaluation.required_skills,
-        "expected_artifacts": task.config.evaluation.expected_artifacts,
+        "skill_sources": skill_sources,
+        "eval_manifest": eval_manifest,
+        "required_skills": skill_hints.get("required_skills")
+        or task.config.evaluation.required_skills,
+        "expected_artifacts": skill_hints.get("expected_artifacts")
+        or task.config.evaluation.expected_artifacts,
         "require_skill_invocation": task.config.evaluation.require_skill_invocation,
         "interaction": {
             "mode": interaction.mode,
             "max_turns": interaction.max_turns,
         },
     }
+    events["profile"] = outputs["profile"]
+    events["skill_sources"] = outputs["skill_sources"]
+    events["eval_manifest"] = outputs["eval_manifest"]
+    events["interaction"] = outputs["interaction"]
 
     passed, failed = run_validators(validators, fixtures.test_dir, outputs)
 
