@@ -58,6 +58,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 
 ### Fixed
 
+- **`review_mode` shared workflow parity**: Aligns the shared phase guard and bilingual `subagent-dispatch` guidance with the `review_mode` model, removing stale per-task dual-review wording from dispatch, recovery, and build-phase checkoff rules so shared workflow docs no longer contradict `off | standard | thorough`.
 - **Eval task validators**: Fixes Comet eval false negatives by installing `pytest` in Python task images, preserving UTF-8 subprocess output on Windows, surfacing validator stderr, accepting archived `.comet.yaml`-less changes as `phase=archived`, and recognizing `verification-report.md` as verification evidence.
 - **Eval refactor fixture**: Corrects the `comet-refactor-counter` baseline test to preserve the original newline-counting character behavior, so the task starts from a passing test suite before the agent refactors it.
 - **Eval completion rubric**: Normalizes structured validator output (`checks` with per-check status) into the existing passed/failed baseline lists so the rubric completion dimension reports real baseline coverage instead of `no baseline checks ran`, while preserving pass@k's task-level success semantics.

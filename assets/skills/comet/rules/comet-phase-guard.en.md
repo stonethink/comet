@@ -73,7 +73,7 @@ The following decision points must pause to wait for explicit user selection; do
 ## Build Phase Specifics
 
 1. After plan creation, must ask user to choose continue or pause (`build_pause` mechanism)
-2. After each task acceptance, must: tasks.md checkmark → git commit (do not accumulate). `subagent-driven-development` must wait for both spec compliance and code quality reviews to pass, then the coordinator performs targeted verification by unique task text; do not use an incomplete task summary table to replace current task verification
+2. After each task acceptance, must: tasks.md checkmark → git commit (do not accumulate). `subagent-driven-development` must complete acceptance according to the current `review_mode`, then the coordinator performs targeted verification by unique task text; do not use an incomplete task summary table to replace current task verification
 3. When encountering failures, must load **systematic-debugging** skill; do not propose source code fixes before root cause is located
 4. spec change grading: small changes edit directly | medium changes load brainstorming | large changes pause and wait for user confirmation to split
 
@@ -101,8 +101,8 @@ After recovery, first re-run the "Phase-Entry Self-Consistency Check" table: if 
 3. Read `openspec/changes/<name>/.comet/subagent-progress.md` to recover the exact stage, evidence, and review-fix round
 4. Do not execute tasks directly in the main session
 5. Resume from the checkpoint; start from the first unchecked task only when it is missing or mismatched
-6. Already committed but not yet passed both reviews tasks remain unchecked; continue review/fix loop
-7. After dual review and targeted checkoff verification pass, immediately continue to the next task without summarizing or asking whether to continue
+6. Tasks already committed but not yet validated according to `review_mode` remain unchecked; continue the corresponding validation/review/fix loop
+7. After a task passes `review_mode` validation and targeted checkoff verification, immediately continue to the next task without summarizing or asking whether to continue
 
 ## Automatic Transition After Phase Exit
 

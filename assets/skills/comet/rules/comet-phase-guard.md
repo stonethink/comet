@@ -75,7 +75,7 @@
 ## Build 阶段专项
 
 1. plan 创建后必须询问用户选择继续或暂停（`build_pause` 机制）
-2. 每个 task 验收后必须: tasks.md 打勾 → git commit（不得积攒）。`subagent-driven-development` 必须等 spec compliance 与 code quality 两个审查都通过，再由协调者按任务唯一文本定向勾选和验证；不得用未完成任务总表代替当前任务验证
+2. 每个 task 验收后必须: tasks.md 打勾 → git commit（不得积攒）。`subagent-driven-development` 必须按当前 `review_mode` 完成验收，再由协调者按任务唯一文本定向勾选和验证；不得用未完成任务总表代替当前任务验证
 3. 遇到失败必须加载 **systematic-debugging** skill，根因未定位前不得提出源码修复
 4. spec 变更分级: 小改直接编辑 | 中改加载 brainstorming | 大改暂停等用户确认拆分
 
@@ -103,8 +103,8 @@ node "$COMET_STATE" check <name> <phase> --recover
 3. 读取 `openspec/changes/<name>/.comet/subagent-progress.md` 恢复精确阶段、证据和审查-修复轮次 (Read `openspec/changes/<name>/.comet/subagent-progress.md` to recover the exact stage, evidence, and review-fix round)
 4. 禁止在主会话中直接执行 task (Do not execute the pending task directly in the main window)
 5. 按检查点恢复；缺失或不匹配时才从第一个未勾选 task 开始
-6. 已提交但未通过双审查的 task 保持未勾选，继续审查/修复循环
-7. task 通过双审查和定向勾选验证后立即继续下一个 task，不得总结或询问是否继续
+6. 已提交但未按 `review_mode` 完成验收的 task 保持未勾选，继续对应的验证/审查/修复循环
+7. task 按 `review_mode` 完成验收并通过定向勾选验证后立即继续下一个 task，不得总结或询问是否继续
 
 ## 阶段退出后自动过渡
 

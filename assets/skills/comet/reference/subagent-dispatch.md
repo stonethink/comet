@@ -2,7 +2,7 @@
 
 Canonical path: `comet/reference/subagent-dispatch.md`
 
-This document provides Comet-specific extensions applied **on top of** the Superpowers `subagent-driven-development` skill. The skill handles the core dispatch loop (fresh implementer per task → spec compliance review → code quality review → next task) and enforces continuous execution. This document adds Comet-specific real background dispatch, task tracking, state verification, and context recovery. If the Superpowers skill conflicts with this document, the more specific Comet constraints here take precedence.
+This document provides Comet-specific extensions applied **on top of** the Superpowers `subagent-driven-development` skill. The skill handles the core dispatch loop (a fresh implementer for each task, with review and fix flow determined by `review_mode`) and enforces continuous execution. This document adds Comet-specific real background dispatch, task tracking, state verification, review-mode handling, and context recovery. If the Superpowers skill conflicts with this document, the more specific Comet constraints here take precedence.
 
 > **⚠️ CRITICAL — No Pause Between Tasks**
 >
@@ -47,7 +47,7 @@ Every implementer or fix-agent prompt must include:
 
 The agent return status must be `DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT` and include implementation details, test results, commit hash, changed files, and concerns. Before review, the coordinator must verify that the commit and changed files are visible in the current worktree; on isolated-copy platforms, pull or merge the changes first.
 
-Every reviewer prompt must include the full task, the implementation commit or diff and the RED/GREEN evidence (when `tdd_mode: tdd`). A reviewer must not review from the implementer's summary alone.
+When `review_mode` requires a reviewer, each reviewer prompt must include the full task, the implementation commit or diff and the RED/GREEN evidence (when `tdd_mode: tdd`). A reviewer must not review from the implementer's summary alone.
 
 ### 2. Implementer Scope Restriction
 
@@ -70,18 +70,23 @@ The coordinator must maintain `openspec/changes/<name>/.comet/subagent-progress.
 - The unique current plan task text and mapped OpenSpec task text
 - Current stage: `implementing | spec-review | quality-review | checkoff | done | blocked | final-review | final-fix`
 - Implementation commit hash, changed files, and RED/GREEN evidence
+- The selected `review_mode`
 - Review stages already passed and unresolved reviewer feedback
-- The current task or final-review review-fix round (maximum 3)
+- The current task, batch, or final-review review-fix round (`standard`: max 1, `thorough`: max 2, `off`: 0)
 
 This file stores only coordinator recovery state and does not replace plan or OpenSpec checkboxes. Retain the final record when a task completes, then replace it with the next task's record when that task begins.
 
-### 5. Review-Fix Round Limit
+### 5. Review Mode Behavior
 
-Each task allows at most 3 review-fix rounds. When either reviewer finds an issue, dispatch a fresh background fix agent and restart from the corresponding review. If the task still does not pass after 3 rounds, mark it **BLOCKED**, pause, and hand the accumulated feedback to the user.
+**When `review_mode: standard`**: No per-task reviewer is dispatched automatically. The implementer must self-test, commit, and report evidence; the coordinator completes targeted checkoff verification. After all tasks complete, dispatch exactly one final lightweight code reviewer scoped to correctness, security, and edge cases. If the final lightweight review finds CRITICAL or IMPORTANT issues, dispatch at most one fix agent and re-review once; if still not passed, mark **BLOCKED** and pause, handing feedback to the user. Non-CRITICAL findings may be accepted with rationale recorded.
+
+**When `review_mode: thorough`**: No per-task dual review. The coordinator runs merged reviews by batch or risk boundary: after every 3 tasks or when a cross-module/high-risk boundary is crossed, dispatch one reviewer checking both spec compliance and code quality. If total tasks <= 3 and no high-risk boundary exists, skip mid-batch review and only do the final complete review. After all tasks, dispatch one final complete reviewer. Batch and final reviews each allow at most 2 review-fix rounds; if still not passed, mark **BLOCKED** and pause, handing accumulated feedback to the user.
+
+**When `review_mode: off`**: No automatic spec reviewer, code quality reviewer, final reviewer, or review-fix agent is dispatched. Task completion is determined by implementer test/build evidence, current worktree confirmation, targeted task text checkoff verification, and explicit user request. If test failures, build failures, or abnormal behavior occur during execution, the debug gate protocol must still be followed - `off` does not skip real issues.
 
 ### 6. Task Checkoff and Verification
 
-**After both reviews pass**, the main session:
+**After `review_mode` validation**, the main session:
 
 1. Changes the saved unique task text from `- [ ]` to `- [x]` in the plan
 2. If a mapping exists, also checks off the OpenSpec task
@@ -95,25 +100,6 @@ node "$COMET_STATE" task-checkoff "openspec/changes/<name>/tasks.md" "$OPENSPEC_
 
 Run the second command only when the corresponding mapping exists. The script requires the task text to appear exactly once and be checked; verification failure blocks moving to the next task.
 
-## Review Mode Behavior
-
-When `review_mode` requires a reviewer, each reviewer prompt must include the full task, the implementation commit or diff, and RED/GREEN evidence (when `tdd_mode: tdd`). A reviewer must not review from the implementer's summary alone.
-
-The coordinator must record the selected `review_mode` in the checkpoint.
-
-**When `review_mode: standard`**: No per-task reviewer is dispatched automatically. The implementer must self-test, commit, and report evidence; the coordinator completes targeted checkoff verification. After all tasks complete, dispatch exactly one final lightweight code reviewer scoped to correctness, security, and edge cases. If the final lightweight review finds CRITICAL or IMPORTANT issues, dispatch at most one fix agent and re-review once; if still not passed, mark **BLOCKED** and pause, handing feedback to the user. Non-CRITICAL findings may be accepted with rationale recorded.
-
-**When `review_mode: thorough`**: No per-task dual review. The coordinator runs merged reviews by batch or risk boundary: after every 3 tasks or when a cross-module/high-risk boundary is crossed, dispatch one reviewer checking both spec compliance and code quality. If total tasks ≤ 3 and no high-risk boundary exists, skip mid-batch review and only do the final complete review. After all tasks, dispatch one final complete reviewer. Batch and final reviews each allow at most 2 review-fix rounds; if still not passed, mark **BLOCKED** and pause, handing accumulated feedback to the user.
-
-**When `review_mode: off`**: No automatic spec reviewer, code quality reviewer, final reviewer, or review-fix agent is dispatched. Task completion is determined by implementer test/build evidence, current worktree confirmation, targeted task text checkoff verification, and explicit user request. If test failures, build failures, or abnormal behavior occur during execution, the debug gate protocol must still be followed — `off` does not skip real issues.
-
-**After `review_mode` validation**, the main session:
-
-1. Changes the saved unique task text from `- [ ]` to `- [x]` in the plan
-2. If a mapping exists, also checks off the OpenSpec task
-3. Commits this progress update
-4. Runs targeted verification
-
 ## Wrap-up
 
 - **AUTO-CONTINUE**: After `review_mode` validation and the task is checked off, immediately dispatch the next unchecked task. Do NOT summarize, do NOT ask the user whether to continue, do NOT wait for user input between tasks. This is non-negotiable — the Superpowers skill enforces continuous execution, and the CRITICAL warning at the top of this document reinforces it.
@@ -126,9 +112,9 @@ The coordinator must record the selected `review_mode` in the checkpoint.
 
 Reload the Superpowers `subagent-driven-development` skill and re-read this document. Read `openspec/changes/<name>/.comet/subagent-progress.md`, then compare it with the first unchecked task and the current worktree:
 
-- When the checkpoint matches the unchecked task, resume from its exact recorded stage while preserving the implementation commit, RED/GREEN evidence, review stages already passed, unresolved feedback, and current review-fix round. Never reset the round or repeat an already passed stage.
+- When the checkpoint matches the unchecked task, resume from its exact recorded stage while preserving the implementation commit, RED/GREEN evidence, `review_mode`, review stages already passed, unresolved feedback, and current review-fix round. Never reset the round or repeat an already passed stage.
 - When the checkpoint is missing or does not match the unchecked task, create a new checkpoint for the first unchecked task and begin with implementer dispatch.
 - When a recorded commit or file is not visible in the current worktree, pull, merge, or recover the corresponding changes before proceeding; never assume the implementation exists.
 - When all tasks are checked and the checkpoint stage is `final-review` or `final-fix`, resume the exact final-review stage while preserving final feedback and its review-fix round; never re-enter completed tasks.
 
-Tasks committed without dual-review approval remain unchecked and re-enter the review or fix loop according to the checkpoint.
+Tasks committed without passing `review_mode` validation remain unchecked and re-enter the corresponding validation, review, or fix loop according to the checkpoint.

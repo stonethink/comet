@@ -2,7 +2,7 @@
 
 规范路径：`comet/reference/subagent-dispatch.md`
 
-本文档提供在 Superpowers `subagent-driven-development` 技能**之上**应用的 Comet 专属扩展。该技能负责核心派发循环（每个 task 派发全新 implementer → spec compliance review → code quality review → 下一个 task）并强制连续执行。本文档添加 Comet 特有的真实后台调度、任务追踪、状态验证、代码审查模式和上下文恢复。若 Superpowers 技能与本文档发生冲突时，以本文档中更具体的 Comet 约束为准。
+本文档提供在 Superpowers `subagent-driven-development` 技能**之上**应用的 Comet 专属扩展。该技能负责核心派发循环（每个 task 派发全新 implementer，并按 `review_mode` 决定所需审查与修复流程）并强制连续执行。本文档添加 Comet 特有的真实后台调度、任务追踪、状态验证、代码审查模式和上下文恢复。若 Superpowers 技能与本文档发生冲突时，以本文档中更具体的 Comet 约束为准。
 
 > **⚠️ 关键约束 — 任务之间禁止暂停**
 >

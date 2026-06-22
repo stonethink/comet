@@ -1268,6 +1268,10 @@ describe('skills', () => {
       expect(enBuild).toContain(
         'TDD constraints and evidence thresholds are defined in `comet/reference/subagent-dispatch.md`',
       );
+      expect(enBuild).toContain('current execution branch and `review_mode`');
+      expect(enBuild).toContain('dispatches no per-task reviewer in `standard` or `off`');
+      expect(enBuild).toContain('not per-task dual review');
+      expect(enBuild).not.toContain('must wait for both reviews to pass');
       expect(enDispatch).toContain(
         'If the Superpowers skill conflicts with this document, the more specific Comet constraints here take precedence',
       );
@@ -1309,6 +1313,16 @@ describe('skills', () => {
         'Re-read `comet/reference/subagent-dispatch.md` for Comet-specific extensions',
       );
       expect(enGuard).toContain('Read `openspec/changes/<name>/.comet/subagent-progress.md`');
+      expect(enGuard).toContain('according to the current `review_mode`');
+      expect(enGuard).toContain('validated according to `review_mode`');
+      expect(enGuard).not.toContain('wait for both spec compliance and code quality reviews');
+      expect(enGuard).not.toContain('passed both reviews');
+      expect(enGuard).not.toContain('After dual review');
+      expect(enDispatch).toContain('with review and fix flow determined by `review_mode`');
+      expect(enDispatch).toContain('The selected `review_mode`');
+      expect(enDispatch).toContain('After `review_mode` validation');
+      expect(enDispatch).not.toContain('After both reviews pass');
+      expect(enDispatch).not.toContain('dual-review approval');
     });
 
     it('does not install a Stop hook for task continuity', async () => {
