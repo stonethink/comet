@@ -47,6 +47,24 @@ Local results are written to:
 eval/local/logs/experiments/
 ```
 
+Local report outputs are configurable. By default eval writes Markdown only
+(`summary.md`, and `comparison_report.md` for baseline comparisons). Pass
+`--report-config` or set `COMET_EVAL_REPORT_CONFIG` to enable optional HTML:
+
+```json
+{
+  "report_outputs": {
+    "markdown": true,
+    "html": true
+  }
+}
+```
+
+```bash
+uv run pytest local/tests/tasks/test_tasks.py --report-config report-config.json -v
+uv run python local/scripts/compare_baselines.py --report-config report-config.json
+```
+
 ## LangSmith Suite
 
 Use this when you want the same Comet task corpus with LangSmith tracing enabled.

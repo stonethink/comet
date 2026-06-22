@@ -9,6 +9,11 @@ from pathlib import Path
 from typing import Any
 
 from scaffold.python.paths import get_logs_dir
+from scaffold.python.report_outputs import (
+    ReportOutputConfig,
+    preferred_report_path,
+    write_report_outputs,
+)
 
 # Regex to strip ANSI escape codes
 ANSI_ESCAPE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
@@ -392,6 +397,7 @@ class ExperimentLogger:
         experiment_name: str = None,
         columns: list[ReportColumn] = None,
         experiment_id: str = None,
+        report_outputs: ReportOutputConfig = None,
     ):
         """Create experiment logger.
 
@@ -399,6 +405,7 @@ class ExperimentLogger:
             experiment_name: Name for this experiment (used to generate ID if not provided)
             columns: Custom columns for reporting (in addition to defaults)
             experiment_id: Existing experiment ID to join (for parallel workers)
+            report_outputs: Enabled summary report formats
         """
         if experiment_id:
             # Join existing experiment
@@ -422,6 +429,7 @@ class ExperimentLogger:
             d.mkdir(parents=True, exist_ok=True)
 
         self.columns = list(columns) if columns else rubric_columns()
+        self.report_outputs = report_outputs or ReportOutputConfig()
         self.results: dict[str, list[TreatmentResult]] = {}
         self.metadata: dict[str, Any] = {
             "experiment_id": self.experiment_id,
@@ -612,21 +620,30 @@ class ExperimentLogger:
         """Generate and save final summary."""
         summary = self.generate_summary()
         summary_path = self.base_dir / "summary.md"
-        summary_path.write_text(summary)
+        written = write_report_outputs(
+            summary,
+            summary_path,
+            self.report_outputs,
+            title="Comet Eval Summary",
+        )
 
         self.metadata["completed_at"] = datetime.now().isoformat()
         self.metadata["total_runs"] = sum(len(runs) for runs in self.results.values())
         self.metadata["total_passed"] = sum(
             sum(1 for r in runs if r.passed) for runs in self.results.values()
         )
+        self.metadata["report_outputs"] = {name: str(path) for name, path in written.items()}
 
         metadata_path = self.base_dir / "metadata.json"
         metadata_path.write_text(json.dumps(self.metadata, indent=2))
 
         print(f"\nExperiment results saved to: {self.base_dir}")
-        print(f"Summary: {summary_path}")
+        if written:
+            print("Summary: " + ", ".join(str(path) for path in written.values()))
+        else:
+            print("Summary outputs disabled by report config")
 
-        return summary_path
+        return preferred_report_path(written, self.base_dir)
 
 
 # =============================================================================

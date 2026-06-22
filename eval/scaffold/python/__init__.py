@@ -26,6 +26,13 @@ from .profiles import (
     resolve_profile_name,
     run_profile_rubric,
 )
+from .report_outputs import (
+    ReportOutputConfig,
+    load_report_output_config,
+    preferred_report_path,
+    render_markdown_html,
+    write_report_outputs,
+)
 from .schema import NoiseTask, Treatment
 from .utils import (
     build_docker_image,
@@ -70,4 +77,6 @@ __all__ = [
     "AUTHORING_SKILL_PROFILE", "COMET_WORKFLOW_PROFILE", "GENERIC_PROFILE",
     "ProfileSpec", "all_rubric_dimensions", "get_profile", "list_profiles",
     "resolve_profile_name", "run_profile_rubric",
+    "ReportOutputConfig", "load_report_output_config", "preferred_report_path",
+    "render_markdown_html", "write_report_outputs",
 ]

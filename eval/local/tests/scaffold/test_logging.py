@@ -10,6 +10,7 @@ from scaffold.python.logging import (
     parse_output,
     rubric_columns,
 )
+from scaffold.python.report_outputs import ReportOutputConfig
 
 
 def test_extract_events_captures_token_usage_and_cost():
@@ -81,6 +82,35 @@ def test_experiment_summary_includes_token_and_cost_columns(monkeypatch, tmp_pat
     assert "| COMET_FULL | 1/1 (100%) |" in summary
     assert "475" in summary
     assert "$0.1235" in summary
+
+
+def test_experiment_finalize_honors_html_report_output_config(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("BENCH_LOGS_DIR", str(tmp_path))
+    logger = ExperimentLogger(
+        experiment_name="html-summary",
+        report_outputs=ReportOutputConfig(markdown=False, html=True),
+    )
+    logger.add_result(
+        "COMET_FULL",
+        TreatmentResult(
+            name="COMET_FULL",
+            passed=True,
+            checks_passed=["baseline"],
+            checks_failed=[],
+        ),
+    )
+
+    output_path = logger.finalize()
+    summary_md = logger.base_dir / "summary.md"
+    summary_html = logger.base_dir / "summary.html"
+    metadata = json.loads((logger.base_dir / "metadata.json").read_text())
+
+    assert output_path == summary_html
+    assert not summary_md.exists()
+    assert "<html" in summary_html.read_text().lower()
+    assert "Experiment Results Summary" in summary_html.read_text()
+    assert metadata["report_outputs"]["html"].endswith("summary.html")
+    assert "markdown" not in metadata["report_outputs"]
 
 
 def test_rubric_columns_accept_profile_dimensions():

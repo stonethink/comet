@@ -6,7 +6,7 @@ scores below the 0.3.9 baseline.
 
 Usage::
 
-    uv run python local/scripts/compare_baselines.py [--experiment <id>]
+    uv run python local/scripts/compare_baselines.py [--experiment <id>] [--report-config <path>]
 
 If ``--experiment`` is omitted the most recent experiment directory is used.
 """
@@ -22,6 +22,10 @@ from collections import defaultdict
 from pathlib import Path
 
 from scaffold.python.paths import get_logs_dir
+from scaffold.python.report_outputs import (
+    load_report_output_config,
+    write_report_outputs,
+)
 from scaffold.python.validation.rubric import RUBRIC_DIMENSIONS, _DIMENSION_WEIGHTS
 from scaffold.python.pass_at_k import pass_metrics_table
 
@@ -458,6 +462,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--experiment", default=None, help="Experiment id (defaults to latest)")
     parser.add_argument("--out", default=None, help="Output path (defaults to <experiment>/comparison_report.md)")
+    parser.add_argument("--report-config", default=None, help="JSON/YAML config for report outputs")
     args = parser.parse_args(argv)
 
     logs = get_logs_dir()
@@ -474,9 +479,17 @@ def main(argv: list[str] | None = None) -> int:
 
     report = build_report(experiment_dir)
     out_path = Path(args.out) if args.out else experiment_dir / "comparison_report.md"
-    out_path.write_text(report)
+    outputs = write_report_outputs(
+        report,
+        out_path,
+        load_report_output_config(args.report_config),
+        title="Comet Baseline Comparison Report",
+    )
     print(report)
-    print(f"\nWrote: {out_path}")
+    if outputs:
+        print("\nWrote: " + ", ".join(str(path) for path in outputs.values()))
+    else:
+        print("\nReport outputs disabled by report config")
     return 0
 
 

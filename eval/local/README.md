@@ -28,3 +28,22 @@ Reports and artifacts are written to:
 ```text
 logs/experiments/
 ```
+
+Report outputs default to Markdown only (`summary.md`). To enable browsable HTML
+or disable Markdown, pass a JSON/YAML report config:
+
+```json
+{
+  "report_outputs": {
+    "markdown": true,
+    "html": true
+  }
+}
+```
+
+```bash
+uv run pytest local/tests/tasks/test_tasks.py --report-config report-config.json -v
+uv run python local/scripts/compare_baselines.py --report-config report-config.json
+```
+
+You can also set `COMET_EVAL_REPORT_CONFIG=/path/to/report-config.json`.

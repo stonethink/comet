@@ -32,6 +32,7 @@ from scaffold.python import (
     ExperimentLogger,
     TreatmentResult,
     get_profile,
+    load_report_output_config,
     save_events,
     save_raw,
     save_report,
@@ -125,6 +126,12 @@ def pytest_addoption(parser):
         default=None,
         help="Override user simulator prompt for auto_user loops",
     )
+    parser.addoption(
+        "--report-config",
+        action="store",
+        default=None,
+        help="JSON/YAML config for eval report outputs",
+    )
 
 
 def pytest_configure(config):
@@ -165,7 +172,12 @@ class ExperimentPlugin:
         use_coordination = self.is_xdist_worker or self.is_xdist_master
         experiment_id = _get_or_create_experiment_id(name, use_coordination)
 
-        self.logger = ExperimentLogger(experiment_name=name, experiment_id=experiment_id)
+        report_outputs = load_report_output_config(self.config.getoption("--report-config"))
+        self.logger = ExperimentLogger(
+            experiment_name=name,
+            experiment_id=experiment_id,
+            report_outputs=report_outputs,
+        )
         self.start_time = time.time()
 
         print(f"\n{'=' * 60}")
