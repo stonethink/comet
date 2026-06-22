@@ -3,7 +3,13 @@
 import json
 from pathlib import Path
 
-from scaffold.python.logging import ExperimentLogger, TreatmentResult, extract_events, parse_output
+from scaffold.python.logging import (
+    ExperimentLogger,
+    TreatmentResult,
+    extract_events,
+    parse_output,
+    rubric_columns,
+)
 
 
 def test_extract_events_captures_token_usage_and_cost():
@@ -75,3 +81,32 @@ def test_experiment_summary_includes_token_and_cost_columns(monkeypatch, tmp_pat
     assert "| COMET_FULL | 1/1 (100%) |" in summary
     assert "475" in summary
     assert "$0.1235" in summary
+
+
+def test_rubric_columns_accept_profile_dimensions():
+    columns = rubric_columns(("completion", "skill_invocation", "weighted_score"))
+
+    assert [column.name for column in columns] == [
+        "completion",
+        "skill_invocation",
+        "weighted_score",
+        "RubricAvg",
+    ]
+
+
+def test_treatment_result_exposes_eval_metadata():
+    result = TreatmentResult(
+        name="DYNAMIC_SKILL",
+        passed=True,
+        checks_passed=[],
+        checks_failed=[],
+        events_summary={
+            "profile": "generic",
+            "skill_sources": [{"name": "demo", "hash": "sha256:abc"}],
+            "eval_manifest": "demo/comet/eval.yaml",
+            "interaction": {"mode": "none"},
+        },
+    )
+
+    assert result.events_summary["profile"] == "generic"
+    assert result.events_summary["skill_sources"][0]["hash"] == "sha256:abc"

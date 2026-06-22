@@ -31,6 +31,7 @@ from scaffold import run_claude_in_docker, run_node_in_docker, run_python_in_doc
 from scaffold.python import (
     ExperimentLogger,
     TreatmentResult,
+    get_profile,
     save_events,
     save_raw,
     save_report,
@@ -81,6 +82,48 @@ def pytest_addoption(parser):
         type=int,
         default=1,
         help="Repeat each task/treatment combination N times for distribution stats (default: 1)",
+    )
+    parser.addoption(
+        "--skill-path",
+        action="store",
+        default=None,
+        help="Local Skill directory or SKILL.md to evaluate",
+    )
+    parser.addoption(
+        "--skill-name",
+        action="store",
+        default=None,
+        help="Skill name to inject for --skill-path",
+    )
+    parser.addoption(
+        "--profile",
+        action="store",
+        default=None,
+        help="Eval profile override",
+    )
+    parser.addoption(
+        "--eval-manifest",
+        action="store",
+        default=None,
+        help="Path to comet/eval.yaml",
+    )
+    parser.addoption(
+        "--interaction-mode",
+        action="store",
+        default=None,
+        help="Override interaction mode (e.g., none, auto_user)",
+    )
+    parser.addoption(
+        "--max-turns",
+        action="store",
+        default=None,
+        help="Override max interaction turns for auto_user loops",
+    )
+    parser.addoption(
+        "--simulator-prompt",
+        action="store",
+        default=None,
+        help="Override user simulator prompt for auto_user loops",
     )
 
 
@@ -250,6 +293,81 @@ def _get_experiment_name(session) -> str:
         return first_item.callspec.params["task_name"].replace("-", "_")
 
     return "experiment"
+
+
+def _get_dynamic_treatment_config(config):
+    manifest_path = config.getoption("--eval-manifest")
+    if manifest_path:
+        from scaffold.python.manifests import load_eval_manifest
+        from scaffold.python.treatments import TreatmentConfig
+
+        manifest = load_eval_manifest(manifest_path)
+        return TreatmentConfig(
+            name="DYNAMIC_SKILL",
+            description=f"Dynamic Skill target: {manifest.skill_name}",
+            skills=[
+                {
+                    "name": manifest.skill_name,
+                    "source": "path",
+                    "path": str(manifest.skill_path),
+                    "profile": manifest.profile,
+                    "manifest": str(manifest.path),
+                    "required_skills": manifest.required_skills,
+                    "expected_artifacts": manifest.expected_artifacts,
+                }
+            ],
+        )
+
+    skill_path = config.getoption("--skill-path")
+    if not skill_path:
+        return None
+    skill_name = config.getoption("--skill-name") or Path(skill_path).resolve().parent.name
+    profile = config.getoption("--profile")
+    skill_cfg = {
+        "name": skill_name,
+        "source": "path",
+        "path": skill_path,
+    }
+    if profile:
+        skill_cfg["profile"] = profile
+    from scaffold.python.treatments import TreatmentConfig
+
+    return TreatmentConfig(
+        name="DYNAMIC_SKILL",
+        description=f"Dynamic Skill target: {skill_name}",
+        skills=[skill_cfg],
+    )
+
+
+def _resolve_interaction_config(task, profile_name: str, config):
+    profile_default = get_profile(profile_name).default_interaction
+    task_interaction = task.config.interaction
+
+    mode = task_interaction.mode or profile_default.mode
+    max_turns = task_interaction.max_turns or profile_default.max_turns
+    simulator_prompt = task_interaction.simulator_prompt or profile_default.simulator_prompt
+    decision_patterns = list(task_interaction.decision_patterns or profile_default.decision_patterns)
+    continue_prompt = task_interaction.continue_prompt or profile_default.continue_prompt
+
+    mode_override = config.getoption("--interaction-mode")
+    if mode_override:
+        mode = mode_override
+
+    max_turns_override = config.getoption("--max-turns")
+    if max_turns_override not in (None, ""):
+        max_turns = int(max_turns_override)
+
+    simulator_prompt_override = config.getoption("--simulator-prompt")
+    if simulator_prompt_override:
+        simulator_prompt = simulator_prompt_override
+
+    return task_interaction.__class__(
+        mode=mode,
+        max_turns=max_turns,
+        simulator_prompt=simulator_prompt,
+        decision_patterns=decision_patterns,
+        continue_prompt=continue_prompt,
+    )
 
 
 def _get_or_create_experiment_id(name: str, use_coordination: bool) -> str:
@@ -426,25 +544,42 @@ def setup_test_context(test_dir):
 def run_claude(test_dir, experiment_logger, request):
     """Factory fixture to run Claude in Docker and capture artifacts.
 
-    For comet-category tasks the single-shot ``run-claude`` is replaced by the
-    multi-turn ``run-claude-loop`` driver, which simulates a user replying at
-    the workflow's decision points so the full open→archive flow can complete.
+    For tasks using ``interaction.mode=auto_user`` the single-shot ``run-claude``
+    is replaced by the multi-turn ``run-claude-loop`` driver, which simulates a
+    user replying at the workflow's decision points.
     """
     default_model = os.environ.get("BENCH_CC_MODEL")
-    # Detect comet tasks by node id (parametrised task name contains "comet").
-    node_id = getattr(request, "node", None).nodeid if hasattr(request, "node") else ""
-    use_loop = "comet" in node_id.lower()
-    max_turns = os.environ.get("BENCH_LOOP_MAX_TURNS", "12")
 
-    def _run(prompt: str, timeout: int = 600, model: str = None):
+    def _run(prompt: str, timeout: int = 600, model: str = None, interaction=None):
         mdl = model or default_model
-        if use_loop:
-            loop_args = ["run-claude-loop", test_dir, prompt, "--max-turns", str(max_turns)]
+        use_loop = interaction is not None and interaction.mode == "auto_user"
+        if not use_loop:
+            result = run_claude_in_docker(test_dir, prompt, timeout=timeout, model=mdl)
+        else:
+            loop_args = [
+                "run-claude-loop",
+                test_dir,
+                prompt,
+                "--max-turns",
+                str(interaction.max_turns),
+            ]
             if mdl:
                 loop_args += ["--model", mdl]
-            result = run_shell("docker.sh", *loop_args, timeout=timeout + 60, check=False)
-        else:
-            result = run_claude_in_docker(test_dir, prompt, timeout=timeout, model=mdl)
+            if interaction.continue_prompt:
+                loop_args += ["--continue-prompt", interaction.continue_prompt]
+            for pattern in interaction.decision_patterns:
+                loop_args += ["--decision-pattern", pattern]
+
+            prompt_file = None
+            try:
+                if interaction.simulator_prompt:
+                    prompt_file = test_dir / ".eval-simulator-prompt.txt"
+                    prompt_file.write_text(interaction.simulator_prompt, encoding="utf-8")
+                    loop_args += ["--simulator-prompt-file", str(prompt_file)]
+                result = run_shell("docker.sh", *loop_args, timeout=timeout + 60, check=False)
+            finally:
+                if prompt_file and prompt_file.exists():
+                    prompt_file.unlink()
 
         if experiment_logger and hasattr(request, "node"):
             treatment_name = _get_treatment_name(request.node)
@@ -505,6 +640,10 @@ def record_result(test_dir, experiment_logger, request):
                 "files_created": events.get("files_created", []),
                 "skills_invoked": events.get("skills_invoked", []),
                 "scripts_used": scripts_used,
+                "profile": events.get("profile"),
+                "skill_sources": events.get("skill_sources", []),
+                "eval_manifest": events.get("eval_manifest"),
+                "interaction": events.get("interaction", {}),
             },
             "timestamp": datetime.now().isoformat(),
         }
@@ -530,6 +669,10 @@ def record_result(test_dir, experiment_logger, request):
                     "model_usage": events.get("model_usage", {}),
                     "skills_invoked": events.get("skills_invoked", []),
                     "scripts_used": scripts_used,
+                    "profile": events.get("profile"),
+                    "skill_sources": events.get("skill_sources", []),
+                    "eval_manifest": events.get("eval_manifest"),
+                    "interaction": events.get("interaction", {}),
                 },
                 run_id=run_id,
             ),
@@ -556,6 +699,7 @@ def fixtures(
     setup_test_context,
     run_claude,
     record_result,
+    request,
 ):
     """Bundle test fixtures and make them accessible via get_fixtures()."""
     global _current_fixtures
@@ -564,6 +708,7 @@ def fixtures(
         setup_test_context=setup_test_context,
         run_claude=run_claude,
         record_result=record_result,
+        request_config=request.config,
     )
     yield _current_fixtures
     _current_fixtures = None

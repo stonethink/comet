@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import conftest
+from scaffold.python.tasks import load_task
 
 
 def test_file_lock_context_manager_allows_exclusive_writes(tmp_path: Path):
@@ -27,3 +28,111 @@ def test_unit_test_detection_keeps_task_runs_as_experiments():
         args = ["local/tests/tasks/test_tasks.py", "--task=comet-hotfix"]
 
     assert conftest._is_unit_tests_only(Config()) is False
+
+
+def test_dynamic_treatment_config_from_skill_path(tmp_path: Path):
+    skill_dir = tmp_path / "demo-skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text(
+        "---\nname: demo-skill\ndescription: Demo.\n---\n\nDemo body.",
+        encoding="utf-8",
+    )
+
+    class Config:
+        def getoption(self, name):
+            values = {
+                "--skill-path": str(skill_dir),
+                "--skill-name": "demo-skill",
+                "--profile": "generic",
+            }
+            return values.get(name)
+
+    cfg = conftest._get_dynamic_treatment_config(Config())
+
+    assert cfg.name == "DYNAMIC_SKILL"
+    assert cfg.description == "Dynamic Skill target: demo-skill"
+    assert cfg.skills == [
+        {
+            "name": "demo-skill",
+            "source": "path",
+            "path": str(skill_dir),
+            "profile": "generic",
+        }
+    ]
+
+
+def test_resolve_interaction_config_prefers_cli_mode():
+    task = load_task("comet-full-workflow")
+
+    class Config:
+        def getoption(self, name):
+            values = {
+                "--interaction-mode": "none",
+                "--max-turns": "5",
+                "--simulator-prompt": "Use CLI override.",
+            }
+            return values.get(name)
+
+    interaction = conftest._resolve_interaction_config(task, "comet-workflow", Config())
+
+    assert interaction.mode == "none"
+    assert interaction.max_turns == 5
+    assert interaction.simulator_prompt == "Use CLI override."
+
+
+def test_resolve_interaction_config_uses_profile_default_prompt():
+    task = load_task("comet-full-workflow")
+
+    class Config:
+        def getoption(self, name):
+            return {
+                "--interaction-mode": "auto_user",
+                "--max-turns": None,
+                "--simulator-prompt": None,
+            }.get(name)
+
+    interaction = conftest._resolve_interaction_config(task, "generic", Config())
+
+    assert interaction.mode == "auto_user"
+    assert interaction.max_turns == 12
+    assert interaction.simulator_prompt is not None
+
+
+def test_dynamic_treatment_config_from_eval_manifest(tmp_path: Path):
+    package = tmp_path / "manifest-skill"
+    package.mkdir()
+    (package / "SKILL.md").write_text("---\nname: manifest-skill\n---\n\nBody.", encoding="utf-8")
+    comet_dir = package / "comet"
+    comet_dir.mkdir()
+    manifest = comet_dir / "eval.yaml"
+    manifest.write_text(
+        """
+apiVersion: comet.eval/v1alpha1
+kind: SkillEvalManifest
+metadata:
+  name: manifest-skill
+skill:
+  name: manifest-skill
+  source: ..
+  profile: generic
+evaluation:
+  recommendedTasks:
+    - generic-skill-smoke
+  requiredSkills:
+    - manifest-skill
+interaction:
+  mode: none
+""",
+        encoding="utf-8",
+    )
+
+    class Config:
+        def getoption(self, name):
+            return {"--eval-manifest": str(manifest)}.get(name)
+
+    cfg = conftest._get_dynamic_treatment_config(Config())
+
+    assert cfg.name == "DYNAMIC_SKILL"
+    assert cfg.skills[0]["name"] == "manifest-skill"
+    assert cfg.skills[0]["source"] == "path"
+    assert cfg.skills[0]["profile"] == "generic"

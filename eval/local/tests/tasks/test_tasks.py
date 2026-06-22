@@ -17,10 +17,12 @@ Usage:
 import uuid
 
 import pytest
+import conftest
 from conftest import get_fixtures
 
 from scaffold import NoiseTask, Treatment
 from scaffold.python import extract_events, parse_output
+from scaffold.python.profiles import resolve_profile_name, run_profile_rubric
 from scaffold.python.tasks import list_tasks, load_task
 from scaffold.python.treatments import build_treatment_skills, load_treatments
 from scaffold.python.validation import run_validators
@@ -57,11 +59,23 @@ def expand_treatment_patterns(patterns: list[str], all_treatments: dict) -> list
     return list(dict.fromkeys(expanded))
 
 
-def generate_test_params(task_filter: str | None, treatment_filter: str | None):
+def generate_test_params(task_filter: str | None, treatment_filter: str | None, config=None):
     """Generate (task_name, treatment_name) pairs based on filters."""
     params = []
     all_treatments = load_treatments()
     all_tasks = list_tasks()
+
+    if config is not None:
+        dynamic = conftest._get_dynamic_treatment_config(config)
+        if dynamic:
+            all_treatments[dynamic.name] = dynamic
+            if not treatment_filter:
+                treatment_filter = dynamic.name
+    manifest_tasks = None
+    if config is not None and config.getoption("--eval-manifest"):
+        from scaffold.python.manifests import load_eval_manifest
+
+        manifest_tasks = load_eval_manifest(config.getoption("--eval-manifest")).recommended_tasks
 
     if task_filter and task_filter not in all_tasks:
         raise ValueError(f"Task not found: {task_filter}. Available: {all_tasks}")
@@ -71,7 +85,7 @@ def generate_test_params(task_filter: str | None, treatment_filter: str | None):
         patterns = [t.strip() for t in treatment_filter.split(",")]
         treatment_list = expand_treatment_patterns(patterns, all_treatments)
 
-    tasks_to_run = [task_filter] if task_filter else all_tasks
+    tasks_to_run = [task_filter] if task_filter else (manifest_tasks or all_tasks)
 
     for task_name in tasks_to_run:
         task = load_task(task_name)
@@ -96,7 +110,7 @@ def pytest_generate_tests(metafunc):
         task_filter = metafunc.config.getoption("--task")
         treatment_filter = metafunc.config.getoption("--treatment")
         count = int(metafunc.config.getoption("--count") or 1)
-        base_params = generate_test_params(task_filter, treatment_filter)
+        base_params = generate_test_params(task_filter, treatment_filter, metafunc.config)
         # pytest ids stay (task, treatment); the rep number is tracked separately
         # by the experiment plugin's get_rep_number per treatment. To force N
         # distinct test invocations we append a rep suffix to the param id.
@@ -118,12 +132,25 @@ def test_task_treatment(task_name, treatment_name):
     fixtures = get_fixtures()
     task = load_task(task_name)
     treatments = load_treatments()
+    dynamic = conftest._get_dynamic_treatment_config(fixtures.request_config)
+    if dynamic:
+        treatments[dynamic.name] = dynamic
     if treatment_name not in treatments:
         pytest.skip(f"Treatment {treatment_name} not found")
     treatment_cfg = treatments[treatment_name]
+    skill_hints = treatment_cfg.skills[0] if treatment_cfg.skills else {}
     validators = task.load_validators()
 
     skills = build_treatment_skills(treatment_cfg.skills) if treatment_cfg.skills else {}
+    skill_sources = [
+        skill.get("source")
+        for skill in skills.values()
+        if isinstance(skill, dict) and skill.get("source")
+    ]
+    eval_manifest = next(
+        (cfg.get("manifest") for cfg in treatment_cfg.skills if cfg.get("manifest")),
+        None,
+    )
     treatment = Treatment(
         description=treatment_cfg.description,
         skills=skills,
@@ -143,27 +170,51 @@ def test_task_treatment(task_name, treatment_name):
         template_vars[var_name] = var_template.format(run_id=run_id)
 
     prompt = task.render_prompt(**template_vars)
+    target_profile = None
+    if treatment_cfg.skills:
+        target_profile = treatment_cfg.skills[0].get("profile")
+    profile_name = resolve_profile_name(
+        task,
+        override=fixtures.request_config.getoption("--profile"),
+        target_profile=target_profile,
+    )
+    interaction = conftest._resolve_interaction_config(task, profile_name, fixtures.request_config)
 
-    result = fixtures.run_claude(prompt, timeout=CLAUDE_TIMEOUT)
+    result = fixtures.run_claude(prompt, timeout=CLAUDE_TIMEOUT, interaction=interaction)
 
     events = extract_events(parse_output(result.stdout))
     outputs = {
         "run_id": run_id,
         "treatment_name": treatment_name,
         "events": events,
+        "profile": profile_name,
+        "skill_sources": skill_sources,
+        "eval_manifest": eval_manifest,
+        "required_skills": skill_hints.get("required_skills")
+        or task.config.evaluation.required_skills,
+        "expected_artifacts": skill_hints.get("expected_artifacts")
+        or task.config.evaluation.expected_artifacts,
+        "require_skill_invocation": task.config.evaluation.require_skill_invocation,
+        "interaction": {
+            "mode": interaction.mode,
+            "max_turns": interaction.max_turns,
+        },
     }
+    events["profile"] = outputs["profile"]
+    events["skill_sources"] = outputs["skill_sources"]
+    events["eval_manifest"] = outputs["eval_manifest"]
+    events["interaction"] = outputs["interaction"]
 
     passed, failed = run_validators(validators, fixtures.test_dir, outputs)
 
     # Rubric scoring: feed the baseline validator outcome as the "completion"
     # dimension input, then append the eight [RUBRIC] messages as informational
     # checks (they never produce hard failures).
-    from scaffold.python.validation.rubric import comet_rubric_validator
-
     rubric_outputs = dict(outputs)
     rubric_outputs["completion"] = {"passed": passed, "failed": failed}
-    rubric_passed, _ = comet_rubric_validator(fixtures.test_dir, rubric_outputs)
+    rubric_passed, rubric_failed = run_profile_rubric(profile_name, fixtures.test_dir, rubric_outputs)
     passed = passed + rubric_passed
+    failed = failed + rubric_failed
 
     fixtures.record_result(events, passed, failed, run_id=run_id)
 

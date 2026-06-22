@@ -7,8 +7,11 @@
 # Both calls share the same container HOME so session state persists.
 #
 # Usage: run-claude-loop.sh <prompt> [--max-turns N] [--model MODEL]
-#   --max-turns N   Maximum number of subject<->simulator round trips (default 12)
-#   --model MODEL   Model for both subject and simulator
+#   --max-turns N             Maximum number of subject<->simulator round trips (default 12)
+#   --model MODEL             Model for both subject and simulator
+#   --simulator-prompt-file   File containing the simulator system prompt
+#   --continue-prompt TEXT    Nudge used when the workflow should continue
+#   --decision-pattern TEXT   Extra case-insensitive substring to treat as a decision point
 #
 # Env: ANTHROPIC_AUTH_TOKEN / ANTHROPIC_BASE_URL / ANTHROPIC_MODEL for the proxy.
 # Stdout: concatenated stream-json from every subject turn (for event extraction).
@@ -21,10 +24,22 @@ shift || true
 
 MAX_TURNS=12
 MODEL="${ANTHROPIC_MODEL:-}"
+SIMULATOR_PROMPT=""
+CONTINUE_PROMPT="Please continue with the next phase of the comet workflow."
+DECISION_PATTERNS=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --max-turns) MAX_TURNS="$2"; shift 2 ;;
         --model) MODEL="$2"; shift 2 ;;
+        --simulator-prompt-file)
+            SIMULATOR_PROMPT="$(cat "$2")"
+            shift 2
+            ;;
+        --continue-prompt) CONTINUE_PROMPT="$2"; shift 2 ;;
+        --decision-pattern)
+            DECISION_PATTERNS+=("$2")
+            shift 2
+            ;;
         *) shift ;;
     esac
 done
@@ -36,6 +51,12 @@ MODEL_FLAG=()
 # points present as a question / confirmation request with no pending tool call.
 is_decision_point() {
     local text="$1"
+    local pattern
+    for pattern in "${DECISION_PATTERNS[@]}"; do
+        if [[ -n "$pattern" ]] && echo "$text" | grep -qiF -- "$pattern"; then
+            return 0
+        fi
+    done
     # Heuristics: question marks, explicit "confirm/choose/proceed/continue" asks.
     if echo "$text" | grep -qiE '\?|confirm|choose|proceed|continue|approve|select an option|which (option|approach|name)|enter the|provide|would you|shall we|do you want|preferred'; then
         return 0
@@ -48,7 +69,18 @@ is_decision_point() {
 simulate_user() {
     local subject_text="$1"
     local sim_prompt
-    sim_prompt=$(cat <<EOF
+    if [[ -n "$SIMULATOR_PROMPT" ]]; then
+        sim_prompt=$(cat <<EOF
+${SIMULATOR_PROMPT}
+
+Assistant's message:
+"""
+${subject_text:0:3000}
+"""
+EOF
+)
+    else
+        sim_prompt=$(cat <<EOF
 You are simulating a developer user in an automated eval. The AI assistant below is running the Comet development workflow and has paused to ask you something. Read its message and reply with a SHORT (1-3 sentences) response that:
 - Approves the proposed approach / name / plan when asked to confirm
 - Picks the most reasonable default option when asked to choose
@@ -61,6 +93,7 @@ ${subject_text:0:3000}
 """
 EOF
 )
+    fi
     # Run the simulator as a one-shot print call (separate session).
     claude -p "$sim_prompt" "${MODEL_FLAG[@]}" --dangerously-skip-permissions 2>/dev/null
 }
@@ -129,7 +162,7 @@ except: print('')
     # If the result has no question and isn't complete, the subject likely finished
     # its turn naturally — try one more nudge to keep going, then stop.
     echo "[loop] no decision point and not complete; nudging to continue" >&2
-    USER_REPLY="Please continue with the next phase of the comet workflow."
+    USER_REPLY="$CONTINUE_PROMPT"
 done
 
 echo "[loop] finished after $TURN turns" >&2

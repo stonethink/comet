@@ -336,11 +336,13 @@ def rubric_total_column() -> ReportColumn:
     return ReportColumn(name="RubricAvg", extract=extract, aggregate=aggregate)
 
 
-def rubric_columns() -> list[ReportColumn]:
-    """All eight rubric dimension columns plus the aggregate."""
-    from scaffold.python.validation.rubric import RUBRIC_DIMENSIONS
+def rubric_columns(dimensions: tuple[str, ...] | list[str] | None = None) -> list[ReportColumn]:
+    """Rubric dimension columns plus the aggregate."""
+    if dimensions is None:
+        from scaffold.python.profiles import all_rubric_dimensions
 
-    cols = [rubric_column(dim) for dim in RUBRIC_DIMENSIONS]
+        dimensions = all_rubric_dimensions()
+    cols = [rubric_column(dim) for dim in dimensions]
     cols.append(rubric_total_column())
     return cols
 
