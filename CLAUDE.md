@@ -4,13 +4,13 @@
 ## 测试
 
 ```bash
-npx vitest run test/ts/comet-scripts.test.ts   # comet 脚本契约 + 行为测试
+npx vitest run test/domains/comet-classic/comet-scripts.test.ts   # comet 脚本契约 + 行为测试
 npx vitest run                                   # 全量测试
 ```
 
 ## 提交前检查
 
-仓库已配置 Git pre-commit 钩子（husky + lint-staged），每次 `git commit` 会自动对 `src/` 下的暂存源文件运行 `prettier --write`（与 CI `format:check` 范围一致），编辑器无关，所有贡献者生效。
+仓库已配置 Git pre-commit 钩子（husky + lint-staged），每次 `git commit` 会自动对 `app/`、`domains/`、`platform/` 下的暂存源文件运行 `prettier --write`（与 CI `format:check` 范围一致），编辑器无关，所有贡献者生效。
 
 提交前建议手动确认（CI 会强制检查）：
 
@@ -28,28 +28,28 @@ pnpm test           # 单元测试
 脚本位于 `assets/skills/comet/scripts/`，全部是 **Node.js 启动器（`.mjs`）**，只依赖 Node.js（用户用 comet 必有 Node.js），**不依赖 bash / Git Bash / WSL**。
 
 - 每个启动器（`comet-state.mjs`、`comet-guard.mjs`、`comet-handoff.mjs`、`comet-archive.mjs`、`comet-yaml-validate.mjs`、`comet-hook-guard.mjs`）是薄封装：`import { main } from './comet-runtime.mjs'` 后以 `main(['<command>', ...process.argv.slice(2)])` 分发。
-- 所有真实逻辑在 `src/compat/*.ts`（TypeScript），由 `scripts/build-classic-runtime.mjs`（esbuild）打包成单个 `comet-runtime.mjs`。**修改 `src/compat/*` 后必须 `pnpm build` 重新生成 runtime**，否则测试用的是旧 bundle。
+- 所有真实逻辑在 `domains/comet-classic/*.ts`（TypeScript），由 `scripts/build/build-classic-runtime.mjs`（esbuild）打包成单个 `comet-runtime.mjs`。**修改 `domains/comet-classic/*` 后必须 `pnpm build` 重新生成 runtime**，否则测试用的是旧 bundle。
 - `comet-env.mjs` 打印自身所在目录（scripts dir），供 skill 样板代码解析同级启动器路径。
 - 跨平台由 Node 保证：hash 用 `node:crypto`，YAML 用 `yaml` 包，子进程用 `child_process`（构建/校验命令走 `spawnSync(cmd, { shell: true })`）。不再有 `sed -i` / `sha256sum` vs `shasum` / `pipefail` 等 shell 可移植性问题。
-- 新增/重命名脚本必须同步：`assets/manifest.json` 的 `skills[]`（以及 `hooks` 里的 `comet-hook-guard.mjs`）、`test/ts/comet-scripts.test.ts` 的 `beforeEach` 拷贝列表、`.codex/skills/comet/scripts/` 镜像（该目录 gitignored，由 install 重新生成，本地保持一致即可）。
+- 新增/重命名脚本必须同步：`assets/manifest.json` 的 `skills[]`（以及 `hooks` 里的 `comet-hook-guard.mjs`）、`test/domains/comet-classic/comet-scripts.test.ts` 的 `beforeEach` 拷贝列表、`.codex/skills/comet/scripts/` 镜像（该目录 gitignored，由 install 重新生成，本地保持一致即可）。
 - skill 样板（boilerplate，当前版本 `v3`）在所有 SKILL.md / reference 中重复，改动需全量同步；样板通过 `find` 定位 `comet-env.mjs`，再用 `node "$COMET_ENV"` 解析路径，命令统一为 `node "$COMET_STATE" ...` 形式。
 
 ## 脚本依赖关系
 
 ```
 comet-runtime.mjs  ←  所有 comet-*.mjs 启动器 import 它
-  └─ src/compat/classic-cli.ts 分发：state / validate / guard / handoff / archive / hook-guard
+  └─ domains/comet-classic/classic-cli.ts 分发：state / validate / guard / handoff / archive / hook-guard
 comet-hook-guard.mjs ← PreToolUse hook（由 install 写入各平台 settings，命令形如 node <skillsDir>/.../comet-hook-guard.mjs）
 ```
 
-打包入口 `src/compat/classic-cli.ts` 导出 `main` / `runClassicCli` / `CLASSIC_COMMANDS`；esbuild ESM bundle 保留这些 export，启动器直接 import 调用，单进程、无 bash、无二次 node 派生。
+打包入口 `domains/comet-classic/classic-cli.ts` 导出 `main` / `runClassicCli` / `CLASSIC_COMMANDS`；esbuild ESM bundle 保留这些 export，启动器直接 import 调用，单进程、无 bash、无二次 node 派生。
 
 ## .comet.yaml 状态机
 
 每个 change 的状态文件，字段变更需要同步三处（全在 TypeScript 中）：
-1. `src/compat/classic-state-command.ts` — `set` 白名单 + enum 验证（`SETTABLE_FIELDS` / `MACHINE_OWNED_FIELDS`）
-2. `src/compat/classic-validate-command.ts` — schema 校验 + 已知字段
-3. `test/ts/comet-scripts.test.ts` — 测试中的 yaml 字符串
+1. `domains/comet-classic/classic-state-command.ts` — `set` 白名单 + enum 验证（`SETTABLE_FIELDS` / `MACHINE_OWNED_FIELDS`）
+2. `domains/comet-classic/classic-validate-command.ts` — schema 校验 + 已知字段
+3. `test/domains/comet-classic/comet-scripts.test.ts` — 测试中的 yaml 字符串
 
 改完 1/2 后 `pnpm build` 重新生成 `comet-runtime.mjs`，否则 `classic-runtime.test.ts` 的新鲜度检查会失败。
 

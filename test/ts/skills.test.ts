@@ -9,8 +9,8 @@ import {
   createWorkingDirs,
   copyCometSkillsForPlatform,
   installCometHooksForPlatform,
-} from '../../src/core/skills.js';
-import type { Platform } from '../../src/core/platforms.js';
+} from '../../domains/skill/platform-install.js';
+import type { Platform } from '../../platform/install/platforms.js';
 
 describe('skills', () => {
   let tmpDir: string;
@@ -1383,15 +1383,15 @@ describe('skills', () => {
 
     it('keeps review_mode wired through state and schema scripts', async () => {
       const stateScript = await fs.readFile(
-        path.resolve('src', 'compat', 'classic-state-command.ts'),
+        path.resolve('domains', 'comet-classic', 'classic-state-command.ts'),
         'utf-8',
       );
       const guardScript = await fs.readFile(
-        path.resolve('src', 'compat', 'classic-guard.ts'),
+        path.resolve('domains', 'comet-classic', 'classic-guard.ts'),
         'utf-8',
       );
       const validateScript = await fs.readFile(
-        path.resolve('src', 'compat', 'classic-validate-command.ts'),
+        path.resolve('domains', 'comet-classic', 'classic-validate-command.ts'),
         'utf-8',
       );
 

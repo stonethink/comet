@@ -3,18 +3,18 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     testTimeout: 30000,
-    include: ['test/ts/**/*.test.ts'],
+    include: ['test/**/*.test.ts'],
     exclude: [
       // Benchmark tests are developer-only tools, not part of CI validation
-      'test/ts/context-compression-benchmark.test.ts',
-      'test/ts/context-execution-benchmark.test.ts',
+      'test/**/context-compression-benchmark.test.ts',
+      'test/**/context-execution-benchmark.test.ts',
     ],
     coverage: {
-      include: ['src/**/*.ts'],
+      include: ['app/**/*.ts', 'domains/**/*.ts', 'platform/**/*.ts'],
       exclude: [
-        'src/cli/**',
+        'app/cli/**',
         // Commands are interactive orchestrators best tested via E2E
-        'src/commands/**',
+        'app/commands/**',
       ],
       thresholds: {
         branches: 70,

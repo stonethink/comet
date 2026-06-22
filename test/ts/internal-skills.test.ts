@@ -5,7 +5,7 @@ import {
   getUserFacingSkillNames,
   readManifest,
   type Manifest,
-} from '../../src/core/skills.js';
+} from '../../domains/skill/platform-install.js';
 
 const manifest: Manifest = {
   version: '1.0.0',

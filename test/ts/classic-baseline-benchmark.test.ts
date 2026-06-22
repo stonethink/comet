@@ -2,7 +2,7 @@ import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { runClassicBaselineBenchmark } from '../../scripts/classic-baseline-regression.mjs';
+import { runClassicBaselineBenchmark } from '../../scripts/benchmark/classic-baseline-regression.mjs';
 
 const temporary: string[] = [];
 

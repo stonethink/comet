@@ -7376,7 +7376,7 @@ var require_dist = __commonJS({
   }
 });
 
-// src/engine/state.ts
+// domains/engine/state.ts
 var state_exports = {};
 __export(state_exports, {
   RUN_STATE_FILE: () => RUN_STATE_FILE,
@@ -7530,7 +7530,7 @@ async function removeRunState(changeDir) {
 }
 var field, RUN_STATE_FILE;
 var init_state = __esm({
-  "src/engine/state.ts"() {
+  "domains/engine/state.ts"() {
     "use strict";
     field = (doc, key) => {
       const value = doc[key];
@@ -7540,16 +7540,16 @@ var init_state = __esm({
   }
 });
 
-// src/compat/classic-cli.ts
+// domains/comet-classic/classic-cli.ts
 import { pathToFileURL } from "url";
 
-// src/compat/classic-archive.ts
+// domains/comet-classic/classic-archive.ts
 import { createHash as createHash3 } from "crypto";
 import { spawnSync } from "child_process";
 import { promises as fs10 } from "fs";
 import path10 from "path";
 
-// src/compat/classic-paths.ts
+// domains/comet-classic/classic-paths.ts
 import { promises as fs } from "fs";
 import path from "path";
 async function exists(file) {
@@ -7598,12 +7598,12 @@ async function resolveClassicChangeDirectory(name) {
   return { label: active, directory: filesystemPath(active) };
 }
 
-// src/compat/classic-runtime-run.ts
+// domains/comet-classic/classic-runtime-run.ts
 import { promises as fs9 } from "fs";
 import path9 from "path";
 import { fileURLToPath } from "url";
 
-// src/compat/classic-evidence.ts
+// domains/comet-classic/classic-evidence.ts
 import { promises as fs2 } from "fs";
 import path2 from "path";
 async function fileExists(file) {
@@ -7710,12 +7710,12 @@ async function collectClassicEvidence(changeDir, projection) {
   return evidence;
 }
 
-// src/compat/classic-migrate.ts
+// domains/comet-classic/classic-migrate.ts
 import { createHash as createHash2, randomUUID as randomUUID5 } from "crypto";
 import { promises as fs8 } from "fs";
 import path8 from "path";
 
-// src/compat/classic-resolver.ts
+// domains/comet-classic/classic-resolver.ts
 function profileFor(classic) {
   return classic.classicProfile ?? classic.workflow;
 }
@@ -7782,13 +7782,13 @@ function resolveClassicStepId(classic, evidence) {
   }
 }
 
-// src/compat/classic-store.ts
+// domains/comet-classic/classic-store.ts
 var import_yaml = __toESM(require_dist(), 1);
 import { randomUUID as randomUUID2 } from "crypto";
 import { promises as fs4 } from "fs";
 import path4 from "path";
 
-// src/compat/classic-state.ts
+// domains/comet-classic/classic-state.ts
 init_state();
 var CLASSIC_PROFILES = ["full", "hotfix", "tweak"];
 var CLASSIC_MIGRATION_VERSION = 1;
@@ -8007,7 +8007,7 @@ function classicStateToDocument(state) {
   };
 }
 
-// src/compat/classic-store.ts
+// domains/comet-classic/classic-store.ts
 init_state();
 function documentRecord(document) {
   const value = document.toJS();
@@ -8115,7 +8115,7 @@ async function writeClassicState(changeDir, projection) {
   }
 }
 
-// src/engine/loop.ts
+// domains/engine/loop.ts
 function startRun(pkg, runId, skillHash) {
   return {
     runId,
@@ -8136,7 +8136,7 @@ function startRun(pkg, runId, skillHash) {
   };
 }
 
-// src/engine/run-store.ts
+// domains/engine/run-store.ts
 import { randomUUID as randomUUID3 } from "crypto";
 import { promises as fs5 } from "fs";
 import path5 from "path";
@@ -8232,12 +8232,12 @@ async function readCheckpoint(changeDir, relativePath2) {
   return raw === null ? null : JSON.parse(raw);
 }
 
-// src/skill/snapshot.ts
+// domains/skill/snapshot.ts
 import { createHash, randomUUID as randomUUID4 } from "crypto";
 import { promises as fs7 } from "fs";
 import path7 from "path";
 
-// src/skill/load.ts
+// domains/skill/load.ts
 var import_yaml2 = __toESM(require_dist(), 1);
 import { promises as fs6 } from "fs";
 import path6 from "path";
@@ -8471,7 +8471,7 @@ async function loadSkillPackage(root) {
   };
 }
 
-// src/skill/snapshot.ts
+// domains/skill/snapshot.ts
 function stable(value) {
   if (Array.isArray(value)) return value.map(stable);
   if (value && typeof value === "object") {
@@ -8604,7 +8604,7 @@ async function createSkillSnapshot(pkg, changeDir) {
   return { hash: material.hash, snapshotDir };
 }
 
-// src/compat/classic-migrate.ts
+// domains/comet-classic/classic-migrate.ts
 async function pathExists2(target) {
   try {
     await fs8.access(target);
@@ -8772,7 +8772,7 @@ async function ensureClassicRun(changeDir, options) {
   }
 }
 
-// src/compat/classic-runtime-run.ts
+// domains/comet-classic/classic-runtime-run.ts
 async function directoryExists(directory) {
   try {
     return (await fs9.stat(directory)).isDirectory();
@@ -8846,7 +8846,7 @@ async function transitionClassicRuntimeRun(changeDir, classic, run, data) {
   return nextRun;
 }
 
-// src/compat/classic-archive.ts
+// domains/comet-classic/classic-archive.ts
 var GREEN = "\x1B[32m";
 var RED = "\x1B[31m";
 var YELLOW = "\x1B[33m";
@@ -9217,14 +9217,14 @@ var classicArchiveCommand = async (args) => {
   }
 };
 
-// src/compat/classic-guard.ts
+// domains/comet-classic/classic-guard.ts
 var import_yaml4 = __toESM(require_dist(), 1);
 import { spawnSync as spawnSync2 } from "child_process";
 import { createHash as createHash4 } from "crypto";
 import { existsSync, promises as fs12, readFileSync } from "fs";
 import path12 from "path";
 
-// src/compat/classic-validate-command.ts
+// domains/comet-classic/classic-validate-command.ts
 var import_yaml3 = __toESM(require_dist(), 1);
 import { promises as fs11 } from "fs";
 import path11 from "path";
@@ -9369,7 +9369,7 @@ var classicValidateCommand = async (args) => {
   return { exitCode: 0, stderr: lines.join("\n") };
 };
 
-// src/compat/classic-guard.ts
+// domains/comet-classic/classic-guard.ts
 var GREEN3 = "\x1B[32m";
 var RED3 = "\x1B[31m";
 var YELLOW3 = "\x1B[33m";
@@ -10149,7 +10149,7 @@ Valid phases: open, design, build, verify, archive`
   }
 };
 
-// src/compat/classic-handoff.ts
+// domains/comet-classic/classic-handoff.ts
 var import_yaml5 = __toESM(require_dist(), 1);
 import { createHash as createHash5 } from "crypto";
 import { promises as fs13, readFileSync as readFileSync2 } from "fs";
@@ -10624,7 +10624,7 @@ var classicHandoffCommand = async (args) => {
   }
 };
 
-// src/compat/classic-hook-guard.ts
+// domains/comet-classic/classic-hook-guard.ts
 import { existsSync as existsSync2, promises as fs14, readFileSync as readFileSync3 } from "fs";
 import path14 from "path";
 function result(exitCode, message) {
@@ -10849,7 +10849,7 @@ var classicHookGuardCommand = async () => {
   return blocked(relativePath2, phase);
 };
 
-// src/compat/classic-state-command.ts
+// domains/comet-classic/classic-state-command.ts
 var import_yaml6 = __toESM(require_dist(), 1);
 import { spawnSync as spawnSync3 } from "child_process";
 import { randomUUID as randomUUID6 } from "crypto";
@@ -11693,7 +11693,7 @@ var classicStateCommand = async (args) => {
   }
 };
 
-// src/compat/classic-cli.ts
+// domains/comet-classic/classic-cli.ts
 var CLASSIC_COMMANDS = [
   "state",
   "validate",

@@ -22,37 +22,37 @@ describe('superpowers', () => {
 
   describe('SKILLS_AGENT_MAP', () => {
     it('maps claude to claude-code', async () => {
-      const { SKILLS_AGENT_MAP } = await import('../../src/core/superpowers.js');
+      const { SKILLS_AGENT_MAP } = await import('../../domains/integrations/superpowers.js');
       expect(SKILLS_AGENT_MAP['claude']).toBe('claude-code');
     });
 
     it('maps cursor unchanged', async () => {
-      const { SKILLS_AGENT_MAP } = await import('../../src/core/superpowers.js');
+      const { SKILLS_AGENT_MAP } = await import('../../domains/integrations/superpowers.js');
       expect(SKILLS_AGENT_MAP['cursor']).toBe('cursor');
     });
 
     it('maps roocode to roo', async () => {
-      const { SKILLS_AGENT_MAP } = await import('../../src/core/superpowers.js');
+      const { SKILLS_AGENT_MAP } = await import('../../domains/integrations/superpowers.js');
       expect(SKILLS_AGENT_MAP['roocode']).toBe('roo');
     });
 
     it('maps kilocode to kilo', async () => {
-      const { SKILLS_AGENT_MAP } = await import('../../src/core/superpowers.js');
+      const { SKILLS_AGENT_MAP } = await import('../../domains/integrations/superpowers.js');
       expect(SKILLS_AGENT_MAP['kilocode']).toBe('kilo');
     });
 
     it('maps auggie to augment', async () => {
-      const { SKILLS_AGENT_MAP } = await import('../../src/core/superpowers.js');
+      const { SKILLS_AGENT_MAP } = await import('../../domains/integrations/superpowers.js');
       expect(SKILLS_AGENT_MAP['auggie']).toBe('augment');
     });
 
     it('maps forgecode unchanged', async () => {
-      const { SKILLS_AGENT_MAP } = await import('../../src/core/superpowers.js');
+      const { SKILLS_AGENT_MAP } = await import('../../domains/integrations/superpowers.js');
       expect(SKILLS_AGENT_MAP['forgecode']).toBe('forgecode');
     });
 
     it('maps platforms to valid skills CLI agent ids', async () => {
-      const { SKILLS_AGENT_MAP } = await import('../../src/core/superpowers.js');
+      const { SKILLS_AGENT_MAP } = await import('../../domains/integrations/superpowers.js');
       expect(SKILLS_AGENT_MAP['gemini']).toBe('gemini-cli');
       expect(SKILLS_AGENT_MAP['qwen']).toBe('qwen-code');
       expect(SKILLS_AGENT_MAP['kiro']).toBe('kiro-cli');
@@ -66,7 +66,7 @@ describe('superpowers', () => {
     });
 
     it('has entries for all 30 platforms', async () => {
-      const { SKILLS_AGENT_MAP } = await import('../../src/core/superpowers.js');
+      const { SKILLS_AGENT_MAP } = await import('../../domains/integrations/superpowers.js');
       const platformIds = [
         'claude',
         'cursor',
@@ -110,7 +110,7 @@ describe('superpowers', () => {
     it('installs superpowers for valid platform ids', async () => {
       mockedExecFileSync.mockReturnValueOnce(Buffer.from('installed'));
 
-      const { installSuperpowersForPlatforms } = await import('../../src/core/superpowers.js');
+      const { installSuperpowersForPlatforms } = await import('../../domains/integrations/superpowers.js');
       const result = await installSuperpowersForPlatforms('/tmp/test', 'project', [
         'claude',
         'cursor',
@@ -131,7 +131,7 @@ describe('superpowers', () => {
     });
 
     it('builds command + args for install flags', async () => {
-      const { buildSuperpowersInstallCommand } = await import('../../src/core/superpowers.js');
+      const { buildSuperpowersInstallCommand } = await import('../../domains/integrations/superpowers.js');
 
       expect(
         buildSuperpowersInstallCommand('/tmp/test', 'project', ['claude', 'cursor']),
@@ -142,7 +142,7 @@ describe('superpowers', () => {
     });
 
     it('excludes Lingma from the skills CLI command because skills@1.5.7 does not support it', async () => {
-      const { buildSuperpowersInstallCommand } = await import('../../src/core/superpowers.js');
+      const { buildSuperpowersInstallCommand } = await import('../../domains/integrations/superpowers.js');
 
       expect(
         buildSuperpowersInstallCommand('/tmp/test', 'project', ['claude', 'lingma']),
@@ -153,7 +153,7 @@ describe('superpowers', () => {
     });
 
     it('builds a staging command for Lingma so skills can be copied into .lingma', async () => {
-      const { buildLingmaSuperpowersStageCommand } = await import('../../src/core/superpowers.js');
+      const { buildLingmaSuperpowersStageCommand } = await import('../../domains/integrations/superpowers.js');
 
       expect(buildLingmaSuperpowersStageCommand()).toEqual({
         command: process.platform === 'win32' ? 'npx.cmd' : 'npx',
@@ -162,7 +162,7 @@ describe('superpowers', () => {
     });
 
     it('builds a staging command for ZCode so skills can be copied into .zcode', async () => {
-      const { buildZCodeSuperpowersStageCommand } = await import('../../src/core/superpowers.js');
+      const { buildZCodeSuperpowersStageCommand } = await import('../../domains/integrations/superpowers.js');
 
       expect(buildZCodeSuperpowersStageCommand()).toEqual({
         command: process.platform === 'win32' ? 'npx.cmd' : 'npx',
@@ -187,7 +187,7 @@ describe('superpowers', () => {
         return Buffer.from('');
       });
 
-      const { installSuperpowersForPlatforms } = await import('../../src/core/superpowers.js');
+      const { installSuperpowersForPlatforms } = await import('../../domains/integrations/superpowers.js');
       const result = await installSuperpowersForPlatforms('/tmp/test', 'project', ['zcode']);
 
       expect(result).toBe('installed');
@@ -201,7 +201,7 @@ describe('superpowers', () => {
     it('passes -g flag for global scope', async () => {
       mockedExecFileSync.mockReturnValueOnce(Buffer.from('installed'));
 
-      const { installSuperpowersForPlatforms } = await import('../../src/core/superpowers.js');
+      const { installSuperpowersForPlatforms } = await import('../../domains/integrations/superpowers.js');
       await installSuperpowersForPlatforms('/tmp/test', 'global', ['claude']);
 
       const args = mockedExecFileSync.mock.calls[0][1] as string[];
@@ -209,7 +209,7 @@ describe('superpowers', () => {
     });
 
     it('throws when unknown platform ids are passed', async () => {
-      const { installSuperpowersForPlatforms } = await import('../../src/core/superpowers.js');
+      const { installSuperpowersForPlatforms } = await import('../../domains/integrations/superpowers.js');
       await expect(
         installSuperpowersForPlatforms('/tmp/test', 'project', ['unknown-platform']),
       ).rejects.toThrow('Unknown platform IDs: unknown-platform');
@@ -221,7 +221,7 @@ describe('superpowers', () => {
         throw new Error('install failed');
       });
 
-      const { installSuperpowersForPlatforms } = await import('../../src/core/superpowers.js');
+      const { installSuperpowersForPlatforms } = await import('../../domains/integrations/superpowers.js');
       const result = await installSuperpowersForPlatforms('/tmp/test', 'project', ['claude']);
 
       expect(result).toBe('failed');
@@ -235,7 +235,7 @@ describe('superpowers', () => {
       });
 
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      const { installSuperpowersForPlatforms } = await import('../../src/core/superpowers.js');
+      const { installSuperpowersForPlatforms } = await import('../../domains/integrations/superpowers.js');
       const result = await installSuperpowersForPlatforms('/tmp/test', 'project', ['claude']);
 
       expect(result).toBe('failed');
@@ -253,7 +253,7 @@ describe('superpowers', () => {
       });
 
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      const { installSuperpowersForPlatforms } = await import('../../src/core/superpowers.js');
+      const { installSuperpowersForPlatforms } = await import('../../domains/integrations/superpowers.js');
       const result = await installSuperpowersForPlatforms('/tmp/test', 'project', ['claude']);
 
       expect(result).toBe('failed');
@@ -271,7 +271,7 @@ describe('superpowers', () => {
       });
 
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      const { installSuperpowersForPlatforms } = await import('../../src/core/superpowers.js');
+      const { installSuperpowersForPlatforms } = await import('../../domains/integrations/superpowers.js');
       const result = await installSuperpowersForPlatforms('/tmp/test', 'project', ['claude']);
 
       expect(result).toBe('failed');
@@ -285,7 +285,7 @@ describe('superpowers', () => {
       });
 
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      const { installSuperpowersForPlatforms } = await import('../../src/core/superpowers.js');
+      const { installSuperpowersForPlatforms } = await import('../../domains/integrations/superpowers.js');
       const result = await installSuperpowersForPlatforms('/tmp/test', 'project', ['claude']);
 
       expect(result).toBe('failed');
@@ -294,14 +294,14 @@ describe('superpowers', () => {
     });
 
     it('formats non-object command errors defensively', async () => {
-      const { formatCommandErrorDetails } = await import('../../src/core/command-error.js');
+      const { formatCommandErrorDetails } = await import('../../platform/process/command-error.js');
 
       expect(formatCommandErrorDetails(null)).toEqual(['Unknown error occurred']);
       expect(formatCommandErrorDetails(undefined)).toEqual(['Unknown error occurred']);
     });
 
     it('throws when mixed with unknown platform ids', async () => {
-      const { installSuperpowersForPlatforms } = await import('../../src/core/superpowers.js');
+      const { installSuperpowersForPlatforms } = await import('../../domains/integrations/superpowers.js');
       await expect(
         installSuperpowersForPlatforms('/tmp/test', 'project', [
           'claude',

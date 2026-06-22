@@ -12,7 +12,7 @@ const runTsc = (args = []) => {
 };
 
 const buildClassicRuntime = () => {
-  execFileSync(process.execPath, ['scripts/build-classic-runtime.mjs'], {
+  execFileSync(process.execPath, ['scripts/build/build-classic-runtime.mjs'], {
     stdio: 'inherit',
   });
 };

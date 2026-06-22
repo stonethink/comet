@@ -37,6 +37,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 
 ### Changed
 
+- **Repository layout**: Reorganized the codebase into top-level `app`, `domains`, `platform`, grouped `scripts`, and mirrored `test` areas while preserving Comet CLI behavior, installed asset layout, and Classic runtime output paths.
 - **`/comet-any` backend flow**: Updates the bilingual Skill and authoring reference so Step 8 now prefers a single `factory-init` backend handoff instead of describing metadata persistence as a manual multi-command assembly. Separate `draft create` / `draft optimize` / `status` commands remain documented for recovery and debugging, but no longer represent the primary path.
 - **Factory plan documentation**: Expands the bilingual `/comet-any` authoring reference with a concrete `plan.json` example and field-level rules, so Agent-generated plans can stay structurally aligned across sessions and platforms.
 - **`/comet-any` approval flow**: Updates the bilingual Skill flow to use `review-summary` before approval, cite `planHash` and `resolved-skills.json`, and return to candidate resolution when the backend reports `unresolved factory Skill candidates`.

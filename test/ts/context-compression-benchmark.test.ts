@@ -5,7 +5,7 @@ import path from 'path';
 import { pathToFileURL } from 'url';
 
 const benchmarkModule = pathToFileURL(
-  path.resolve('scripts', 'context-compression-benchmark.mjs'),
+  path.resolve('scripts', 'benchmark', 'context-compression-benchmark.mjs'),
 ).href;
 
 describe('context compression benchmark runner', () => {

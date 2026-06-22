@@ -28,7 +28,7 @@ describe('codegraph', () => {
     fs.mkdirSync(codegraphDir, { recursive: true });
     fs.writeFileSync(path.join(codegraphDir, '.gitignore'), '*\n!.gitignore\n');
 
-    const { hasCodegraphProjectIndex } = await import('../../src/core/codegraph.js');
+    const { hasCodegraphProjectIndex } = await import('../../domains/integrations/codegraph.js');
 
     expect(hasCodegraphProjectIndex(tmpDir)).toBe(false);
 
@@ -42,7 +42,7 @@ describe('codegraph', () => {
     fs.mkdirSync(codegraphDir, { recursive: true });
     fs.writeFileSync(path.join(codegraphDir, 'codegraph.db'), '');
 
-    const { installCodegraph } = await import('../../src/core/codegraph.js');
+    const { installCodegraph } = await import('../../domains/integrations/codegraph.js');
     const result = await installCodegraph(tmpDir, 'project');
 
     expect(result).toBe('skipped');
@@ -68,7 +68,7 @@ describe('codegraph', () => {
       return Buffer.from('ok');
     });
 
-    const { installCodegraph } = await import('../../src/core/codegraph.js');
+    const { installCodegraph } = await import('../../domains/integrations/codegraph.js');
     const result = await installCodegraph(tmpDir, 'project');
 
     expect(result).toBe('installed');

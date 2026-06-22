@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import path from 'path';
-import { runCometBundleCompatibilityBenchmark } from '../../src/bundle/compatibility-benchmark.js';
+import { runCometBundleCompatibilityBenchmark } from '../../domains/bundle/compatibility-benchmark.js';
 
 describe('current Comet Bundle compatibility benchmark', () => {
   it('reproduces the managed contracts for every registered platform', async () => {

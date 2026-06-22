@@ -1,0 +1,14 @@
+{
+  "assetsRoot": "assets",
+  "manifestPath": "assets/manifest.json",
+  "skillsRoots": {
+    "en": "assets/skills",
+    "zh": "assets/skills-zh"
+  },
+  "classicRuntime": {
+    "entry": "domains/comet-classic/classic-cli.ts",
+    "output": "assets/skills/comet/scripts/comet-runtime.mjs"
+  },
+  "sourceRoots": ["src", "app", "domains", "platform"],
+  "testRoots": ["test"]
+}

@@ -12,7 +12,7 @@
 
 ### CLI 国际化
 
-`comet init` 新增 `--language en|zh` 选项；`update` 命令完整支持中英文提示（横幅、npm 更新进度、摘要、CodeGraph 提示等）。新增 `src/commands/i18n.ts` 共享翻译表。
+`comet init` 新增 `--language en|zh` 选项；`update` 命令完整支持中英文提示（横幅、npm 更新进度、摘要、CodeGraph 提示等）。新增 `app/commands/i18n.ts` 共享翻译表。
 
 ### Review Mode
 

@@ -5,7 +5,7 @@ import path from 'path';
 import { pathToFileURL } from 'url';
 
 const benchmarkModule = pathToFileURL(
-  path.resolve('scripts', 'context-execution-benchmark.mjs'),
+  path.resolve('scripts', 'benchmark', 'context-execution-benchmark.mjs'),
 ).href;
 
 const utilsModule = pathToFileURL(path.resolve('scripts', 'benchmark-utils.mjs')).href;
