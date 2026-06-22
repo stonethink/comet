@@ -230,32 +230,43 @@ async function selectNpmDeps(
   return new Set(selected as NpmDepId[]);
 }
 
+function hasFailure(r: PlatformResult): boolean {
+  return (
+    r.openspec === 'failed' ||
+    r.superpowers === 'failed' ||
+    r.comet === 'failed' ||
+    r.codegraph === 'failed'
+  );
+}
+
+function hasInstall(r: PlatformResult): boolean {
+  return (
+    r.openspec === 'installed' ||
+    r.superpowers === 'installed' ||
+    r.comet === 'installed' ||
+    r.codegraph === 'installed'
+  );
+}
+
+function isAllSkipped(r: PlatformResult): boolean {
+  return (
+    r.openspec === 'skipped' &&
+    r.superpowers === 'skipped' &&
+    r.comet === 'skipped' &&
+    r.codegraph === 'skipped'
+  );
+}
+
 function displaySummary(results: PlatformResult[], scope: InstallScope, lang: string): void {
   const scopeLabel = scope === 'global' ? os.homedir() : 'project';
 
   console.log(`\n  ${t(lang, 'setupComplete')} (scope: ${scopeLabel})\n`);
 
-  const installed = results.filter(
-    (r) =>
-      r.openspec === 'installed' ||
-      r.superpowers === 'installed' ||
-      r.comet === 'installed' ||
-      r.codegraph === 'installed',
-  );
-  const skipped = results.filter(
-    (r) =>
-      r.openspec === 'skipped' &&
-      r.superpowers === 'skipped' &&
-      r.comet === 'skipped' &&
-      r.codegraph === 'skipped',
-  );
-  const failed = results.filter(
-    (r) =>
-      r.openspec === 'failed' ||
-      r.superpowers === 'failed' ||
-      r.comet === 'failed' ||
-      r.codegraph === 'failed',
-  );
+  // A platform with both installed and failed components is shown as failed,
+  // not both. Use priority: failed > installed > skipped.
+  const failed = results.filter(hasFailure);
+  const installed = results.filter((r) => !hasFailure(r) && hasInstall(r));
+  const skipped = results.filter(isAllSkipped);
 
   if (installed.length > 0) {
     console.log(`  ${t(lang, 'installed')}`);
