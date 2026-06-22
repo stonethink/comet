@@ -65,6 +65,47 @@ def test_load_task_parses_validation_and_setup(mock_tasks_dir: Path):
     assert task.config.setup.template_vars == {"artifact_name": "result-{run_id}.json"}
 
 
+def test_load_task_parses_evaluation_and_interaction(mock_tasks_dir: Path):
+    task_dir = mock_tasks_dir / "test-basic"
+    task_dir.joinpath("task.toml").write_text(
+        BASIC_TASK_TOML
+        + """
+
+[evaluation]
+profile = "generic"
+required_skills = ["target-skill"]
+expected_artifacts = ["result.json"]
+require_skill_invocation = true
+
+[interaction]
+mode = "auto_user"
+max_turns = 7
+simulator_prompt = "Answer as a concise developer user."
+decision_patterns = ["confirm", "choose"]
+continue_prompt = "Please continue."
+"""
+    )
+
+    task = load_task("test-basic", mock_tasks_dir)
+
+    assert task.config.evaluation.profile == "generic"
+    assert task.config.evaluation.required_skills == ["target-skill"]
+    assert task.config.evaluation.expected_artifacts == ["result.json"]
+    assert task.config.evaluation.require_skill_invocation is True
+    assert task.config.interaction.mode == "auto_user"
+    assert task.config.interaction.max_turns == 7
+    assert task.config.interaction.simulator_prompt == "Answer as a concise developer user."
+    assert task.config.interaction.decision_patterns == ["confirm", "choose"]
+    assert task.config.interaction.continue_prompt == "Please continue."
+
+
+def test_comet_tasks_default_to_comet_workflow_profile():
+    task = load_task("comet-full-workflow")
+
+    assert task.config.evaluation.profile == "comet-workflow"
+    assert task.config.interaction.mode == "auto_user"
+
+
 def test_render_prompt_requires_declared_template_variables(mock_tasks_dir: Path):
     task = load_task("test-basic", mock_tasks_dir)
 

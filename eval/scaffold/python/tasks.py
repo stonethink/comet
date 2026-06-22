@@ -71,6 +71,27 @@ class ValidationConfig:
 
 
 @dataclass
+class EvaluationConfig:
+    """Skill-agnostic evaluation contract for a task."""
+
+    profile: str | None = None
+    required_skills: list[str] = field(default_factory=list)
+    expected_artifacts: list[str] = field(default_factory=list)
+    require_skill_invocation: bool = False
+
+
+@dataclass
+class InteractionConfig:
+    """Controls whether the runner should simulate user replies."""
+
+    mode: str = "none"
+    max_turns: int = 12
+    simulator_prompt: str | None = None
+    decision_patterns: list[str] = field(default_factory=list)
+    continue_prompt: str = "Please continue with the next phase of the workflow."
+
+
+@dataclass
 class TaskConfig:
     """Configuration loaded from task.toml."""
 
@@ -98,6 +119,12 @@ class TaskConfig:
 
     # Setup configuration
     setup: SetupConfig = field(default_factory=SetupConfig)
+
+    # Skill-agnostic evaluation contract
+    evaluation: EvaluationConfig = field(default_factory=EvaluationConfig)
+
+    # Interaction / user-simulator configuration
+    interaction: InteractionConfig = field(default_factory=InteractionConfig)
 
 
 @dataclass
@@ -196,6 +223,8 @@ def load_task(name: str, tasks_dir: Path | None = None) -> Task:
     template = toml_data.get("template", {})
     environment = toml_data.get("environment", {})
     validation = toml_data.get("validation", {})
+    evaluation = toml_data.get("evaluation", {})
+    interaction = toml_data.get("interaction", {})
     setup_data = toml_data.get("setup", {})
 
     # Parse setup config
@@ -214,8 +243,34 @@ def load_task(name: str, tasks_dir: Path | None = None) -> Task:
         timeout=validation.get("timeout", 120),
     )
 
+    task_name = metadata.get("name", name)
+    inferred_profile = evaluation.get("profile")
+    if not inferred_profile and (
+        metadata.get("category") == "comet" or str(task_name).startswith("comet-")
+    ):
+        inferred_profile = "comet-workflow"
+
+    evaluation_config = EvaluationConfig(
+        profile=inferred_profile,
+        required_skills=evaluation.get("required_skills", []),
+        expected_artifacts=evaluation.get("expected_artifacts", []),
+        require_skill_invocation=bool(evaluation.get("require_skill_invocation", False)),
+    )
+
+    default_interaction_mode = "auto_user" if inferred_profile == "comet-workflow" else "none"
+    interaction_config = InteractionConfig(
+        mode=interaction.get("mode", default_interaction_mode),
+        max_turns=int(interaction.get("max_turns", 12)),
+        simulator_prompt=interaction.get("simulator_prompt"),
+        decision_patterns=interaction.get("decision_patterns", []),
+        continue_prompt=interaction.get(
+            "continue_prompt",
+            "Please continue with the next phase of the workflow.",
+        ),
+    )
+
     config = TaskConfig(
-        name=metadata.get("name", name),
+        name=task_name,
         description=metadata.get("description", ""),
         difficulty=metadata.get("difficulty", "medium"),
         category=metadata.get("category", ""),
@@ -227,6 +282,8 @@ def load_task(name: str, tasks_dir: Path | None = None) -> Task:
         timeout_sec=environment.get("timeout_sec", 900),
         validation=validation_config,
         setup=setup,
+        evaluation=evaluation_config,
+        interaction=interaction_config,
     )
 
     # Load instruction.md

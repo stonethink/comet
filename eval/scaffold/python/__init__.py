@@ -14,6 +14,15 @@ from .logging import (
     save_report,
     strip_ansi,
 )
+from .profiles import (
+    AUTHORING_SKILL_PROFILE,
+    COMET_WORKFLOW_PROFILE,
+    GENERIC_PROFILE,
+    ProfileSpec,
+    get_profile,
+    list_profiles,
+    resolve_profile_name,
+)
 from .schema import NoiseTask, Treatment
 from .utils import (
     build_docker_image,
@@ -54,4 +63,6 @@ __all__ = [
     "get_field", "get_nested_field", "normalize_score", "parse_output", "extract_events",
     "strip_ansi", "ExperimentLogger", "TreatmentResult", "save_events", "save_raw",
     "save_report", "ReportColumn", "bool_column", "quality_column", "default_columns",
+    "AUTHORING_SKILL_PROFILE", "COMET_WORKFLOW_PROFILE", "GENERIC_PROFILE",
+    "ProfileSpec", "get_profile", "list_profiles", "resolve_profile_name",
 ]
