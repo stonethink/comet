@@ -8,21 +8,14 @@ from typing import Any
 
 from scaffold.python.tasks import InteractionConfig, Task
 from scaffold.python.validation.core import ValidatorFn
+from scaffold.python.validation.generic_rubric import (
+    GENERIC_RUBRIC_DIMENSIONS,
+    generic_rubric_validator,
+)
 
 GENERIC_PROFILE = "generic"
 COMET_WORKFLOW_PROFILE = "comet-workflow"
 AUTHORING_SKILL_PROFILE = "authoring-skill"
-
-GENERIC_RUBRIC_DIMENSIONS = (
-    "completion",
-    "skill_invocation",
-    "artifact_presence",
-    "instruction_following",
-    "interaction_compliance",
-    "efficiency",
-    "safety_boundary",
-    "weighted_score",
-)
 
 COMET_SIMULATOR_PROMPT = (
     "You are simulating a developer user in an automated eval. The AI assistant "
@@ -39,10 +32,6 @@ GENERIC_SIMULATOR_PROMPT = (
 )
 
 
-def _no_rubric(test_dir: Path, outputs: dict[str, Any]) -> tuple[list[str], list[str]]:
-    return [], []
-
-
 @dataclass(frozen=True)
 class ProfileSpec:
     name: str
@@ -57,13 +46,13 @@ def _build_profiles() -> dict[str, ProfileSpec]:
     return {
         GENERIC_PROFILE: ProfileSpec(
             name=GENERIC_PROFILE,
-            rubric_dimensions=GENERIC_RUBRIC_DIMENSIONS,
+            rubric_dimensions=GENERIC_RUBRIC_DIMENSIONS + ("weighted_score",),
             default_interaction=InteractionConfig(
                 mode="none",
                 max_turns=12,
                 simulator_prompt=GENERIC_SIMULATOR_PROMPT,
             ),
-            rubric=_no_rubric,
+            rubric=generic_rubric_validator,
         ),
         COMET_WORKFLOW_PROFILE: ProfileSpec(
             name=COMET_WORKFLOW_PROFILE,
@@ -77,13 +66,13 @@ def _build_profiles() -> dict[str, ProfileSpec]:
         ),
         AUTHORING_SKILL_PROFILE: ProfileSpec(
             name=AUTHORING_SKILL_PROFILE,
-            rubric_dimensions=GENERIC_RUBRIC_DIMENSIONS,
+            rubric_dimensions=GENERIC_RUBRIC_DIMENSIONS + ("weighted_score",),
             default_interaction=InteractionConfig(
                 mode="auto_user",
                 max_turns=8,
                 simulator_prompt=GENERIC_SIMULATOR_PROMPT,
             ),
-            rubric=_no_rubric,
+            rubric=generic_rubric_validator,
         ),
     }
 
@@ -114,3 +103,21 @@ def resolve_profile_name(
         get_profile(task.config.evaluation.profile)
         return task.config.evaluation.profile
     return GENERIC_PROFILE
+
+
+def run_profile_rubric(
+    profile_name: str,
+    test_dir: Path,
+    outputs: dict[str, Any],
+) -> tuple[list[str], list[str]]:
+    profile = get_profile(profile_name)
+    return profile.rubric(test_dir, outputs)
+
+
+def all_rubric_dimensions() -> tuple[str, ...]:
+    seen: list[str] = []
+    for profile in _build_profiles().values():
+        for dim in profile.rubric_dimensions:
+            if dim not in seen:
+                seen.append(dim)
+    return tuple(seen)

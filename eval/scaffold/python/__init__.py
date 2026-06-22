@@ -19,9 +19,11 @@ from .profiles import (
     COMET_WORKFLOW_PROFILE,
     GENERIC_PROFILE,
     ProfileSpec,
+    all_rubric_dimensions,
     get_profile,
     list_profiles,
     resolve_profile_name,
+    run_profile_rubric,
 )
 from .schema import NoiseTask, Treatment
 from .utils import (
@@ -64,5 +66,6 @@ __all__ = [
     "strip_ansi", "ExperimentLogger", "TreatmentResult", "save_events", "save_raw",
     "save_report", "ReportColumn", "bool_column", "quality_column", "default_columns",
     "AUTHORING_SKILL_PROFILE", "COMET_WORKFLOW_PROFILE", "GENERIC_PROFILE",
-    "ProfileSpec", "get_profile", "list_profiles", "resolve_profile_name",
+    "ProfileSpec", "all_rubric_dimensions", "get_profile", "list_profiles",
+    "resolve_profile_name", "run_profile_rubric",
 ]

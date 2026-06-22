@@ -21,6 +21,7 @@ from conftest import get_fixtures
 
 from scaffold import NoiseTask, Treatment
 from scaffold.python import extract_events, parse_output
+from scaffold.python.profiles import resolve_profile_name, run_profile_rubric
 from scaffold.python.tasks import list_tasks, load_task
 from scaffold.python.treatments import build_treatment_skills, load_treatments
 from scaffold.python.validation import run_validators
@@ -147,10 +148,19 @@ def test_task_treatment(task_name, treatment_name):
     result = fixtures.run_claude(prompt, timeout=CLAUDE_TIMEOUT)
 
     events = extract_events(parse_output(result.stdout))
+    profile_name = resolve_profile_name(task)
     outputs = {
         "run_id": run_id,
         "treatment_name": treatment_name,
         "events": events,
+        "profile": profile_name,
+        "required_skills": task.config.evaluation.required_skills,
+        "expected_artifacts": task.config.evaluation.expected_artifacts,
+        "require_skill_invocation": task.config.evaluation.require_skill_invocation,
+        "interaction": {
+            "mode": task.config.interaction.mode,
+            "max_turns": task.config.interaction.max_turns,
+        },
     }
 
     passed, failed = run_validators(validators, fixtures.test_dir, outputs)
@@ -158,12 +168,11 @@ def test_task_treatment(task_name, treatment_name):
     # Rubric scoring: feed the baseline validator outcome as the "completion"
     # dimension input, then append the eight [RUBRIC] messages as informational
     # checks (they never produce hard failures).
-    from scaffold.python.validation.rubric import comet_rubric_validator
-
     rubric_outputs = dict(outputs)
     rubric_outputs["completion"] = {"passed": passed, "failed": failed}
-    rubric_passed, _ = comet_rubric_validator(fixtures.test_dir, rubric_outputs)
+    rubric_passed, rubric_failed = run_profile_rubric(profile_name, fixtures.test_dir, rubric_outputs)
     passed = passed + rubric_passed
+    failed = failed + rubric_failed
 
     fixtures.record_result(events, passed, failed, run_id=run_id)
 

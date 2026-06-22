@@ -162,7 +162,7 @@ def build_treatment_skills(skill_configs: list[dict[str, Any]]) -> dict[str, dic
 def load_treatments_yaml(path: Path) -> dict[str, TreatmentConfig]:
     if not path.exists():
         raise FileNotFoundError(f"Treatments file not found: {path}")
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         data = yaml.safe_load(f)
     treatments = {}
     for name, cfg in data.items():
