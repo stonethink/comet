@@ -227,10 +227,17 @@ describe('comet bundle CLI end to end', () => {
     await fs.mkdir(path.join(projectRoot, '.claude', 'skills', 'factory-alpha'), {
       recursive: true,
     });
+    await fs.mkdir(path.join(projectRoot, '.codex', 'skills', 'factory-alpha'), {
+      recursive: true,
+    });
     await fs.writeFile(path.join(projectRoot, '.comet', 'skills.txt'), 'factory-alpha\n');
     await fs.writeFile(
       path.join(projectRoot, '.claude', 'skills', 'factory-alpha', 'SKILL.md'),
       '---\nname: factory-alpha\ndescription: Alpha factory step.\n---\n# Alpha\n',
+    );
+    await fs.writeFile(
+      path.join(projectRoot, '.codex', 'skills', 'factory-alpha', 'SKILL.md'),
+      '---\nname: factory-alpha\ndescription: Project Codex alpha.\n---\n# Project Alpha\n',
     );
     const planFile = path.join(root, 'factory-plan.json');
     await writeFactoryPlan(planFile);
@@ -244,6 +251,46 @@ describe('comet bundle CLI end to end', () => {
       '--file',
       planFile,
     );
+    expect(initialized).toMatchObject({
+      name: 'factory-bundle',
+      factory: {
+        resolvedSkills: [{ query: 'factory-alpha', status: 'ambiguous' }],
+      },
+    });
+
+    const blocked = runCli(
+      'bundle',
+      'factory-generate',
+      'factory-bundle',
+      '--project',
+      projectRoot,
+      '--json',
+    );
+    expect(blocked.status).not.toBe(0);
+    expect(blocked.stderr).toContain('unresolved factory Skill candidates');
+
+    const resolved = runJson(
+      'bundle',
+      'factory-resolve',
+      'factory-bundle',
+      '--project',
+      projectRoot,
+      '--candidate',
+      'factory-alpha',
+      '--source',
+      path.join(projectRoot, '.claude', 'skills', 'factory-alpha'),
+    );
+    expect(resolved).toMatchObject({
+      factory: {
+        resolvedSkills: [
+          {
+            query: 'factory-alpha',
+            status: 'available',
+            sources: [{ platform: 'claude-code' }],
+          },
+        ],
+      },
+    });
 
     const generated = runJson(
       'bundle',
@@ -298,7 +345,7 @@ describe('comet bundle CLI end to end', () => {
         },
       },
     });
-    expect(initialized).toMatchObject({
+    expect(resolved).toMatchObject({
       name: 'factory-bundle',
       factory: {
         preferredSkills: ['factory-alpha'],
@@ -355,5 +402,20 @@ describe('comet bundle CLI end to end', () => {
         'utf8',
       ),
     ).resolves.toContain('factory-alpha');
+    await expect(
+      fs.readFile(
+        path.join(
+          projectRoot,
+          '.comet',
+          'bundle-drafts',
+          'factory-bundle',
+          'skills',
+          'factory-bundle',
+          'reference',
+          'resolved-skills.json',
+        ),
+        'utf8',
+      ),
+    ).resolves.toContain('Alpha factory step.');
   });
 });

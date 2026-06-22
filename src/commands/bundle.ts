@@ -5,6 +5,7 @@ import {
   generateBundleDraftFromFactoryState,
   initializeBundleFactoryState,
 } from '../bundle/factory.js';
+import { resolveBundleFactoryCandidate } from '../bundle/factory-resolve.js';
 import { readSkillPreferences } from '../bundle/preferences.js';
 import { createBundleDraft, optimizeBundleDraft } from '../bundle/draft.js';
 import { loadBundle } from '../bundle/load.js';
@@ -37,6 +38,10 @@ interface BundleCommandOptions {
   localeOption?: string[];
   engine?: boolean;
   file?: string;
+  candidate?: string;
+  source?: string;
+  ignoreMissing?: boolean;
+  reason?: string;
 }
 
 function projectRoot(options: BundleCommandOptions): string {
@@ -159,6 +164,26 @@ export async function bundleFactoryInitCommand(
     updated,
     options.json,
     `Initialized factory Bundle state ${updated.name}\nDraft: ${updated.draftPath}`,
+  );
+}
+
+export async function bundleFactoryResolveCommand(
+  name: string,
+  options: BundleCommandOptions = {},
+): Promise<void> {
+  if (!options.candidate) throw new Error('--candidate is required');
+  const updated = await resolveBundleFactoryCandidate({
+    projectRoot: projectRoot(options),
+    name,
+    candidate: options.candidate,
+    ...(options.source ? { source: options.source } : {}),
+    ...(options.ignoreMissing ? { ignoreMissing: true } : {}),
+    ...(options.reason ? { reason: options.reason } : {}),
+  });
+  emit(
+    updated,
+    options.json,
+    `Resolved factory candidate ${options.candidate} for ${updated.name}`,
   );
 }
 

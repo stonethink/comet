@@ -70,6 +70,18 @@ comet bundle candidates --json
 列出 `missing` 和 `ambiguous` 项，暂停询问用户如何处理。不得静默忽略缺失候选，也不得在多个来源中替用户选择。
 若后端返回 `unresolved factory Skill candidates`，必须回到本步骤处理缺失或歧义项，不得继续生成。
 
+用户选择明确来源后，使用内部后端更新状态：
+
+```bash
+comet bundle factory-resolve <name> --candidate <query> --source <root-or-hash> --json
+```
+
+用户明确同意忽略缺失偏好时，必须记录原因：
+
+```bash
+comet bundle factory-resolve <name> --candidate <query> --ignore-missing --reason <reason> --json
+```
+
 ### 5. 读取候选的真实实现
 
 读取候选 `SKILL.md`，并按需读取候选引用的 reference、rules、scripts、hooks。这里只读真实实现，绝不执行候选脚本。
@@ -118,13 +130,23 @@ comet bundle status <name> --json
 生成 entry Skill、internal Skill、references 和 scripts。用户不需要手动运行 `comet bundle`
 或 `comet skill`；所有这些都是内部后端步骤。
 
-生成物必须包含真实 Skill 证据摘要，并把结构化证据写入 `reference/resolved-skills.json`。
-摘要应引用 resolved Skill 的名称、来源、描述和 hash，证明组合基于本地真实内容而不是只按名称猜测。
+生成物必须包含真实 Skill 证据摘要和“组合后的工作方式”，并把结构化证据写入
+`reference/resolved-skills.json`。摘要应引用 resolved Skill 的名称、来源、描述、hash 和从真实
+`SKILL.md` 正文提炼出的内容；`resolved-skills.json` 必须包含 `sourceSummaries`，证明组合基于本地真实内容而不是只按名称猜测。
 
 ### 10. 生成 Engine Package
 
 为多步骤或高风险生成物生成 `comet/skill.yaml`、`guardrails.yaml` 和 `evals.yaml`。
 Engine Package 必须与调用链、guardrails、runtime evals 和脚本副作用声明一致。
+
+如果 `runnerMode` 是 `standalone`，生成的 Skill 应指示 Agent 使用 `.comet/runs/<run-id>` 保存运行状态。
+需要持久化执行时，内部 runner 入口是：
+
+```bash
+comet skill run <skill> --run-id <run-id> --json
+comet skill resume --run-id <run-id> --status succeeded --summary <summary> --json
+comet skill eval --run-id <run-id> --scope completion --json
+```
 
 ### 11. 编译并校验
 

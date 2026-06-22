@@ -12,6 +12,7 @@ import {
   bundleEvalRecordCommand,
   bundleFactoryInitCommand,
   bundleFactoryGenerateCommand,
+  bundleFactoryResolveCommand,
   bundlePublishCommand,
   bundleReviewSummaryCommand,
   bundleReviewCommand,
@@ -449,6 +450,116 @@ describe('bundle commands', () => {
     await expect(
       bundleFactoryGenerateCommand('blocked-factory', { project: projectRoot, json: true }),
     ).rejects.toThrow(/ambiguous-skill.*missing-skill|missing-skill.*ambiguous-skill/iu);
+  });
+
+  it('resolves ambiguous and ignored missing factory candidates through command state updates', async () => {
+    const firstRoot = path.join(projectRoot, '.codex', 'skills', 'review-flow');
+    const secondRoot = path.join(projectRoot, '.claude', 'skills', 'review-flow');
+    await createBundleDraft({
+      projectRoot,
+      name: 'resolvable-factory',
+      candidates: [],
+      creator: 'native',
+      defaultLocale: 'zh',
+      locales: ['zh', 'en'],
+      engineEnabled: true,
+      factory: {
+        goal: 'Create a workflow that can recover candidate choices.',
+        preferredSkills: ['review-flow', 'optional-missing'],
+        resolvedSkills: [
+          {
+            query: 'review-flow',
+            preferenceIndex: 0,
+            status: 'ambiguous',
+            sources: [
+              {
+                name: 'review-flow',
+                preferenceIndex: 0,
+                platform: 'codex',
+                scope: 'project',
+                origin: 'project',
+                factory: { query: 'review-flow' },
+                root: firstRoot,
+                description: 'First candidate.',
+                skillMd: '# First\n',
+                hash: 'a'.repeat(64),
+              },
+              {
+                name: 'review-flow',
+                preferenceIndex: 0,
+                platform: 'claude',
+                scope: 'project',
+                origin: 'project',
+                factory: { query: 'review-flow' },
+                root: secondRoot,
+                description: 'Second candidate.',
+                skillMd: '# Second\n',
+                hash: 'b'.repeat(64),
+              },
+            ],
+          },
+          {
+            query: 'optional-missing',
+            preferenceIndex: 1,
+            status: 'missing',
+            sources: [],
+          },
+        ],
+        callChain: [
+          { skill: 'review-flow', preferenceIndex: 0 },
+          { skill: 'optional-missing', preferenceIndex: 1 },
+        ],
+        deviations: [],
+        engineMode: 'deterministic',
+        runnerMode: 'standalone',
+      },
+    });
+
+    const selected = await captureJson(() =>
+      bundleFactoryResolveCommand('resolvable-factory', {
+        project: projectRoot,
+        candidate: 'review-flow',
+        source: secondRoot,
+        json: true,
+      }),
+    );
+    const ignored = await captureJson(() =>
+      bundleFactoryResolveCommand('resolvable-factory', {
+        project: projectRoot,
+        candidate: 'optional-missing',
+        ignoreMissing: true,
+        reason: 'The optional preference is not required for this generated Skill.',
+        json: true,
+      }),
+    );
+
+    expect(selected).toMatchObject({
+      factory: {
+        resolvedSkills: [
+          {
+            query: 'review-flow',
+            status: 'available',
+            sources: [{ root: secondRoot, hash: 'b'.repeat(64) }],
+          },
+          { query: 'optional-missing', status: 'missing' },
+        ],
+      },
+    });
+    expect(ignored).toMatchObject({
+      factory: {
+        preferredSkills: ['review-flow'],
+        resolvedSkills: [{ query: 'review-flow', status: 'available' }],
+        callChain: [{ skill: 'review-flow', preferenceIndex: 0 }],
+        deviations: [
+          {
+            skill: 'optional-missing',
+            expectedIndex: 1,
+            actualIndex: -1,
+            reason: 'The optional preference is not required for this generated Skill.',
+          },
+        ],
+      },
+    });
   });
 
   it('builds a factory review summary with compile and Eval workload evidence', async () => {

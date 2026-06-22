@@ -32,7 +32,7 @@ First run `comet bundle review-summary <name> --platform <reference-platform> --
 
 - Bundle name, version, and hash.
 - Multiple entry and internal Skill lists.
-- `planHash` and `reference/resolved-skills.json` real Skill evidence.
+- `planHash` and `reference/resolved-skills.json` real Skill evidence, including `sourceSummaries` and the composed workflow summary.
 - Recommended call order and `preferenceIndex`.
 - Every item that deviates from the preferred order, plus the reason.
 - Whether `comet/skill.yaml`, `guardrails.yaml`, and `evals.yaml` were generated.

@@ -14,6 +14,8 @@ export interface BundleCandidateSource {
   root: string;
   description: string;
   skillMd: string;
+  references?: FoundSkillSource['references'];
+  scripts?: FoundSkillSource['scripts'];
   hash: string;
 }
 
@@ -57,6 +59,8 @@ export async function discoverBundleCandidates(options: {
       root: source.root,
       description: source.description,
       skillMd: source.skillMd,
+      references: source.references,
+      scripts: source.scripts,
       hash: source.hash,
     })),
   }));

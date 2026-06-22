@@ -30,7 +30,8 @@ Both modes must use `comet bundle` commands to maintain state. Do not write inte
 Candidate scripts are read-only inputs and must never be executed.
 `factory-generate` fails closed with `unresolved factory Skill candidates` while any candidate is
 `missing` or `ambiguous`. `/comet-any` must ask the user to choose a concrete source, remove the
-missing item, or update preferences before running `factory-init` again.
+missing item, or update preferences before using `comet bundle factory-resolve` to update Factory
+metadata.
 
 ## Bundle Model
 
@@ -41,7 +42,7 @@ A Bundle must explicitly define:
 - references/rules/hooks/scripts/assets: the shared resource graph.
 - required/optional capabilities: used for platform compilation and capability gaps.
 - Engine Package: multi-step, recoverable, or higher-risk output must generate `comet/skill.yaml`, `guardrails.yaml`, and `evals.yaml`.
-- real Skill evidence: generated output must include `reference/resolved-skills.json` with resolved Skill sources, descriptions, hashes, references, and script summaries.
+- real Skill evidence: generated output must include `reference/resolved-skills.json` with resolved Skill sources, descriptions, hashes, references, script summaries, and `sourceSummaries` distilled from `SKILL.md` bodies.
 
 Engine is the runtime semantic foundation, but CLI remains the internal deterministic backend and not the user-facing workflow.
 
@@ -93,6 +94,8 @@ Common commands:
 ```bash
 comet bundle candidates --json
 comet bundle factory-init <name> --file <plan.json> --json
+comet bundle factory-resolve <name> --candidate <query> --source <root-or-hash> --json
+comet bundle factory-resolve <name> --candidate <query> --ignore-missing --reason <reason> --json
 comet bundle draft create <name> --json
 comet bundle draft optimize <bundle> --json
 comet bundle status <name> --json
@@ -105,6 +108,22 @@ comet bundle review <name> --approve --reviewer <reviewer> --json
 comet bundle review <name> --reject --reviewer <reviewer> --json
 comet bundle publish <name> --platform <reference-platform> --json
 comet bundle distribute <name> --platform <id> --scope project --json
+```
+
+## Runner Modes
+
+When `runnerMode=change`, generated Skill run state is bound to an OpenSpec change directory. When
+`runnerMode=standalone`, the generated Skill must not assume a change exists; the internal runner
+uses `.comet/runs/<run-id>` for the same Run state, trajectory, artifacts, snapshot, and Eval
+evidence.
+
+Common internal commands:
+
+```bash
+comet skill run <skill> --run-id <run-id> --json
+comet skill resume --run-id <run-id> --json
+comet skill resume --run-id <run-id> --status succeeded --summary <summary> --json
+comet skill eval --run-id <run-id> --scope completion --json
 ```
 
 ## Distribution Gates

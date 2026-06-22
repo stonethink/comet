@@ -23,6 +23,7 @@ import {
   bundleEvalRecordCommand,
   bundleFactoryInitCommand,
   bundleFactoryGenerateCommand,
+  bundleFactoryResolveCommand,
   bundlePublishCommand,
   bundleReviewSummaryCommand,
   bundleReviewCommand,
@@ -146,7 +147,8 @@ skill
 skill
   .command('run <skill>')
   .description('Start a deterministic Comet Skill Run')
-  .requiredOption('--change <dir>', 'Change directory that owns the Run')
+  .option('--change <dir>', 'Change directory that owns the Run')
+  .option('--run-id <id>', 'Standalone Run id stored under .comet/runs/<id>')
   .option('--project <dir>', 'Project root used for Skill discovery', '.')
   .option('--confirm <ref>', 'Confirm a guarded reference', collect, [])
   .option('--json', 'Output as JSON')
@@ -157,7 +159,8 @@ skill
 skill
   .command('resume')
   .description('Resume a Comet Skill Run or submit its pending action outcome')
-  .requiredOption('--change <dir>', 'Change directory that owns the Run')
+  .option('--change <dir>', 'Change directory that owns the Run')
+  .option('--run-id <id>', 'Standalone Run id stored under .comet/runs/<id>')
   .option('--project <dir>', 'Project root used for Skill discovery', '.')
   .addOption(
     new Option('--status <status>', 'Pending action outcome').choices(['succeeded', 'failed']),
@@ -175,7 +178,9 @@ skill
 skill
   .command('eval')
   .description('Evaluate runtime checks against a Comet Skill Run')
-  .requiredOption('--change <dir>', 'Change directory that owns the Run')
+  .option('--change <dir>', 'Change directory that owns the Run')
+  .option('--run-id <id>', 'Standalone Run id stored under .comet/runs/<id>')
+  .option('--project <dir>', 'Project root used for standalone Run lookup', '.')
   .addOption(
     new Option('--scope <scope>', 'Runtime eval scope')
       .choices(['progress', 'step', 'completion'])
@@ -247,6 +252,19 @@ bundle
   .option('--json', 'Output as JSON')
   .action(async (name, options) => {
     await bundleFactoryGenerateCommand(name, options);
+  });
+
+bundle
+  .command('factory-resolve <name>')
+  .description('Resolve a missing or ambiguous Bundle factory Skill candidate')
+  .option('--project <dir>', 'Project root', '.')
+  .requiredOption('--candidate <query>', 'Factory candidate query')
+  .option('--source <root-or-hash>', 'Selected source root or exact source hash')
+  .option('--ignore-missing', 'Ignore a missing preference and remove it from the call chain')
+  .option('--reason <text>', 'Reason for ignoring a missing preference')
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await bundleFactoryResolveCommand(name, options);
   });
 
 bundle

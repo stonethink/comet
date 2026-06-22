@@ -71,6 +71,18 @@ Then pass candidates through `find-skill` to resolve real sources. Do not infer 
 List every `missing` and `ambiguous` item, then pause and ask the user how to handle it. Do not silently ignore missing candidates, and do not choose among multiple sources on the user's behalf.
 If the backend returns `unresolved factory Skill candidates`, return to this step and resolve the missing or ambiguous items before generation continues.
 
+After the user chooses a concrete source, update state through the internal backend:
+
+```bash
+comet bundle factory-resolve <name> --candidate <query> --source <root-or-hash> --json
+```
+
+When the user explicitly agrees to ignore a missing preference, record the reason:
+
+```bash
+comet bundle factory-resolve <name> --candidate <query> --ignore-missing --reason <reason> --json
+```
+
 ### 5. Read Real Candidate Implementations
 
 Read candidate `SKILL.md`, then read referenced references, rules, scripts, and hooks as needed. This step only reads real implementation files; never execute candidate scripts.
@@ -118,14 +130,25 @@ Prefer native `skill-creator` to generate or optimize the Comet-native Skill. If
 
 Generate entry Skills, internal Skills, references, and scripts. The user does not need to run `comet bundle` or `comet skill` manually; those are internal backend steps.
 
-Generated output must include a real Skill evidence summary and write structured evidence to
-`reference/resolved-skills.json`. The summary should cite resolved Skill names, sources,
-descriptions, and hashes to prove composition used real local content instead of name-only guesses.
+Generated output must include real Skill evidence plus a composed workflow section, and write
+structured evidence to `reference/resolved-skills.json`. The summary should cite resolved Skill
+names, sources, descriptions, hashes, and excerpts distilled from real `SKILL.md` bodies.
+`resolved-skills.json` must include `sourceSummaries` to prove composition used real local content
+instead of name-only guesses.
 
 ### 10. Generate the Engine Package
 
 For multi-step or higher-risk output, generate `comet/skill.yaml`, `guardrails.yaml`, and `evals.yaml`.
 The Engine Package must match the call chain, guardrails, runtime evals, and script side-effect declarations.
+
+If `runnerMode` is `standalone`, the generated Skill should instruct the Agent to store run state
+under `.comet/runs/<run-id>`. When persistent execution is needed, the internal runner entry is:
+
+```bash
+comet skill run <skill> --run-id <run-id> --json
+comet skill resume --run-id <run-id> --status succeeded --summary <summary> --json
+comet skill eval --run-id <run-id> --scope completion --json
+```
 
 ### 11. Compile and Validate
 

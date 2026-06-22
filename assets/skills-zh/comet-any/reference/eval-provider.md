@@ -32,7 +32,7 @@ Eval 通过后仍必须人工批准。评审摘要至少包含：
 
 - Bundle 名称、版本、hash。
 - 多个 entry 与 internal Skill 列表。
-- `planHash` 与 `reference/resolved-skills.json` 真实 Skill 证据。
+- `planHash` 与 `reference/resolved-skills.json` 真实 Skill 证据，包括 `sourceSummaries` 与“组合后的工作方式”摘要。
 - 推荐调用顺序与 `preferenceIndex`。
 - 偏离偏好顺序的项和原因。
 - 是否生成 `comet/skill.yaml`、`guardrails.yaml`、`evals.yaml`。

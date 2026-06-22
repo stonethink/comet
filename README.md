@@ -248,15 +248,17 @@ comet skill install ./my-skill --project .
 comet skill validate my-skill --project .
 comet skill inspect my-skill --json
 comet skill run my-skill --change ./changes/demo
+comet skill run my-skill --run-id demo-run --project .
 comet skill resume --change ./changes/demo
+comet skill resume --run-id demo-run --project .
 comet skill resume --change ./changes/demo --status succeeded --summary "Done" --artifact report=report.md
 comet skill eval --change ./changes/demo --scope completion
 comet skill resume --change ./changes/demo --upgrade my-skill --project .
 ```
 
-All six subcommands support `--json`. `run` supports deterministic Skills in Plan 3; adaptive execution requires an
-Agent candidate. Project Skills override built-ins by name, and invalid overrides fail closed instead of silently
-falling back.
+All six subcommands support `--json`. Runs can bind to a `--change` directory or use `--run-id` under
+`.comet/runs/<run-id>`. `run` supports deterministic Skills in Plan 3; adaptive execution requires an Agent candidate.
+Project Skills override built-ins by name, and invalid overrides fail closed instead of silently falling back.
 
 </details>
 
@@ -269,12 +271,16 @@ Eval evidence, and must receive human approval before publishing or distribution
 
 ```bash
 comet bundle candidates --project . --json
+comet bundle factory-init my-bundle --file ./plan.json --json
+comet bundle factory-resolve my-bundle --candidate review-flow --source ./skills/review-flow --json
+comet bundle factory-generate my-bundle --json
 comet bundle draft create my-bundle --project .
 comet bundle draft optimize ./bundle-source --project .
 comet bundle status my-bundle --json
 comet bundle compile my-bundle --platform claude --json
 comet bundle eval-plan my-bundle --level quick --json
 comet bundle eval-record my-bundle --result ./eval.json --json
+comet bundle review-summary my-bundle --platform claude --json
 comet bundle review my-bundle --approve --reviewer alice --json
 comet bundle publish my-bundle --platform claude --json
 comet bundle distribute my-bundle --platform claude --scope project --confirm-executables --json
@@ -283,8 +289,9 @@ comet bundle distribute my-bundle --platform claude --scope project --confirm-ex
 `/comet-any` is the Comet Skill Factory: users invoke the Skill and describe the workflow they want to create or
 optimize. Comet reads `.comet/skills.txt`, locates real local Skill contents, preserves the recommended call order when
 possible, and internally uses CLI backends for validation, Eval, publishing, and optional distribution. The generation
-flow persists a normalized plan, real Skill evidence, and a review summary; missing or ambiguous candidates pause for
-user resolution first. Required capability gaps cancel a platform, optional gaps require explicit `--skip-capability`,
+flow persists a normalized plan, real Skill evidence with `sourceSummaries`, the composed workflow, and a review
+summary; missing or ambiguous candidates pause for `factory-resolve` first. Standalone recoverable runs use
+`.comet/runs/<run-id>`. Required capability gaps cancel a platform, optional gaps require explicit `--skip-capability`,
 and hooks/scripts require executable confirmation. Distribution supports both `project` and `global` scopes.
 
 </details>

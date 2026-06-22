@@ -29,6 +29,11 @@ export interface ManualRunResult {
   reason?: string;
 }
 
+export interface StartManualRunOptions {
+  confirmations?: Iterable<string>;
+  runId?: string;
+}
+
 export interface ResumeManualRunOptions {
   outcome?: Omit<ActionOutcome, 'actionId'>;
   confirmations?: Iterable<string>;
@@ -114,11 +119,21 @@ async function evaluateAndRecord(
   return results;
 }
 
+function normalizeStartOptions(
+  value: Iterable<string> | StartManualRunOptions,
+): StartManualRunOptions {
+  if (value && typeof value === 'object' && ('confirmations' in value || 'runId' in value)) {
+    return value;
+  }
+  return { confirmations: value as Iterable<string> };
+}
+
 export async function startManualRun(
   pkg: SkillPackage,
   changeDir: string,
-  confirmations: Iterable<string> = [],
+  options: Iterable<string> | StartManualRunOptions = [],
 ): Promise<ManualRunResult> {
+  const startOptions = normalizeStartOptions(options);
   if (pkg.definition.orchestration.mode === 'adaptive') {
     throw new Error('Adaptive orchestration requires an Agent candidate');
   }
@@ -127,14 +142,14 @@ export async function startManualRun(
   }
 
   const snapshot = await createSkillSnapshot(pkg, changeDir);
-  const state = startRun(pkg, randomUUID(), snapshot.hash);
+  const state = startRun(pkg, startOptions.runId ?? randomUUID(), snapshot.hash);
   await writeRunState(changeDir, state);
   await appendEvent(changeDir, state, 'run_started', {
     skill: state.skill,
     skillVersion: state.skillVersion,
     skillHash: state.skillHash,
   });
-  return persistDecision(changeDir, state, pkg, confirmations);
+  return persistDecision(changeDir, state, pkg, startOptions.confirmations ?? []);
 }
 
 export async function resumeManualRun(

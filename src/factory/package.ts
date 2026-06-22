@@ -1,7 +1,31 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { stringify } from 'yaml';
-import type { FactorySkillPackagePlan, GeneratedFactorySkillPackage } from './types.js';
+import type {
+  FactoryResolvedSkill,
+  FactorySkillPackagePlan,
+  GeneratedFactorySkillPackage,
+} from './types.js';
+
+interface ResolvedSkillSourceSummary {
+  query: string;
+  preferenceIndex: number | null;
+  status: FactoryResolvedSkill['status'];
+  source: {
+    name: string;
+    platform: string;
+    scope: string;
+    root: string;
+    hash: string;
+    description: string;
+    references: Array<{ path: string; contentHash: string }>;
+    scripts: Array<{
+      path: string;
+      sideEffect: 'unknown' | 'none' | 'read' | 'write' | 'external';
+    }>;
+  };
+  summary: string;
+}
 
 function slug(value: string): string {
   return value
@@ -14,26 +38,91 @@ function stepId(index: number, skill: string): string {
   return `step-${index + 1}-${slug(skill)}`;
 }
 
+function stripFrontmatter(markdown: string): string {
+  return markdown.replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/u, '');
+}
+
+function summarizeSkillMarkdown(markdown: string): string {
+  const lines: string[] = [];
+  let inFence = false;
+  for (const rawLine of stripFrontmatter(markdown).split(/\r?\n/u)) {
+    const line = rawLine.trim();
+    if (line.startsWith('```')) {
+      inFence = !inFence;
+      continue;
+    }
+    if (
+      inFence ||
+      line.length === 0 ||
+      line.startsWith('#') ||
+      /^[-*_]{3,}$/u.test(line) ||
+      /^<\/?[A-Z-]+>/u.test(line)
+    ) {
+      continue;
+    }
+    lines.push(line.replace(/^[-*]\s+/u, ''));
+    if (lines.length >= 3) break;
+  }
+  const summary = lines.join(' ').replace(/\s+/gu, ' ').trim();
+  return summary.length > 600 ? `${summary.slice(0, 597).trimEnd()}...` : summary;
+}
+
+function buildSourceSummaries(plan: FactorySkillPackagePlan): ResolvedSkillSourceSummary[] {
+  return (plan.resolvedSkills ?? []).flatMap((skill) =>
+    skill.sources.map((source) => ({
+      query: skill.query,
+      preferenceIndex: skill.preferenceIndex,
+      status: skill.status,
+      source: {
+        name: source.name,
+        platform: source.platform,
+        scope: source.scope,
+        root: source.root,
+        hash: source.hash,
+        description: source.description,
+        references: source.references ?? [],
+        scripts: source.scripts ?? [],
+      },
+      summary: summarizeSkillMarkdown(source.skillMd),
+    })),
+  );
+}
+
 function skillMarkdown(plan: FactorySkillPackagePlan): string {
+  const sourceSummaries = buildSourceSummaries(plan);
+  const summaryBySkill = new Map<string, ResolvedSkillSourceSummary[]>();
+  for (const summary of sourceSummaries) {
+    const entries = summaryBySkill.get(summary.query) ?? [];
+    entries.push(summary);
+    summaryBySkill.set(summary.query, entries);
+  }
   const callChain =
     plan.callChain.length === 0
       ? '1. checkpoint'
       : plan.callChain.map((item, index) => `${index + 1}. ${item.skill}`).join('\n');
+  const workflow =
+    plan.callChain.length === 0
+      ? '1. checkpoint: 完成一次显式检查点。'
+      : plan.callChain
+          .map((item, index) => {
+            const summaries = summaryBySkill.get(item.skill) ?? [];
+            const primary = summaries[0];
+            const detail = primary?.summary
+              ? ` ${primary.summary}`
+              : (primary?.source.description ?? '按该 Skill 的真实说明执行。');
+            return `${index + 1}. \`${item.skill}\`: ${detail}`;
+          })
+          .join('\n');
   const evidence =
-    !plan.resolvedSkills || plan.resolvedSkills.length === 0
+    sourceSummaries.length === 0
       ? '尚未记录 resolved Skill 证据。'
-      : plan.resolvedSkills
-          .map((skill) => {
-            const sources =
-              skill.sources.length === 0
-                ? 'no sources'
-                : skill.sources
-                    .map((source) => {
-                      const description = source.description ? ` - ${source.description}` : '';
-                      return `${source.name}@${source.platform} ${source.hash.slice(0, 12)}${description}`;
-                    })
-                    .join('; ');
-            return `- ${skill.query} (${skill.status}, preferenceIndex=${skill.preferenceIndex ?? 'none'}): ${sources}`;
+      : sourceSummaries
+          .map((summary) => {
+            const description = summary.source.description
+              ? ` - ${summary.source.description}`
+              : '';
+            const excerpt = summary.summary ? ` 摘要：${summary.summary}` : '';
+            return `- ${summary.query} (${summary.status}, preferenceIndex=${summary.preferenceIndex ?? 'none'}): ${summary.source.name}@${summary.source.platform} ${summary.source.hash.slice(0, 12)}${description}${excerpt}`;
           })
           .join('\n');
   const deviations =
@@ -62,6 +151,10 @@ ${plan.goal}
 ## 调用链
 
 ${callChain}
+
+## 组合后的工作方式
+
+${workflow}
 
 ## 偏离偏好顺序
 
@@ -157,6 +250,7 @@ export async function generateFactorySkillPackage(
       {
         schemaVersion: 1,
         resolvedSkills: plan.resolvedSkills ?? [],
+        sourceSummaries: buildSourceSummaries(plan),
       },
       null,
       2,

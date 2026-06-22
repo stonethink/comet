@@ -24,6 +24,11 @@ export interface FactoryResolvedSkill {
     root: string;
     description: string;
     skillMd: string;
+    references?: Array<{ path: string; contentHash: string }>;
+    scripts?: Array<{
+      path: string;
+      sideEffect: 'unknown' | 'none' | 'read' | 'write' | 'external';
+    }>;
     hash: string;
   }>;
 }

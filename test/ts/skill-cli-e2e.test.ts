@@ -150,4 +150,63 @@ describe('comet skill CLI end to end', () => {
       evals: [{ evalId: 'report', passed: true }],
     });
   });
+
+  it('runs a project Skill through a standalone .comet/runs/<run-id> directory', async () => {
+    const started = runCli(
+      'skill',
+      'run',
+      'demo',
+      '--project',
+      projectRoot,
+      '--run-id',
+      'standalone-demo',
+      '--json',
+    );
+    expect(started.status, started.stderr).toBe(0);
+    expect(JSON.parse(started.stdout)).toMatchObject({
+      state: { status: 'waiting', skill: 'demo', runId: 'standalone-demo' },
+      action: { type: 'checkpoint', stepId: 'finish' },
+    });
+
+    const resumed = runCli(
+      'skill',
+      'resume',
+      '--project',
+      projectRoot,
+      '--run-id',
+      'standalone-demo',
+      '--status',
+      'succeeded',
+      '--summary',
+      'Finished',
+      '--artifact',
+      'report=report.md',
+      '--json',
+    );
+    expect(resumed.status, resumed.stderr).toBe(0);
+    expect(JSON.parse(resumed.stdout)).toMatchObject({
+      state: { status: 'completed', runId: 'standalone-demo' },
+      evals: [{ evalId: 'report', passed: true }],
+    });
+
+    const evaluated = runCli(
+      'skill',
+      'eval',
+      '--project',
+      projectRoot,
+      '--run-id',
+      'standalone-demo',
+      '--scope',
+      'completion',
+      '--json',
+    );
+    expect(evaluated.status, evaluated.stderr).toBe(0);
+    expect(JSON.parse(evaluated.stdout)).toMatchObject({
+      scope: 'completion',
+      evals: [{ evalId: 'report', passed: true }],
+    });
+    await expect(
+      fs.access(path.join(projectRoot, '.comet', 'runs', 'standalone-demo', '.comet', 'run-state.json')),
+    ).resolves.toBeUndefined();
+  });
 });

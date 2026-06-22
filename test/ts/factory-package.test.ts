@@ -45,7 +45,17 @@ describe('Factory skill package generation', () => {
               factory: { query: 'brainstorming' },
               root: path.join(root, '.codex', 'skills', 'brainstorming'),
               description: 'Explore intent before implementation.',
-              skillMd: '# Brainstorming\n',
+              skillMd: `---
+name: brainstorming
+description: Explore intent before implementation.
+---
+
+# Brainstorming
+
+Start by understanding the current project context.
+
+Ask clarifying questions one at a time before presenting a design.
+`,
               hash: 'a'.repeat(64),
             },
           ],
@@ -70,6 +80,9 @@ describe('Factory skill package generation', () => {
     expect(skill).toContain('真实 Skill 证据');
     expect(skill).toContain('brainstorming');
     expect(skill).toContain('Explore intent before implementation.');
+    expect(skill).toContain('组合后的工作方式');
+    expect(skill).toContain('Start by understanding the current project context.');
+    expect(skill).toContain('Ask clarifying questions one at a time');
     const evidence = JSON.parse(
       await fs.readFile(path.join(output.packageRoot, 'reference', 'resolved-skills.json'), 'utf8'),
     ) as unknown;
@@ -80,6 +93,13 @@ describe('Factory skill package generation', () => {
           query: 'brainstorming',
           status: 'available',
           sources: [{ hash: 'a'.repeat(64) }],
+        },
+      ],
+      sourceSummaries: [
+        {
+          query: 'brainstorming',
+          source: { hash: 'a'.repeat(64) },
+          summary: expect.stringContaining('Start by understanding the current project context.'),
         },
       ],
     });

@@ -5,6 +5,12 @@ import {
   startManualRun,
   upgradeManualRun,
 } from '../engine/manual-run.js';
+import {
+  evaluateStandaloneRun,
+  resumeStandaloneRun,
+  startStandaloneRun,
+  upgradeStandaloneRun,
+} from '../engine/standalone-run.js';
 import { resolveSkill } from '../skill/discovery.js';
 import { installProjectSkill } from '../skill/install.js';
 
@@ -13,6 +19,7 @@ interface SkillCommandOptions {
   json?: boolean;
   overwrite?: boolean;
   change?: string;
+  runId?: string;
   status?: 'succeeded' | 'failed';
   summary?: string;
   artifact?: string[];
@@ -33,6 +40,12 @@ function emit(value: unknown, json: boolean | undefined, text: string): void {
 function changeDir(options: SkillCommandOptions): string {
   if (!options.change) throw new Error('--change is required');
   return path.resolve(options.change);
+}
+
+function assertSingleRunTarget(options: SkillCommandOptions): void {
+  if (Boolean(options.change) === Boolean(options.runId)) {
+    throw new Error('Pass exactly one of --change or --run-id');
+  }
 }
 
 function keyValuePairs(values: string[] | undefined, label: string): Record<string, string> {
@@ -146,13 +159,22 @@ export async function skillRunCommand(
   selector: string,
   options: SkillCommandOptions = {},
 ): Promise<void> {
+  assertSingleRunTarget(options);
   const resolved = await resolveSkill(selector, { projectRoot: projectRoot(options) });
-  const result = await startManualRun(resolved.package, changeDir(options), options.confirm ?? []);
+  const result = options.runId
+    ? await startStandaloneRun(resolved.package, {
+        projectRoot: projectRoot(options),
+        runId: options.runId,
+        confirmations: options.confirm ?? [],
+      })
+    : await startManualRun(resolved.package, changeDir(options), options.confirm ?? []);
   emit(result, options.json, runText(result));
 }
 
 export async function skillResumeCommand(options: SkillCommandOptions = {}): Promise<void> {
-  const target = changeDir(options);
+  assertSingleRunTarget(options);
+  const root = projectRoot(options);
+  const target = options.runId ? null : changeDir(options);
   if (options.upgrade) {
     if (
       options.status ||
@@ -163,9 +185,11 @@ export async function skillResumeCommand(options: SkillCommandOptions = {}): Pro
       throw new Error('--upgrade cannot be combined with outcome options');
     }
     const resolved = await resolveSkill(options.upgrade, {
-      projectRoot: projectRoot(options),
+      projectRoot: root,
     });
-    const result = await upgradeManualRun(target, resolved.package);
+    const result = options.runId
+      ? await upgradeStandaloneRun(root, options.runId, resolved.package)
+      : await upgradeManualRun(target!, resolved.package);
     emit(
       result,
       options.json,
@@ -184,7 +208,7 @@ export async function skillResumeCommand(options: SkillCommandOptions = {}): Pro
     throw new Error('--summary is required when submitting an outcome');
   }
 
-  const result = await resumeManualRun(target, {
+  const resumeOptions = {
     confirmations: options.confirm ?? [],
     outcome: options.status
       ? {
@@ -194,12 +218,18 @@ export async function skillResumeCommand(options: SkillCommandOptions = {}): Pro
           state: keyValuePairs(options.state, '--state'),
         }
       : undefined,
-  });
+  };
+  const result = options.runId
+    ? await resumeStandaloneRun(root, options.runId, resumeOptions)
+    : await resumeManualRun(target!, resumeOptions);
   emit(result, options.json, runText(result));
 }
 
 export async function skillEvalCommand(options: SkillCommandOptions = {}): Promise<void> {
-  const result = await evaluateManualRun(changeDir(options), options.scope ?? 'progress');
+  assertSingleRunTarget(options);
+  const result = options.runId
+    ? await evaluateStandaloneRun(projectRoot(options), options.runId, options.scope ?? 'progress')
+    : await evaluateManualRun(changeDir(options), options.scope ?? 'progress');
   emit(
     result,
     options.json,
