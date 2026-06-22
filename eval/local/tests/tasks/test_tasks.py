@@ -155,11 +155,19 @@ def test_task_treatment(task_name, treatment_name):
         template_vars[var_name] = var_template.format(run_id=run_id)
 
     prompt = task.render_prompt(**template_vars)
+    target_profile = None
+    if treatment_cfg.skills:
+        target_profile = treatment_cfg.skills[0].get("profile")
+    profile_name = resolve_profile_name(
+        task,
+        override=fixtures.request_config.getoption("--profile"),
+        target_profile=target_profile,
+    )
+    interaction = conftest._resolve_interaction_config(task, profile_name, fixtures.request_config)
 
-    result = fixtures.run_claude(prompt, timeout=CLAUDE_TIMEOUT)
+    result = fixtures.run_claude(prompt, timeout=CLAUDE_TIMEOUT, interaction=interaction)
 
     events = extract_events(parse_output(result.stdout))
-    profile_name = resolve_profile_name(task)
     outputs = {
         "run_id": run_id,
         "treatment_name": treatment_name,
@@ -169,8 +177,8 @@ def test_task_treatment(task_name, treatment_name):
         "expected_artifacts": task.config.evaluation.expected_artifacts,
         "require_skill_invocation": task.config.evaluation.require_skill_invocation,
         "interaction": {
-            "mode": task.config.interaction.mode,
-            "max_turns": task.config.interaction.max_turns,
+            "mode": interaction.mode,
+            "max_turns": interaction.max_turns,
         },
     }
 

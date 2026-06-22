@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import conftest
+from scaffold.python.tasks import load_task
 
 
 def test_file_lock_context_manager_allows_exclusive_writes(tmp_path: Path):
@@ -58,3 +59,40 @@ def test_dynamic_treatment_config_from_skill_path(tmp_path: Path):
             "profile": "generic",
         }
     ]
+
+
+def test_resolve_interaction_config_prefers_cli_mode():
+    task = load_task("comet-full-workflow")
+
+    class Config:
+        def getoption(self, name):
+            values = {
+                "--interaction-mode": "none",
+                "--max-turns": "5",
+                "--simulator-prompt": "Use CLI override.",
+            }
+            return values.get(name)
+
+    interaction = conftest._resolve_interaction_config(task, "comet-workflow", Config())
+
+    assert interaction.mode == "none"
+    assert interaction.max_turns == 5
+    assert interaction.simulator_prompt == "Use CLI override."
+
+
+def test_resolve_interaction_config_uses_profile_default_prompt():
+    task = load_task("comet-full-workflow")
+
+    class Config:
+        def getoption(self, name):
+            return {
+                "--interaction-mode": "auto_user",
+                "--max-turns": None,
+                "--simulator-prompt": None,
+            }.get(name)
+
+    interaction = conftest._resolve_interaction_config(task, "generic", Config())
+
+    assert interaction.mode == "auto_user"
+    assert interaction.max_turns == 12
+    assert interaction.simulator_prompt is not None
