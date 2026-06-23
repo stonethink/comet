@@ -6,13 +6,19 @@ description: "创建或优化用户可直接调用的 Comet-native Skill。用 /
 # Comet Any — Comet Skill Factory
 
 `/comet-any` 是 Comet Skill Factory。用户只需要调用本 Skill，描述想创建或优化的工作流；
-本 Skill 会读取用户偏好、用 `find-skill` 查找本地真实 Skill 内容，组合出 Comet-native
-Skill，并在内部调用 CLI 后端完成校验、Eval、发布和可选分发。CLI 是内部确定性后端，
-不是用户主流程。
+本 Skill 会读取用户偏好、用 `find-skill` 查找本地真实 Skill 内容，生成稳定组合 Skill Bundle，
+再在内部调用 CLI 后端完成校验、Eval、发布和可选分发。CLI 是内部确定性后端，不是用户主流程。
+普通用户路径必须收束为 `/comet-any -> comet eval -> comet publish -> distribute`；其中 `comet skill`
+是底层 Skill 工具（Low-level Skill utilities），`comet bundle` 是高级 Bundle 后端（Advanced Bundle backend）。
 
 <IMPORTANT>
 Engine 是运行语义底座。多步骤、需要恢复、需要 guardrails、需要 runtime evals
-或包含脚本副作用的生成物，必须生成 `comet/skill.yaml`、`guardrails.yaml` 和 `evals.yaml`。
+或包含脚本副作用的生成物，必须生成稳定组合 Skill Bundle，而不是只产出一个 `SKILL.md`。
+稳定组合 Skill Bundle 的 required capability set（必需能力集合）是 `skills/scripts/rules/hooks/references`，
+其中 `scripts/rules/hooks` 是 required control plane，不能当作可随意删除的附属文件；`hooks/*.yaml`
+是 Comet portable hook descriptor，只有通过 `comet publish distribute` 编译到目标平台配置后才会生效。
+Bundle 至少包含 `SKILL.md`、`comet/skill.yaml`、`comet/guardrails.yaml`、`comet/checks.yaml`、
+`comet/eval.yaml`、`scripts`、`rules`、`hooks`、`reference` 和 `bundle.yaml`。
 轻量单步 Skill 可以不启用 Engine，但必须向用户说明会失去 Run 恢复和 runtime eval。
 </IMPORTANT>
 
@@ -140,8 +146,8 @@ comet bundle status <name> --json
 
 优先使用原生 `skill-creator` 生成或优化 Comet-native Skill；原生 creator 不可用时，必须先说明差异与风险，再询问用户是否允许 Comet fallback。
 
-生成 entry Skill、internal Skill、references 和 scripts。用户不需要手动运行 `comet bundle`
-或 `comet skill`；所有这些都是内部后端步骤。
+生成 entry Skill、internal Skill、references、scripts、rules 和 hooks。用户不需要手动运行
+`comet bundle` 或 `comet skill`；所有这些都是内部后端步骤。
 
 生成物必须包含真实 Skill 证据摘要和“组合后的工作方式”，并把结构化证据写入
 `reference/resolved-skills.json`。摘要应引用 resolved Skill 的名称、来源、描述、hash 和从真实
@@ -149,8 +155,9 @@ comet bundle status <name> --json
 
 ### 10. 生成 Engine Package
 
-为多步骤或高风险生成物生成 `comet/skill.yaml`、`guardrails.yaml` 和 `evals.yaml`。
-Engine Package 必须与调用链、guardrails、runtime evals 和脚本副作用声明一致。
+为多步骤或高风险生成物生成 `comet/skill.yaml`、`comet/guardrails.yaml`、`comet/checks.yaml`
+和 `comet/eval.yaml`。Engine Package 必须与调用链、guardrails、runtime checks、runtime evals、
+scripts/rules/hooks control plane 和脚本副作用声明一致。
 Engine-enabled 生成物还必须写入 `comet/eval.yaml`，默认使用 `authoring-skill`
 profile 和 `authoring-skill-smoke` quick eval。
 

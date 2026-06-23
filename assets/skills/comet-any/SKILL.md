@@ -7,16 +7,25 @@ description: "Create or optimize a user-facing Comet-native Skill. Use /comet-an
 
 `/comet-any` is the Comet Skill Factory. The user only invokes this Skill and describes the
 workflow they want to create or optimize. This Skill reads user preferences, uses `find-skill`
-to locate real local Skill contents, composes a Comet-native Skill, and internally calls CLI
-backends for validation, Eval, publishing, and optional distribution. CLI is the internal
-deterministic backend, not the user-facing workflow.
+to locate real local Skill contents, generates a stable composed Skill Bundle, and internally
+calls CLI backends for validation, Eval, publishing, and optional distribution. CLI is the
+internal deterministic backend, not the user-facing workflow. The ordinary user path must stay
+`/comet-any -> comet eval -> comet publish -> distribute`; `comet skill` is Low-level Skill
+utilities, and `comet bundle` is the Advanced Bundle backend.
 
 <IMPORTANT>
 Engine is the runtime semantic foundation for generated Skills. Generated workflows with multiple
 steps, recovery needs, guardrails, runtime evals, or script side effects must generate
-`comet/skill.yaml`, `guardrails.yaml`, and `evals.yaml`. A lightweight single-step Skill may skip
-Engine, but the user must be told that Run recovery and runtime evals will be unavailable. In other
-words, lightweight single-step Skills can skip Engine only when the capability loss is disclosed.
+stable composed Skill Bundles, not only a `SKILL.md` file. The Bundle includes `SKILL.md`,
+`comet/skill.yaml`, `comet/guardrails.yaml`, `comet/checks.yaml`, `comet/eval.yaml`, `scripts`,
+`rules`, `hooks`, `reference`, and `bundle.yaml`. `scripts/rules/hooks` are the required control
+plane, and `hooks/*.yaml` files are Comet portable hook descriptors that become active only after
+`comet publish distribute` compiles them into a target platform configuration. The stable composed
+Skill Bundle required capability set is `skills/scripts/rules/hooks/references`, with
+`scripts/rules/hooks` as the required control plane. A lightweight
+single-step Skill may skip Engine, but the user must be told that Run recovery and runtime evals
+will be unavailable. In other words, lightweight single-step Skills can skip Engine only when the
+capability loss is disclosed.
 </IMPORTANT>
 
 ## References
@@ -144,7 +153,7 @@ comet bundle status <name> --json
 
 Prefer native `skill-creator` to generate or optimize the Comet-native Skill. If the native creator is unavailable, explain the difference and risk first, then ask whether the user allows the Comet fallback.
 
-Generate entry Skills, internal Skills, references, and scripts. The user does not need to run `comet bundle` or `comet skill` manually; those are internal backend steps.
+Generate entry Skills, internal Skills, references, scripts, rules, and hooks. The user does not need to run `comet bundle` or `comet skill` manually; those are internal backend steps.
 
 Generated output must include real Skill evidence plus a composed workflow section, and write
 structured evidence to `reference/resolved-skills.json`. The summary should cite resolved Skill
@@ -154,8 +163,8 @@ instead of name-only guesses.
 
 ### 10. Generate the Engine Package
 
-For multi-step or higher-risk output, generate `comet/skill.yaml`, `guardrails.yaml`, and `evals.yaml`.
-The Engine Package must match the call chain, guardrails, runtime evals, and script side-effect declarations.
+For multi-step or higher-risk output, generate `comet/skill.yaml`, `comet/guardrails.yaml`, `comet/checks.yaml`, and `comet/eval.yaml`.
+The Engine Package must match the call chain, guardrails, runtime checks, runtime evals, the scripts/rules/hooks control plane, and script side-effect declarations.
 For Engine-enabled generated Skills, Factory also writes `comet/eval.yaml` using the `authoring-skill`
 profile and the `authoring-skill-smoke` quick eval.
 

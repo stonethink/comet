@@ -2,11 +2,11 @@
 
 本文只讲新版本推荐开放给用户的路径：通过 `/comet-any` 创建、优化、组合、验证并分发可复用 Skill。
 
-暂不把“手工编写 `comet/skill.yaml` 编排多个 Skill”作为用户路径开放。那是底层能力，当前文档只把它作为 `/comet-any` 的内部产物解释。
+暂不把“手工编写 `comet/skill.yaml` 编排多个 Skill”作为用户路径开放。那是底层 Skill 工具（Low-level Skill utilities）覆盖的能力，当前文档只把它作为 `/comet-any` 的内部产物解释。
 
 ## `/comet-any` 是什么
 
-`/comet-any` 是 Comet 的 Skill Factory。用户描述想要的工作流，它负责把目标、已有 Skill、平台约束、Eval 证据和发布门禁组织成一个可验证、可分发的 Skill / Bundle。
+`/comet-any` 是 Comet 的 Skill Factory。用户描述想要的工作流，它负责把目标、已有 Skill、平台约束、Eval 证据和发布门禁组织成一个可验证、可分发的稳定组合 Skill Bundle。
 
 用户不需要先理解 Bundle 生命周期，也不需要记一串 `comet skill` 或 `comet bundle` 命令。正常使用时，你只需要：
 
@@ -14,6 +14,16 @@
 2. 在 Agent 平台里调用 `/comet-any`
 3. 描述你想创建或优化的 Skill
 4. 按 `/comet-any` 给出的 next action 处理候选、Eval、review 或分发；普通发布路径优先用 `comet publish`
+
+普通用户可把这条链路记成：
+
+```text
+/comet-any -> comet eval -> comet publish -> distribute
+```
+
+稳定组合 Skill Bundle 的 required capability set（必需能力集合）是 `skills/scripts/rules/hooks/references`；
+其中 `scripts/rules/hooks` 是 required control plane。`hooks/*.yaml` 是 Comet portable hook descriptor，
+只有通过 `comet publish distribute` 编译到目标平台后才会生效。
 
 如果你做到一半中断了，回来后可以直接说“继续上次的 Skill 创建”。`/comet-any` 会扫描可恢复的 Bundle Factory 状态，列出候选流程，再让你选择继续哪一个。
 
@@ -157,14 +167,14 @@ reference/resolved-skills.json
 ```text
 comet/skill.yaml
 comet/guardrails.yaml
-comet/evals.yaml
+comet/checks.yaml
 ```
 
 这些是内部运行语义。用户不需要手写，但它们很重要：
 
 - `skill.yaml` 描述组合后的调用链
 - `guardrails.yaml` 描述允许调用的 Skill、工具和安全边界
-- `evals.yaml` 描述运行时完成度检查
+- `checks.yaml` 描述运行时完成度检查
 
 多步骤、需要恢复、需要 guardrails、需要 runtime eval 或包含脚本副作用的生成物，都应该有这些文件。
 
@@ -186,6 +196,7 @@ comet eval run --manifest ./generated-skill/comet/eval.yaml --html
 `/comet-any` 会通过 Bundle 后端维护确定性状态。用户通常只需要看它输出的 next action 和 readiness。
 
 这里的 Bundle 可以理解为“发布和分发状态机”，不是用户要直接编写的第二种 Skill。它把一个或多个生成出的 Skill、references、rules、hooks、scripts、Eval 证据、review 结论和目标平台能力约束绑定在一起，确保后续发布和分发不是凭 Agent 记忆推进。
+其中 `scripts/rules/hooks` 不是装饰性文件，而是 required control plane。特别是 `hooks/*.yaml` 只是 Comet portable hook descriptor，只有在 `comet publish distribute` 为目标平台编译安装时才真正转成平台生效配置。
 
 关键状态包括：
 
@@ -219,7 +230,7 @@ comet eval run --manifest ./generated-skill/comet/eval.yaml --html
 ### 运行语义验证
 
 - 多步骤生成物是否启用了 Engine metadata
-- `comet/skill.yaml`、`guardrails.yaml`、`evals.yaml` 是否与组合链一致
+- `comet/skill.yaml`、`comet/guardrails.yaml`、`comet/checks.yaml` 是否与组合链一致
 - 需要恢复的 Skill 是否能保存 run state、trajectory、artifacts 和 eval 证据
 
 ### Eval 验证
@@ -294,7 +305,7 @@ Bundle = 发布、验证、分发这个能力的状态容器
 普通用户可记成这条主线：
 
 ```text
-/comet-any -> comet eval -> comet publish
+/comet-any -> comet eval -> comet publish -> distribute
 ```
 
 发布前最重要的用户可见证据是 readiness。它应该告诉你：
@@ -335,5 +346,6 @@ readiness 检查 -> 人工批准 -> 发布 -> 分发
 1. `.comet/skills.txt` 是偏好和顺序，不是严格白名单
 2. `/comet-any` 是创建、优化、组合 Skill 的主入口
 3. Bundle 是 `/comet-any` 背后的发布和分发状态机，不是用户主入口
+4. `comet skill` 是底层 Skill 工具（Low-level Skill utilities），`comet bundle` 是高级 Bundle 后端（Advanced Bundle backend）
 
 做到一半中断时，回来直接让 `/comet-any` 继续上次创建流程；它会先扫描可恢复状态，再用 next action 引导候选恢复、Eval、readiness 和平台能力细节。

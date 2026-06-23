@@ -239,39 +239,136 @@ describe('Bundle distribution', () => {
     const result = await distributeBundle({
       projectRoot,
       name: 'hook-bundle',
-      platforms: ['cursor'],
+      platforms: ['kimicode'],
       scope: 'project',
       confirmedExecutables: true,
     });
 
     expect(result.platforms[0]).toMatchObject({
-      platform: 'cursor',
+      platform: 'kimicode',
       status: 'cancelled',
+      error: expect.stringContaining('hooks'),
       unsupported: [expect.objectContaining({ capability: 'hooks', required: true })],
+      executableDisclosures: [],
+      plannedFiles: expect.arrayContaining([
+        expect.objectContaining({ kind: 'skill' }),
+        expect.objectContaining({ kind: 'script' }),
+      ]),
     });
     await expect(
-      fs.access(path.join(projectRoot, '.cursor', 'skills', 'entry', 'SKILL.md')),
+      fs.access(path.join(projectRoot, '.kimi-code', 'skills', 'entry', 'SKILL.md')),
     ).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('does not allow skipCapabilities to skip required hooks', async () => {
+    await makeReady({ name: 'required-hook-bundle', requiresHooks: true });
+
+    const result = await distributeBundle({
+      projectRoot,
+      name: 'required-hook-bundle',
+      platforms: ['kimicode'],
+      scope: 'project',
+      skipCapabilities: ['hooks'],
+      confirmedExecutables: true,
+    });
+
+    expect(result.platforms[0]).toMatchObject({
+      platform: 'kimicode',
+      status: 'cancelled',
+      error: expect.stringContaining('hooks'),
+      unsupported: [expect.objectContaining({ capability: 'hooks', required: true })],
+      executableDisclosures: [],
+      plannedFiles: expect.any(Array),
+    });
   });
 
   it('requires executable confirmation before writing hooks or scripts', async () => {
     await makeReady({ name: 'confirm-bundle', requiresHooks: true });
 
-    await expect(
-      distributeBundle({
-        projectRoot,
-        name: 'confirm-bundle',
-        platforms: ['claude'],
-        scope: 'project',
-      }),
-    ).rejects.toThrow(/executable|confirm/iu);
+    const result = await distributeBundle({
+      projectRoot,
+      name: 'confirm-bundle',
+      platforms: ['claude'],
+      scope: 'project',
+    });
+
+    expect(result.platforms[0]).toMatchObject({
+      platform: 'claude',
+      status: 'cancelled',
+      written: [],
+      skipped: [],
+      unsupported: [],
+      error: expect.stringMatching(/executable|confirm/iu),
+      executableDisclosures: [
+        expect.objectContaining({
+          id: 'protect-write',
+          sideEffect: 'read',
+          command: expect.stringContaining('verify.mjs'),
+        }),
+      ],
+      plannedFiles: expect.arrayContaining([
+        expect.objectContaining({ kind: 'skill' }),
+        expect.objectContaining({ kind: 'hook' }),
+        expect.objectContaining({ kind: 'script' }),
+      ]),
+    });
     await expect(
       fs.access(path.join(projectRoot, '.claude', 'skills', 'entry', 'SKILL.md')),
     ).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
+  it('cancels all planned platforms when any executable disclosure is unconfirmed', async () => {
+    await makeReady({ name: 'multi-confirm-bundle', requiresHooks: true });
+
+    const result = await distributeBundle({
+      projectRoot,
+      name: 'multi-confirm-bundle',
+      platforms: ['claude', 'codex'],
+      scope: 'project',
+    });
+
+    expect(result.platforms).toEqual([
+      expect.objectContaining({
+        platform: 'claude',
+        status: 'cancelled',
+        written: [],
+        skipped: [],
+        error: expect.stringMatching(/executable|confirm/iu),
+        plannedFiles: expect.arrayContaining([
+          expect.objectContaining({ kind: 'skill' }),
+          expect.objectContaining({ kind: 'hook' }),
+          expect.objectContaining({ kind: 'script' }),
+        ]),
+        executableDisclosures: [
+          expect.objectContaining({ id: 'protect-write', sideEffect: 'read' }),
+        ],
+      }),
+      expect.objectContaining({
+        platform: 'codex',
+        status: 'cancelled',
+        written: [],
+        skipped: [],
+        error: expect.stringMatching(/executable|confirm/iu),
+        plannedFiles: expect.arrayContaining([
+          expect.objectContaining({ kind: 'skill' }),
+          expect.objectContaining({ kind: 'hook' }),
+          expect.objectContaining({ kind: 'script' }),
+        ]),
+        executableDisclosures: [
+          expect.objectContaining({ id: 'protect-write', sideEffect: 'read' }),
+        ],
+      }),
+    ]);
+    await expect(
+      fs.access(path.join(projectRoot, '.claude', 'skills', 'entry', 'SKILL.md')),
+    ).rejects.toMatchObject({ code: 'ENOENT' });
+    await expect(
+      fs.access(path.join(projectRoot, '.codex', 'skills', 'entry', 'SKILL.md')),
+    ).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   it('merges hook settings non-destructively after executable confirmation', async () => {
-    await makeReady({ name: 'confirmed-hook-bundle', requiresHooks: true });
+    await makeReady({ name: 'confirmed-hook-bundle', requiresHooks: true, optionalRules: true });
     const settingsPath = path.join(projectRoot, '.claude', 'settings.local.json');
     await fs.mkdir(path.dirname(settingsPath), { recursive: true });
     await fs.writeFile(
@@ -301,6 +398,39 @@ describe('Bundle distribution', () => {
     };
 
     expect(result.platforms[0].written).toContain(settingsPath);
+    expect(result.platforms[0]).toMatchObject({
+      plannedFiles: expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'skill',
+          destination: path.join(projectRoot, '.claude', 'skills', 'entry', 'SKILL.md'),
+        }),
+        expect.objectContaining({ kind: 'hook', destination: settingsPath }),
+        expect.objectContaining({
+          kind: 'rule',
+          destination: path.join(projectRoot, '.claude', 'rules', 'workflow.md'),
+        }),
+        expect.objectContaining({
+          kind: 'script',
+          destination: path.join(
+            projectRoot,
+            '.claude',
+            'skills',
+            '.comet-bundles',
+            'confirmed-hook-bundle',
+            'scripts',
+            'verify.mjs',
+          ),
+        }),
+      ]),
+      executableDisclosures: [
+        expect.objectContaining({
+          id: 'protect-write',
+          sideEffect: 'read',
+          command: expect.stringContaining('verify.mjs'),
+          destination: settingsPath,
+        }),
+      ],
+    });
     expect(settings.hooks.PreToolUse[0].hooks.map((hook) => hook.command)).toEqual(
       expect.arrayContaining(['echo user', expect.stringContaining('verify.mjs')]),
     );
@@ -328,6 +458,10 @@ describe('Bundle distribution', () => {
     });
 
     expect(skipped.platforms[0].skipped).toContain(skillPath);
+    expect(skipped.platforms[0].plannedFiles).toContainEqual({
+      kind: 'skill',
+      destination: skillPath,
+    });
     await expect(fs.readFile(skillPath, 'utf8')).resolves.toContain('English Entry');
     expect(overwritten.platforms[0].written).toContain(skillPath);
   });
@@ -344,7 +478,12 @@ describe('Bundle distribution', () => {
 
     expect(result.platforms).toEqual([
       expect.objectContaining({ platform: 'claude', status: 'installed' }),
-      expect.objectContaining({ platform: 'missing-platform', status: 'failed' }),
+      expect.objectContaining({
+        platform: 'missing-platform',
+        status: 'failed',
+        executableDisclosures: [],
+        plannedFiles: [],
+      }),
     ]);
     await expect(
       fs.access(path.join(projectRoot, '.claude', 'skills', 'entry', 'SKILL.md')),

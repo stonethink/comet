@@ -2,9 +2,17 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
+import { parse, stringify } from 'yaml';
 import { createBundleDraft } from '../../../domains/bundle/draft.js';
 import { buildBundleReviewSummary } from '../../../domains/bundle/review-summary.js';
-import { reconcileBundleAuthoringState, writeBundleAuthoringState } from '../../../domains/bundle/state.js';
+import {
+  generateBundleDraftFromFactoryState,
+  initializeBundleFactoryState,
+} from '../../../domains/bundle/factory.js';
+import {
+  reconcileBundleAuthoringState,
+  writeBundleAuthoringState,
+} from '../../../domains/bundle/state.js';
 import type { BundleAuthoringState } from '../../../domains/bundle/types.js';
 
 async function writeMinimalBundle(root: string, name: string): Promise<void> {
@@ -96,6 +104,152 @@ engine:
   );
 }
 
+async function writeFactorySkill(projectRoot: string, name: string): Promise<void> {
+  const skillRoot = path.join(projectRoot, '.comet', 'skills', name);
+  await fs.mkdir(skillRoot, { recursive: true });
+  await fs.writeFile(
+    path.join(skillRoot, 'SKILL.md'),
+    `---\nname: ${name}\ndescription: ${name}.\n---\n\n# ${name}\n`,
+    'utf8',
+  );
+}
+
+async function createFactoryStateWithGeneratedPackage(
+  projectRoot: string,
+  name: string,
+): Promise<BundleAuthoringState> {
+  await writeFactorySkill(projectRoot, `${name}-source`);
+  const planFile = path.join(projectRoot, `${name}-plan.json`);
+  await fs.mkdir(projectRoot, { recursive: true });
+  await fs.writeFile(
+    planFile,
+    JSON.stringify(
+      {
+        goal: `Generate ${name}.`,
+        preferredSkills: [`${name}-source`],
+        callChain: [`${name}-source`],
+        engineMode: 'deterministic',
+        runnerMode: 'standalone',
+        defaultLocale: 'en',
+        locales: ['en'],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+  const initialized = await initializeBundleFactoryState({ projectRoot, name, filePath: planFile });
+  return generateBundleDraftFromFactoryState({ projectRoot, state: initialized });
+}
+
+async function writeGeneratedControlPlane(packageRoot: string): Promise<void> {
+  const draftRoot = path.resolve(packageRoot, '..', '..');
+  const name = path.basename(packageRoot);
+  await fs.mkdir(path.join(packageRoot, 'comet'), { recursive: true });
+  await fs.mkdir(path.join(packageRoot, 'reference'), { recursive: true });
+  await fs.mkdir(path.join(packageRoot, 'scripts'), { recursive: true });
+  await fs.mkdir(path.join(draftRoot, 'rules'), { recursive: true });
+  await fs.mkdir(path.join(draftRoot, 'hooks'), { recursive: true });
+  await fs.writeFile(path.join(packageRoot, 'SKILL.md'), '# Demo\n', 'utf8');
+  await fs.writeFile(path.join(packageRoot, 'comet', 'skill.yaml'), 'steps: []\n', 'utf8');
+  await fs.writeFile(
+    path.join(packageRoot, 'comet', 'guardrails.yaml'),
+    'allowedSkills: []\n',
+    'utf8',
+  );
+  await fs.writeFile(path.join(packageRoot, 'comet', 'checks.yaml'), 'runtime: []\n', 'utf8');
+  await fs.writeFile(path.join(packageRoot, 'comet', 'eval.yaml'), 'tasks: []\n', 'utf8');
+  await fs.writeFile(
+    path.join(packageRoot, 'reference', 'resolved-skills.json'),
+    '{"resolvedSkills":[]}\n',
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(packageRoot, 'reference', 'composition-report.md'),
+    '# Composition\n',
+    'utf8',
+  );
+  await fs.writeFile(path.join(packageRoot, 'scripts', 'comet-plan.mjs'), '\n', 'utf8');
+  await fs.writeFile(
+    path.join(packageRoot, 'scripts', 'comet-check.mjs'),
+    "const command = process.argv[2] ?? 'verify';\nif (command !== 'verify') throw new Error('bad');\nconsole.log('control-plane-ok');\n// comet/skill.yaml scripts/comet-hook-guard.mjs\n",
+    'utf8',
+  );
+  await fs.writeFile(path.join(packageRoot, 'scripts', 'comet-hook-guard.mjs'), '\n', 'utf8');
+  await fs.writeFile(path.join(draftRoot, 'rules', `${name}-orchestration.md`), '# Rule\n', 'utf8');
+  await fs.writeFile(
+    path.join(draftRoot, 'hooks', `${name}-before-write-guard.yaml`),
+    `event: before_write
+matcher: Write|Edit
+script: comet-hook-guard
+failure: block
+requiresConfirmation: false
+`,
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(draftRoot, 'hooks', `${name}-before-tool-guard.yaml`),
+    `event: before_tool
+matcher: "*"
+script: comet-hook-guard
+failure: block
+requiresConfirmation: false
+`,
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(draftRoot, 'bundle.yaml'),
+    `apiVersion: comet/v1alpha1
+kind: SkillBundle
+metadata:
+  name: ${name}
+  version: 1.0.0
+  description: Demo
+  defaultLocale: en
+  locales: [en]
+skills:
+  - id: ${name}
+    path: skills/${name}
+    visibility: entry
+resources:
+  rules:
+    - id: ${name}-orchestration
+      path: rules/${name}-orchestration.md
+      mode: always
+      required: true
+  hooks:
+    - id: ${name}-before-write-guard
+      path: hooks/${name}-before-write-guard.yaml
+    - id: ${name}-before-tool-guard
+      path: hooks/${name}-before-tool-guard.yaml
+  references:
+    - skills/${name}/reference/resolved-skills.json
+    - skills/${name}/reference/composition-report.md
+  scripts:
+    - id: comet-plan
+      path: skills/${name}/scripts/comet-plan.mjs
+      sideEffect: write
+      runtime: node
+    - id: comet-check
+      path: skills/${name}/scripts/comet-check.mjs
+      sideEffect: read
+      runtime: node
+    - id: comet-hook-guard
+      path: skills/${name}/scripts/comet-hook-guard.mjs
+      sideEffect: read
+      runtime: node
+  assets: []
+platforms:
+  requires: [skills, scripts, rules, hooks, references]
+  optional: []
+  overrides: []
+engine:
+  enabled: false
+`,
+    'utf8',
+  );
+}
+
 describe('Bundle review summary readiness', () => {
   let projectRoot: string;
 
@@ -145,6 +299,122 @@ describe('Bundle review summary readiness', () => {
     );
   });
 
+  it('surfaces Factory composition issues as readiness blockers', async () => {
+    const state = await createBundleDraft({
+      projectRoot,
+      name: 'factory-composition-blocked',
+      candidates: [],
+      creator: 'native',
+      defaultLocale: 'en',
+      locales: ['en'],
+      engineEnabled: true,
+      factory: {
+        goal: 'Demo',
+        preferredSkills: ['task3-choice-flow'],
+        resolvedSkills: [],
+        callChain: [{ skill: 'task3-choice-flow', preferenceIndex: 0 }],
+        deviations: [],
+        composition: {
+          schemaVersion: 1,
+          entrySkills: ['task3-choice-flow'],
+          steps: [],
+          choices: [
+            {
+              id: 'review',
+              fromSkill: 'task3-choice-flow',
+              options: ['task3-missing-review'],
+              selectedSkill: null,
+              reason: 'No options are available in resolved Skills.',
+            },
+          ],
+          issues: [
+            {
+              type: 'unresolved-choice',
+              message: 'Choice review from task3-choice-flow has no available options.',
+              choiceId: 'review',
+            },
+          ],
+        },
+        engineMode: 'deterministic',
+        runnerMode: 'standalone',
+      },
+    });
+    await writeMinimalBundle(state.draftPath, 'factory-composition-blocked');
+
+    const summary = await buildBundleReviewSummary({
+      projectRoot,
+      name: 'factory-composition-blocked',
+      platform: 'claude',
+    });
+
+    expect(summary.readiness.state).toBe('blocked');
+    expect(summary.readiness.blockers).toContain(
+      '[composition] Choice review from task3-choice-flow has no available options.',
+    );
+    expect(summary.readiness.evidence).toMatchObject({
+      compositionIssues: '1 issue(s)',
+      compositionChoices: '1 choice(s)',
+    });
+    expect(summary.readiness.evidence).not.toHaveProperty('composition');
+  });
+
+  it('surfaces missing factory control-plane files as readiness blockers', async () => {
+    const state = await createFactoryStateWithGeneratedPackage(
+      projectRoot,
+      'stable-missing-control',
+    );
+    await fs.rm(
+      path.join(
+        state.draftPath,
+        'skills',
+        'stable-missing-control',
+        'scripts',
+        'comet-check.mjs',
+      ),
+    );
+
+    const summary = await buildBundleReviewSummary({
+      projectRoot,
+      name: 'stable-missing-control',
+      platform: 'claude',
+    });
+
+    expect(summary.readiness.blockers).toEqual(
+      expect.arrayContaining(['[control-plane] missing scripts/comet-check.mjs']),
+    );
+    expect(summary.readiness.evidence.controlPlane).toEqual(expect.stringMatching(/file\(s\)$/u));
+    expect(summary.readiness.evidence.controlPlaneErrors).toEqual(
+      expect.stringMatching(/error\(s\)$/u),
+    );
+  });
+
+  it('surfaces degraded factory bundle.yaml capabilities as readiness blockers', async () => {
+    const state = await createFactoryStateWithGeneratedPackage(
+      projectRoot,
+      'stable-degraded-capabilities',
+    );
+    const manifestPath = path.join(state.draftPath, 'bundle.yaml');
+    const manifest = parse(await fs.readFile(manifestPath, 'utf8')) as Record<string, unknown>;
+    manifest.platforms = {
+      requires: ['skills', 'scripts', 'rules', 'hooks'],
+      optional: [],
+      overrides: [],
+    };
+    await fs.writeFile(manifestPath, stringify(manifest), 'utf8');
+
+    const summary = await buildBundleReviewSummary({
+      projectRoot,
+      name: 'stable-degraded-capabilities',
+      platform: 'claude',
+    });
+
+    expect(summary.readiness.blockers).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/\[control-plane\].*references|required capabilities/iu),
+      ]),
+    );
+  });
+
   it('is publishable only when eval and review match the current hash', async () => {
     await createBundleDraft({
       projectRoot,
@@ -188,6 +458,8 @@ describe('Bundle review summary readiness', () => {
   });
 
   it('classifies readiness blockers by type and exposes all readiness states', async () => {
+    const draftPath = path.join(projectRoot, '.comet', 'bundle-drafts', 'factory-classified');
+    const generatedPackageRoot = path.join(draftPath, 'skills', 'factory-classified');
     await createBundleDraft({
       projectRoot,
       name: 'factory-classified',
@@ -207,16 +479,16 @@ describe('Bundle review summary readiness', () => {
         engineMode: 'deterministic',
         runnerMode: 'standalone',
         generatedSkillPackage: {
-          entrySkill: 'demo',
+          entrySkill: 'factory-classified',
           internalSkills: [],
-          packageRoot: path.join(projectRoot, 'pkg'),
+          packageRoot: generatedPackageRoot,
           enginePath: null,
-          evalManifestPath: path.join(projectRoot, 'pkg', 'comet', 'eval.yaml'),
+          evalManifestPath: path.join(generatedPackageRoot, 'comet', 'eval.yaml'),
         },
       },
     });
-    const draftPath = path.join(projectRoot, '.comet', 'bundle-drafts', 'factory-classified');
     await writeMinimalBundle(draftPath, 'factory-classified');
+    await writeGeneratedControlPlane(generatedPackageRoot);
 
     const blockedState = await reconcileBundleAuthoringState(projectRoot, 'factory-classified');
     await writeBundleAuthoringState(projectRoot, {

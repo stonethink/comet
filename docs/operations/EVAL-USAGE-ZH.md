@@ -13,10 +13,14 @@
   -> 产出 comet/eval.yaml
   -> comet eval collect 做发现预检查
   -> comet eval run --html 执行真实评估
-  -> /comet-any 或 comet publish 读取评估结果并进入 readiness / review / publish
+  -> /comet-any 或 comet publish 读取评估结果并进入 readiness / review / publish / distribute
 ```
 
 `comet eval` 不负责发布。发布仍然由 `/comet-any` 背后的 Bundle 后端处理，对普通用户暴露为 `comet publish`。eval 的职责是提供发布前证据。
+对普通用户，推荐链路仍是 `/comet-any -> comet eval -> comet publish -> distribute`。
+稳定组合 Skill Bundle 的 required capability set（必需能力集合）是 `skills/scripts/rules/hooks/references`；
+其中 `scripts/rules/hooks` 是 required control plane，`hooks/*.yaml` 只有在 `comet publish distribute`
+编译到目标平台后才会生效。
 
 ## 推荐路径：评估 `/comet-any` 生成的 Skill
 
@@ -162,7 +166,7 @@ eval/local/logs/experiments/
 
 `comet eval` 是共享 eval harness 的用户入口，用来评估一个 Skill 包或 `comet/eval.yaml`。
 
-`comet skill eval` 是本地 Engine Run 的完成度检查，用来判断某个 run / change 是否满足 `comet/evals.yaml` 里的 runtime eval。
+`comet skill eval` 是本地 Engine Run 的完成度检查，用来判断某个 run / change 是否满足 `comet/checks.yaml` 里的 runtime checks。
 
 如果你的问题是“这个 Skill 作为产品能力能不能通过评估”，用：
 

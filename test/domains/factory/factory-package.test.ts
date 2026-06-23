@@ -66,6 +66,15 @@ Ask clarifying questions one at a time before presenting a design.
     });
 
     expect(output.packageRoot).toBe(path.join(root, 'skills', 'review-workflow'));
+    await expect(
+      fs.access(path.join(output.packageRoot, 'comet', 'checks.yaml')),
+    ).resolves.toBeUndefined();
+    await expect(
+      fs.access(path.join(output.packageRoot, 'comet', 'evals.yaml')),
+    ).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
+    expect(output.evalManifestPath).toBe(path.join(output.packageRoot, 'comet', 'eval.yaml'));
     const pkg = await loadSkillPackage(output.packageRoot);
     expect(validateSkillPackage(pkg)).toEqual([]);
     expect(pkg.definition.orchestration.steps?.map((step) => step.id)).toEqual([
@@ -195,5 +204,129 @@ Ask clarifying questions one at a time before presenting a design.
     expect(manifest).toContain('kind: SkillEvalManifest');
     expect(manifest).toContain('profile: authoring-skill');
     expect(manifest).toContain('authoring-skill-smoke');
+  });
+
+  it('generates the required stable composition control plane files', async () => {
+    const output = await generateFactorySkillPackage({
+      root,
+      name: 'stable-workflow',
+      version: '1.0.0',
+      description: 'Stable workflow.',
+      goal: 'Create a stable workflow.',
+      defaultLocale: 'zh',
+      callChain: [{ skill: 'brainstorming', preferenceIndex: 0 }],
+      resolvedSkills: [],
+      deviations: [],
+      composition: {
+        schemaVersion: 1,
+        entrySkills: ['stable-workflow'],
+        steps: [
+          {
+            id: 'step-1-brainstorming',
+            skill: 'brainstorming',
+            source: 'atomic',
+            preferenceIndex: 0,
+          },
+        ],
+        choices: [],
+        issues: [],
+      },
+      engineMode: 'deterministic',
+    });
+
+    await expect(
+      fs.access(path.join(output.packageRoot, 'reference', 'composition-report.md')),
+    ).resolves.toBeUndefined();
+    await expect(
+      fs.access(path.join(output.packageRoot, 'scripts', 'comet-plan.mjs')),
+    ).resolves.toBeUndefined();
+    await expect(
+      fs.access(path.join(output.packageRoot, 'scripts', 'comet-check.mjs')),
+    ).resolves.toBeUndefined();
+    await expect(
+      fs.access(path.join(output.packageRoot, 'scripts', 'comet-hook-guard.mjs')),
+    ).resolves.toBeUndefined();
+    expect(output.controlPlane).toEqual({
+      checksPath: path.join(output.packageRoot, 'comet', 'checks.yaml'),
+      evalManifestPath: path.join(output.packageRoot, 'comet', 'eval.yaml'),
+      compositionReportPath: path.join(output.packageRoot, 'reference', 'composition-report.md'),
+      scripts: [
+        path.join(output.packageRoot, 'scripts', 'comet-plan.mjs'),
+        path.join(output.packageRoot, 'scripts', 'comet-check.mjs'),
+        path.join(output.packageRoot, 'scripts', 'comet-hook-guard.mjs'),
+      ],
+    });
+
+    const report = await fs.readFile(output.controlPlane.compositionReportPath, 'utf8');
+    expect(report).toContain('## Entry Skills');
+    expect(report).toContain('- stable-workflow');
+    expect(report).toContain('step-1-brainstorming');
+    expect(report).toContain('No composition issues.');
+    const planScript = await fs.readFile(
+      path.join(output.packageRoot, 'scripts', 'comet-plan.mjs'),
+      'utf8',
+    );
+    const checkScript = await fs.readFile(
+      path.join(output.packageRoot, 'scripts', 'comet-check.mjs'),
+      'utf8',
+    );
+    const hookGuardScript = await fs.readFile(
+      path.join(output.packageRoot, 'scripts', 'comet-hook-guard.mjs'),
+      'utf8',
+    );
+    expect(planScript).toContain("import { fileURLToPath } from 'url';");
+    expect(planScript).toContain("const packageRoot = path.resolve(__dirname, '..');");
+    expect(planScript).toContain(
+      "const runRoot = process.env.COMET_RUN_ROOT ? path.resolve(process.env.COMET_RUN_ROOT) : process.cwd();",
+    );
+    expect(planScript).toContain("path.join(packageRoot, 'comet', 'skill.yaml')");
+    expect(checkScript).toContain("import { fileURLToPath } from 'url';");
+    expect(checkScript).toContain("const packageRoot = path.resolve(__dirname, '..');");
+    expect(checkScript).toContain('comet/skill.yaml');
+    expect(hookGuardScript).toContain(
+      "const runRoot = process.env.COMET_RUN_ROOT ? path.resolve(process.env.COMET_RUN_ROOT) : process.cwd();",
+    );
+  });
+
+  it('keeps generated control plane checks consistent when engine mode is none', async () => {
+    const output = await generateFactorySkillPackage({
+      root,
+      name: 'plain-workflow',
+      version: '1.0.0',
+      description: 'Plain workflow.',
+      goal: 'Create a plain workflow.',
+      defaultLocale: 'zh',
+      callChain: [{ skill: 'brainstorming', preferenceIndex: 0 }],
+      resolvedSkills: [],
+      deviations: [],
+      engineMode: 'none',
+    });
+
+    expect(output.enginePath).toBeNull();
+    expect(output.evalManifestPath).toBeNull();
+    expect(output.controlPlane).toEqual({
+      checksPath: null,
+      evalManifestPath: null,
+      compositionReportPath: path.join(output.packageRoot, 'reference', 'composition-report.md'),
+      scripts: [
+        path.join(output.packageRoot, 'scripts', 'comet-plan.mjs'),
+        path.join(output.packageRoot, 'scripts', 'comet-check.mjs'),
+        path.join(output.packageRoot, 'scripts', 'comet-hook-guard.mjs'),
+      ],
+    });
+    await expect(
+      fs.access(path.join(output.packageRoot, 'comet', 'skill.yaml')),
+    ).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
+    const checkScript = await fs.readFile(
+      path.join(output.packageRoot, 'scripts', 'comet-check.mjs'),
+      'utf8',
+    );
+    expect(checkScript).not.toContain('comet/skill.yaml');
+    expect(checkScript).not.toContain('comet/guardrails.yaml');
+    expect(checkScript).not.toContain('comet/checks.yaml');
+    expect(checkScript).not.toContain('comet/eval.yaml');
+    expect(checkScript).toContain('reference/resolved-skills.json');
   });
 });

@@ -97,7 +97,7 @@ comet init
 ## Task Paths
 
 - **Start a Comet workflow** — `comet init` to install the runtime and Skills, then invoke `/comet` from your agent surface.
-- **Create or optimize a reusable Skill** — `/comet-any` is the main user path. Let it inspect `.comet/skills.txt`, generate the Skill/Bundle draft, and use `comet publish status` or `comet publish review` for normal release readiness. Reach for the `comet bundle` advanced backend only when you are debugging the backend state directly.
+- **Create or optimize a reusable Skill** — `/comet-any` is the main user path. It now generates a stable composed Skill Bundle rather than only a `SKILL.md`, and the ordinary path is `/comet-any -> comet eval -> comet publish -> distribute`. Use `comet publish status` or `comet publish review` for normal release readiness, and reach for the `comet bundle` Advanced Bundle backend only when you are debugging the backend state directly.
 - **Evaluate a local or generated Skill** — `comet eval collect --manifest ./comet/eval.yaml` for discovery, then `comet eval run --manifest ./comet/eval.yaml --html` for a real run with a browsable summary.
 - **Diagnose a stuck workflow** — `comet status` for the current phase and next command, then `comet doctor` when state, runtime evidence, or install health looks wrong.
 - **Resume a deterministic Skill Run** — `comet skill run`, follow the printed `Pending action`, then `comet skill resume` or `comet skill eval` using the `Next:` hint.
@@ -199,7 +199,7 @@ comet uninstall --scope project  # Only remove project-level installations
 </details>
 
 <details>
-<summary><code>comet skill &lt;command&gt;</code> — Author and run Comet Skill packages</summary>
+<summary><code>comet skill &lt;command&gt;</code> — Low-level Skill utilities for authoring and running Comet Skill packages</summary>
 
 Discovers explicit Skill directories, project overrides under `.comet/skills/`, and built-in Skills. Manual Runs
 persist an immutable Skill snapshot and pending action; the current Agent or platform executes that action and submits
@@ -268,7 +268,7 @@ The intended mental model is:
 </details>
 
 <details>
-<summary><code>comet bundle &lt;command&gt;</code> — Advanced backend for <code>/comet-any</code> and Bundle release operators</summary>
+<summary><code>comet bundle &lt;command&gt;</code> — Advanced Bundle backend for <code>/comet-any</code> and Bundle release operators</summary>
 
 Creates platform-independent Skill Bundles from new goals or existing candidate Skills. Bundle drafts are deterministic:
 they compile into native platform Skill/rule/hook install plans, can carry optional Engine metadata, require structured
@@ -296,9 +296,10 @@ comet bundle distribute my-bundle --platform claude --scope project --confirm-ex
 ```
 
 `/comet-any` is the Comet Skill Factory: users describe the workflow they want to create or optimize, and Comet turns
-that request into a reviewable Bundle draft backed by real local Skill evidence. It reads `.comet/skills.txt`, locates
-real Skill contents, preserves the recommended call order when possible, and uses CLI backends for validation, Eval,
-publishing, and optional distribution. Missing or ambiguous candidates pause for `factory-resolve` first, review and
+that request into a reviewable stable composed Skill Bundle draft backed by real local Skill evidence. It reads
+`.comet/skills.txt`, locates real Skill contents, preserves the recommended call order when possible, and uses CLI
+backends for validation, Eval, publishing, and optional distribution; see the Skill creation guide for the detailed
+control-plane contract. Missing or ambiguous candidates pause for `factory-resolve` first, review and
 publish stay gated by structured evidence, and distribution supports both `project` and `global` scopes. `comet bundle list`
 lists recoverable authoring states; `comet bundle status` prints `Next action`, the reason, and a suggested command in
 text mode; JSON output includes `nextAction` so `/comet-any`, `comet publish`, and other automation can resume the correct next step

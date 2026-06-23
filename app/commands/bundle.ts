@@ -50,6 +50,7 @@ interface BundleCommandOptions {
 interface BundleNextAction {
   action:
     | 'resolve-candidates'
+    | 'fix-composition'
     | 'generate-factory-package'
     | 'choose-eval-level'
     | 'request-review'
@@ -108,6 +109,16 @@ function determineNextAction(
       action: 'resolve-candidates',
       reason: `${unresolved.length} unresolved Factory candidate(s) remain`,
       command: `comet bundle factory-resolve ${state.name} --candidate ${first.query}`,
+    };
+  }
+
+  const compositionIssues = state.factory?.composition?.issues ?? [];
+  if (compositionIssues.length > 0) {
+    const first = compositionIssues[0];
+    return {
+      action: 'fix-composition',
+      reason: `Factory composition has ${compositionIssues.length} issue(s): ${first.message}`,
+      command: `comet bundle review-summary ${state.name} --platform <reference-platform>`,
     };
   }
 
@@ -223,6 +234,25 @@ function formatReviewSummaryText(
     `Quick Eval runs: ${summary.evalPlans.quick.estimatedRuns}`,
     `Full Eval runs: ${summary.evalPlans.full.estimatedRuns}`,
     ...readinessLines,
+  ].join('\n');
+}
+
+function formatDistributionText(result: Awaited<ReturnType<typeof distributeBundle>>): string {
+  const summary = result.platforms.map((platform) => `${platform.platform}: ${platform.status}`);
+  const disclosures = result.platforms.flatMap((platform) =>
+    platform.executableDisclosures.map((disclosure) => ({
+      platform: platform.platform,
+      disclosure,
+    })),
+  );
+  if (disclosures.length === 0) return summary.join('\n');
+  return [
+    ...summary,
+    'Executable hooks:',
+    ...disclosures.map(
+      ({ platform, disclosure }) =>
+        `  - ${platform}/${disclosure.id}: ${disclosure.command} (${disclosure.sideEffect}) -> ${disclosure.destination}`,
+    ),
   ].join('\n');
 }
 
@@ -471,11 +501,7 @@ export async function bundleDistributeCommand(
     skipCapabilities: options.skipCapability,
     confirmedExecutables: options.confirmExecutables,
   });
-  emit(
-    result,
-    options.json,
-    result.platforms.map((platform) => `${platform.platform}: ${platform.status}`).join('\n'),
-  );
+  emit(result, options.json, formatDistributionText(result));
 }
 
 export type { BundleCommandOptions };

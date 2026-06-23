@@ -4,7 +4,7 @@ import { compileBundleIr } from './compiler.js';
 import { hashBundle } from './hash.js';
 import { compileBundleForPlatform, type PlatformCompileReport } from './platform.js';
 import { reconcileBundleAuthoringState } from './state.js';
-import type { BundleCapability } from './types.js';
+import type { BundleCapability, PlatformInstallFile } from './types.js';
 import {
   applyPlatformInstallPlan,
   listBundlePlatformTargets,
@@ -20,6 +20,8 @@ export interface BundleDistributionResult {
     written: string[];
     skipped: string[];
     unsupported: PlatformCompileReport['unsupported'];
+    executableDisclosures: PlatformCompileReport['executableDisclosures'];
+    plannedFiles: Array<{ kind: PlatformInstallFile['kind']; destination: string }>;
     error?: string;
   }>;
 }
@@ -41,6 +43,12 @@ function requestedTargets(
     id,
     target: targets.find((candidate) => candidate.id === id) ?? null,
   }));
+}
+
+function plannedFiles(
+  report: PlatformCompileReport,
+): Array<{ kind: PlatformInstallFile['kind']; destination: string }> {
+  return report.files.map((file) => ({ kind: file.kind, destination: file.destination }));
 }
 
 export async function distributeBundle(options: {
@@ -95,6 +103,8 @@ export async function distributeBundle(options: {
         written: [],
         skipped: [],
         unsupported: [],
+        executableDisclosures: [],
+        plannedFiles: [],
         error: `Unknown platform: ${item.id}`,
       });
       continue;
@@ -112,6 +122,8 @@ export async function distributeBundle(options: {
         written: [],
         skipped: [],
         unsupported: report.unsupported,
+        executableDisclosures: report.executableDisclosures,
+        plannedFiles: plannedFiles(report),
         error: `Unsupported capabilities require a decision: ${blocking
           .map((unsupported) => unsupported.capability)
           .join(', ')}`,
@@ -123,7 +135,27 @@ export async function distributeBundle(options: {
 
   const executableDisclosures = planned.flatMap((item) => item.report.executableDisclosures);
   if (executableDisclosures.length > 0 && options.confirmedExecutables !== true) {
-    throw new Error('Bundle distribution includes executable hooks; confirm executables first');
+    for (const item of planned) {
+      results.push({
+        platform: item.id,
+        status: 'cancelled',
+        written: [],
+        skipped: [],
+        unsupported: item.report.unsupported,
+        executableDisclosures: item.report.executableDisclosures,
+        plannedFiles: plannedFiles(item.report),
+        error: 'Bundle distribution includes executable hooks; confirm executables first',
+      });
+    }
+    const order = new Map(options.platforms.map((id, index) => [id, index]));
+    results.sort(
+      (left, right) => (order.get(left.platform) ?? 0) - (order.get(right.platform) ?? 0),
+    );
+    return {
+      bundle: options.name,
+      hash: currentHash,
+      platforms: results,
+    };
   }
 
   for (const item of planned) {
@@ -139,6 +171,8 @@ export async function distributeBundle(options: {
         written: applied.written,
         skipped: applied.skipped,
         unsupported: item.report.unsupported,
+        executableDisclosures: item.report.executableDisclosures,
+        plannedFiles: plannedFiles(item.report),
       });
     } catch (error) {
       results.push({
@@ -147,6 +181,8 @@ export async function distributeBundle(options: {
         written: [],
         skipped: [],
         unsupported: item.report.unsupported,
+        executableDisclosures: item.report.executableDisclosures,
+        plannedFiles: plannedFiles(item.report),
         error: (error as Error).message,
       });
     }

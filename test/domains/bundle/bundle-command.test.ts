@@ -21,6 +21,7 @@ import {
 } from '../../../app/commands/bundle.js';
 import type { BundleEvalResult } from '../../../domains/bundle/eval.js';
 import { createBundleDraft } from '../../../domains/bundle/draft.js';
+import { loadBundle } from '../../../domains/bundle/load.js';
 
 async function writeBundle(
   root: string,
@@ -94,6 +95,24 @@ requiresConfirmation: false
     );
     await fs.writeFile(path.join(root, 'scripts', 'verify.mjs'), 'process.exit(0);\n');
   }
+}
+
+async function writeFactorySkill(
+  projectRoot: string,
+  name: string,
+  options: { description?: string; flow?: string } = {},
+): Promise<string> {
+  const skillRoot = path.join(projectRoot, '.comet', 'skills', name);
+  await fs.mkdir(skillRoot, { recursive: true });
+  await fs.writeFile(
+    path.join(skillRoot, 'SKILL.md'),
+    `---\nname: ${name}\ndescription: ${options.description ?? `${name}.`}\n---\n# ${name}\n`,
+  );
+  if (options.flow) {
+    await fs.mkdir(path.join(skillRoot, 'comet'), { recursive: true });
+    await fs.writeFile(path.join(skillRoot, 'comet', 'flow.yaml'), options.flow, 'utf8');
+  }
+  return skillRoot;
 }
 
 function passingResult(hash: string, entries = ['entry']): BundleEvalResult {
@@ -287,7 +306,6 @@ describe('bundle commands', () => {
       factory: {
         preferredSkills: ['brainstorming', 'writing-plans', 'requesting-code-review'],
         callChain: [
-          { skill: 'brainstorming', preferenceIndex: 0 },
           { skill: 'writing-plans', preferenceIndex: 1 },
           { skill: 'requesting-code-review', preferenceIndex: 2 },
         ],
@@ -322,6 +340,255 @@ describe('bundle commands', () => {
         'utf8',
       ),
     ).resolves.toContain('"schemaVersion": 1');
+  });
+
+  it('stores composed flow metadata and uses it as the factory call chain', async () => {
+    await writeFactorySkill(projectRoot, 'task3-review-flow', {
+      description: 'Review flow.',
+      flow: `steps:
+  - use: task3-brainstorming
+  - use: task3-writing-plans
+`,
+    });
+    await writeFactorySkill(projectRoot, 'task3-brainstorming', {
+      description: 'Explore the goal.',
+    });
+    await writeFactorySkill(projectRoot, 'task3-writing-plans', {
+      description: 'Write the plan.',
+    });
+    const planFile = path.join(root, 'factory-composed-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Create a composed review workflow.',
+          preferredSkills: ['task3-review-flow', 'task3-brainstorming', 'task3-writing-plans'],
+          callChain: ['task3-review-flow'],
+          engineMode: 'deterministic',
+          runnerMode: 'standalone',
+          defaultLocale: 'zh',
+          locales: ['zh', 'en'],
+        },
+        null,
+        2,
+      ),
+    );
+
+    const initialized = await captureJson(() =>
+      bundleFactoryInitCommand('composed-factory', {
+        project: projectRoot,
+        file: planFile,
+        json: true,
+      }),
+    );
+
+    expect(initialized).toMatchObject({
+      factory: {
+        callChain: [
+          { skill: 'task3-brainstorming', preferenceIndex: 1 },
+          { skill: 'task3-writing-plans', preferenceIndex: 2 },
+        ],
+        composition: {
+          schemaVersion: 1,
+          entrySkills: ['task3-review-flow'],
+          issues: [],
+        },
+      },
+    });
+  });
+
+  it('uses plan call-chain entries for atomic composition when preferred order differs', async () => {
+    await writeFactorySkill(projectRoot, 'task3-atomic-first', {
+      description: 'First atomic step.',
+    });
+    await writeFactorySkill(projectRoot, 'task3-atomic-second', {
+      description: 'Second atomic step.',
+    });
+    const planFile = path.join(root, 'factory-atomic-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Create an atomic-only workflow.',
+          preferredSkills: ['task3-atomic-first', 'task3-atomic-second'],
+          callChain: ['task3-atomic-second', 'task3-atomic-first'],
+          engineMode: 'deterministic',
+          runnerMode: 'standalone',
+          defaultLocale: 'zh',
+          locales: ['zh', 'en'],
+        },
+        null,
+        2,
+      ),
+    );
+
+    const initialized = await captureJson(() =>
+      bundleFactoryInitCommand('atomic-composed-factory', {
+        project: projectRoot,
+        file: planFile,
+        json: true,
+      }),
+    );
+
+    expect(initialized).toMatchObject({
+      factory: {
+        callChain: [
+          { skill: 'task3-atomic-second', preferenceIndex: 1 },
+          { skill: 'task3-atomic-first', preferenceIndex: 0 },
+        ],
+        composition: {
+          schemaVersion: 1,
+          entrySkills: ['task3-atomic-second', 'task3-atomic-first'],
+          issues: [],
+        },
+      },
+    });
+  });
+
+  it('recomputes post-resolve composition from the original plan entry flow', async () => {
+    await writeFactorySkill(projectRoot, 'task3-entry-review-flow', {
+      description: 'Review flow entry.',
+      flow: `steps:
+  - use: task3-entry-brainstorming
+  - use: task3-entry-writing-plans
+`,
+    });
+    const selectedBrainstormingRoot = await writeFactorySkill(
+      projectRoot,
+      'task3-entry-brainstorming',
+      {
+        description: 'Selected brainstorming.',
+      },
+    );
+    const alternateBrainstormingRoot = path.join(
+      projectRoot,
+      '.claude',
+      'skills',
+      'task3-entry-brainstorming',
+    );
+    await fs.mkdir(alternateBrainstormingRoot, { recursive: true });
+    await fs.writeFile(
+      path.join(alternateBrainstormingRoot, 'SKILL.md'),
+      '---\nname: task3-entry-brainstorming\ndescription: Alternate brainstorming.\n---\n# task3-entry-brainstorming\n',
+    );
+    await writeFactorySkill(projectRoot, 'task3-entry-writing-plans', {
+      description: 'Write the plan.',
+    });
+    const planFile = path.join(root, 'factory-recompute-entry-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Create a resolved entry workflow.',
+          preferredSkills: [
+            'task3-entry-review-flow',
+            'task3-entry-brainstorming',
+            'task3-entry-writing-plans',
+          ],
+          callChain: ['task3-entry-review-flow'],
+          engineMode: 'deterministic',
+          runnerMode: 'standalone',
+          defaultLocale: 'zh',
+          locales: ['zh', 'en'],
+        },
+        null,
+        2,
+      ),
+    );
+
+    const initialized = await captureJson(() =>
+      bundleFactoryInitCommand('recomputed-entry-factory', {
+        project: projectRoot,
+        file: planFile,
+        json: true,
+      }),
+    );
+
+    expect(initialized).toMatchObject({
+      factory: {
+        compositionEntrySkills: ['task3-entry-review-flow'],
+        callChain: [{ skill: 'task3-entry-writing-plans', preferenceIndex: 2 }],
+        composition: {
+          entrySkills: ['task3-entry-review-flow'],
+          issues: [
+            expect.objectContaining({
+              type: 'unavailable-use',
+              fromSkill: 'task3-entry-review-flow',
+              skill: 'task3-entry-brainstorming',
+            }),
+          ],
+        },
+        resolvedSkills: [
+          { query: 'task3-entry-review-flow', status: 'available' },
+          { query: 'task3-entry-brainstorming', status: 'ambiguous' },
+          { query: 'task3-entry-writing-plans', status: 'available' },
+        ],
+      },
+    });
+
+    const resolved = await captureJson(() =>
+      bundleFactoryResolveCommand('recomputed-entry-factory', {
+        project: projectRoot,
+        candidate: 'task3-entry-brainstorming',
+        source: selectedBrainstormingRoot,
+        json: true,
+      }),
+    );
+
+    expect(resolved).toMatchObject({
+      factory: {
+        compositionEntrySkills: ['task3-entry-review-flow'],
+        resolvedSkills: [
+          { query: 'task3-entry-review-flow', status: 'available' },
+          {
+            query: 'task3-entry-brainstorming',
+            status: 'available',
+            sources: [{ root: selectedBrainstormingRoot }],
+          },
+          { query: 'task3-entry-writing-plans', status: 'available' },
+        ],
+      },
+    });
+    expect(resolved.factory).not.toHaveProperty('composition');
+
+    const generated = await captureJson(() =>
+      bundleFactoryGenerateCommand('recomputed-entry-factory', {
+        project: projectRoot,
+        json: true,
+      }),
+    );
+
+    expect(generated).toMatchObject({
+      factory: {
+        compositionEntrySkills: ['task3-entry-review-flow'],
+        callChain: [
+          { skill: 'task3-entry-brainstorming', preferenceIndex: 1 },
+          { skill: 'task3-entry-writing-plans', preferenceIndex: 2 },
+        ],
+        composition: {
+          entrySkills: ['task3-entry-review-flow'],
+          issues: [],
+        },
+        generatedSkillPackage: {
+          entrySkill: 'recomputed-entry-factory',
+        },
+      },
+    });
+    await expect(
+      fs.readFile(
+        path.join(
+          projectRoot,
+          '.comet',
+          'bundle-drafts',
+          'recomputed-entry-factory',
+          'skills',
+          'recomputed-entry-factory',
+          'comet',
+          'skill.yaml',
+        ),
+        'utf8',
+      ),
+    ).resolves.toMatch(/task3-entry-brainstorming[\s\S]*task3-entry-writing-plans/u);
   });
 
   it('generates a draft bundle source from stored factory metadata', async () => {
@@ -398,6 +665,70 @@ describe('bundle commands', () => {
         generatedSkillPackage: {
           entrySkill: 'factory-bundle',
           internalSkills: [],
+          controlPlane: {
+            checksPath: path.join(
+              projectRoot,
+              '.comet',
+              'bundle-drafts',
+              'factory-bundle',
+              'skills',
+              'factory-bundle',
+              'comet',
+              'checks.yaml',
+            ),
+            evalManifestPath: path.join(
+              projectRoot,
+              '.comet',
+              'bundle-drafts',
+              'factory-bundle',
+              'skills',
+              'factory-bundle',
+              'comet',
+              'eval.yaml',
+            ),
+            compositionReportPath: path.join(
+              projectRoot,
+              '.comet',
+              'bundle-drafts',
+              'factory-bundle',
+              'skills',
+              'factory-bundle',
+              'reference',
+              'composition-report.md',
+            ),
+            scripts: [
+              path.join(
+                projectRoot,
+                '.comet',
+                'bundle-drafts',
+                'factory-bundle',
+                'skills',
+                'factory-bundle',
+                'scripts',
+                'comet-plan.mjs',
+              ),
+              path.join(
+                projectRoot,
+                '.comet',
+                'bundle-drafts',
+                'factory-bundle',
+                'skills',
+                'factory-bundle',
+                'scripts',
+                'comet-check.mjs',
+              ),
+              path.join(
+                projectRoot,
+                '.comet',
+                'bundle-drafts',
+                'factory-bundle',
+                'skills',
+                'factory-bundle',
+                'scripts',
+                'comet-hook-guard.mjs',
+              ),
+            ],
+          },
         },
       },
     });
@@ -405,19 +736,84 @@ describe('bundle commands', () => {
       platform: 'claude',
       entrySkills: ['factory-bundle'],
     });
+    const draftRoot = path.join(projectRoot, '.comet', 'bundle-drafts', 'factory-bundle');
+    const bundleYaml = await fs.readFile(path.join(draftRoot, 'bundle.yaml'), 'utf8');
+    expect(bundleYaml).toContain('name: factory-bundle');
+    expect(bundleYaml).toContain('rules:');
+    expect(bundleYaml).toContain('hooks:');
+    expect(bundleYaml).toContain('references:');
+    expect(bundleYaml).toContain('scripts:');
+    const bundle = await loadBundle(draftRoot);
+    expect(bundle.manifest.platforms.requires).toEqual([
+      'skills',
+      'scripts',
+      'rules',
+      'hooks',
+      'references',
+    ]);
+    expect(bundle.manifest.resources.rules).toEqual([
+      {
+        id: 'factory-bundle-orchestration',
+        path: 'rules/factory-bundle-orchestration.md',
+        mode: 'always',
+        required: true,
+      },
+    ]);
+    expect(bundle.manifest.resources.hooks).toEqual([
+      {
+        id: 'factory-bundle-before-write-guard',
+        path: 'hooks/factory-bundle-before-write-guard.yaml',
+      },
+      {
+        id: 'factory-bundle-before-tool-guard',
+        path: 'hooks/factory-bundle-before-tool-guard.yaml',
+      },
+    ]);
+    expect(bundle.manifest.resources.references).toEqual([
+      'skills/factory-bundle/reference/resolved-skills.json',
+      'skills/factory-bundle/reference/composition-report.md',
+    ]);
+    expect(bundle.manifest.resources.scripts).toEqual([
+      {
+        id: 'comet-plan',
+        path: 'skills/factory-bundle/scripts/comet-plan.mjs',
+        sideEffect: 'write',
+        runtime: 'node',
+      },
+      {
+        id: 'comet-check',
+        path: 'skills/factory-bundle/scripts/comet-check.mjs',
+        sideEffect: 'read',
+        runtime: 'node',
+      },
+      {
+        id: 'comet-hook-guard',
+        path: 'skills/factory-bundle/scripts/comet-hook-guard.mjs',
+        sideEffect: 'read',
+        runtime: 'node',
+      },
+    ]);
     await expect(
-      fs.readFile(
-        path.join(projectRoot, '.comet', 'bundle-drafts', 'factory-bundle', 'bundle.yaml'),
-        'utf8',
+      fs.access(path.join(draftRoot, 'rules', 'factory-bundle-orchestration.md')),
+    ).resolves.toBeUndefined();
+    await expect(
+      fs.access(path.join(draftRoot, 'hooks', 'factory-bundle-before-write-guard.yaml')),
+    ).resolves.toBeUndefined();
+    await expect(
+      fs.access(path.join(draftRoot, 'hooks', 'factory-bundle-before-tool-guard.yaml')),
+    ).resolves.toBeUndefined();
+    await expect(
+      fs.access(
+        path.join(draftRoot, 'skills', 'factory-bundle', 'reference', 'composition-report.md'),
       ),
-    ).resolves.toContain('name: factory-bundle');
+    ).resolves.toBeUndefined();
+    await expect(
+      fs.access(path.join(draftRoot, 'skills', 'factory-bundle', 'scripts', 'comet-plan.mjs')),
+    ).resolves.toBeUndefined();
     await expect(
       fs.readFile(
         path.join(
-          projectRoot,
-          '.comet',
-          'bundle-drafts',
-          'factory-bundle',
+          draftRoot,
           'skills',
           'factory-bundle',
           'comet',
@@ -491,6 +887,284 @@ describe('bundle commands', () => {
     ).rejects.toThrow(/ambiguous-skill.*missing-skill|missing-skill.*ambiguous-skill/iu);
   });
 
+  it('blocks factory generation when composition choices are unresolved', async () => {
+    await writeFactorySkill(projectRoot, 'task3-choice-flow', {
+      description: 'Choice flow.',
+      flow: `steps:
+  - choose:
+      id: review
+      options:
+        - task3-missing-review-a
+        - task3-missing-review-b
+`,
+    });
+    const planFile = path.join(root, 'factory-choice-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Create a workflow with an unresolved review choice.',
+          preferredSkills: ['task3-choice-flow'],
+          callChain: ['task3-choice-flow'],
+          engineMode: 'deterministic',
+          runnerMode: 'standalone',
+          defaultLocale: 'zh',
+          locales: ['zh', 'en'],
+        },
+        null,
+        2,
+      ),
+    );
+    await bundleFactoryInitCommand('composition-blocked-factory', {
+      project: projectRoot,
+      file: planFile,
+      json: true,
+    });
+
+    await expect(
+      bundleFactoryGenerateCommand('composition-blocked-factory', {
+        project: projectRoot,
+        json: true,
+      }),
+    ).rejects.toThrow(/composition.*Choice review/iu);
+  });
+
+  it('blocks factory generation when a flow compiles duplicate final steps', async () => {
+    await writeFactorySkill(projectRoot, 'task3-duplicate-flow', {
+      description: 'Duplicate flow.',
+      flow: `steps:
+  - use: task3-duplicate-final
+  - use: task3-duplicate-final
+`,
+    });
+    await writeFactorySkill(projectRoot, 'task3-duplicate-final', {
+      description: 'Final step.',
+    });
+    const planFile = path.join(root, 'factory-duplicate-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Create a workflow with duplicate final steps.',
+          preferredSkills: ['task3-duplicate-flow', 'task3-duplicate-final'],
+          callChain: ['task3-duplicate-flow'],
+          engineMode: 'deterministic',
+          runnerMode: 'standalone',
+          defaultLocale: 'zh',
+          locales: ['zh', 'en'],
+        },
+        null,
+        2,
+      ),
+    );
+    await bundleFactoryInitCommand('duplicate-composition-factory', {
+      project: projectRoot,
+      file: planFile,
+      json: true,
+    });
+
+    await expect(
+      bundleFactoryGenerateCommand('duplicate-composition-factory', {
+        project: projectRoot,
+        json: true,
+      }),
+    ).rejects.toThrow(/composition.*duplicate.*task3-duplicate-final/iu);
+  });
+
+  it('blocks factory generation when a source flow is empty', async () => {
+    await writeFactorySkill(projectRoot, 'task3-empty-flow', {
+      description: 'Empty flow.',
+      flow: `steps: []
+`,
+    });
+    const planFile = path.join(root, 'factory-empty-flow-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Create a workflow from an empty flow.',
+          preferredSkills: ['task3-empty-flow'],
+          callChain: ['task3-empty-flow'],
+          engineMode: 'deterministic',
+          runnerMode: 'standalone',
+          defaultLocale: 'zh',
+          locales: ['zh', 'en'],
+        },
+        null,
+        2,
+      ),
+    );
+    await bundleFactoryInitCommand('empty-flow-composition-factory', {
+      project: projectRoot,
+      file: planFile,
+      json: true,
+    });
+
+    await expect(
+      bundleFactoryGenerateCommand('empty-flow-composition-factory', {
+        project: projectRoot,
+        json: true,
+      }),
+    ).rejects.toThrow(/composition.*empty flow/iu);
+  });
+
+  it('blocks factory generation when a composed source flow is referenced twice', async () => {
+    await writeFactorySkill(projectRoot, 'task3-duplicate-composed-entry', {
+      description: 'Duplicate composed entry.',
+      flow: `steps:
+  - use: task3-planning-flow
+  - use: task3-planning-flow
+`,
+    });
+    await writeFactorySkill(projectRoot, 'task3-planning-flow', {
+      description: 'Nested planning flow.',
+      flow: `steps:
+  - use: task3-planning-brainstorm
+  - use: task3-planning-write
+`,
+    });
+    await writeFactorySkill(projectRoot, 'task3-planning-brainstorm', {
+      description: 'Brainstorming step.',
+    });
+    await writeFactorySkill(projectRoot, 'task3-planning-write', {
+      description: 'Writing step.',
+    });
+    const planFile = path.join(root, 'factory-duplicate-composed-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Create a workflow with duplicate composed flow references.',
+          preferredSkills: [
+            'task3-duplicate-composed-entry',
+            'task3-planning-flow',
+            'task3-planning-brainstorm',
+            'task3-planning-write',
+          ],
+          callChain: ['task3-duplicate-composed-entry'],
+          engineMode: 'deterministic',
+          runnerMode: 'standalone',
+          defaultLocale: 'zh',
+          locales: ['zh', 'en'],
+        },
+        null,
+        2,
+      ),
+    );
+    await bundleFactoryInitCommand('duplicate-composed-flow-factory', {
+      project: projectRoot,
+      file: planFile,
+      json: true,
+    });
+
+    await expect(
+      bundleFactoryGenerateCommand('duplicate-composed-flow-factory', {
+        project: projectRoot,
+        json: true,
+      }),
+    ).rejects.toThrow(/composition.*duplicate.*task3-planning-flow/iu);
+  });
+
+  it('keeps composition blocking after resolving an ambiguous candidate to a flow with unresolved choice', async () => {
+    const secondRoot = path.join(projectRoot, '.claude', 'skills', 'task3-review-choice-flow');
+    await writeFactorySkill(projectRoot, 'task3-review-choice-flow', {
+      description: 'Atomic fallback.',
+    });
+    await fs.mkdir(secondRoot, { recursive: true });
+    await fs.writeFile(
+      path.join(secondRoot, 'SKILL.md'),
+      '---\nname: task3-review-choice-flow\ndescription: Flow with unresolved choice.\n---\n# task3-review-choice-flow\n',
+    );
+    await fs.mkdir(path.join(secondRoot, 'comet'), { recursive: true });
+    await fs.writeFile(
+      path.join(secondRoot, 'comet', 'flow.yaml'),
+      `steps:
+  - choose:
+      id: review
+      options:
+        - task3-missing-review-a
+        - task3-missing-review-b
+`,
+      'utf8',
+    );
+    const planFile = path.join(root, 'factory-resolved-choice-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Create a workflow whose resolved source has an unresolved choice.',
+          preferredSkills: ['task3-review-choice-flow'],
+          callChain: ['task3-review-choice-flow'],
+          engineMode: 'deterministic',
+          runnerMode: 'standalone',
+          defaultLocale: 'zh',
+          locales: ['zh', 'en'],
+        },
+        null,
+        2,
+      ),
+    );
+
+    const initialized = await captureJson(() =>
+      bundleFactoryInitCommand('resolved-composition-blocked', {
+        project: projectRoot,
+        file: planFile,
+        json: true,
+      }),
+    );
+    expect(initialized).toMatchObject({
+      factory: {
+        resolvedSkills: [{ query: 'task3-review-choice-flow', status: 'ambiguous' }],
+      },
+    });
+    expect(initialized.factory).toMatchObject({
+      composition: {
+        entrySkills: ['task3-review-choice-flow'],
+        issues: [],
+      },
+    });
+
+    const resolved = await captureJson(() =>
+      bundleFactoryResolveCommand('resolved-composition-blocked', {
+        project: projectRoot,
+        candidate: 'task3-review-choice-flow',
+        source: secondRoot,
+        json: true,
+      }),
+    );
+    expect(resolved).toMatchObject({
+      factory: {
+        resolvedSkills: [
+          {
+            query: 'task3-review-choice-flow',
+            status: 'available',
+            sources: [{ root: secondRoot }],
+          },
+        ],
+      },
+    });
+
+    await expect(
+      bundleFactoryGenerateCommand('resolved-composition-blocked', {
+        project: projectRoot,
+        json: true,
+      }),
+    ).rejects.toThrow(/composition.*Choice review/iu);
+
+    await expect(
+      fs.access(
+        path.join(
+          projectRoot,
+          '.comet',
+          'bundle-drafts',
+          'resolved-composition-blocked',
+          'skills',
+          'resolved-composition-blocked',
+        ),
+      ),
+    ).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   it('resolves ambiguous and ignored missing factory candidates through command state updates', async () => {
     const firstRoot = path.join(projectRoot, '.codex', 'skills', 'review-flow');
     const secondRoot = path.join(projectRoot, '.claude', 'skills', 'review-flow');
@@ -549,8 +1223,29 @@ describe('bundle commands', () => {
           { skill: 'optional-missing', preferenceIndex: 1 },
         ],
         deviations: [],
+        composition: {
+          schemaVersion: 1,
+          entrySkills: ['review-flow'],
+          steps: [
+            {
+              id: 'step-1',
+              skill: 'review-flow',
+              source: 'atomic',
+              preferenceIndex: 0,
+            },
+          ],
+          choices: [],
+          issues: [],
+        },
         engineMode: 'deterministic',
         runnerMode: 'standalone',
+        generatedSkillPackage: {
+          entrySkill: 'resolvable-factory',
+          internalSkills: [],
+          packageRoot: path.join(projectRoot, '.comet', 'bundle-drafts', 'resolvable-factory'),
+          enginePath: null,
+          evalManifestPath: null,
+        },
       },
     });
 
@@ -584,6 +1279,8 @@ describe('bundle commands', () => {
         ],
       },
     });
+    expect(selected.factory).not.toHaveProperty('generatedSkillPackage');
+    expect(selected.factory).not.toHaveProperty('composition');
     expect(ignored).toMatchObject({
       factory: {
         preferredSkills: ['review-flow'],
@@ -599,6 +1296,8 @@ describe('bundle commands', () => {
         ],
       },
     });
+    expect(ignored.factory).not.toHaveProperty('generatedSkillPackage');
+    expect(ignored.factory).not.toHaveProperty('composition');
   });
 
   it('builds a factory review summary with compile and Eval workload evidence', async () => {
@@ -666,6 +1365,94 @@ describe('bundle commands', () => {
       eval: null,
       review: null,
     });
+  });
+
+  it('points composition-blocked factory states away from factory-generate as the next action', async () => {
+    await createBundleDraft({
+      projectRoot,
+      name: 'factory-composition-action',
+      candidates: [],
+      creator: 'native',
+      defaultLocale: 'zh',
+      locales: ['zh', 'en'],
+      engineEnabled: true,
+      factory: {
+        goal: 'Create a workflow with a composition issue.',
+        preferredSkills: ['task3-choice-flow'],
+        compositionEntrySkills: ['task3-choice-flow'],
+        resolvedSkills: [
+          {
+            query: 'task3-choice-flow',
+            preferenceIndex: 0,
+            status: 'available',
+            sources: [
+              {
+                name: 'task3-choice-flow',
+                preferenceIndex: 0,
+                platform: 'project',
+                scope: 'project',
+                origin: 'project',
+                factory: { query: 'task3-choice-flow' },
+                root: path.join(projectRoot, '.comet', 'skills', 'task3-choice-flow'),
+                description: 'Choice flow.',
+                skillMd: '# Choice flow\n',
+                hash: 'c'.repeat(64),
+              },
+            ],
+          },
+        ],
+        callChain: [{ skill: 'task3-choice-flow', preferenceIndex: 0 }],
+        composition: {
+          schemaVersion: 1,
+          entrySkills: ['task3-choice-flow'],
+          steps: [],
+          choices: [
+            {
+              id: 'review',
+              fromSkill: 'task3-choice-flow',
+              options: ['task3-missing-review'],
+              selectedSkill: null,
+              reason: 'No options are available in resolved Skills.',
+            },
+          ],
+          issues: [
+            {
+              type: 'unresolved-choice',
+              message: 'Choice review from task3-choice-flow has no available options.',
+              choiceId: 'review',
+            },
+          ],
+        },
+        deviations: [],
+        engineMode: 'deterministic',
+        runnerMode: 'standalone',
+      },
+    });
+
+    const status = await captureJson(() =>
+      bundleStatusCommand('factory-composition-action', { project: projectRoot, json: true }),
+    );
+    const listed = await captureJson(() => bundleListCommand({ project: projectRoot, json: true }));
+
+    expect(status.nextAction).toMatchObject({
+      action: 'fix-composition',
+      command:
+        'comet bundle review-summary factory-composition-action --platform <reference-platform>',
+    });
+    expect(status.nextAction.action).not.toBe('generate-factory-package');
+    expect(String(status.nextAction.reason)).toMatch(/composition/i);
+    expect(listed).toMatchObject({
+      bundles: [
+        {
+          name: 'factory-composition-action',
+          nextAction: {
+            action: 'fix-composition',
+          },
+        },
+      ],
+    });
+    const [listedBundle] = listed.bundles as Array<{ nextAction: { reason: string } }>;
+    expect(String(listedBundle!.nextAction.reason)).toMatch(/composition/i);
   });
 
   it('compiles a Bundle, plans Eval, records Eval, approves, publishes, and distributes', async () => {
@@ -776,12 +1563,38 @@ describe('bundle commands', () => {
       project: projectRoot,
       platform: 'claude',
     });
-    await expect(
+    const distributed = await captureJson(() =>
+      bundleDistributeCommand('invalid-bundle', {
+        project: projectRoot,
+        platform: ['claude'],
+        scope: 'project',
+        json: true,
+      }),
+    );
+    expect(distributed).toMatchObject({
+      platforms: [
+        {
+          platform: 'claude',
+          status: 'cancelled',
+          error: expect.stringMatching(/executable|confirm/iu),
+          executableDisclosures: [
+            expect.objectContaining({
+              id: 'protect-write',
+              sideEffect: 'read',
+            }),
+          ],
+        },
+      ],
+    });
+
+    const text = await captureText(() =>
       bundleDistributeCommand('invalid-bundle', {
         project: projectRoot,
         platform: ['claude'],
         scope: 'project',
       }),
-    ).rejects.toThrow(/executable|confirm/iu);
+    );
+    expect(text).toContain('Executable hooks:');
+    expect(text).toContain('protect-write');
   });
 });

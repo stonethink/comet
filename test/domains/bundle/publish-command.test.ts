@@ -18,10 +18,22 @@ import type { BundleEvalResult } from '../../../domains/bundle/eval.js';
 
 async function writeBundle(root: string, name: string): Promise<void> {
   await fs.mkdir(path.join(root, 'skills', 'entry'), { recursive: true });
+  await fs.mkdir(path.join(root, 'hooks'), { recursive: true });
+  await fs.mkdir(path.join(root, 'scripts'), { recursive: true });
   await fs.writeFile(
     path.join(root, 'skills', 'entry', 'SKILL.md'),
     '---\nname: entry\ndescription: entry.\n---\n\n# entry\n',
   );
+  await fs.writeFile(
+    path.join(root, 'hooks', 'guard.yaml'),
+    `event: before_write
+matcher: Write|Edit
+script: guard
+failure: block
+requiresConfirmation: false
+`,
+  );
+  await fs.writeFile(path.join(root, 'scripts', 'guard.mjs'), 'process.exit(0);\n');
   await fs.writeFile(
     path.join(root, 'bundle.yaml'),
     `apiVersion: comet/v1alpha1
@@ -38,12 +50,18 @@ skills:
     visibility: entry
 resources:
   rules: []
-  hooks: []
+  hooks:
+    - id: guard
+      path: hooks/guard.yaml
   references: []
-  scripts: []
+  scripts:
+    - id: guard
+      path: scripts/guard.mjs
+      sideEffect: read
+      runtime: node
   assets: []
 platforms:
-  requires: [skills]
+  requires: [skills, hooks]
   optional: []
   overrides: []
 engine:
@@ -77,6 +95,16 @@ async function captureJson(run: () => Promise<void>): Promise<Record<string, unk
   try {
     await run();
     return JSON.parse(log.mock.calls.map((call) => call.join(' ')).join('\n'));
+  } finally {
+    log.mockRestore();
+  }
+}
+
+async function captureText(run: () => Promise<void>): Promise<string> {
+  const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+  try {
+    await run();
+    return log.mock.calls.map((call) => call.join(' ')).join('\n');
   } finally {
     log.mockRestore();
   }
@@ -162,6 +190,7 @@ describe('publish command facade', () => {
         project: projectRoot,
         platform: ['claude'],
         scope: 'project',
+        confirmExecutables: true,
         json: true,
       }),
     );
@@ -173,7 +202,36 @@ describe('publish command facade', () => {
     expect(approved).toMatchObject({ status: 'review-approved' });
     expect(published).toMatchObject({ status: 'ready' });
     expect(distributed).toMatchObject({
-      platforms: [{ platform: 'claude', status: 'installed' }],
+      platforms: [
+        {
+          platform: 'claude',
+          status: 'installed',
+          executableDisclosures: [
+            expect.objectContaining({
+              id: expect.stringContaining('guard'),
+              sideEffect: 'read',
+            }),
+          ],
+          plannedFiles: expect.arrayContaining([
+            expect.objectContaining({ kind: 'skill' }),
+            expect.objectContaining({ kind: 'hook' }),
+            expect.objectContaining({ kind: 'script' }),
+          ]),
+        },
+      ],
     });
+
+    const text = await captureText(() =>
+      publishDistributeCommand('publish-facade', {
+        project: projectRoot,
+        platform: ['claude'],
+        scope: 'project',
+        confirmExecutables: true,
+      }),
+    );
+
+    expect(text).toContain('Executable hooks:');
+    expect(text).toContain('claude/guard:');
+    expect(text).toContain('(read) ->');
   });
 });

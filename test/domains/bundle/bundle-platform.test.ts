@@ -134,6 +134,7 @@ describe('Bundle platform compiler', () => {
         id: 'protect-write',
         sideEffect: 'read',
         command: expect.stringContaining('verify.mjs'),
+        destination: path.join(projectRoot, '.claude', 'settings.local.json'),
       }),
     ]);
   });
@@ -236,8 +237,79 @@ describe('Bundle platform compiler', () => {
     });
 
     expect(report.files.filter((file) => file.source.endsWith('verify.mjs'))).toHaveLength(1);
+    expect(report.executableDisclosures[0]).toMatchObject({
+      id: 'protect-write',
+      sideEffect: 'read',
+      destination: path.join(projectRoot, '.claude', 'settings.local.json'),
+    });
     expect(report.executableDisclosures[0].command.replaceAll('\\', '/')).toContain(
       '.claude/skills/demo/scripts/verify.mjs',
     );
+  });
+
+  it('quotes hook commands that reference script paths with spaces', async () => {
+    const claude = {
+      ...targets.find((target) => target.id === 'claude')!,
+      layout: {
+        ...targets.find((target) => target.id === 'claude')!.layout,
+        baseDir: path.join(projectRoot, 'project with spaces'),
+        skillsRoot: path.join(projectRoot, 'project with spaces', '.claude', 'skills'),
+        rulesRoot: path.join(projectRoot, 'project with spaces', '.claude', 'rules'),
+        scriptsRoot: path.join(
+          projectRoot,
+          'project with spaces',
+          '.claude',
+          'skills',
+          '.comet-bundles',
+        ),
+      },
+    };
+    const bundleIr = ir({
+      skills: [
+        {
+          id: 'demo',
+          logicalRoot: 'skills/demo',
+          visibility: 'entry',
+          sourceRoot: path.resolve('fixtures/skills/demo'),
+          files: [
+            {
+              relativePath: 'SKILL.md',
+              source: path.resolve('fixtures/skills/demo/SKILL.md'),
+            },
+            {
+              relativePath: 'scripts/verify with space.mjs',
+              source: path.resolve('fixtures/skills/demo/scripts/verify with space.mjs'),
+            },
+          ],
+        },
+      ],
+      hooks: [
+        {
+          id: 'protect-write',
+          source: path.resolve('fixtures/hooks/protect-write.yaml'),
+          event: 'before_write',
+          script: 'verify',
+          failure: 'block',
+          requiresConfirmation: false,
+        },
+      ],
+      scripts: [
+        {
+          id: 'verify',
+          path: 'skills/demo/scripts/verify with space.mjs',
+          sideEffect: 'read',
+          runtime: 'node',
+          source: path.resolve('fixtures/skills/demo/scripts/verify with space.mjs'),
+        },
+      ],
+    });
+
+    const report = await compileBundleForPlatform(bundleIr, claude, {
+      projectRoot,
+      scope: 'project',
+      locale: 'zh',
+    });
+
+    expect(report.executableDisclosures[0].command).toMatch(/^node "[^"]*verify with space\.mjs"$/u);
   });
 });

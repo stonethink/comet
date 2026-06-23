@@ -12,6 +12,8 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Bundle authoring recovery list**: Adds `comet bundle list` so `/comet-any` can discover recoverable Skill Factory authoring sessions when users return without remembering the Bundle name.
 - **Shared eval system**: Adds a reusable eval harness for Comet workflows and arbitrary local Skills, including profiles, generated Skill manifests, generic smoke tasks, HTML reports, failure attribution, token/cost reporting, and the new `comet eval run|collect` CLI entry.
 - **Platform expansion**: Adds ZCode support and continues to grow the cross-platform install/distribute layer used by Comet Skills and Bundles.
+- **Stable composed Skill control plane**: Generated `/comet-any` Skill Bundles now include the required scripts, rules, hooks, runtime checks, Eval manifest, and composition evidence needed for resumable and guarded execution.
+- **Factory Skill composition**: Adds creation-time expansion for source Skill `comet/flow.yaml` files, including choice resolution and cycle detection before compiling the final Plan.
 
 ### Changed
 
@@ -20,6 +22,9 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Repository and runtime layout**: Reorganizes the repo into `app/`, `domains/`, `platform/`, `scripts/`, and matching tests while keeping the packaged CLI, installed assets, and generated Classic runtime compatible.
 - **User-facing guidance**: Simplifies the top-level README, `/comet-any` docs, and CLI text output so users see task-first entry points, deterministic `Next action` recovery hints, and clearer publish/eval gates.
 - **Classic runtime storage**: Splits machine-owned Run state out of `.comet.yaml`, routes more workflow facts through shared diagnostics/runtime-eval paths, and keeps Classic commands behaviorally compatible while moving them closer to the Skill Engine model.
+- **Runtime checks naming**: New Engine-native packages use `comet/checks.yaml` for runtime checks while retaining legacy `comet/evals.yaml` loading during migration.
+- **Bundle distribution disclosure**: Publish distribution output now exposes planned files and executable hook disclosures so required control-plane effects are visible before installation.
+- **Stable composed Skill Bundle wording**: Clarifies the `/comet-any` surface, docs, and CLI help so the stable composed Skill Bundle contract names the `skills/scripts/rules/hooks/references` capability set, keeps `scripts/rules/hooks` as the required control plane, and uses the exact `Low-level Skill utilities` / `Advanced Bundle backend` help text casing users now see in the CLI.
 
 ### Fixed
 
@@ -28,6 +33,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **`/comet-any` publish gates**: Tightens readiness evaluation so missing candidates, stale evals, missing review approval, unsupported required capabilities, and executable disclosures are surfaced explicitly before publish/distribute decisions.
 - **Skill and eval CLI ergonomics**: Fixes `comet skill resume` option handling, adds actionable text-mode recovery hints, and removes the need to manually assemble most `cd eval && uv run pytest ...` command lines.
 - **Windows and path reliability**: Fixes OpenSpec init/update path quoting for directories with spaces and hardens the eval/task harness for Windows UTF-8, Docker, and report-output workflows.
+- **Stable Bundle readiness**: Factory-generated Bundles cannot be evaluated, reviewed, or published when required control-plane files are missing.
 
 ### Tests
 
@@ -36,6 +42,8 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Skill/Eval UX coverage**: Adds tests for `comet eval run|collect`, task-first README guidance, typed readiness blockers/warnings, and text-mode `comet skill` recovery hints across waiting, success, and failed-eval states.
 - **Bundle recovery coverage**: Adds command-level and built-CLI coverage for listing recoverable Bundle authoring states with next-action metadata.
 - **Classic diagnostics coverage**: Adds focused coverage for shared diagnostics, malformed-state isolation, runtime-step eval evidence, and generated runtime parity.
+- **Comet-any doc/help sync**: Adds assertions for the stable composed Skill Bundle required capability set, portable hook descriptor wording, and the exact CLI help capitalization expected by the public help text.
+- **Stable composed Skill coverage**: Adds tests for checks loading, flow composition, generated control-plane files, runtime scripts, Eval readiness, publish validation, fail-closed distribution, and user-facing docs.
 
 ### Removed
 

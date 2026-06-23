@@ -107,6 +107,55 @@ confirmationRequiredFor: []
     ]);
   });
 
+  it('loads runtime checks from comet/checks.yaml', async () => {
+    await fs.writeFile(
+      path.join(skillRoot, 'comet', 'checks.yaml'),
+      `runtime:
+  - id: completed
+    scope: completion
+    type: state_equals
+    field: status
+    equals: completed
+`,
+    );
+
+    const pkg = await loadSkillPackage(skillRoot);
+
+    expect(pkg.evals).toEqual([
+      {
+        id: 'completed',
+        scope: 'completion',
+        type: 'state_equals',
+        field: 'status',
+        equals: 'completed',
+      },
+    ]);
+  });
+
+  it('keeps loading legacy comet/evals.yaml during migration', async () => {
+    await fs.writeFile(
+      path.join(skillRoot, 'comet', 'evals.yaml'),
+      `runtime:
+  - id: legacy-completed
+    scope: completion
+    type: state_equals
+    field: status
+    equals: completed
+`,
+    );
+
+    const pkg = await loadSkillPackage(skillRoot);
+
+    expect(pkg.evals.map((entry) => entry.id)).toEqual(['legacy-completed']);
+  });
+
+  it('rejects packages that define both checks.yaml and evals.yaml', async () => {
+    await fs.writeFile(path.join(skillRoot, 'comet', 'checks.yaml'), 'runtime: []\n');
+    await fs.writeFile(path.join(skillRoot, 'comet', 'evals.yaml'), 'runtime: []\n');
+
+    await expect(loadSkillPackage(skillRoot)).rejects.toThrow(/checks.yaml.*evals.yaml/);
+  });
+
   it.each([
     {
       name: 'a missing skills array',
@@ -146,6 +195,14 @@ confirmationRequiredFor: []
     await fs.writeFile(path.join(skillRoot, 'comet', 'evals.yaml'), yaml);
 
     await expect(loadSkillPackage(skillRoot)).rejects.toThrow(/comet[\\/]evals\.yaml/);
+  });
+
+  it('rejects checks.yaml with its file path and field path', async () => {
+    await fs.writeFile(path.join(skillRoot, 'comet', 'checks.yaml'), `runtime:\n  id: report\n`);
+
+    await expect(loadSkillPackage(skillRoot)).rejects.toThrow(
+      /comet[\\/]checks\.yaml.*runtime/,
+    );
   });
 
   it('loads a structurally complete nested skill definition', async () => {

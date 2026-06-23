@@ -133,7 +133,13 @@ function scriptDestination(
 function scriptCommand(script: BundleCompilerIr['scripts'][number], destination: string): string {
   const executable =
     script.runtime === 'node' ? 'node' : script.runtime === 'python' ? 'python' : 'bash';
-  return `${executable} ${destination}`;
+  return `${executable} ${quoteCommandPath(destination)}`;
+}
+
+function quoteCommandPath(destination: string): string {
+  const normalized = destination.replaceAll('\\', '/');
+  if (/^[A-Za-z0-9_./:-]+$/u.test(normalized)) return normalized;
+  return `"${normalized.replaceAll('"', '\\"')}"`;
 }
 
 export function planBundleHook(

@@ -287,12 +287,299 @@ function evalManifest(plan: FactorySkillPackagePlan): Record<string, unknown> {
   };
 }
 
+function compositionReport(plan: FactorySkillPackagePlan): string {
+  const composition = plan.composition;
+  if (!composition) {
+    return `# Composition Report
+
+No composition metadata was recorded.
+`;
+  }
+
+  const entrySkills =
+    composition.entrySkills.length === 0
+      ? 'No entry skills were recorded.'
+      : composition.entrySkills.map((skill) => `- ${skill}`).join('\n');
+  const steps =
+    composition.steps.length === 0
+      ? 'No steps were recorded.'
+      : composition.steps
+          .map((step, index) => {
+            const from = step.fromSkill ? ` from ${step.fromSkill}` : '';
+            const choice = step.choiceId ? ` via choice ${step.choiceId}` : '';
+            const preference = step.preferenceIndex === null ? 'none' : step.preferenceIndex;
+            return `${index + 1}. ${step.id}: ${step.skill} (${step.source}${from}${choice}, preferenceIndex=${preference})`;
+          })
+          .join('\n');
+  const choices =
+    composition.choices.length === 0
+      ? 'No choices were recorded.'
+      : composition.choices
+          .map(
+            (choice) =>
+              `- ${choice.id}: ${choice.selectedSkill ?? 'unresolved'} from ${choice.fromSkill}. ${choice.reason}`,
+          )
+          .join('\n');
+  const issues =
+    composition.issues.length === 0
+      ? 'No composition issues.'
+      : composition.issues.map((issue) => `- ${issue.type}: ${issue.message}`).join('\n');
+
+  return `# Composition Report
+
+## Entry Skills
+
+${entrySkills}
+
+## Steps
+
+${steps}
+
+## Choices
+
+${choices}
+
+## Issues
+
+${issues}
+`;
+}
+
+function planScript(plan: FactorySkillPackagePlan): string {
+  const planSourcePath = plan.engineMode === 'none' ? ['SKILL.md'] : ['comet', 'skill.yaml'];
+  const planSteps = plan.callChain.map((item, index) => stepId(index, item.skill));
+  return `#!/usr/bin/env node
+import { promises as fs } from 'fs';
+import path from 'path';
+import { createHash } from 'crypto';
+import { fileURLToPath } from 'url';
+
+const command = process.argv[2] ?? 'status';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const packageRoot = path.resolve(__dirname, '..');
+const runRoot = process.env.COMET_RUN_ROOT ? path.resolve(process.env.COMET_RUN_ROOT) : process.cwd();
+const statePath = path.join(runRoot, '.comet', 'runs', 'state.json');
+const planSteps = ${JSON.stringify(planSteps, null, 2)};
+const planSourcePath = path.join(packageRoot, ${planSourcePath.map((item) => `'${item}'`).join(', ')});
+
+async function readJson(file) {
+  return JSON.parse(await fs.readFile(file, 'utf8'));
+}
+
+async function writeJson(file, value) {
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  await fs.writeFile(file, JSON.stringify(value, null, 2) + '\\n', 'utf8');
+}
+
+function sha256(value) {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+async function currentPlanHash() {
+  return sha256(await fs.readFile(planSourcePath, 'utf8'));
+}
+
+async function readState() {
+  return readJson(statePath);
+}
+
+async function assertPlanHash(state) {
+  const actual = await currentPlanHash();
+  if (state?.planHash !== actual) {
+    throw new Error('Comet control plane plan hash drift: expected ' + String(state?.planHash) + ', got ' + actual);
+  }
+}
+
+async function main() {
+  if (command === 'status') {
+    try {
+      const state = await readState();
+      await assertPlanHash(state);
+      console.log(JSON.stringify(state, null, 2));
+    } catch (error) {
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+        console.log(JSON.stringify({ status: 'not-started' }, null, 2));
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+  if (command === 'init') {
+    await writeJson(statePath, {
+      schemaVersion: 1,
+      status: 'running',
+      currentStep: planSteps[0] ?? null,
+      completedSteps: [],
+      outcomes: {},
+      planHash: await currentPlanHash(),
+    });
+    return;
+  }
+  if (command === 'complete-step') {
+    const step = process.argv[3];
+    if (!step) throw new Error('complete-step requires a step id');
+    const state = await readState();
+    await assertPlanHash(state);
+    if (state.status !== 'running') {
+      throw new Error('complete-step requires running state; got ' + String(state.status));
+    }
+    if (state.currentStep !== step) {
+      throw new Error('complete-step expected currentStep ' + String(state.currentStep) + ', got ' + step);
+    }
+    const outcomeArg = process.argv[4];
+    let outcome = null;
+    if (outcomeArg !== undefined) {
+      outcome = JSON.parse(outcomeArg);
+    }
+    const completedSteps = Array.isArray(state.completedSteps) ? state.completedSteps : [];
+    const nextIndex = planSteps.indexOf(step) + 1;
+    const nextStep = planSteps[nextIndex] ?? null;
+    state.completedSteps = [...completedSteps, step];
+    state.outcomes = {
+      ...(state.outcomes && typeof state.outcomes === 'object' && !Array.isArray(state.outcomes)
+        ? state.outcomes
+        : {}),
+      [step]: outcome,
+    };
+    state.currentStep = nextStep;
+    state.status = nextStep === null ? 'completed' : 'running';
+    await writeJson(statePath, state);
+    return;
+  }
+  throw new Error('Unknown command: ' + command);
+}
+
+main().catch((error) => {
+  console.error(error.message);
+  process.exit(1);
+});
+`;
+}
+
+function checkScript(plan: FactorySkillPackagePlan): string {
+  const required = [
+    'SKILL.md',
+    ...(plan.engineMode === 'none'
+      ? []
+      : ['comet/skill.yaml', 'comet/guardrails.yaml', 'comet/checks.yaml', 'comet/eval.yaml']),
+    'reference/resolved-skills.json',
+    'reference/composition-report.md',
+    'scripts/comet-plan.mjs',
+    'scripts/comet-check.mjs',
+    'scripts/comet-hook-guard.mjs',
+  ];
+  return `#!/usr/bin/env node
+import { promises as fs } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const packageRoot = path.resolve(__dirname, '..');
+const command = process.argv[2] ?? 'verify';
+
+const required = ${JSON.stringify(required, null, 2)};
+
+async function main() {
+  if (command !== 'verify') {
+    throw new Error('Unknown command: ' + command);
+  }
+  const missing = [];
+  for (const relative of required) {
+    try {
+      const stats = await fs.stat(path.join(packageRoot, relative));
+      if (!stats.isFile()) missing.push(relative);
+    } catch {
+      missing.push(relative);
+    }
+  }
+  if (missing.length > 0) {
+    console.error('Missing required control plane files: ' + missing.join(', '));
+    process.exit(1);
+  }
+  console.log('control-plane-ok');
+}
+
+main().catch((error) => {
+  console.error(error.message);
+  process.exit(1);
+});
+`;
+}
+
+function hookGuardScript(plan: FactorySkillPackagePlan): string {
+  const planSourcePath = plan.engineMode === 'none' ? ['SKILL.md'] : ['comet', 'skill.yaml'];
+  return `#!/usr/bin/env node
+import { promises as fs } from 'fs';
+import path from 'path';
+import { createHash } from 'crypto';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const packageRoot = path.resolve(__dirname, '..');
+const runRoot = process.env.COMET_RUN_ROOT ? path.resolve(process.env.COMET_RUN_ROOT) : process.cwd();
+const planSourcePath = path.join(packageRoot, ${planSourcePath.map((item) => `'${item}'`).join(', ')});
+
+function sha256(value) {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+async function currentPlanHash() {
+  return sha256(await fs.readFile(planSourcePath, 'utf8'));
+}
+
+async function main() {
+  const event = process.argv[2];
+  if (event !== 'before_write' && event !== 'before_tool') {
+    console.error('Comet hook guard only supports before_write and before_tool events.');
+    process.exit(1);
+  }
+  const statePath = path.join(runRoot, '.comet', 'runs', 'state.json');
+  let state;
+  try {
+    await fs.access(packageRoot);
+    state = JSON.parse(await fs.readFile(statePath, 'utf8'));
+  } catch (error) {
+    const message = error instanceof SyntaxError ? 'invalid' : 'missing';
+    console.error('Comet control plane state is ' + message + ': ' + statePath);
+    process.exit(1);
+  }
+  if (state?.status !== 'running') {
+    console.error(
+      'Comet control plane state status must be running before guarded writes; got ' +
+        String(state?.status) +
+        '.',
+    );
+    process.exit(1);
+  }
+  const actualPlanHash = await currentPlanHash();
+  if (state.planHash !== actualPlanHash) {
+    console.error('Comet control plane plan hash drift: expected ' + String(state.planHash) + ', got ' + actualPlanHash + '.');
+    process.exit(1);
+  }
+  console.log('hook-guard-ok');
+}
+
+main().catch((error) => {
+  console.error(error.message);
+  process.exit(1);
+});
+`;
+}
+
 export async function generateFactorySkillPackage(
   plan: FactorySkillPackagePlan,
 ): Promise<GeneratedFactorySkillPackage> {
   const packageRoot = path.resolve(plan.root, 'skills', plan.name);
   const cometRoot = path.join(packageRoot, 'comet');
   const referenceRoot = path.join(packageRoot, 'reference');
+  const scriptsRoot = path.join(packageRoot, 'scripts');
+  const compositionReportPath = path.join(referenceRoot, 'composition-report.md');
+  const scriptPaths = [
+    path.join(scriptsRoot, 'comet-plan.mjs'),
+    path.join(scriptsRoot, 'comet-check.mjs'),
+    path.join(scriptsRoot, 'comet-hook-guard.mjs'),
+  ];
 
   await fs.mkdir(packageRoot, { recursive: true });
   await fs.writeFile(path.join(packageRoot, 'SKILL.md'), skillMarkdown(plan), 'utf8');
@@ -310,6 +597,11 @@ export async function generateFactorySkillPackage(
     ) + '\n',
     'utf8',
   );
+  await fs.writeFile(compositionReportPath, compositionReport(plan), 'utf8');
+  await fs.mkdir(scriptsRoot, { recursive: true });
+  await fs.writeFile(scriptPaths[0]!, planScript(plan), 'utf8');
+  await fs.writeFile(scriptPaths[1]!, checkScript(plan), 'utf8');
+  await fs.writeFile(scriptPaths[2]!, hookGuardScript(plan), 'utf8');
 
   if (plan.engineMode !== 'none') {
     await fs.mkdir(cometRoot, { recursive: true });
@@ -323,7 +615,7 @@ export async function generateFactorySkillPackage(
       stringify(guardrails(plan)),
       'utf8',
     );
-    await fs.writeFile(path.join(cometRoot, 'evals.yaml'), stringify(runtimeEvals()), 'utf8');
+    await fs.writeFile(path.join(cometRoot, 'checks.yaml'), stringify(runtimeEvals()), 'utf8');
     await fs.writeFile(path.join(cometRoot, 'eval.yaml'), stringify(evalManifest(plan)), 'utf8');
   }
 
@@ -332,5 +624,11 @@ export async function generateFactorySkillPackage(
     skillPath: path.join(packageRoot, 'SKILL.md'),
     enginePath: plan.engineMode === 'none' ? null : cometRoot,
     evalManifestPath: plan.engineMode === 'none' ? null : path.join(cometRoot, 'eval.yaml'),
+    controlPlane: {
+      checksPath: plan.engineMode === 'none' ? null : path.join(cometRoot, 'checks.yaml'),
+      evalManifestPath: plan.engineMode === 'none' ? null : path.join(cometRoot, 'eval.yaml'),
+      compositionReportPath,
+      scripts: scriptPaths,
+    },
   };
 }

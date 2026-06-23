@@ -86,9 +86,19 @@ describe('Chinese comet-any Skill', () => {
       '轻量单步 Skill 可以不启用 Engine',
       '人工批准',
       '分发前必须询问用户',
+      '稳定组合 Skill Bundle',
+      'required capability set',
+      'skills/scripts/rules/hooks/references',
+      'scripts/rules/hooks',
+      'portable hook descriptor',
+      'comet/checks.yaml',
+      'comet publish distribute',
     ]) {
       expect(combined).toContain(expected);
     }
+
+    expect(combined).toContain('comet/eval.yaml');
+    expect(combined).not.toContain('evals.yaml');
   });
 
   it('preserves the required order of the Chinese workflow', async () => {
@@ -193,6 +203,13 @@ describe('Bilingual comet-any Skill parity', () => {
       { zh: 'authoring-skill', en: 'authoring-skill' },
       { zh: 'authoring-skill-smoke', en: 'authoring-skill-smoke' },
       { zh: 'comet/eval.yaml', en: 'comet/eval.yaml' },
+      { zh: '稳定组合 Skill Bundle', en: 'stable composed Skill Bundle' },
+      { zh: 'required capability set', en: 'required capability set' },
+      { zh: 'skills/scripts/rules/hooks/references', en: 'skills/scripts/rules/hooks/references' },
+      { zh: 'scripts/rules/hooks', en: 'scripts/rules/hooks' },
+      { zh: 'portable hook descriptor', en: 'portable hook descriptors' },
+      { zh: 'comet/checks.yaml', en: 'comet/checks.yaml' },
+      { zh: '/comet-any -> comet eval -> comet publish -> distribute', en: '/comet-any -> comet eval -> comet publish -> distribute' },
       {
         zh: 'Eval 证据缺失时不得发布 ready',
         en: 'Missing Eval evidence blocks ready publish',
@@ -232,5 +249,8 @@ describe('Bilingual comet-any Skill parity', () => {
       expect(zhCombined).toContain(command);
       expect(enCombined).toContain(command);
     }
+
+    expect(zhCombined).not.toContain('evals.yaml');
+    expect(enCombined).not.toContain('evals.yaml');
   });
 });

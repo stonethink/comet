@@ -21,11 +21,14 @@ describe('CLI help text', () => {
   it('marks bundle as the advanced backend and publish as the user-facing path', () => {
     const publishHelp = runCli('publish', '--help');
     const bundleHelp = runCli('bundle', '--help');
+    const skillHelp = runCli('skill', '--help');
 
     expect(publishHelp.status, publishHelp.stderr).toBe(0);
     expect(bundleHelp.status, bundleHelp.stderr).toBe(0);
+    expect(skillHelp.status, skillHelp.stderr).toBe(0);
     expect(publishHelp.stdout).toContain('Skill publish candidates');
     expect(bundleHelp.stdout).toContain('Advanced Bundle backend');
+    expect(skillHelp.stdout).toContain('Low-level Skill utilities');
   });
 
   it('clarifies that skill eval is the Engine Run runtime path', () => {

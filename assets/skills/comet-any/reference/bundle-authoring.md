@@ -5,6 +5,8 @@
 `comet bundle` is the internal deterministic backend for `/comet-any`. The user does not need to run
 Bundle CLI directly. This Skill must adapt creator output into a Comet-native Skill Package before
 passing it to the Bundle backend for compile, Eval, publish, and distribution.
+For ordinary users, the path stays `/comet-any -> comet eval -> comet publish -> distribute`;
+`comet bundle` is exposed only as the Advanced Bundle backend for backend-state auditing.
 
 The order in `.comet/skills.txt` must be preserved as Factory metadata. If the generated call chain
 deviates from that order, the review summary must include the reason.
@@ -39,10 +41,12 @@ A Bundle must explicitly define:
 
 - multiple entry Skills: user-callable entry points.
 - internal Skill components: shared workflow pieces referenced by entries.
-- references/rules/hooks/scripts/assets: the shared resource graph.
+- references/rules/hooks/scripts/assets: the shared resource graph, with `scripts/rules/hooks` kept as the required control plane.
+- The stable composed Skill Bundle required capability set is `skills/scripts/rules/hooks/references`.
 - required/optional capabilities: used for platform compilation and capability gaps.
-- Engine Package: multi-step, recoverable, or higher-risk output must generate `comet/skill.yaml`, `guardrails.yaml`, and `evals.yaml`.
+- Engine Package: multi-step, recoverable, or higher-risk output must generate `comet/skill.yaml`, `comet/guardrails.yaml`, `comet/checks.yaml`, and `comet/eval.yaml`.
 - Engine Eval manifest: Engine-enabled generated Skills must also write `comet/eval.yaml` using the `authoring-skill` profile and the `authoring-skill-smoke` quick eval.
+- Portable hooks: `hooks/*.yaml` files are Comet portable hook descriptors and become active only after `comet publish distribute` compiles them into target-platform configuration.
 - real Skill evidence: generated output must include `reference/resolved-skills.json` with resolved Skill sources, descriptions, hashes, references, script summaries, and `sourceSummaries` distilled from `SKILL.md` bodies.
 
 Engine is the runtime semantic foundation, but CLI remains the internal deterministic backend and not the user-facing workflow.

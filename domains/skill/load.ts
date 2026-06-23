@@ -274,6 +274,44 @@ async function readOptionalYaml(filePath: string): Promise<unknown | null> {
   }
 }
 
+async function yamlFileExists(filePath: string): Promise<boolean> {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return false;
+    }
+    throw error;
+  }
+}
+
+async function readRuntimeChecks(cometRoot: string): Promise<{
+  document: { runtime?: RuntimeEvalDefinition[] } | null;
+}> {
+  const checksPath = path.join(cometRoot, 'checks.yaml');
+  const evalsPath = path.join(cometRoot, 'evals.yaml');
+  const [hasChecks, hasEvals] = await Promise.all([
+    yamlFileExists(checksPath),
+    yamlFileExists(evalsPath),
+  ]);
+
+  if (hasChecks && hasEvals) {
+    throw new Error(`${checksPath}: checks.yaml and evals.yaml cannot both be present`);
+  }
+  if (hasChecks) {
+    return {
+      document: narrowEvalDocument(await readYaml(checksPath), checksPath),
+    };
+  }
+  if (hasEvals) {
+    return {
+      document: narrowEvalDocument(await readYaml(evalsPath), evalsPath),
+    };
+  }
+  return { document: null };
+}
+
 export async function loadSkillPackage(root: string): Promise<SkillPackage> {
   const packageRoot = path.resolve(root);
   const cometRoot = path.join(packageRoot, 'comet');
@@ -282,13 +320,11 @@ export async function loadSkillPackage(root: string): Promise<SkillPackage> {
 
   const skillPath = path.join(cometRoot, 'skill.yaml');
   const guardrailsPath = path.join(cometRoot, 'guardrails.yaml');
-  const evalsPath = path.join(cometRoot, 'evals.yaml');
   const definition = narrowSkillDefinition(await readYaml(skillPath), skillPath);
   const rawGuardrails = await readOptionalYaml(guardrailsPath);
   const guardrailDocument =
     rawGuardrails === null ? null : narrowGuardrails(rawGuardrails, guardrailsPath);
-  const rawEvals = await readOptionalYaml(evalsPath);
-  const evalDocument = rawEvals === null ? null : narrowEvalDocument(rawEvals, evalsPath);
+  const runtimeChecks = await readRuntimeChecks(cometRoot);
 
   const defaultGuardrails: GuardrailDefinition = {
     allowedSkills: definition.skills.map((skill) => skill.id),
@@ -308,7 +344,7 @@ export async function loadSkillPackage(root: string): Promise<SkillPackage> {
       ...defaultGuardrails,
       ...guardrailDocument,
     },
-    evals: evalDocument?.runtime ?? [],
+    evals: runtimeChecks.document?.runtime ?? [],
   };
 }
 

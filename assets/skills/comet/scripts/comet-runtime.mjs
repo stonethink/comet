@@ -8440,18 +8440,49 @@ async function readOptionalYaml(filePath) {
     throw error;
   }
 }
+async function yamlFileExists(filePath) {
+  try {
+    await fs6.access(filePath);
+    return true;
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return false;
+    }
+    throw error;
+  }
+}
+async function readRuntimeChecks(cometRoot) {
+  const checksPath = path6.join(cometRoot, "checks.yaml");
+  const evalsPath = path6.join(cometRoot, "evals.yaml");
+  const [hasChecks, hasEvals] = await Promise.all([
+    yamlFileExists(checksPath),
+    yamlFileExists(evalsPath)
+  ]);
+  if (hasChecks && hasEvals) {
+    throw new Error(`${checksPath}: checks.yaml and evals.yaml cannot both be present`);
+  }
+  if (hasChecks) {
+    return {
+      document: narrowEvalDocument(await readYaml(checksPath), checksPath)
+    };
+  }
+  if (hasEvals) {
+    return {
+      document: narrowEvalDocument(await readYaml(evalsPath), evalsPath)
+    };
+  }
+  return { document: null };
+}
 async function loadSkillPackage(root) {
   const packageRoot = path6.resolve(root);
   const cometRoot = path6.join(packageRoot, "comet");
   await fs6.access(path6.join(packageRoot, "SKILL.md"));
   const skillPath = path6.join(cometRoot, "skill.yaml");
   const guardrailsPath = path6.join(cometRoot, "guardrails.yaml");
-  const evalsPath = path6.join(cometRoot, "evals.yaml");
   const definition = narrowSkillDefinition(await readYaml(skillPath), skillPath);
   const rawGuardrails = await readOptionalYaml(guardrailsPath);
   const guardrailDocument = rawGuardrails === null ? null : narrowGuardrails(rawGuardrails, guardrailsPath);
-  const rawEvals = await readOptionalYaml(evalsPath);
-  const evalDocument = rawEvals === null ? null : narrowEvalDocument(rawEvals, evalsPath);
+  const runtimeChecks = await readRuntimeChecks(cometRoot);
   const defaultGuardrails = {
     allowedSkills: definition.skills.map((skill) => skill.id),
     allowedAgents: definition.agents.map((agent) => agent.id),
@@ -8467,7 +8498,7 @@ async function loadSkillPackage(root) {
       ...defaultGuardrails,
       ...guardrailDocument
     },
-    evals: evalDocument?.runtime ?? []
+    evals: runtimeChecks.document?.runtime ?? []
   };
 }
 

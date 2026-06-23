@@ -1,10 +1,11 @@
 import os from 'os';
 import { compileBundleIr } from './compiler.js';
-import { planBundleEval } from './eval.js';
+import { planBundleEval, validateStableFactoryControlPlane } from './eval.js';
+import { hashBundle } from './hash.js';
 import { loadBundle } from './load.js';
 import { compileBundleForPlatform, type PlatformCompileReport } from './platform.js';
 import { reconcileBundleAuthoringState } from './state.js';
-import type { BundleAuthoringState } from './types.js';
+import type { BundleAuthoringState, BundleCompilerIr, SkillBundle } from './types.js';
 import { listBundlePlatformTargets } from './bundle-platform.js';
 
 export interface BundleReviewReadiness {
@@ -34,6 +35,7 @@ export interface BundleReviewSummary {
 
 function buildReadiness(
   state: BundleAuthoringState,
+  controlPlane: Awaited<ReturnType<typeof validateStableFactoryControlPlane>>,
   compile?: PlatformCompileReport,
 ): BundleReviewReadiness {
   const blockers: string[] = [];
@@ -48,6 +50,12 @@ function buildReadiness(
         .map((skill) => `${skill.query} (${skill.status})`)
         .join(', ')}`,
     );
+  }
+  for (const issue of state.factory?.composition?.issues ?? []) {
+    blockers.push(`[composition] ${issue.message}`);
+  }
+  for (const error of controlPlane.errors) {
+    blockers.push(`[control-plane] ${error}`);
   }
   if (!state.currentHash) blockers.push('[draft] Current draft hash is missing');
   if (!state.eval || state.eval.hash !== state.currentHash || !state.eval.passed) {
@@ -97,10 +105,72 @@ function buildReadiness(
       ...(state.factory?.generatedSkillPackage?.evalManifestPath
         ? { evalManifest: state.factory.generatedSkillPackage.evalManifestPath }
         : {}),
+      ...(state.factory?.composition
+        ? {
+            compositionIssues: `${state.factory.composition.issues.length} issue(s)`,
+            compositionChoices: `${state.factory.composition.choices.length} choice(s)`,
+          }
+        : {}),
+      ...(state.factory?.generatedSkillPackage
+        ? {
+            controlPlane: `${controlPlane.evidence.length}/${
+              controlPlane.evidence.length + controlPlane.errors.length
+            } file(s)`,
+            ...(controlPlane.errors.length > 0
+              ? { controlPlaneErrors: `${controlPlane.errors.length} error(s)` }
+              : {}),
+          }
+        : {}),
       ...(state.eval?.resultPath ? { evalResult: state.eval.resultPath } : {}),
       ...(state.factory?.planPath ? { factoryPlan: state.factory.planPath } : {}),
       ...(state.ready?.path ? { publishedBundle: state.ready.path } : {}),
     },
+  };
+}
+
+async function fallbackIrForBundle(bundle: SkillBundle, locale: string): Promise<BundleCompilerIr> {
+  return {
+    bundle: {
+      name: bundle.manifest.metadata.name,
+      version: bundle.manifest.metadata.version,
+      locale,
+      hash: await hashBundle(bundle),
+    },
+    capabilities: {
+      requires: [...bundle.manifest.platforms.requires],
+      optional: [...bundle.manifest.platforms.optional],
+    },
+    skills: bundle.manifest.skills.map((skill) => ({
+      id: skill.id,
+      logicalRoot: skill.path,
+      visibility: skill.visibility,
+      sourceRoot: `${bundle.root}/${skill.path}`,
+      files: [],
+    })),
+    rules: [],
+    hooks: [],
+    scripts: [],
+    references: [],
+    assets: [],
+    overrides: [],
+    engine: null,
+  };
+}
+
+function fallbackCompileReport(options: {
+  bundle: SkillBundle;
+  platform: string;
+  scope: 'project' | 'global';
+}): PlatformCompileReport {
+  return {
+    platform: options.platform,
+    scope: options.scope,
+    files: [],
+    entrySkills: options.bundle.manifest.skills
+      .filter((skill) => skill.visibility === 'entry')
+      .map((skill) => skill.id),
+    unsupported: [],
+    executableDisclosures: [],
   };
 }
 
@@ -114,7 +184,6 @@ export async function buildBundleReviewSummary(options: {
   const state = await reconcileBundleAuthoringState(options.projectRoot, options.name);
   const bundle = await loadBundle(state.draftPath);
   const locale = options.locale ?? state.defaultLocale;
-  const ir = await compileBundleIr(bundle, { locale });
   const scope = options.scope ?? 'project';
   const target = listBundlePlatformTargets({
     projectRoot: options.projectRoot,
@@ -122,11 +191,17 @@ export async function buildBundleReviewSummary(options: {
     scope,
   }).find((candidate) => candidate.id === options.platform);
   if (!target) throw new Error(`Unknown platform: ${options.platform}`);
-  const compile = await compileBundleForPlatform(ir, target, {
-    projectRoot: options.projectRoot,
-    scope,
-    locale,
-  });
+  const controlPlane = await validateStableFactoryControlPlane(state);
+  const ir = controlPlane.passed
+    ? await compileBundleIr(bundle, { locale })
+    : await fallbackIrForBundle(bundle, locale);
+  const compile = controlPlane.passed
+    ? await compileBundleForPlatform(ir, target, {
+        projectRoot: options.projectRoot,
+        scope,
+        locale,
+      })
+    : fallbackCompileReport({ bundle, platform: target.id, scope });
 
   return {
     schemaVersion: 1,
@@ -143,6 +218,6 @@ export async function buildBundleReviewSummary(options: {
     eval: state.eval ?? null,
     review: state.review ?? null,
     ready: state.ready ?? null,
-    readiness: buildReadiness(state, compile),
+    readiness: buildReadiness(state, controlPlane, compile),
   };
 }

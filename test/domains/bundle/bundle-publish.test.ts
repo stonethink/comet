@@ -2,10 +2,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
+import { parse, stringify } from 'yaml';
 import { createBundleDraft, optimizeBundleDraft } from '../../../domains/bundle/draft.js';
 import { recordBundleEval, type BundleEvalResult } from '../../../domains/bundle/eval.js';
+import {
+  generateBundleDraftFromFactoryState,
+  initializeBundleFactoryState,
+} from '../../../domains/bundle/factory.js';
 import { publishBundle, reviewBundle } from '../../../domains/bundle/publish.js';
 import { reconcileBundleAuthoringState } from '../../../domains/bundle/state.js';
+import type { BundleAuthoringState } from '../../../domains/bundle/types.js';
 
 async function writeBundle(root: string, name: string, requiresHooks = false): Promise<void> {
   await fs.mkdir(path.join(root, 'skills', 'entry'), { recursive: true });
@@ -43,6 +49,16 @@ engine:
   );
 }
 
+async function writeFactorySkill(projectRoot: string, name: string): Promise<void> {
+  const skillRoot = path.join(projectRoot, '.comet', 'skills', name);
+  await fs.mkdir(skillRoot, { recursive: true });
+  await fs.writeFile(
+    path.join(skillRoot, 'SKILL.md'),
+    `---\nname: ${name}\ndescription: ${name}.\n---\n\n# ${name}\n`,
+    'utf8',
+  );
+}
+
 function passingResult(hash: string): BundleEvalResult {
   return {
     schemaVersion: 1,
@@ -64,6 +80,13 @@ function passingResult(hash: string): BundleEvalResult {
     },
     passed: true,
     summary: 'Publish gates passed.',
+  };
+}
+
+function passingFactoryResult(hash: string, entry: string): BundleEvalResult {
+  return {
+    ...passingResult(hash),
+    entries: [{ id: entry, passed: true, passRate: 1, evidence: [`${entry}.json`] }],
   };
 }
 
@@ -321,6 +344,63 @@ describe('Bundle review and publish', () => {
     ).rejects.toThrow('Factory publish requires generated Skill package evidence');
   });
 
+  it('blocks publishing an evaluated factory Bundle with missing control-plane files', async () => {
+    const generated = await createFactoryStateWithGeneratedPackage('stable-missing-control');
+    await recordPassingEval('stable-missing-control', passingFactoryResult);
+    await reviewBundle({
+      projectRoot,
+      name: 'stable-missing-control',
+      decision: 'approved',
+      reviewer: 'alice',
+    });
+    await fs.rm(
+      path.join(
+        generated.draftPath,
+        'skills',
+        'stable-missing-control',
+        'scripts',
+        'comet-check.mjs',
+      ),
+    );
+
+    await expect(
+      publishBundle({
+        projectRoot,
+        name: 'stable-missing-control',
+        referencePlatform: 'claude',
+      }),
+    ).rejects.toThrow(/control plane.*scripts\/comet-check\.mjs/iu);
+  });
+
+  it('blocks publishing an evaluated factory Bundle with degraded required capabilities', async () => {
+    const generated = await createFactoryStateWithGeneratedPackage(
+      'stable-degraded-capabilities',
+    );
+    await recordPassingEval('stable-degraded-capabilities', passingFactoryResult);
+    await reviewBundle({
+      projectRoot,
+      name: 'stable-degraded-capabilities',
+      decision: 'approved',
+      reviewer: 'alice',
+    });
+    const manifestPath = path.join(generated.draftPath, 'bundle.yaml');
+    const manifest = parse(await fs.readFile(manifestPath, 'utf8')) as Record<string, unknown>;
+    manifest.platforms = {
+      requires: ['skills', 'scripts', 'rules', 'hooks'],
+      optional: [],
+      overrides: [],
+    };
+    await fs.writeFile(manifestPath, stringify(manifest), 'utf8');
+
+    await expect(
+      publishBundle({
+        projectRoot,
+        name: 'stable-degraded-capabilities',
+        referencePlatform: 'claude',
+      }),
+    ).rejects.toThrow(/control plane.*references|required capabilities/iu);
+  });
+
   async function createDraft(name: string, requiresHooks = false) {
     const sourceRoot = path.join(root, `${name}-source`);
     await writeBundle(sourceRoot, name, requiresHooks);
@@ -336,10 +416,43 @@ describe('Bundle review and publish', () => {
     });
   }
 
-  async function recordPassingEval(name: string) {
+  async function createFactoryStateWithGeneratedPackage(
+    name: string,
+  ): Promise<BundleAuthoringState> {
+    await writeFactorySkill(projectRoot, `${name}-source`);
+    const planFile = path.join(root, `${name}-plan.json`);
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: `Generate ${name}.`,
+          preferredSkills: [`${name}-source`],
+          callChain: [`${name}-source`],
+          engineMode: 'deterministic',
+          runnerMode: 'standalone',
+          defaultLocale: 'en',
+          locales: ['en'],
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    const initialized = await initializeBundleFactoryState({ projectRoot, name, filePath: planFile });
+    return generateBundleDraftFromFactoryState({ projectRoot, state: initialized });
+  }
+
+  async function recordPassingEval(
+    name: string,
+    createResult: (hash: string, entry: string) => BundleEvalResult = (hash) =>
+      passingResult(hash),
+  ) {
     const state = await reconcileBundleAuthoringState(projectRoot, name);
     const resultFile = path.join(root, `${name}-eval.json`);
-    await fs.writeFile(resultFile, JSON.stringify(passingResult(state.currentHash!), null, 2));
+    await fs.writeFile(
+      resultFile,
+      JSON.stringify(createResult(state.currentHash!, name), null, 2),
+    );
     return recordBundleEval(projectRoot, name, resultFile);
   }
 });

@@ -8,7 +8,13 @@ import {
   reconcileBundleAuthoringState,
   writeBundleAuthoringState,
 } from './state.js';
-import type { BundleAuthoringState, BundleCompilerIr } from './types.js';
+import { loadNormalizedHook } from './validate.js';
+import type {
+  BundleAuthoringState,
+  BundleCapability,
+  BundleCompilerIr,
+  BundleManifest,
+} from './types.js';
 
 export interface BundleEvalPlan {
   level: 'quick' | 'full';
@@ -36,6 +42,36 @@ export interface BundleEvalResult {
   passed: boolean;
   summary: string;
 }
+
+export interface BundleControlPlaneValidation {
+  passed: boolean;
+  evidence: string[];
+  errors: string[];
+}
+
+const REQUIRED_FACTORY_CONTROL_PLANE = [
+  'SKILL.md',
+  'reference/resolved-skills.json',
+  'reference/composition-report.md',
+  'scripts/comet-plan.mjs',
+  'scripts/comet-check.mjs',
+  'scripts/comet-hook-guard.mjs',
+] as const;
+
+const REQUIRED_FACTORY_ENGINE_CONTROL_PLANE = [
+  'comet/skill.yaml',
+  'comet/guardrails.yaml',
+  'comet/checks.yaml',
+  'comet/eval.yaml',
+] as const;
+
+const REQUIRED_FACTORY_CAPABILITIES: BundleCapability[] = [
+  'skills',
+  'scripts',
+  'rules',
+  'hooks',
+  'references',
+];
 
 function assertObject(value: unknown, label: string): asserts value is Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -122,11 +158,247 @@ function parseEvalResult(value: unknown): BundleEvalResult {
   return value as unknown as BundleEvalResult;
 }
 
-function assertEntryCoverage(ir: BundleCompilerIr, result: BundleEvalResult): void {
-  const expected = ir.skills
-    .filter((skill) => skill.visibility === 'entry')
-    .map((skill) => skill.id)
-    .sort();
+export async function validateStableFactoryControlPlane(
+  state: BundleAuthoringState,
+): Promise<BundleControlPlaneValidation> {
+  const generated = state.factory?.generatedSkillPackage;
+  if (!generated) {
+    return {
+      passed: true,
+      evidence: ['not a generated factory package'],
+      errors: [],
+    };
+  }
+
+  const actualPackageRoot = path.resolve(generated.packageRoot);
+  const expectedPackageRoot = path.resolve(state.draftPath, 'skills', generated.entrySkill);
+  if (actualPackageRoot !== expectedPackageRoot) {
+    return {
+      passed: false,
+      evidence: [],
+      errors: [
+        `generated packageRoot mismatch: expected ${expectedPackageRoot}, got ${actualPackageRoot}`,
+      ],
+    };
+  }
+
+  const evidence: string[] = [];
+  const errors: string[] = [];
+  let manifest: BundleManifest | null = null;
+  try {
+    const bundle = await loadBundle(state.draftPath);
+    manifest = bundle.manifest;
+    evidence.push('bundle.yaml');
+    await compileBundleIr(bundle, { locale: state.defaultLocale });
+  } catch (error) {
+    errors.push(`bundle.yaml invalid: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  const required = [
+    ...REQUIRED_FACTORY_CONTROL_PLANE,
+    ...(state.factory?.engineMode === 'none' ? [] : REQUIRED_FACTORY_ENGINE_CONTROL_PLANE),
+  ];
+  for (const relative of required) {
+    const target = path.join(generated.packageRoot, relative);
+    try {
+      const stats = await fs.stat(target);
+      if (stats.isFile()) {
+        evidence.push(relative);
+      } else {
+        errors.push(`missing ${relative}`);
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      errors.push(`missing ${relative}`);
+    }
+  }
+
+  if (manifest) {
+    await validateFactoryManifestResources({
+      draftPath: state.draftPath,
+      entrySkill: generated.entrySkill,
+      manifest,
+      evidence,
+      errors,
+    });
+  }
+
+  await validateGeneratedScriptContracts(
+    generated.packageRoot,
+    state.factory?.engineMode ?? 'deterministic',
+    evidence,
+    errors,
+  );
+
+  return {
+    passed: errors.length === 0,
+    evidence,
+    errors,
+  };
+}
+
+function hasCapability(manifest: BundleManifest, capability: BundleCapability): boolean {
+  return manifest.platforms.requires.includes(capability);
+}
+
+function resourceSet<T extends { id: string; path: string }>(items: T[]): Map<string, T> {
+  return new Map(items.map((item) => [item.id, item]));
+}
+
+async function validateFactoryManifestResources(options: {
+  draftPath: string;
+  entrySkill: string;
+  manifest: BundleManifest;
+  evidence: string[];
+  errors: string[];
+}): Promise<void> {
+  const { draftPath, entrySkill, manifest, evidence, errors } = options;
+  const missingCapabilities = REQUIRED_FACTORY_CAPABILITIES.filter(
+    (capability) => !hasCapability(manifest, capability),
+  );
+  if (missingCapabilities.length > 0) {
+    errors.push(`required capabilities missing: ${missingCapabilities.join(', ')}`);
+  } else {
+    evidence.push(`required capabilities: ${REQUIRED_FACTORY_CAPABILITIES.join(', ')}`);
+  }
+
+  const rules = resourceSet(manifest.resources.rules);
+  const hooks = resourceSet(manifest.resources.hooks);
+  const scripts = resourceSet(manifest.resources.scripts);
+  const scriptIds = new Set(manifest.resources.scripts.map((script) => script.id));
+  const references = new Set(manifest.resources.references);
+  const expectedRules = [
+    {
+      id: `${entrySkill}-orchestration`,
+      path: `rules/${entrySkill}-orchestration.md`,
+    },
+  ];
+  const expectedHooks = [
+    {
+      id: `${entrySkill}-before-write-guard`,
+      path: `hooks/${entrySkill}-before-write-guard.yaml`,
+      event: 'before_write' as const,
+    },
+    {
+      id: `${entrySkill}-before-tool-guard`,
+      path: `hooks/${entrySkill}-before-tool-guard.yaml`,
+      event: 'before_tool' as const,
+    },
+  ];
+  const expectedScripts = [
+    {
+      id: 'comet-plan',
+      path: `skills/${entrySkill}/scripts/comet-plan.mjs`,
+    },
+    {
+      id: 'comet-check',
+      path: `skills/${entrySkill}/scripts/comet-check.mjs`,
+    },
+    {
+      id: 'comet-hook-guard',
+      path: `skills/${entrySkill}/scripts/comet-hook-guard.mjs`,
+    },
+  ];
+  const expectedReferences = [
+    `skills/${entrySkill}/reference/resolved-skills.json`,
+    `skills/${entrySkill}/reference/composition-report.md`,
+  ];
+
+  for (const rule of expectedRules) {
+    const actual = rules.get(rule.id);
+    if (!actual || actual.path !== rule.path || !actual.required) {
+      errors.push(`manifest missing required rule ${rule.id} at ${rule.path}`);
+    } else {
+      evidence.push(`rule:${rule.id}`);
+    }
+  }
+  for (const script of expectedScripts) {
+    const actual = scripts.get(script.id);
+    if (!actual || actual.path !== script.path) {
+      errors.push(`manifest missing required script ${script.id} at ${script.path}`);
+    } else {
+      evidence.push(`script:${script.id}`);
+    }
+  }
+  for (const reference of expectedReferences) {
+    if (!references.has(reference)) {
+      errors.push(`manifest missing required reference ${reference}`);
+    } else {
+      evidence.push(`reference:${reference}`);
+    }
+  }
+  for (const hook of expectedHooks) {
+    const actual = hooks.get(hook.id);
+    if (!actual || actual.path !== hook.path) {
+      errors.push(`manifest missing required hook ${hook.id} at ${hook.path}`);
+      continue;
+    }
+    try {
+      const normalized = await loadNormalizedHook(
+        { root: draftPath, manifest },
+        actual,
+        manifest.resources.hooks.findIndex((item) => item.id === actual.id),
+        path.join(draftPath, actual.path),
+      );
+      if (normalized.event !== hook.event) {
+        errors.push(`hook ${hook.id} event must be ${hook.event}`);
+      }
+      if (normalized.failure !== 'block') {
+        errors.push(`hook ${hook.id} failure must be block`);
+      }
+      if (!scriptIds.has(normalized.script)) {
+        errors.push(`hook ${hook.id} references undeclared script ${normalized.script}`);
+      }
+      if (normalized.script !== 'comet-hook-guard') {
+        errors.push(`hook ${hook.id} must reference comet-hook-guard`);
+      }
+      if (
+        hook.event === 'before_write' &&
+        normalized.matcher !== undefined &&
+        normalized.matcher !== 'Write|Edit'
+      ) {
+        errors.push(`hook ${hook.id} matcher must cover Write|Edit`);
+      }
+      evidence.push(`hook:${hook.id}:${hook.event}`);
+    } catch (error) {
+      errors.push(
+        `hook ${hook.id} invalid: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+}
+
+async function validateGeneratedScriptContracts(
+  packageRoot: string,
+  engineMode: 'none' | 'deterministic' | 'adaptive',
+  evidence: string[],
+  errors: string[],
+): Promise<void> {
+  const checkScriptPath = path.join(packageRoot, 'scripts', 'comet-check.mjs');
+  let source: string;
+  try {
+    source = await fs.readFile(checkScriptPath, 'utf8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return;
+    throw error;
+  }
+  const requiredFragments = [
+    'const command = process.argv[2] ??',
+    "command !== 'verify'",
+    'control-plane-ok',
+    'scripts/comet-hook-guard.mjs',
+    ...(engineMode === 'none' ? [] : ['comet/skill.yaml']),
+  ];
+  const missing = requiredFragments.filter((fragment) => !source.includes(fragment));
+  if (missing.length > 0) {
+    errors.push(`scripts/comet-check.mjs verify contract missing: ${missing.join(', ')}`);
+  } else {
+    evidence.push('script-contract:comet-check verify');
+  }
+}
+
+function assertEntryCoverageForIds(expectedIds: string[], result: BundleEvalResult): void {
+  const expected = [...expectedIds].sort();
   const actual = result.entries.map((entry) => entry.id).sort();
   if (new Set(actual).size !== actual.length) {
     throw new Error('Eval result entry ids must be unique');
@@ -134,6 +406,13 @@ function assertEntryCoverage(ir: BundleCompilerIr, result: BundleEvalResult): vo
   if (expected.length !== actual.length || expected.some((id, index) => id !== actual[index])) {
     throw new Error(`Eval result must contain every entry Skill: ${expected.join(', ')}`);
   }
+}
+
+function assertEntryCoverage(ir: BundleCompilerIr, result: BundleEvalResult): void {
+  assertEntryCoverageForIds(
+    ir.skills.filter((skill) => skill.visibility === 'entry').map((skill) => skill.id),
+    result,
+  );
 }
 
 async function writeEvidence(
@@ -183,6 +462,15 @@ function stateWithEval(
   return updated;
 }
 
+function resultWouldPassEvalGates(result: BundleEvalResult): boolean {
+  return (
+    result.passed &&
+    result.entries.every((entry) => entry.passed) &&
+    result.bundle.compilePassed &&
+    result.bundle.safetyPassed
+  );
+}
+
 export function planBundleEval(ir: BundleCompilerIr, level: 'quick' | 'full'): BundleEvalPlan {
   const entries = ir.skills.filter((skill) => skill.visibility === 'entry').length;
   const quickComponents = [
@@ -230,6 +518,24 @@ export async function recordBundleEval(
   if (result.bundleHash !== state.currentHash) {
     await writeEvidence(projectRoot, name, result);
     return state;
+  }
+
+  const controlPlane = await validateStableFactoryControlPlane(state);
+  if (!controlPlane.passed) {
+    const bundle = await loadBundle(state.draftPath);
+    assertEntryCoverageForIds(
+      bundle.manifest.skills
+        .filter((skill) => skill.visibility === 'entry')
+        .map((skill) => skill.id),
+      result,
+    );
+    const resultPath = await writeEvidence(projectRoot, name, result);
+    if (resultWouldPassEvalGates(result)) {
+      throw new Error(`Bundle control plane is incomplete: ${controlPlane.errors.join(', ')}`);
+    }
+    const updated = stateWithEval(state, result, resultPath);
+    await writeBundleAuthoringState(projectRoot, updated);
+    return updated;
   }
 
   const bundle = await loadBundle(state.draftPath);

@@ -117,6 +117,46 @@ export interface BundleFactoryCallChainItem {
   preferenceIndex: number | null;
 }
 
+export interface BundleFactoryCompositionStep {
+  id: string;
+  skill: string;
+  source: 'atomic' | 'flow' | 'choice';
+  fromSkill?: string;
+  choiceId?: string;
+  preferenceIndex: number | null;
+}
+
+export interface BundleFactoryCompositionChoice {
+  id: string;
+  fromSkill: string;
+  options: string[];
+  selectedSkill: string | null;
+  reason: string;
+}
+
+export interface BundleFactoryCompositionIssue {
+  type:
+    | 'unresolved-choice'
+    | 'cycle'
+    | 'unavailable-use'
+    | 'duplicate-step'
+    | 'duplicate-flow'
+    | 'empty-flow';
+  message: string;
+  path?: string[];
+  choiceId?: string;
+  fromSkill?: string;
+  skill?: string;
+}
+
+export interface BundleFactoryComposition {
+  schemaVersion: 1;
+  entrySkills: string[];
+  steps: BundleFactoryCompositionStep[];
+  choices: BundleFactoryCompositionChoice[];
+  issues: BundleFactoryCompositionIssue[];
+}
+
 export interface BundleFactoryOrderDeviation {
   skill: string;
   expectedIndex: number;
@@ -131,19 +171,29 @@ export interface BundleFactoryResolvedSkill {
   sources: BundleCandidateSource[];
 }
 
+export interface BundleControlPlaneOutput {
+  checksPath: string | null;
+  evalManifestPath: string | null;
+  compositionReportPath: string;
+  scripts: string[];
+}
+
 export interface BundleGeneratedSkillPackage {
   entrySkill: string;
   internalSkills: string[];
   packageRoot: string;
   enginePath: string | null;
   evalManifestPath: string | null;
+  controlPlane?: BundleControlPlaneOutput;
 }
 
 export interface BundleFactoryMetadata {
   goal: string;
   preferredSkills: string[];
+  compositionEntrySkills?: string[];
   resolvedSkills: BundleFactoryResolvedSkill[];
   callChain: BundleFactoryCallChainItem[];
+  composition?: BundleFactoryComposition;
   deviations: BundleFactoryOrderDeviation[];
   engineMode: 'none' | 'deterministic' | 'adaptive';
   runnerMode: 'change' | 'standalone';

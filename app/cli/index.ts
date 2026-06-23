@@ -154,7 +154,9 @@ evalCommand
     await evalCollectCommand(options);
   });
 
-const skill = program.command('skill').description('Manage Comet Skill packages');
+const skill = program
+  .command('skill')
+  .description('Low-level Skill utilities for inspecting and running Engine-native packages');
 
 skill
   .command('install <path>')

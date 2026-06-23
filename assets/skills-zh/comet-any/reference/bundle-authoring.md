@@ -5,6 +5,8 @@
 `comet bundle` 是 `/comet-any` 的内部确定性后端。用户不需要直接执行 Bundle CLI。
 本 Skill 必须把 creator 输出适配为 Comet-native Skill Package，再交给 Bundle 后端编译、
 Eval、发布和分发。
+对普通用户，推荐路径始终是 `/comet-any -> comet eval -> comet publish -> distribute`；
+`comet bundle` 只作为高级 Bundle 后端（Advanced Bundle backend）暴露给需要审计后端状态的人。
 
 `.comet/skills.txt` 的顺序必须作为推荐调用顺序传递到 Factory metadata。若生成调用链偏离该顺序，
 评审摘要必须包含偏离原因。
@@ -38,10 +40,12 @@ Bundle 必须明确：
 
 - 多个 entry Skill：用户可直接调用的入口。
 - internal Skill：仅供 entry 引用或共享流程使用。
-- references/rules/hooks/scripts/assets：共享资源图。
+- references/rules/hooks/scripts/assets：共享资源图，其中 `scripts/rules/hooks` 是 required control plane。
+- 稳定组合 Skill Bundle 的 required capability set（必需能力集合）是 `skills/scripts/rules/hooks/references`。
 - required/optional 能力：用于平台编译和能力缺口展示。
-- Engine Package：多步骤、可恢复或高风险生成物必须生成 `comet/skill.yaml`、`guardrails.yaml` 和 `evals.yaml`。
+- Engine Package：多步骤、可恢复或高风险生成物必须生成 `comet/skill.yaml`、`comet/guardrails.yaml`、`comet/checks.yaml` 和 `comet/eval.yaml`。
 - Engine Eval manifest：Engine-enabled 生成物必须写入 `comet/eval.yaml`，默认走 `authoring-skill` profile 与 `authoring-skill-smoke` quick eval。
+- Portable hooks：`hooks/*.yaml` 是 Comet portable hook descriptor，只在 `comet publish distribute` 编译到目标平台配置后生效。
 - 真实 Skill 证据：生成物必须包含 `reference/resolved-skills.json`，记录 resolved Skill 的来源、描述、hash、reference、脚本摘要和从 `SKILL.md` 正文提炼的 `sourceSummaries`。
 
 Engine 是运行语义底座，但 CLI 仍是内部确定性后端，用户主流程不需要直接操作 CLI。

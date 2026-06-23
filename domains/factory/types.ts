@@ -3,6 +3,46 @@ export interface FactoryCallChainItem {
   preferenceIndex: number | null;
 }
 
+export interface FactoryCompositionStep {
+  id: string;
+  skill: string;
+  source: 'atomic' | 'flow' | 'choice';
+  fromSkill?: string;
+  choiceId?: string;
+  preferenceIndex: number | null;
+}
+
+export interface FactoryCompositionChoice {
+  id: string;
+  fromSkill: string;
+  options: string[];
+  selectedSkill: string | null;
+  reason: string;
+}
+
+export interface FactoryCompositionIssue {
+  type:
+    | 'unresolved-choice'
+    | 'cycle'
+    | 'unavailable-use'
+    | 'duplicate-step'
+    | 'duplicate-flow'
+    | 'empty-flow';
+  message: string;
+  path?: string[];
+  choiceId?: string;
+  fromSkill?: string;
+  skill?: string;
+}
+
+export interface FactoryComposition {
+  schemaVersion: 1;
+  entrySkills: string[];
+  steps: FactoryCompositionStep[];
+  choices: FactoryCompositionChoice[];
+  issues: FactoryCompositionIssue[];
+}
+
 export interface FactoryOrderDeviation {
   skill: string;
   expectedIndex: number;
@@ -41,9 +81,17 @@ export interface FactorySkillPackagePlan {
   goal: string;
   defaultLocale: string;
   callChain: FactoryCallChainItem[];
+  composition?: FactoryComposition;
   resolvedSkills?: FactoryResolvedSkill[];
   deviations: FactoryOrderDeviation[];
   engineMode: 'none' | 'deterministic' | 'adaptive';
+}
+
+export interface FactoryControlPlaneOutput {
+  checksPath: string | null;
+  evalManifestPath: string | null;
+  compositionReportPath: string;
+  scripts: string[];
 }
 
 export interface GeneratedFactorySkillPackage {
@@ -51,4 +99,5 @@ export interface GeneratedFactorySkillPackage {
   skillPath: string;
   enginePath: string | null;
   evalManifestPath: string | null;
+  controlPlane: FactoryControlPlaneOutput;
 }
