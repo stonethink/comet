@@ -31,13 +31,10 @@
 > [Bilibili video](https://www.bilibili.com/video/BV1y4Gi6CEo1/?spm_id_from=333.1387.homepage.video_card.click&vd_source=d22726fe6b108647dbebf1c5d8817377)
 > [抖音](https://www.douyin.com/search/comet?aid=cd8fcc82-498b-4d59-8860-617deb719412&modal_id=7646429015808936293&type=general)
 
-**OpenSpec + Superpowers 双星开发工作流** — 从创意到归档，一条命令。
+**Comet 是一个面向可恢复 AI 编码工作流的纯 Node runtime 和 Skill 平台。**
 
-OpenSpec 处理 **WHAT**（大纲、提案、spec 生命周期、归档）。
-
-Superpowers 处理 **HOW**（技术设计、规划、执行、收尾）。
-
-Comet 将二者串联为五阶段自动化流水线。
+它把 OpenSpec 制品、Superpowers 方法论和 Comet 状态维持在同一条工作链上，让你可以用一个工具链开启变更、
+中断后恢复、诊断漂移，并把可复用 Skill 发布出去。
 
 > [!IMPORTANT]
 > **0.4.0-beta.1** — Classic 工作流命令迁移为纯 Node runtime，新增内部 Skill Engine 与 Bundle 生命周期基础，并加固归档恢复、change name 校验、hook 多 change 治理、配置命令链和 beta context JSON 校验。
@@ -52,47 +49,12 @@ Comet 将二者串联为五阶段自动化流水线。
 
 ## 为什么需要 Comet
 
-OpenSpec 擅长管理需求、做提案、管理 Spec 生命周期和归档，但使用过程中 OpenSpec 的提案和 Task 没有像 Superpowers 头脑风暴那样细致。
+Comet 把对外工作流保持得很简单，把真正脆弱的部分收进一条共享运行时事实链：
 
-Superpowers 在头脑风暴后会产出 Spec 文档，但这个文档通常没有进行状态化设计——做完需求之后 Spec 仅在文档上对 Task 打勾，甚至
-Agent 还会忘记打勾，造成下一次断点开始时，Agent 需要重新查看文档和项目代码来核验，产生较多 Token 浪费。
-
-**Comet 合并了两者的强项**，将核心流程整合为 5 个阶段
-
-主入口 `/comet` 支持当前 Spec 状态检测，适用于长任务——中途关闭当前 AI 编码会话后，回来只需 `/comet`，Comet 会自动读取活跃的
-Spec（多个则列出选择），动态识别当前执行到哪个阶段，继续往下执行。
-
-同时，Comet具备Spec全生命周期管理能力，运行过程中能够将 OpenSpec 的 change/spec 制品与 Superpowers
-的设计、计划文档进行关联，并自动完成交接、状态更新、校验和归档同步，把原本需要用户频繁提醒 Agent 维护文档同步和关联关系的操作自动化。
-
-## 你能学到什么
-
-现有的 Skill 市场中有很多优秀的 Skill 项目，但普遍存在偏好性问题——用户可能只喜欢部分功能。比如同时使用 OpenSpec 和
-Superpowers 时，可能只用 OpenSpec 的 Spec 管理能力，而编码上更喜欢 Superpowers 的 TDD 驱动。
-
-长期使用 Skill 的人都知道，这些能力是可以自由组合的，但具体怎么做依然需要真正的实践。Comet 项目可以作为参考：
-
-- **如何稳定触发嵌套 Skill** — 不是让 Agent 依靠文档描述做了“看起来像触发了 Skill”的操作（比如根据 Skill 描述写了文件），而是真正触发
-  Skill（核心特征：CC 上有 Skill 触发的打印）。Comet 中会触发大量来自 OpenSpec 和 Superpowers 的能力，这段 Prompt 是怎么写的？
-
-- **如何让组合 Skill 多阶段自动流转** — 不是靠人工介入。Comet 的 5 阶段流程，除必要的用户选择项外，核心流程能够自动进行
-  Skill 触发，同时状态机机制也能保障状态扭转的可靠性。
-
-- **如何把 Spec 生命周期做成可恢复流程** — Comet 会把 OpenSpec 的 change/spec 制品与 Superpowers 的设计、计划文档关联起来，并通过
-  `.comet.yaml` 记录阶段、执行模式、验证结果和归档状态，让 Agent 中断后能够继续，而不是重新翻文档猜进度。
-
-- **如何把文档同步从“用户提醒”变成自动化** — Comet 将 handoff、状态更新、校验和归档同步放进脚本化流程，减少“记得更新 design
-  doc”“记得同步 spec”“记得归档 change”这类反复提示。
-
-- **如何设计 Agent 可执行的守护条件** — Comet 的阶段退出不是简单相信 Agent 说“完成了”，而是通过 `comet-guard.mjs`、
-  `comet-yaml-validate.mjs`、`comet-state.mjs` 等脚本检查任务、状态字段、验证证据和归档条件，满足条件后才允许推进。
-
-- **如何做跨平台 Skill 分发和安装** — Comet 支持多种 AI 编码平台、项目级/全局安装、中文/英文 Skill 选择，以及平台差异化目录（例如
-  Antigravity 的项目级和全局路径不同），可以作为 CLI 安装器和 Skill 打包结构的参考。
-
-- **如何把流程逻辑沉淀成可移植、可测试的基础设施** — Comet 的脚本运行在 Node.js 上，在 macOS、Linux、Windows 上行为一致，
-  处理 hash、YAML 字段、状态机和归档流程。它展示了如何把原本容易写散在 Prompt 里的流程控制，沉淀成可测试、可复用的工具，
-  除了每个 Comet 用户都已有的 Node.js 运行时外，不依赖任何 shell。
+- **纯 Node runtime** — 所有内置脚本都通过 Node.js 运行，在 macOS、Linux、Windows 上保持一致，不再依赖 Bash、Git Bash 或 WSL。
+- **可恢复工作流** — `/comet` 和 Classic 状态投影会记住一个 change 停在什么阶段，长任务恢复时不需要让 Agent 重新猜上下文。
+- **Skill 平台** — Comet 会安装工作流 Skill，也能编写可复用 Skill 包，并通过 `/comet-any` 把它们整理成可分发 Bundle。
+- **诊断感知的守护** — `status`、`doctor` 与 guard/verify 共享同一条运行时证据路径，畸形状态和缺失证据会变成用户可见的 diagnostic，而不是静默漂移。
 
 ## 安装
 
@@ -166,18 +128,19 @@ npx skills add rpamis/comet
 <details>
 <summary><code>comet status [path]</code> — 显示活跃更改和下一步命令</summary>
 
-显示活跃更改、任务进度，以及推荐的下一步 Comet 工作流命令。
+显示活跃更改、任务进度、推荐的下一步 Comet 工作流命令，以及当前 step、runtime mode 和针对畸形状态或缺失证据的 diagnostic 恢复提示。
 
-| 选项       | 描述                       |
-|----------|--------------------------|
-| `--json` | 输出活跃更改，并包含 `nextCommand` |
+| 选项       | 描述                                            |
+|----------|-----------------------------------------------|
+| `--json` | 输出活跃更改，并包含 `nextCommand`、`currentStep` 和运行时数据 |
 
 </details>
 
 <details>
 <summary><code>comet doctor [path]</code> — 诊断 Comet 安装健康状态</summary>
 
-检查项目级/全局安装、工作目录、已安装技能、脚本和 Comet 状态文件。
+检查项目级/全局安装、工作目录、已安装技能、脚本，以及活跃 change 的诊断信息。`comet doctor` 会对畸形
+`.comet.yaml` 报告 diagnostic 状态，对有效 change 报告 current step / runtime mode，并指出哪些运行时证据缺失导致无法安全恢复。
 
 | 选项                | 描述                                           |
 |-------------------|----------------------------------------------|
@@ -266,12 +229,10 @@ comet bundle publish my-bundle --platform claude --json
 comet bundle distribute my-bundle --platform claude --scope project --confirm-executables --json
 ```
 
-`/comet-any` 是 Comet Skill Factory：用户只调用 Skill，描述想创建或优化的工作流；Comet 会读取
-`.comet/skills.txt` 偏好、定位本地真实 Skill 内容、尽量遵守推荐调用顺序，并在内部使用 CLI 后端完成校验、Eval、
-发布和可选分发。生成过程会固化规范化 plan、带 `sourceSummaries` 的真实 Skill 证据、组合后的工作方式和评审摘要，
-缺失或歧义候选会通过 `factory-resolve` 先让用户处理；需要恢复的独立运行使用 `.comet/runs/<run-id>`。
-required 能力缺口会取消对应平台，optional 缺口需要显式 `--skip-capability`，hooks/scripts 需要可执行确认。
-分发同时支持 `project` 和 `global` scope。
+`/comet-any` 是 Comet Skill Factory：用户描述想创建或优化的工作流，Comet 会把请求整理成一个可评审的
+Bundle 草稿，并绑定真实本地 Skill 证据。它会读取 `.comet/skills.txt` 偏好、定位真实 Skill 内容、尽量遵守推荐调用顺序，
+再通过 CLI 后端完成校验、Eval、发布和可选分发。缺失或歧义候选会先暂停到 `factory-resolve`，review 和 publish
+必须依赖结构化证据，分发同时支持 `project` 和 `global` scope。
 
 </details>
 
@@ -361,6 +322,9 @@ Spec 生命周期管理：propose、explore、sync、verify、archive 等。
 ### Superpowers 技能
 
 开发方法论：brainstorming、TDD、subagent-driven development、code review、plan writing 等。
+
+0.4.0 运行时模型、状态拆分、诊断路径，以及 Bundle / Skill 架构细节见
+[docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md)。
 
 ## 工作流
 

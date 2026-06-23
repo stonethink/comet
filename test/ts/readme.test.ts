@@ -23,4 +23,20 @@ describe('README assets', () => {
     expect(zh).toContain('`build_pause` 记录 build 阶段内部暂停点');
     expect(zh).toContain('`plan-ready` 表示 plan 已生成');
   });
+
+  it('documents status and doctor as diagnostics-aware user commands', async () => {
+    const readme = await fs.readFile('README.md', 'utf-8');
+
+    expect(readme).toContain('runtime mode');
+    expect(readme).toContain('current step');
+    expect(readme).toContain('diagnostic');
+  });
+
+  it('keeps English and Chinese README feature summaries aligned', async () => {
+    const readmeEn = await fs.readFile('README.md', 'utf-8');
+    const readmeZh = await fs.readFile('README-zh.md', 'utf-8');
+
+    expect(readmeZh).toContain('Skill 平台');
+    expect(readmeEn).toContain('Skill platform');
+  });
 });

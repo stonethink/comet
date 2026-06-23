@@ -31,13 +31,10 @@
 > [Bilibili video](https://www.bilibili.com/video/BV1y4Gi6CEo1/?spm_id_from=333.1387.homepage.video_card.click&vd_source=d22726fe6b108647dbebf1c5d8817377)
 > [DouYin](https://www.douyin.com/search/comet?aid=cd8fcc82-498b-4d59-8860-617deb719412&modal_id=7646429015808936293&type=general)
 
-**OpenSpec + Superpowers dual-star development workflow** — one command from idea to archive.
+**Comet is a Node-only runtime and Skill platform for resumable AI coding workflows.**
 
-OpenSpec handles **WHAT** (outlines, proposals, spec lifecycle, archiving).
-
-Superpowers handles **HOW** (technical design, planning, execution, wrap-up).
-
-Comet chains both into a five-phase automated pipeline.
+It keeps OpenSpec artifacts, Superpowers methods, and Comet state aligned so you can start a change, resume it later,
+diagnose drift, and publish reusable Skills from one toolchain.
 
 > [!IMPORTANT]
 > **0.4.0-beta.1** — Migrates Classic workflow commands to a Node-only runtime, adds the internal Skill Engine and Bundle lifecycle foundation, and hardens archive recovery, change-name validation, hook governance, configured command chains, and beta context JSON checks.
@@ -52,63 +49,16 @@ Comet chains both into a five-phase automated pipeline.
 
 ## Why Comet
 
-OpenSpec excels at managing requirements, creating proposals, managing Spec lifecycles, and archiving, but its proposals
-and tasks lack the detail of Superpowers brainstorming.
+Comet keeps the public workflow simple while moving the fragile parts into a shared runtime:
 
-Superpowers generates Spec documents after brainstorming, but these documents typically lack stateful design — after
-completing requirements, Specs only have tasks checked off in the document, and Agents even forget to check them off.
-This causes the Agent to re-examine documents and project code to verify on resumption, wasting many tokens.
-
-**Comet combines the strengths of both**, integrating the core workflow into 5 phases
-
-The main entry `/comet` supports current Spec state detection, suitable for long tasks — after closing your AI coding
-session midway, just `/comet` and Comet will automatically read the active Spec (lists multiple for selection),
-dynamically identify which phase is currently executing, and continue.
-
-At the same time, Comet provides full Spec lifecycle management. During execution, it links OpenSpec change/spec
-artifacts with Superpowers design and planning documents, then automates handoff, state updates, validation, and archive
-sync so users do not have to repeatedly remind the Agent to keep documents synchronized and connected.
-
-## What You'll Learn
-
-Many excellent Skill projects exist in the current Skill market, but they generally have preference issues — users may
-only like some features. For example, when using both OpenSpec and Superpowers, one might only use OpenSpec's Spec
-management capabilities, but prefer Superpowers' TDD-driven approach for coding.
-
-Long-term Skill users know these capabilities can be freely combined, but exactly how to do so still requires real
-practice. The Comet project can serve as a reference:
-
-- **How to reliably trigger nested Skills** — Not letting the Agent rely on document descriptions to perform "look-alike
-  Skill trigger" operations (like writing files based on Skill descriptions), but truly triggering Skills (key feature:
-  Skill trigger prints on CC). Comet triggers many capabilities from OpenSpec and Superpowers. How is this Prompt
-  written?
-
-- **How to make combined Skills flow automatically across phases** — Not relying on manual intervention. Comet's 5-phase
-  flow can automatically trigger Skills for the core process except for necessary user choices, while the state machine
-  also protects state transition reliability.
-
-- **How to turn the Spec lifecycle into a resumable workflow** — Comet links OpenSpec change/spec artifacts with
-  Superpowers design and planning documents, then records phase, execution mode, verification results, and archive
-  status in `.comet.yaml`, so the Agent can resume after interruption instead of rereading documents and guessing
-  progress.
-
-- **How to turn document synchronization from "user reminders" into automation** — Comet puts handoff, state updates,
-  validation, and archive sync into scripted flows, reducing repeated prompts like "remember to update the design
-  doc", "remember to sync the spec", and "remember to archive the change".
-
-- **How to design guard conditions that Agents can execute** — Comet does not simply trust the Agent saying "done" at
-  phase exits. Scripts such as `comet-guard.mjs`, `comet-yaml-validate.mjs`, and `comet-state.mjs` check tasks, state
-  fields, verification evidence, and archive conditions before allowing the workflow to advance.
-
-- **How to distribute and install Skills across platforms** — Comet supports multiple AI coding platforms,
-  project/global installation, Chinese/English Skill choices, and platform-specific directory differences such as
-  Antigravity using different project-level and global paths. It can be a reference for CLI installers and Skill package
-  structure.
-
-- **How to turn workflow logic into portable, testable infrastructure** — Comet's scripts run on Node.js and work
-  identically across macOS, Linux, and Windows while handling hashes, YAML fields, state machines, and archive flows.
-  It shows how to move fragile workflow control out of scattered Prompt text into reusable tools with no shell
-  dependencies beyond the Node.js runtime every Comet user already has.
+- **Node-only runtime** — all bundled Comet scripts run through Node.js, so the same workflow works on macOS, Linux,
+  and Windows without Bash, Git Bash, or WSL.
+- **Resumable workflow** — `/comet` and the Classic state projection track where a change stopped, so long-running work
+  resumes from the current phase instead of forcing the agent to reconstruct progress from scratch.
+- **Skill platform** — Comet installs workflow Skills, can author reusable Skill packages, and can turn them into
+  distributable Bundles through `/comet-any`.
+- **Diagnostics-aware guardrails** — `status`, `doctor`, and guard/verify flows share the same runtime evidence path, so
+  malformed state and missing workflow evidence are surfaced as user-visible diagnostics instead of silent drift.
 
 ## Install
 
@@ -184,18 +134,21 @@ all, skip all, or choose per component.
 <details>
 <summary><code>comet status [path]</code> — Show active changes and next workflow command</summary>
 
-Displays active changes, task progress, and the recommended next Comet workflow command.
+Displays active changes, task progress, the recommended next Comet workflow command, the current step, runtime mode,
+and diagnostic recovery hints when a change is malformed or missing required evidence.
 
-| Option   | Description                              |
-|----------|------------------------------------------|
-| `--json` | Output active changes with `nextCommand` |
+| Option   | Description                                                            |
+|----------|------------------------------------------------------------------------|
+| `--json` | Output active changes with `nextCommand`, `currentStep`, and runtime data |
 
 </details>
 
 <details>
 <summary><code>comet doctor [path]</code> — Diagnose Comet installation health</summary>
 
-Checks project/global installation health, working directories, installed skills, scripts, and Comet state files.
+Checks project/global installation health, working directories, installed skills, scripts, and active change
+diagnostics. `comet doctor` reports diagnostic status for malformed `.comet.yaml` files, current step / runtime mode
+for valid changes, and runtime evidence gaps that block safe resume.
 
 | Option            | Description                                                     |
 |-------------------|-----------------------------------------------------------------|
@@ -286,13 +239,11 @@ comet bundle publish my-bundle --platform claude --json
 comet bundle distribute my-bundle --platform claude --scope project --confirm-executables --json
 ```
 
-`/comet-any` is the Comet Skill Factory: users invoke the Skill and describe the workflow they want to create or
-optimize. Comet reads `.comet/skills.txt`, locates real local Skill contents, preserves the recommended call order when
-possible, and internally uses CLI backends for validation, Eval, publishing, and optional distribution. The generation
-flow persists a normalized plan, real Skill evidence with `sourceSummaries`, the composed workflow, and a review
-summary; missing or ambiguous candidates pause for `factory-resolve` first. Standalone recoverable runs use
-`.comet/runs/<run-id>`. Required capability gaps cancel a platform, optional gaps require explicit `--skip-capability`,
-and hooks/scripts require executable confirmation. Distribution supports both `project` and `global` scopes.
+`/comet-any` is the Comet Skill Factory: users describe the workflow they want to create or optimize, and Comet turns
+that request into a reviewable Bundle draft backed by real local Skill evidence. It reads `.comet/skills.txt`, locates
+real Skill contents, preserves the recommended call order when possible, and uses CLI backends for validation, Eval,
+publishing, and optional distribution. Missing or ambiguous candidates pause for `factory-resolve` first, review and
+publish stay gated by structured evidence, and distribution supports both `project` and `global` scopes.
 
 </details>
 
@@ -383,6 +334,9 @@ Spec lifecycle management: propose, explore, sync, verify, archive, and more.
 ### Superpowers Skills
 
 Development methodology: brainstorming, TDD, subagent-driven development, code review, plan writing, and more.
+
+See [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md) for the 0.4.0 runtime model, state split,
+diagnostic path, and Bundle/Skill architecture details.
 
 ## Workflow
 
