@@ -13,7 +13,7 @@
 1. 准备可选的 `.comet/skills.txt`
 2. 在 Agent 平台里调用 `/comet-any`
 3. 描述你想创建或优化的 Skill
-4. 按 `/comet-any` 给出的 next action 处理候选、Eval、review 或分发
+4. 按 `/comet-any` 给出的 next action 处理候选、Eval、review 或分发；普通发布路径优先用 `comet publish`
 
 如果你做到一半中断了，回来后可以直接说“继续上次的 Skill 创建”。`/comet-any` 会扫描可恢复的 Bundle Factory 状态，列出候选流程，再让你选择继续哪一个。
 
@@ -270,7 +270,7 @@ comet eval run --manifest ./generated-skill/comet/eval.yaml --html
 
 ## Bundle 在 `/comet-any` 里怎么工作
 
-用户不需要主动切换到 Bundle CLI。正常情况下，`/comet-any` 会在内部调用 Bundle 后端，并把结果翻译成用户能理解的状态、阻塞点和下一步动作。
+用户不需要主动切换到 Bundle CLI。正常情况下，`/comet-any` 会在内部调用 Bundle 后端，并把结果翻译成用户能理解的状态、阻塞点和下一步动作；需要手工继续发布时，优先走 `comet publish`。
 
 你可以这样理解三者关系：
 
@@ -290,6 +290,12 @@ Bundle = 发布、验证、分发这个能力的状态容器
 - 发布与分发：用户确认后，内部执行 publish 和 distribute
 
 只有在排障、审计或用户明确想看底层动作时，`/comet-any` 才应该展示对应的后端命令。用户默认不需要背这些命令。
+
+普通用户可记成这条主线：
+
+```text
+/comet-any -> comet eval -> comet publish
+```
 
 发布前最重要的用户可见证据是 readiness。它应该告诉你：
 

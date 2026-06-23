@@ -48,7 +48,7 @@ words, lightweight single-step Skills can skip Engine only when the capability l
 If the user has not provided `<name>`, first run:
 
 ```bash
-comet bundle list --json
+comet publish list --json
 ```
 
 If recoverable Factory / Bundle authoring states exist, show each name, status, next action, and reason, then ask the user which one to resume. Do not ask the user to inspect `.comet/bundle-authoring/` manually.
@@ -56,12 +56,12 @@ If recoverable Factory / Bundle authoring states exist, show each name, status, 
 After the user provides `<name>` or chooses an existing entry, run:
 
 ```bash
-comet bundle status <name> --json
+comet publish status <name> --json
 ```
 
 If state exists, resume from it; otherwise continue to the next step and ask whether to derive the Skill/Bundle name from the target workflow.
 When you need to explain the blocker to the user, the text-mode status output must surface `Next action`, the reason,
-and the suggested command directly.
+and the suggested command directly. Drop back to `comet bundle status` only when debugging the backend.
 
 ### 2. Choose create/optimize and Language
 
@@ -211,7 +211,7 @@ If Eval fails or the hash does not match, stop and return to draft repair.
 First run:
 
 ```bash
-comet bundle review-summary <name> --platform <reference-platform> --json
+comet publish review <name> --platform <reference-platform> --json
 ```
 
 Use that summary to show entry Skills, internal Skills, planHash, real Skill evidence, recommended call order, deviations from the preferred order, capability gaps, executable disclosures, quick/full Eval workload, Eval result, and target platforms. If the call chain deviates from the preferred order, the review summary must explain why.
@@ -222,7 +222,7 @@ Eval, or review blockers before continuing to publish. If readiness is not `publ
 Approve:
 
 ```bash
-comet bundle review <name> --approve --reviewer <reviewer> --json
+comet publish approve <name> --reviewer <reviewer> --json
 ```
 
 Reject:
@@ -236,7 +236,7 @@ comet bundle review <name> --reject --reviewer <reviewer> --json
 Only after the current hash has passed Eval and received human approval, run:
 
 ```bash
-comet bundle publish <name> --platform <reference-platform> --json
+comet publish run <name> --platform <reference-platform> --json
 ```
 
 ### 16. Ask Whether to Distribute
@@ -246,7 +246,7 @@ After publish, ask the user whether to distribute. Do not distribute automatical
 If the user agrees, show platform capability gaps and executable disclosures first. Hooks/scripts require confirmation before distribution. Then run:
 
 ```bash
-comet bundle distribute <name> --platform <id> --scope project --json
+comet publish distribute <name> --platform <id> --scope project --json
 ```
 
 If the user explicitly confirms executable disclosures, add:

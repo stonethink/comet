@@ -94,22 +94,22 @@ Common commands:
 
 ```bash
 comet bundle candidates --json
-comet bundle list --json
+comet publish list --json
 comet bundle factory-init <name> --file <plan.json> --json
 comet bundle factory-resolve <name> --candidate <query> --source <root-or-hash> --json
 comet bundle factory-resolve <name> --candidate <query> --ignore-missing --reason <reason> --json
 comet bundle draft create <name> --json
 comet bundle draft optimize <bundle> --json
-comet bundle status <name> --json
+comet publish status <name> --json
 comet bundle compile <name> --platform <id> --json
 comet bundle eval-plan <name> --level quick --json
 comet bundle eval-plan <name> --level full --json
 comet bundle eval-record <name> --result <file> --json
-comet bundle review-summary <name> --platform <reference-platform> --json
-comet bundle review <name> --approve --reviewer <reviewer> --json
+comet publish review <name> --platform <reference-platform> --json
+comet publish approve <name> --reviewer <reviewer> --json
 comet bundle review <name> --reject --reviewer <reviewer> --json
-comet bundle publish <name> --platform <reference-platform> --json
-comet bundle distribute <name> --platform <id> --scope project --json
+comet publish run <name> --platform <reference-platform> --json
+comet publish distribute <name> --platform <id> --scope project --json
 ```
 
 Before publishing, read the review summary readiness state. If unresolved candidates, current-hash

@@ -92,7 +92,7 @@ comet init
 ## 任务入口
 
 - **开始 Comet 工作流** — 先用 `comet init` 安装运行时和 Skills，再在你的 Agent 平台里调用 `/comet`。
-- **创建或优化可复用 Skill** — `/comet-any` 是普通用户主路径。让它读取 `.comet/skills.txt`、生成 Skill/Bundle 草稿；只有当它要求你查看后端状态时，再用 `comet bundle status` 或 `review-summary`。完整用法见 [docs/operations/SKILL-CREATION-ZH.md](docs/operations/SKILL-CREATION-ZH.md)。
+- **创建或优化可复用 Skill** — `/comet-any` 是普通用户主路径。让它读取 `.comet/skills.txt`、生成 Skill/Bundle 草稿；发布准备优先走 `comet publish status` 或 `comet publish review`，只有排障时再直接查看 `comet bundle` 高级后端。完整用法见 [docs/operations/SKILL-CREATION-ZH.md](docs/operations/SKILL-CREATION-ZH.md)。
 - **评估本地或生成出的 Skill** — 先用 `comet eval collect --manifest ./comet/eval.yaml` 做发现，再用 `comet eval run --manifest ./comet/eval.yaml --html` 跑真实 eval 并拿到可浏览摘要。完整用法见 [docs/operations/EVAL-USAGE-ZH.md](docs/operations/EVAL-USAGE-ZH.md)。
 - **诊断为什么流程卡住** — 先看 `comet status` 的当前阶段和下一步命令，状态、运行时证据或安装健康有问题时再跑 `comet doctor`。
 - **恢复 deterministic Skill Run** — 先用 `comet skill run`，按输出里的 `Pending action` 执行，再根据 `Next:` 提示运行 `comet skill resume` 或 `comet skill eval`。
@@ -234,6 +234,29 @@ comet eval run --skill-path ./assets/skills-zh/comet-any --skill-name comet-any 
 </details>
 
 <details>
+<summary><code>comet publish &lt;command&gt;</code> — <code>/comet-any</code> 生成物的用户发布路径</summary>
+
+`comet publish` 是面向普通用户的发布门面，复用现有 Bundle 状态与 readiness，不引入第二套状态模型。
+对 `/comet-any` 生成出来的 Skill，建议先跑 `comet eval`，再用这里的命令查看 readiness、人工批准、发布和分发。
+
+```bash
+comet publish list --project . --json
+comet publish status my-bundle --project . --json
+comet publish review my-bundle --platform claude --json
+comet publish approve my-bundle --reviewer alice --json
+comet publish run my-bundle --platform claude --json
+comet publish distribute my-bundle --platform claude --scope project --confirm-executables --json
+```
+
+它和 `/comet-any` 的关系应理解为：
+
+- `/comet-any` 负责创建、恢复和优化 Skill
+- `comet eval` 负责验证生成物
+- `comet publish` 负责 readiness、人工批准、发布和分发
+
+</details>
+
+<details>
 <summary><code>comet bundle &lt;command&gt;</code> — <code>/comet-any</code> 与 Bundle 发布流程的高级后端</summary>
 
 从新目标或现有候选 Skill 创建平台无关的 Skill Bundle。Bundle 草稿具备确定性生命周期：可以编译为原生平台
@@ -264,7 +287,7 @@ Bundle 草稿，并绑定真实本地 Skill 证据。它会读取 `.comet/skills
 再通过 CLI 后端完成校验、Eval、发布和可选分发。缺失或歧义候选会先暂停到 `factory-resolve`，review 和 publish
 必须依赖结构化证据，分发同时支持 `project` 和 `global` scope。`comet bundle list` 可列出可恢复的创作状态；
 `comet bundle status` 的文本输出会直接显示 `Next action`、原因和建议命令；JSON 输出包含 `nextAction`，
-便于 `/comet-any` 或其他自动化恢复到正确下一步。上面的完整命令列表应视为高级后端参考，而不是 `/comet-any` 普通用户的默认主流程。
+便于 `/comet-any`、`comet publish` 或其他自动化恢复到正确下一步。上面的完整命令列表应视为高级后端参考，而不是 `/comet-any` 普通用户的默认主流程。
 
 </details>
 

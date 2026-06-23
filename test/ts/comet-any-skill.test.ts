@@ -127,19 +127,18 @@ describe('Chinese comet-any Skill', () => {
 
     for (const command of [
       'comet bundle candidates',
-      'comet bundle list',
       'comet bundle factory-init',
       'comet bundle factory-resolve',
       'comet bundle draft create',
       'comet bundle draft optimize',
-      'comet bundle status',
       'comet bundle compile',
       'comet bundle eval-plan',
       'comet bundle eval-record',
-      'comet bundle review-summary',
-      'comet bundle review',
-      'comet bundle publish',
-      'comet bundle distribute',
+      'comet publish status',
+      'comet publish review',
+      'comet publish approve',
+      'comet publish run',
+      'comet publish distribute',
     ]) {
       expect(combined).toContain(command);
     }
@@ -217,19 +216,18 @@ describe('Bilingual comet-any Skill parity', () => {
 
     for (const command of [
       'comet bundle candidates',
-      'comet bundle list',
       'comet bundle factory-init',
       'comet bundle factory-resolve',
       'comet bundle draft create',
       'comet bundle draft optimize',
-      'comet bundle status',
       'comet bundle compile',
       'comet bundle eval-plan',
       'comet bundle eval-record',
-      'comet bundle review-summary',
-      'comet bundle review',
-      'comet bundle publish',
-      'comet bundle distribute',
+      'comet publish status',
+      'comet publish review',
+      'comet publish approve',
+      'comet publish run',
+      'comet publish distribute',
     ]) {
       expect(zhCombined).toContain(command);
       expect(enCombined).toContain(command);

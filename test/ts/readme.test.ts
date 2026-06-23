@@ -46,9 +46,11 @@ describe('README assets', () => {
 
     expect(readmeEn).toContain('Create or optimize a reusable Skill');
     expect(readmeEn).toContain('`/comet-any` is the main user path');
+    expect(readmeEn).toContain('`comet publish`');
     expect(readmeEn).toContain('advanced backend');
     expect(readmeZh).toContain('创建或优化可复用 Skill');
     expect(readmeZh).toContain('`/comet-any` 是普通用户主路径');
+    expect(readmeZh).toContain('`comet publish`');
     expect(readmeZh).toContain('高级后端');
   });
 });

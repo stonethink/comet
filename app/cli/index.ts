@@ -15,6 +15,14 @@ import {
   skillValidateCommand,
 } from '../commands/skill.js';
 import {
+  publishApproveCommand,
+  publishDistributeCommand,
+  publishListCommand,
+  publishReviewCommand,
+  publishRunCommand,
+  publishStatusCommand,
+} from '../commands/publish.js';
+import {
   bundleCandidatesCommand,
   bundleCompileCommand,
   bundleDistributeCommand,
@@ -146,7 +154,7 @@ evalCommand
     await evalCollectCommand(options);
   });
 
-const skill = program.command('skill').description('Author and run Comet Skill packages');
+const skill = program.command('skill').description('Manage Comet Skill packages');
 
 skill
   .command('install <path>')
@@ -209,7 +217,9 @@ skill
 
 skill
   .command('eval')
-  .description('Evaluate runtime checks against a Comet Skill Run')
+  .description(
+    'Evaluate deterministic Engine Run runtime checks. Use comet eval run for general Skill evals',
+  )
   .option('--change <dir>', 'Change directory that owns the Run')
   .option('--run-id <id>', 'Standalone Run id stored under .comet/runs/<id>')
   .option('--project <dir>', 'Project root used for standalone Run lookup', '.')
@@ -223,7 +233,84 @@ skill
     await skillEvalCommand(options);
   });
 
-const bundle = program.command('bundle').description('Create and distribute Comet Skill Bundles');
+const publish = program
+  .command('publish')
+  .description('Review, publish, and distribute /comet-any Skill publish candidates');
+
+publish
+  .command('list')
+  .description('List publish candidates that can be resumed')
+  .option('--project <dir>', 'Project root', '.')
+  .option('--json', 'Output as JSON')
+  .action(async (options) => {
+    await publishListCommand(options);
+  });
+
+publish
+  .command('status <name>')
+  .description('Show publish readiness and next action for one candidate')
+  .option('--project <dir>', 'Project root', '.')
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await publishStatusCommand(name, options);
+  });
+
+publish
+  .command('review <name>')
+  .description('Build a publish readiness summary before approval')
+  .option('--project <dir>', 'Project root', '.')
+  .requiredOption('--platform <id>', 'Reference platform id')
+  .addOption(new Option('--scope <scope>', 'Install scope').choices(['global', 'project']))
+  .option('--locale <locale>', 'Locale to compile')
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await publishReviewCommand(name, options);
+  });
+
+publish
+  .command('approve <name>')
+  .description('Approve a publish candidate after review')
+  .option('--project <dir>', 'Project root', '.')
+  .requiredOption('--reviewer <name>', 'Reviewer name')
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await publishApproveCommand(name, options);
+  });
+
+publish
+  .command('run <name>')
+  .description('Publish an approved candidate into .comet/bundles')
+  .option('--project <dir>', 'Project root', '.')
+  .requiredOption('--platform <id>', 'Reference platform id')
+  .option('--overwrite', 'Replace an existing published Bundle')
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await publishRunCommand(name, options);
+  });
+
+publish
+  .command('distribute <name>')
+  .description('Distribute a published candidate across selected platforms')
+  .option('--project <dir>', 'Project root', '.')
+  .option('--platform <id>', 'Platform id', collect, [])
+  .addOption(new Option('--scope <scope>', 'Install scope').choices(['global', 'project']))
+  .option('--locale <locale>', 'Locale to distribute')
+  .option('--overwrite', 'Overwrite existing target files')
+  .option(
+    '--skip-capability <capability>',
+    'Explicitly skip an unsupported optional capability',
+    collect,
+    [],
+  )
+  .option('--confirm-executables', 'Confirm executable hook/script disclosures')
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await publishDistributeCommand(name, options);
+  });
+
+const bundle = program
+  .command('bundle')
+  .description('Advanced Bundle backend for Skill publish candidates');
 
 bundle
   .command('candidates')

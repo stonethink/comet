@@ -13,10 +13,10 @@
   -> 产出 comet/eval.yaml
   -> comet eval collect 做发现预检查
   -> comet eval run --html 执行真实评估
-  -> /comet-any 读取评估结果并进入 readiness / review / publish
+  -> /comet-any 或 comet publish 读取评估结果并进入 readiness / review / publish
 ```
 
-`comet eval` 不负责发布。发布仍然由 `/comet-any` 背后的 Bundle 后端处理。eval 的职责是提供发布前证据。
+`comet eval` 不负责发布。发布仍然由 `/comet-any` 背后的 Bundle 后端处理，对普通用户暴露为 `comet publish`。eval 的职责是提供发布前证据。
 
 ## 推荐路径：评估 `/comet-any` 生成的 Skill
 

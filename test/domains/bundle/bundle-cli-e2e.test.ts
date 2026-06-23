@@ -242,6 +242,28 @@ describe('comet bundle CLI end to end', () => {
     });
   });
 
+  it('exposes publish facade commands through the built CLI', async () => {
+    runJson('bundle', 'draft', 'create', 'publish-facade-bundle', '--project', projectRoot);
+
+    const listed = runJson('publish', 'list', '--project', projectRoot);
+    const status = runJson('publish', 'status', 'publish-facade-bundle', '--project', projectRoot);
+
+    expect(listed).toMatchObject({
+      bundles: [
+        {
+          name: 'publish-facade-bundle',
+          status: 'draft',
+          nextAction: { action: 'choose-eval-level' },
+        },
+      ],
+    });
+    expect(status).toMatchObject({
+      name: 'publish-facade-bundle',
+      status: 'draft',
+      nextAction: { action: 'choose-eval-level' },
+    });
+  });
+
   it('runs the factory path from plan to review summary through the CLI', async () => {
     await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
     await fs.mkdir(path.join(projectRoot, '.claude', 'skills', 'factory-alpha'), {
@@ -578,7 +600,15 @@ describe('comet bundle CLI end to end', () => {
       ),
     );
 
-    runJson('bundle', 'factory-init', 'factory-text-mode', '--project', projectRoot, '--file', planFile);
+    runJson(
+      'bundle',
+      'factory-init',
+      'factory-text-mode',
+      '--project',
+      projectRoot,
+      '--file',
+      planFile,
+    );
     runJson(
       'bundle',
       'factory-resolve',
@@ -686,9 +716,7 @@ describe('comet bundle CLI end to end', () => {
     expect(reviewSummary.status, reviewSummary.stderr).toBe(0);
     expect(reviewSummary.stdout).toContain('Readiness: reviewable');
     expect(reviewSummary.stdout).toContain('Warnings:');
-    expect(reviewSummary.stdout).toContain(
-      'Review approval for the current draft hash is missing',
-    );
+    expect(reviewSummary.stdout).toContain('Review approval for the current draft hash is missing');
     expect(reviewSummary.stdout).toContain('Evidence:');
   });
 
@@ -793,22 +821,18 @@ describe('comet bundle CLI end to end', () => {
       ),
     );
 
-    runJson('bundle', 'factory-init', 'factory-next-action', '--project', projectRoot, '--file', planFile);
     runJson(
       'bundle',
-      'factory-generate',
+      'factory-init',
       'factory-next-action',
       '--project',
       projectRoot,
+      '--file',
+      planFile,
     );
+    runJson('bundle', 'factory-generate', 'factory-next-action', '--project', projectRoot);
 
-    const status = runJson(
-      'bundle',
-      'status',
-      'factory-next-action',
-      '--project',
-      projectRoot,
-    );
+    const status = runJson('bundle', 'status', 'factory-next-action', '--project', projectRoot);
 
     expect(status).toMatchObject({
       nextAction: {
@@ -852,16 +876,12 @@ describe('comet bundle CLI end to end', () => {
       planFile,
     );
 
-    const status = runCli(
-      'bundle',
-      'status',
-      'factory-resolve-action',
-      '--project',
-      projectRoot,
-    );
+    const status = runCli('bundle', 'status', 'factory-resolve-action', '--project', projectRoot);
 
     expect(status.status, status.stderr).toBe(0);
     expect(status.stdout).toContain('Next action: resolve-candidates');
-    expect(status.stdout).toContain('Suggested command: comet bundle factory-resolve factory-resolve-action --candidate missing-skill');
+    expect(status.stdout).toContain(
+      'Suggested command: comet bundle factory-resolve factory-resolve-action --candidate missing-skill',
+    );
   });
 });

@@ -15,6 +15,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 
 ### Changed
 
+- **Publish facade path**: Adds `comet publish` as the normal readiness, approval, publish, and distribution path for `/comet-any` outputs while keeping `comet bundle` available as the advanced backend.
 - **Comet product model**: Repositions Comet around a Node-only runtime, resumable workflow diagnostics, a reusable Skill platform, and `/comet-any` as the main Skill creation path instead of a Bundle-CLI-first story.
 - **Repository and runtime layout**: Reorganizes the repo into `app/`, `domains/`, `platform/`, `scripts/`, and matching tests while keeping the packaged CLI, installed assets, and generated Classic runtime compatible.
 - **User-facing guidance**: Simplifies the top-level README, `/comet-any` docs, and CLI text output so users see task-first entry points, deterministic `Next action` recovery hints, and clearer publish/eval gates.
