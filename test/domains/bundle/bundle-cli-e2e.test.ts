@@ -592,7 +592,89 @@ describe('comet bundle CLI end to end', () => {
     expect(reviewSummary.stdout).toContain('Evidence:');
   });
 
-  it('prints factory/eval/review hints in bundle status text mode', async () => {
+  it('prints review-summary warnings in text mode when eval passed but approval is missing', async () => {
+    await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
+    await fs.mkdir(path.join(projectRoot, '.claude', 'skills', 'factory-alpha'), {
+      recursive: true,
+    });
+    await fs.mkdir(path.join(projectRoot, '.codex', 'skills', 'factory-alpha'), {
+      recursive: true,
+    });
+    await fs.writeFile(path.join(projectRoot, '.comet', 'skills.txt'), 'factory-alpha\n');
+    await fs.writeFile(
+      path.join(projectRoot, '.claude', 'skills', 'factory-alpha', 'SKILL.md'),
+      '---\nname: factory-alpha\ndescription: Alpha factory step.\n---\n# Alpha\n',
+    );
+    await fs.writeFile(
+      path.join(projectRoot, '.codex', 'skills', 'factory-alpha', 'SKILL.md'),
+      '---\nname: factory-alpha\ndescription: Project Codex alpha.\n---\n# Project Alpha\n',
+    );
+    const planFile = path.join(root, 'factory-warning-text-mode-plan.json');
+    await writeFactoryPlan(planFile);
+
+    runJson(
+      'bundle',
+      'factory-init',
+      'factory-warning-text-mode',
+      '--project',
+      projectRoot,
+      '--file',
+      planFile,
+    );
+    runJson(
+      'bundle',
+      'factory-resolve',
+      'factory-warning-text-mode',
+      '--project',
+      projectRoot,
+      '--candidate',
+      'factory-alpha',
+      '--source',
+      path.join(projectRoot, '.claude', 'skills', 'factory-alpha'),
+    );
+    runJson('bundle', 'factory-generate', 'factory-warning-text-mode', '--project', projectRoot);
+    const status = runJson(
+      'bundle',
+      'status',
+      'factory-warning-text-mode',
+      '--project',
+      projectRoot,
+    );
+    const resultFile = path.join(root, 'warning-text-mode-eval.json');
+    await fs.writeFile(
+      resultFile,
+      JSON.stringify(passingResult(String(status.currentHash), ['factory-warning-text-mode'])),
+    );
+    runJson(
+      'bundle',
+      'eval-record',
+      'factory-warning-text-mode',
+      '--project',
+      projectRoot,
+      '--result',
+      resultFile,
+    );
+
+    const reviewSummary = runCli(
+      'bundle',
+      'review-summary',
+      'factory-warning-text-mode',
+      '--project',
+      projectRoot,
+      '--platform',
+      'claude',
+    );
+
+    expect(reviewSummary.status, reviewSummary.stderr).toBe(0);
+    expect(reviewSummary.stdout).toContain('Readiness: reviewable');
+    expect(reviewSummary.stdout).toContain('Warnings:');
+    expect(reviewSummary.stdout).toContain(
+      'Review approval for the current draft hash is missing',
+    );
+    expect(reviewSummary.stdout).toContain('Evidence:');
+  });
+
+  it('prints explicit recovery hints in bundle status text mode when eval and review are missing', async () => {
     await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
     await fs.mkdir(path.join(projectRoot, '.claude', 'skills', 'factory-alpha'), {
       recursive: true,
@@ -638,37 +720,6 @@ describe('comet bundle CLI end to end', () => {
       path.join(projectRoot, '.claude', 'skills', 'factory-alpha'),
     );
     runJson('bundle', 'factory-generate', 'factory-status-text-mode', '--project', projectRoot);
-    const status = runJson(
-      'bundle',
-      'status',
-      'factory-status-text-mode',
-      '--project',
-      projectRoot,
-    );
-    const resultFile = path.join(root, 'status-text-mode-eval.json');
-    await fs.writeFile(
-      resultFile,
-      JSON.stringify(passingResult(String(status.currentHash), ['factory-status-text-mode'])),
-    );
-    runJson(
-      'bundle',
-      'eval-record',
-      'factory-status-text-mode',
-      '--project',
-      projectRoot,
-      '--result',
-      resultFile,
-    );
-    runJson(
-      'bundle',
-      'review',
-      'factory-status-text-mode',
-      '--project',
-      projectRoot,
-      '--approve',
-      '--reviewer',
-      'alice',
-    );
 
     const bundleStatus = runCli(
       'bundle',
@@ -679,9 +730,13 @@ describe('comet bundle CLI end to end', () => {
     );
 
     expect(bundleStatus.status, bundleStatus.stderr).toBe(0);
-    expect(bundleStatus.stdout).toContain('Status: review-approved');
+    expect(bundleStatus.stdout).toContain('Status: draft');
     expect(bundleStatus.stdout).toContain('Factory package:');
-    expect(bundleStatus.stdout).toContain('Eval:');
-    expect(bundleStatus.stdout).toContain('Review:');
+    expect(bundleStatus.stdout).toContain(
+      'Eval: missing; run comet bundle eval-plan and comet bundle eval-record',
+    );
+    expect(bundleStatus.stdout).toContain(
+      'Review: missing; run comet bundle review-summary before approval',
+    );
   });
 });
