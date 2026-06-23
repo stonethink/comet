@@ -126,3 +126,4 @@ Result: passed. `74` test files passed, `732` tests passed, `12` skipped, `0` fa
 ## Commit
 
 - `feat: clarify comet-any text-mode readiness flow`
+- `test: strengthen comet-any text-mode coverage`
