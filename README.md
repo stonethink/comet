@@ -31,10 +31,11 @@
 > [Bilibili video](https://www.bilibili.com/video/BV1y4Gi6CEo1/?spm_id_from=333.1387.homepage.video_card.click&vd_source=d22726fe6b108647dbebf1c5d8817377)
 > [DouYin](https://www.douyin.com/search/comet?aid=cd8fcc82-498b-4d59-8860-617deb719412&modal_id=7646429015808936293&type=general)
 
-**Comet is a Node-only runtime and Skill platform for resumable AI coding workflows.**
+**Comet is a resumable workflow and Skill platform for AI coding.**
 
-It keeps OpenSpec artifacts, Superpowers methods, and Comet state aligned so you can start a change, resume it later,
-diagnose drift, and publish reusable Skills from one toolchain.
+It uses one cross-platform runtime to keep OpenSpec artifacts, Superpowers methods, Skill creation, evaluation, and
+publishing in one loop, so you can start a change, resume it later, diagnose drift, and ship reusable Skills from one
+toolchain.
 
 > [!IMPORTANT]
 > **0.4.0-beta.1** — This is the main product jump beyond master (`0.3.9`): Comet is now a Node-only runtime instead of a Bash/WSL-dependent workflow layer, adds stable `comet skill` and `comet eval` user paths, and turns `/comet-any` into a real Skill Factory with next-action guidance, readiness gates, generated `comet/eval.yaml`, and a clearer publish evidence chain.

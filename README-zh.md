@@ -31,10 +31,10 @@
 > [Bilibili video](https://www.bilibili.com/video/BV1y4Gi6CEo1/?spm_id_from=333.1387.homepage.video_card.click&vd_source=d22726fe6b108647dbebf1c5d8817377)
 > [抖音](https://www.douyin.com/search/comet?aid=cd8fcc82-498b-4d59-8860-617deb719412&modal_id=7646429015808936293&type=general)
 
-**Comet 是一个面向可恢复 AI 编码工作流的纯 Node runtime 和 Skill 平台。**
+**Comet 是一个面向 AI 编码的可恢复工作流与 Skill 平台。**
 
-它把 OpenSpec 制品、Superpowers 方法论和 Comet 状态维持在同一条工作链上，让你可以用一个工具链开启变更、
-中断后恢复、诊断漂移，并把可复用 Skill 发布出去。
+它用统一的跨平台运行时把 OpenSpec 制品、Superpowers 方法论、Skill 创建、评估与发布串成一条工作闭环，
+让你可以用一个工具链开启变更、中断后恢复、诊断漂移，并把可复用 Skill 发布出去。
 
 > [!IMPORTANT]
 > **0.4.0-beta.1** — 这是相对 master（0.3.9）的一次产品面升级：Comet 现在是纯 Node runtime，不再把 Bash/WSL 当成工作流前提；新增 `comet skill` 与 `comet eval` 两条稳定 CLI 主路径；`/comet-any` 被收敛成真正的 Skill Factory，具备 next action、readiness、generated `comet/eval.yaml` 与更清晰的发布前证据链。
