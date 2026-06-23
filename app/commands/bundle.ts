@@ -57,6 +57,72 @@ function platformIds(value: string | string[] | undefined): string[] {
   return Array.isArray(value) ? value : [value];
 }
 
+function formatOptionalSection(title: string, lines: string[]): string[] {
+  return lines.length > 0 ? [title, ...lines.map((line) => `- ${line}`)] : [];
+}
+
+function formatStateEval(
+  evalState:
+    | NonNullable<Awaited<ReturnType<typeof reconcileBundleAuthoringState>>['eval']>
+    | undefined,
+): string {
+  if (!evalState) return 'Eval: missing; run comet bundle eval-plan and comet bundle eval-record';
+  return `Eval: ${evalState.passed ? 'passed' : 'failed'} (${evalState.level}) @ ${evalState.hash}`;
+}
+
+function formatStateReview(
+  reviewState:
+    | NonNullable<Awaited<ReturnType<typeof reconcileBundleAuthoringState>>['review']>
+    | undefined,
+): string {
+  if (!reviewState) return 'Review: missing; run comet bundle review-summary before approval';
+  return `Review: ${reviewState.decision} by ${reviewState.reviewer} @ ${reviewState.hash}`;
+}
+
+function formatStatusText(
+  state: Awaited<ReturnType<typeof reconcileBundleAuthoringState>>,
+): string {
+  const factoryPackage =
+    state.factory?.generatedSkillPackage?.packageRoot ??
+    state.factory?.planPath ??
+    'missing; run comet bundle factory-generate or inspect factory-init plan';
+
+  return [
+    `Bundle: ${state.name}`,
+    `Status: ${state.status}`,
+    `Hash: ${state.currentHash ?? '(invalid)'}`,
+    `Draft: ${state.draftPath}`,
+    `Factory package: ${factoryPackage}`,
+    formatStateEval(state.eval),
+    formatStateReview(state.review),
+    ...(state.ready ? [`Ready: ${state.ready.path}`] : []),
+  ].join('\n');
+}
+
+function formatReviewSummaryText(
+  summary: Awaited<ReturnType<typeof buildBundleReviewSummary>>,
+): string {
+  const readinessLines = [
+    `Readiness: ${summary.readiness.state}`,
+    ...formatOptionalSection('Blockers:', summary.readiness.blockers),
+    ...formatOptionalSection('Warnings:', summary.readiness.warnings),
+    ...formatOptionalSection(
+      'Evidence:',
+      Object.entries(summary.readiness.evidence).map(([key, value]) => `${key}: ${value}`),
+    ),
+  ];
+
+  return [
+    `Bundle: ${summary.name}`,
+    `Status: ${summary.status}`,
+    `Hash: ${summary.hash ?? '(invalid)'}`,
+    `Platform: ${summary.compile.platform}`,
+    `Quick Eval runs: ${summary.evalPlans.quick.estimatedRuns}`,
+    `Full Eval runs: ${summary.evalPlans.full.estimatedRuns}`,
+    ...readinessLines,
+  ].join('\n');
+}
+
 async function compileDraft(
   name: string,
   options: BundleCommandOptions,
@@ -123,17 +189,7 @@ export async function bundleStatusCommand(
   options: BundleCommandOptions = {},
 ): Promise<void> {
   const state = await reconcileBundleAuthoringState(projectRoot(options), name);
-  emit(
-    state,
-    options.json,
-    [
-      `Bundle: ${state.name}`,
-      `Status: ${state.status}`,
-      `Hash: ${state.currentHash ?? '(invalid)'}`,
-      `Draft: ${state.draftPath}`,
-      ...(state.ready ? [`Ready: ${state.ready.path}`] : []),
-    ].join('\n'),
-  );
+  emit(state, options.json, formatStatusText(state));
 }
 
 export async function bundleFactoryGenerateCommand(
@@ -269,18 +325,7 @@ export async function bundleReviewSummaryCommand(
     scope: options.scope ?? 'project',
     locale: options.locale,
   });
-  emit(
-    summary,
-    options.json,
-    [
-      `Bundle: ${summary.name}`,
-      `Status: ${summary.status}`,
-      `Hash: ${summary.hash ?? '(invalid)'}`,
-      `Platform: ${summary.compile.platform}`,
-      `Quick Eval runs: ${summary.evalPlans.quick.estimatedRuns}`,
-      `Full Eval runs: ${summary.evalPlans.full.estimatedRuns}`,
-    ].join('\n'),
-  );
+  emit(summary, options.json, formatReviewSummaryText(summary));
 }
 
 export async function bundlePublishCommand(

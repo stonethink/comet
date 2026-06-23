@@ -111,7 +111,8 @@ comet bundle distribute <name> --platform <id> --scope project --json
 
 发布前必须读取 review summary 的 readiness：存在 unresolved candidate、缺失当前 hash 的 Eval 证据、
 缺失当前 hash 的人工 approval、capability gap 或 executable disclosure 未确认时，不得发布 ready。
-Eval 证据缺失时不得发布 ready。
+Eval 证据缺失时不得发布 ready。非 JSON 输出也必须明确展示 `Readiness:`、`Blockers:`、`Warnings:`、
+`Evidence:`；如果 `Readiness: blocked`，应先按 blockers 处理候选恢复、Eval 或 review，再继续 publish。
 
 ## Runner 模式
 

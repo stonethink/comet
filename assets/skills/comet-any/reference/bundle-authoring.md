@@ -113,7 +113,9 @@ comet bundle distribute <name> --platform <id> --scope project --json
 
 Before publishing, read the review summary readiness state. If unresolved candidates, current-hash
 Eval evidence, current-hash human approval, capability gaps, or executable disclosures are missing,
-do not publish a ready Bundle. Missing Eval evidence blocks ready publish.
+do not publish a ready Bundle. Missing Eval evidence blocks ready publish. Non-JSON output must also
+explicitly show `Readiness:`, `Blockers:`, `Warnings:`, and `Evidence:`. If `Readiness: blocked`,
+handle candidate recovery, Eval, or review blockers before continuing to publish.
 
 ## Runner Modes
 

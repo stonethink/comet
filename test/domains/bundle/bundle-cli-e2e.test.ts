@@ -72,16 +72,18 @@ async function writeFactoryPlan(planFile: string): Promise<void> {
   );
 }
 
-function passingResult(hash: string): BundleEvalResult {
+function passingResult(hash: string, entrySkills: string[] = ['alpha', 'beta']): BundleEvalResult {
   return {
     schemaVersion: 1,
     provider: 'native-skill-creator',
     level: 'quick',
     bundleHash: hash,
-    entries: [
-      { id: 'alpha', passed: true, passRate: 1, evidence: ['alpha.json'] },
-      { id: 'beta', passed: true, passRate: 1, evidence: ['beta.json'] },
-    ],
+    entries: entrySkills.map((id) => ({
+      id,
+      passed: true,
+      passRate: 1,
+      evidence: [`${id}.json`],
+    })),
     bundle: { compilePassed: true, safetyPassed: true, evidence: ['compile.json'] },
     benchmark: {
       cases: 4,
@@ -522,5 +524,164 @@ describe('comet bundle CLI end to end', () => {
     expect(summary.readiness).toMatchObject({
       blockers: ['Eval evidence for the current draft hash is missing'],
     });
+  });
+
+  it('prints readiness blockers and evidence in review-summary text mode', async () => {
+    await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
+    await fs.writeFile(
+      path.join(projectRoot, '.comet', 'skills.txt'),
+      'factory-alpha\nmissing-skill\n',
+    );
+    await fs.mkdir(path.join(projectRoot, '.claude', 'skills', 'factory-alpha'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(projectRoot, '.claude', 'skills', 'factory-alpha', 'SKILL.md'),
+      '---\nname: factory-alpha\ndescription: Alpha factory step.\n---\n# Alpha\n',
+    );
+    const planFile = path.join(root, 'factory-text-mode-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Create a review-oriented Skill.',
+          preferredSkills: ['factory-alpha', 'missing-skill'],
+          callChain: ['factory-alpha', 'missing-skill'],
+          deviations: [],
+          engineMode: 'deterministic',
+          runnerMode: 'standalone',
+          defaultLocale: 'zh',
+          locales: ['zh', 'en'],
+          creator: 'native',
+          engineEnabled: true,
+        },
+        null,
+        2,
+      ),
+    );
+
+    runJson('bundle', 'factory-init', 'factory-text-mode', '--project', projectRoot, '--file', planFile);
+    runJson(
+      'bundle',
+      'factory-resolve',
+      'factory-text-mode',
+      '--project',
+      projectRoot,
+      '--candidate',
+      'missing-skill',
+      '--ignore-missing',
+      '--reason',
+      'The target workflow can proceed with factory-alpha only.',
+    );
+    runJson('bundle', 'factory-generate', 'factory-text-mode', '--project', projectRoot);
+
+    const reviewSummary = runCli(
+      'bundle',
+      'review-summary',
+      'factory-text-mode',
+      '--project',
+      projectRoot,
+      '--platform',
+      'claude',
+    );
+
+    expect(reviewSummary.status, reviewSummary.stderr).toBe(0);
+    expect(reviewSummary.stdout).toContain('Readiness: blocked');
+    expect(reviewSummary.stdout).toContain('Blockers:');
+    expect(reviewSummary.stdout).toContain('Eval evidence for the current draft hash is missing');
+    expect(reviewSummary.stdout).toContain('Evidence:');
+  });
+
+  it('prints factory/eval/review hints in bundle status text mode', async () => {
+    await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
+    await fs.mkdir(path.join(projectRoot, '.claude', 'skills', 'factory-alpha'), {
+      recursive: true,
+    });
+    await fs.mkdir(path.join(projectRoot, '.codex', 'skills', 'factory-alpha'), {
+      recursive: true,
+    });
+    await fs.writeFile(path.join(projectRoot, '.comet', 'skills.txt'), 'factory-alpha\n');
+    await fs.writeFile(
+      path.join(projectRoot, '.claude', 'skills', 'factory-alpha', 'SKILL.md'),
+      '---\nname: factory-alpha\ndescription: Alpha factory step.\n---\n# Alpha\n',
+    );
+    await fs.writeFile(
+      path.join(projectRoot, '.codex', 'skills', 'factory-alpha', 'SKILL.md'),
+      '---\nname: factory-alpha\ndescription: Project Codex alpha.\n---\n# Project Alpha\n',
+    );
+    const planFile = path.join(root, 'factory-status-text-mode-plan.json');
+    await writeFactoryPlan(planFile);
+
+    const initialized = runJson(
+      'bundle',
+      'factory-init',
+      'factory-status-text-mode',
+      '--project',
+      projectRoot,
+      '--file',
+      planFile,
+    );
+    expect(initialized).toMatchObject({
+      factory: {
+        resolvedSkills: [{ query: 'factory-alpha', status: 'ambiguous' }],
+      },
+    });
+    runJson(
+      'bundle',
+      'factory-resolve',
+      'factory-status-text-mode',
+      '--project',
+      projectRoot,
+      '--candidate',
+      'factory-alpha',
+      '--source',
+      path.join(projectRoot, '.claude', 'skills', 'factory-alpha'),
+    );
+    runJson('bundle', 'factory-generate', 'factory-status-text-mode', '--project', projectRoot);
+    const status = runJson(
+      'bundle',
+      'status',
+      'factory-status-text-mode',
+      '--project',
+      projectRoot,
+    );
+    const resultFile = path.join(root, 'status-text-mode-eval.json');
+    await fs.writeFile(
+      resultFile,
+      JSON.stringify(passingResult(String(status.currentHash), ['factory-status-text-mode'])),
+    );
+    runJson(
+      'bundle',
+      'eval-record',
+      'factory-status-text-mode',
+      '--project',
+      projectRoot,
+      '--result',
+      resultFile,
+    );
+    runJson(
+      'bundle',
+      'review',
+      'factory-status-text-mode',
+      '--project',
+      projectRoot,
+      '--approve',
+      '--reviewer',
+      'alice',
+    );
+
+    const bundleStatus = runCli(
+      'bundle',
+      'status',
+      'factory-status-text-mode',
+      '--project',
+      projectRoot,
+    );
+
+    expect(bundleStatus.status, bundleStatus.stderr).toBe(0);
+    expect(bundleStatus.stdout).toContain('Status: review-approved');
+    expect(bundleStatus.stdout).toContain('Factory package:');
+    expect(bundleStatus.stdout).toContain('Eval:');
+    expect(bundleStatus.stdout).toContain('Review:');
   });
 });

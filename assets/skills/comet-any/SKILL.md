@@ -33,6 +33,8 @@ words, lightweight single-step Skills can skip Engine only when the capability l
 - Use the `comet bundle` CLI to maintain deterministic state. Do not hand-write `.comet/bundle-*` state files.
 - Show Eval workload and token workload before asking the user to choose `skip / quick / full Eval`.
 - If Eval is skipped or fails, do not enter ready, publish, or distribute.
+- In non-JSON output, explicitly show `Readiness:`, `Blockers:`, `Warnings:`, and `Evidence:` so the
+  user can directly understand readiness, blockers, warnings, evidence, and recovery clues.
 - Before publish, read the review summary readiness state. If unresolved candidates, current-hash
   Eval evidence, current-hash human approval, capability gaps, or executable disclosures are
   missing, do not publish ready.
@@ -196,7 +198,9 @@ comet bundle review-summary <name> --platform <reference-platform> --json
 ```
 
 Use that summary to show entry Skills, internal Skills, planHash, real Skill evidence, recommended call order, deviations from the preferred order, capability gaps, executable disclosures, quick/full Eval workload, Eval result, and target platforms. If the call chain deviates from the preferred order, the review summary must explain why.
-Read the readiness field explicitly. If readiness is not `publishable`, or if it says Missing Eval evidence blocks ready publish, stop before publish.
+Read the readiness field explicitly. In non-JSON output, also read `Readiness:`, `Blockers:`,
+`Warnings:`, and `Evidence:` line by line. When `Readiness: blocked`, resolve candidate recovery,
+Eval, or review blockers before continuing to publish. If readiness is not `publishable`, or if it says Missing Eval evidence blocks ready publish, stop before publish.
 
 Approve:
 
