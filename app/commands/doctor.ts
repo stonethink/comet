@@ -177,19 +177,30 @@ async function checkCometYamlValidity(projectPath: string): Promise<CheckResult[
     if (!(await fileExists(yamlPath))) continue;
 
     const diagnostic = await inspectClassicChange(changeDir, entry);
-    results.push(
-      diagnostic.valid
-        ? {
-            check: `.comet.yaml: ${entry}`,
-            status: 'pass',
-            message: `valid (step: ${diagnostic.currentStep ?? 'completed'}, mode: ${diagnostic.runtimeMode})`,
-          }
-        : {
-            check: `.comet.yaml: ${entry}`,
-            status: 'fail',
-            message: diagnostic.error ?? 'invalid Classic state',
-          },
-    );
+    if (diagnostic.valid) {
+      results.push({
+        check: `.comet.yaml: ${entry}`,
+        status: 'pass',
+        message: `valid (step: ${diagnostic.currentStep ?? 'completed'}, mode: ${diagnostic.runtimeMode})`,
+      });
+      if (diagnostic.runtimeEval) {
+        const runtimeEvalMessage = diagnostic.runtimeEval.passed
+          ? `pass (${diagnostic.runtimeEval.stepId})`
+          : `fail (${diagnostic.runtimeEval.stepId}; missing: ${diagnostic.runtimeEval.missingEvidence.join(', ')})`;
+        results.push({
+          check: `runtime_eval: ${entry}`,
+          status: diagnostic.runtimeEval.passed ? 'pass' : 'warn',
+          message: runtimeEvalMessage,
+        });
+      }
+      continue;
+    }
+
+    results.push({
+      check: `.comet.yaml: ${entry}`,
+      status: 'fail',
+      message: diagnostic.error ?? 'invalid Classic state',
+    });
   }
 
   return results;

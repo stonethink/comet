@@ -106,4 +106,23 @@ describe('doctor command', () => {
     expect(cometYaml.message).toContain('step: full.open');
     expect(cometYaml.message).toContain('mode: engine-projection');
   });
+
+  it('prints runtime eval evidence in doctor output for valid changes', async () => {
+    const changeDir = path.join(tmpDir, 'openspec', 'changes', 'demo');
+    state(tmpDir, 'init', 'demo', 'full');
+    await fs.writeFile(path.join(changeDir, 'proposal.md'), '# Proposal\n');
+    await fs.writeFile(path.join(changeDir, 'design.md'), '# Design\n');
+    await fs.writeFile(path.join(changeDir, 'tasks.md'), '- [ ] build\n');
+
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    let output = '';
+    try {
+      await doctorCommand(tmpDir);
+      output = log.mock.calls.map((call) => call.join(' ')).join('\n');
+    } finally {
+      log.mockRestore();
+    }
+
+    expect(output).toContain('runtime_eval:');
+  });
 });

@@ -100,6 +100,23 @@ describe('status command', () => {
     expect(await fs.readFile(path.join(changeDir, '.comet.yaml'), 'utf8')).toBe(before);
   });
 
+  it('prints a concise next-action hint for invalid changes in status text output', async () => {
+    const changeDir = path.join(tmpDir, 'openspec', 'changes', 'invalid');
+    state(tmpDir, 'init', 'invalid', 'full');
+    await fs.appendFile(path.join(changeDir, '.comet.yaml'), 'unknown_root_field: true\n');
+
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    let output = '';
+    try {
+      await statusCommand(tmpDir);
+      output = log.mock.calls.map((call) => call.join(' ')).join('\n');
+    } finally {
+      log.mockRestore();
+    }
+
+    expect(output).toContain('next: inspect .comet.yaml and rerun comet doctor');
+  });
+
   it('reports Classic runtime mode from shared diagnostics', async () => {
     const changeDir = path.join(tmpDir, 'openspec', 'changes', 'demo');
     state(tmpDir, 'init', 'demo', 'full');

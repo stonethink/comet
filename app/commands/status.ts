@@ -19,6 +19,12 @@ interface ChangeStatus {
   nextCommand: string | null;
   currentStep: string | null;
   runtimeMode: string;
+  runtimeEval: {
+    stepId: string;
+    passed: boolean;
+    requiredEvidence: string[];
+    missingEvidence: string[];
+  } | null;
   error?: string;
 }
 
@@ -69,6 +75,7 @@ async function getActiveChanges(projectPath: string): Promise<ChangeStatus[]> {
           nextCommand: diagnostic.nextCommand,
           currentStep: diagnostic.currentStep,
           runtimeMode: diagnostic.runtimeMode,
+          runtimeEval: diagnostic.runtimeEval,
         });
         continue;
       }
@@ -88,6 +95,7 @@ async function getActiveChanges(projectPath: string): Promise<ChangeStatus[]> {
         nextCommand: diagnostic.nextCommand,
         currentStep: diagnostic.currentStep,
         runtimeMode: diagnostic.runtimeMode,
+        runtimeEval: diagnostic.runtimeEval,
         error: diagnostic.error,
       });
     } catch (error) {
@@ -106,6 +114,7 @@ async function getActiveChanges(projectPath: string): Promise<ChangeStatus[]> {
         nextCommand: null,
         currentStep: null,
         runtimeMode: 'invalid',
+        runtimeEval: null,
         error: error instanceof Error ? error.message : String(error),
       });
     }
@@ -128,12 +137,19 @@ function displayStatus(changes: ChangeStatus[]): void {
     console.log(`  ${i + 1}. ${c.name} [phase: ${c.phase}${taskStr}]`);
     if (c.error) {
       console.log(`     error: ${c.error}`);
+      console.log('     next: inspect .comet.yaml and rerun comet doctor');
       console.log();
       continue;
     }
     console.log(`     workflow: ${c.workflow} | build_mode: ${c.buildMode}`);
     if (c.currentStep) console.log(`     run_step: ${c.currentStep}`);
     console.log(`     runtime_mode: ${c.runtimeMode}`);
+    if (c.runtimeEval) {
+      const suffix = c.runtimeEval.passed
+        ? `(${c.runtimeEval.stepId})`
+        : `(${c.runtimeEval.stepId}; missing: ${c.runtimeEval.missingEvidence.join(', ')})`;
+      console.log(`     runtime_eval: ${c.runtimeEval.passed ? 'pass' : 'fail'} ${suffix}`);
+    }
     if (c.designDoc) console.log(`     design: ${c.designDoc}`);
     if (c.plan) console.log(`     plan:   ${c.plan}`);
     if (c.phase === 'verify') console.log(`     verify_result: ${c.verifyResult}`);
