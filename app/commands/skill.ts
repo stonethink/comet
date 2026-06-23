@@ -70,6 +70,11 @@ function runText(result: {
   evals: Array<{ evalId: string; passed: boolean }>;
   reason?: string;
 }): string {
+  const next = result.action
+    ? 'Next: complete the pending action, then run comet skill resume'
+    : result.evals.some((evaluation) => !evaluation.passed)
+      ? 'Next: record the missing artifact/state and rerun comet skill eval'
+      : 'Next: none';
   return [
     `Run: ${result.state.runId}`,
     `Status: ${result.state.status}`,
@@ -78,6 +83,7 @@ function runText(result: {
       ? `Pending action: ${result.action.id} (${result.action.type}, step ${result.action.stepId ?? 'adaptive'})`
       : 'Pending action: none',
     `Runtime evals: ${result.evals.length}`,
+    next,
     ...(result.reason ? [`Reason: ${result.reason}`] : []),
   ].join('\n');
 }
@@ -230,6 +236,7 @@ export async function skillEvalCommand(options: SkillCommandOptions = {}): Promi
   const result = options.runId
     ? await evaluateStandaloneRun(projectRoot(options), options.runId, options.scope ?? 'progress')
     : await evaluateManualRun(changeDir(options), options.scope ?? 'progress');
+  const failed = result.evals.filter((evaluation) => !evaluation.passed);
   emit(
     result,
     options.json,
@@ -240,6 +247,9 @@ export async function skillEvalCommand(options: SkillCommandOptions = {}): Promi
         (evaluation) =>
           `${evaluation.passed ? 'PASS' : 'FAIL'} ${evaluation.evalId}: ${evaluation.evidence}`,
       ),
+      ...(failed.length > 0
+        ? ['Next: record the missing artifact/state and rerun comet skill eval']
+        : []),
     ].join('\n'),
   );
 }

@@ -2,7 +2,7 @@
 
 - 初稿日期：2026-06-01
 - 重构日期：2026-06-13
-- 状态：已完成术语修订，待文档复审
+- 状态：已实现主体能力并完成术语修订（Foundation、Manual Authoring、Classic 运行时与 `/comet-any` 主线已落地；后续 Engine-native 收敛由 2026-06-22/23 specs 追踪）
 - 目标版本基线：Comet 0.3.8
 
 ## 1. 背景

@@ -1,7 +1,7 @@
 # Comet Any Skill Factory 设计
 
 **日期：** 2026-06-21
-**状态：** 草稿
+**状态：** 已完成主体实现（Factory 后端、候选解析、生成、review/eval/publish/distribute、standalone run 与 readiness 基础已落地；后续体验闭环由 2026-06-23 UX spec 继续追踪）
 **范围：** `/comet-any` 体验重定位与 Engine 闭环设计
 
 ## 1. 背景
@@ -59,9 +59,9 @@ Skill Engine 保证确定性、可恢复、可审计和可分发。
   entry/internal Skill 的调用链；如果因为目标、依赖、风险或平台限制偏离顺序，必须在评审摘要中说明原因。
 - `/comet-any` 允许推荐不启用 Engine 的轻量 Skill，但必须显式说明能力损失。
 
-### 4.1 当前实现对齐状态（2026-06-22）
+### 4.1 当前实现对齐状态（2026-06-23）
 
-本设计仍是 `/comet-any` Skill Factory 的产品和验收参考，但它不是“当前实现已完成”的清单。后续实现应按当前仓库结构推进：
+本设计仍是 `/comet-any` Skill Factory 的产品和验收参考。当前代码已完成主体后端闭环；剩余差距集中在用户主路径、输出解释、README 任务路径和更细粒度 readiness 证据上，继续由 2026-06-23 UX spec 追踪。
 
 已与当前代码吻合的部分：
 
@@ -72,12 +72,12 @@ Skill Engine 保证确定性、可恢复、可审计和可分发。
 - `domains/factory/package.ts` 已生成 entry Skill、`reference/resolved-skills.json`、source summaries，并按 `engineMode` 输出 `comet/skill.yaml`、`guardrails.yaml`、`evals.yaml`。
 - `domains/engine/standalone-run.ts` 与 `--run-id` 支持独立 `.comet/runs/<run-id>` 运行目录。
 
-仍需按本设计继续推进的部分：
+仍需由后续 UX 闭环继续推进的部分：
 
 - 旧设计中的 `src/*` 路径已不再代表当前代码位置；实现应使用 `domains/*` 与 `app/*` 下的现有模块。
 - Bundle-level `engine.enabled` 当前不是 Factory 主路径。Factory 主要通过生成 entry Skill 内的 `comet/` Engine 文件表达 Engine 语义。
-- 生成的 Skill synthesis、guardrails、runtime evals 仍偏最小可用，需要通过真实 dogfood 提升到可发布质量。
-- review/eval/publish gate 已有后端形态，但还需要端到端证据证明真实生成 Skill 能从候选解析、生成、eval、review 到 ready publish 连续跑通。
+- 生成的 Skill synthesis、guardrails、runtime evals 已具备最小可用形态，但仍需要更多真实 dogfood 来提升默认质量。
+- review/eval/publish readiness 已有后端形态；仍需在用户输出中更清楚地区分阻塞类型、报告路径和下一步动作。
 
 因此，本设计仍建议参考其中的产品模型、安全规则、用户流程和验收标准；具体文件路径、实现切分和完成度判断应以当前代码与 `2026-06-22-comet-priority-improvements-design.md` 为准。
 

@@ -94,7 +94,7 @@ platform/
 - Preserves: classic runtime output path `assets/skills/comet/scripts/comet-runtime.mjs`.
 - Enables: compiling both `src/**` and new top-level `app/**`, `domains/**`, `platform/**` during migration.
 
-- [ ] **Step 1: Write failing repository-layout contract tests**
+- [x] **Step 1: Write failing repository-layout contract tests**
 
 Create `test/ts/repository-layout.test.ts`:
 
@@ -127,7 +127,7 @@ describe('repository layout registry', () => {
 });
 ```
 
-- [ ] **Step 2: Run the new contract test and verify failure**
+- [x] **Step 2: Run the new contract test and verify failure**
 
 Run:
 
@@ -137,7 +137,7 @@ npx vitest run test/ts/repository-layout.test.ts
 
 Expected: fail with module resolution error for `platform/paths/repository-layout.js`.
 
-- [ ] **Step 3: Add the declarative layout file**
+- [x] **Step 3: Add the declarative layout file**
 
 Create `config/repository-layout.json`:
 
@@ -158,7 +158,7 @@ Create `config/repository-layout.json`:
 }
 ```
 
-- [ ] **Step 4: Add TypeScript and Node readers for the layout registry**
+- [x] **Step 4: Add TypeScript and Node readers for the layout registry**
 
 Create `platform/paths/repository-layout.ts`:
 
@@ -205,7 +205,7 @@ export function resolveRepositoryPath(relativePath) {
 }
 ```
 
-- [ ] **Step 5: Broaden build, lint, and test config for the transition**
+- [x] **Step 5: Broaden build, lint, and test config for the transition**
 
 Update `tsconfig.json`:
 
@@ -266,7 +266,7 @@ Update `package.json` scripts:
 }
 ```
 
-- [ ] **Step 6: Run the contract test and the existing runtime freshness check**
+- [x] **Step 6: Run the contract test and the existing runtime freshness check**
 
 Run:
 
@@ -276,7 +276,7 @@ npx vitest run test/ts/repository-layout.test.ts test/ts/classic-runtime.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit the layout foundation**
+- [x] **Step 7: Commit the layout foundation**
 
 ```bash
 git add config/repository-layout.json platform/paths/repository-layout.ts scripts/lib/repository-layout.mjs tsconfig.json vitest.config.ts package.json test/ts/repository-layout.test.ts
@@ -307,7 +307,7 @@ git commit -m "refactor: add repository layout registry"
 - Preserves: all platform detection behavior and install target resolution semantics.
 - Removes: new call sites to `src/core/platforms.ts`, `src/core/detect.ts`, and `src/utils/file-system.ts`.
 
-- [ ] **Step 1: Move the platform files without renaming behavior**
+- [x] **Step 1: Move the platform files without renaming behavior**
 
 Run:
 
@@ -320,7 +320,7 @@ git mv src/core/shell-quote.ts platform/process/shell-quote.ts
 git mv src/core/version.ts platform/version/version.ts
 ```
 
-- [ ] **Step 2: Rewrite imports in the existing command and skill-surface files**
+- [x] **Step 2: Rewrite imports in the existing command and skill-surface files**
 
 Update `src/commands/init.ts` imports:
 
@@ -346,7 +346,7 @@ import { fileExists, readJson, copyFile, ensureDir } from '../../platform/fs/fil
 import { getPlatformSkillsDir, type Platform } from '../../platform/install/platforms.js';
 ```
 
-- [ ] **Step 3: Run focused platform and install tests**
+- [x] **Step 3: Run focused platform and install tests**
 
 Run:
 
@@ -356,7 +356,7 @@ npx vitest run test/ts/detect.test.ts test/ts/init.test.ts test/ts/update.test.t
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit the platform slice**
+- [x] **Step 4: Commit the platform slice**
 
 ```bash
 git add platform src/commands/init.ts src/commands/update.ts src/commands/uninstall.ts src/core/skills.ts
@@ -407,7 +407,7 @@ git commit -m "refactor: move shared platform utilities to top-level platform"
 - Preserves: all classic command dispatch semantics and freshness checks.
 - Removes: moved classic files continuing to import sibling modules through stale `src/compat/*` relative paths.
 
-- [ ] **Step 1: Move the classic source files into the new domain root**
+- [x] **Step 1: Move the classic source files into the new domain root**
 
 Run:
 
@@ -429,9 +429,9 @@ git mv src/compat/classic-validate-command.ts domains/comet-classic/classic-vali
 git mv src/compat/index.ts domains/comet-classic/index.ts
 ```
 
-- [ ] **Step 2: Point the runtime build script at the registry entry instead of hardcoding `src/compat`**
+- [x] **Step 2: Point the runtime build script at the registry entry instead of hardcoding `src/compat`**
 
-- [ ] **Step 2: Rewrite moved classic-file imports before touching tests**
+- [x] **Step 2: Rewrite moved classic-file imports before touching tests**
 
 Inside `domains/comet-classic/*`, rewrite every import that still points at `../engine/*` or `../skill/*` from the old `src/compat` depth so the moved files compile from their new location. At minimum, this includes the imports currently present in:
 
@@ -446,7 +446,7 @@ Inside `domains/comet-classic/*`, rewrite every import that still points at `../
 
 Use `../../domains/engine/*` and `../../domains/skill/*` only where the moved file now truly crosses domains; keep `./classic-*` imports local within `domains/comet-classic/`.
 
-- [ ] **Step 3: Point the runtime build script at the registry entry instead of hardcoding `src/compat`**
+- [x] **Step 3: Point the runtime build script at the registry entry instead of hardcoding `src/compat`**
 
 Update `scripts/build-classic-runtime.mjs`:
 
@@ -487,7 +487,7 @@ async function bundledRuntime() {
 }
 ```
 
-- [ ] **Step 4: Rewrite classic test imports to the new domain path**
+- [x] **Step 4: Rewrite classic test imports to the new domain path**
 
 Update these files and only these files in this slice:
 
@@ -522,7 +522,7 @@ import type { ClassicState } from '../../domains/comet-classic/classic-state.js'
 const { runClassicCli } = await import('../../domains/comet-classic/classic-cli.js');
 ```
 
-- [ ] **Step 5: Run the classic-focused test slice**
+- [x] **Step 5: Run the classic-focused test slice**
 
 Run:
 
@@ -532,7 +532,7 @@ npx vitest run test/ts/classic-runtime.test.ts test/ts/classic-contract.test.ts 
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit the classic migration slice**
+- [x] **Step 6: Commit the classic migration slice**
 
 ```bash
 git add domains/comet-classic scripts/build-classic-runtime.mjs build.js test/ts test/ts/helpers/comet-test-utils.ts
@@ -571,7 +571,7 @@ git commit -m "refactor: move classic runtime into comet-classic domain"
 - Produces: `domains/integrations/*` as the home of OpenSpec, Superpowers, and Codegraph logic.
 - Removes: runtime imports from `src/skill/*` and `src/core/{skills,openspec,superpowers,codegraph}.ts`.
 
-- [ ] **Step 1: Move the skill package files**
+- [x] **Step 1: Move the skill package files**
 
 Run:
 
@@ -589,7 +589,7 @@ git mv src/core/superpowers.ts domains/integrations/superpowers.ts
 git mv src/core/codegraph.ts domains/integrations/codegraph.ts
 ```
 
-- [ ] **Step 2: Rewrite command imports to the new domain entrypoints**
+- [x] **Step 2: Rewrite command imports to the new domain entrypoints**
 
 Update `src/commands/skill.ts` imports:
 
@@ -637,7 +637,7 @@ import { hasCodegraphProjectIndex, resolveCodegraphCommand } from '../../domains
 import { readManifest, getAssetsDir, getManagedSkillPaths } from '../../domains/skill/platform-install.js';
 ```
 
-- [ ] **Step 3: Run the skill and install/update test slice**
+- [x] **Step 3: Run the skill and install/update test slice**
 
 Run:
 
@@ -647,7 +647,7 @@ npx vitest run test/ts/skill-discovery.test.ts test/ts/skill-install.test.ts tes
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit the skill and integration slice**
+- [x] **Step 4: Commit the skill and integration slice**
 
 ```bash
 git add domains/skill domains/integrations src/commands/skill.ts src/commands/init.ts src/commands/update.ts src/commands/status.ts src/commands/doctor.ts src/commands/bundle.ts
@@ -704,7 +704,7 @@ git commit -m "refactor: move skill and integration modules into domains"
 - Removes: new imports from `src/engine`, `src/bundle`, and `src/factory`.
 - Removes: moved engine/bundle/factory files continuing to resolve peers through stale `../*` paths that only worked under `src/`.
 
-- [ ] **Step 1: Move the engine, bundle, and factory source trees**
+- [x] **Step 1: Move the engine, bundle, and factory source trees**
 
 Run:
 
@@ -715,7 +715,7 @@ git mv src/factory domains/factory
 git mv src/core/bundle-platform.ts domains/bundle/bundle-platform.ts
 ```
 
-- [ ] **Step 2: Add a thin repository eval boundary without disturbing `eval/` workspace layout**
+- [x] **Step 2: Add a thin repository eval boundary without disturbing `eval/` workspace layout**
 
 Create `domains/eval/index.ts`:
 
@@ -754,7 +754,7 @@ export function resolveBenchmarkPaths() {
 }
 ```
 
-- [ ] **Step 3: Rewrite moved engine, bundle, and factory imports before command rewiring**
+- [x] **Step 3: Rewrite moved engine, bundle, and factory imports before command rewiring**
 
 After the `git mv`, update imports inside the moved trees so they compile from `domains/` instead of `src/`. This includes, at minimum:
 
@@ -764,7 +764,7 @@ After the `git mv`, update imports inside the moved trees so they compile from `
 
 If a bundle module still needs the former `src/core/bundle-platform.ts`, switch it to `domains/bundle/bundle-platform.ts` in this same slice rather than deferring to a later cleanup.
 
-- [ ] **Step 4: Rewrite bundle and runtime command imports to the new domain roots**
+- [x] **Step 4: Rewrite bundle and runtime command imports to the new domain roots**
 
 Update `src/commands/bundle.ts` imports:
 
@@ -789,7 +789,7 @@ import { distributeBundle } from '../../domains/bundle/distribute.js';
 import type { BundleCapability } from '../../domains/bundle/types.js';
 ```
 
-- [ ] **Step 5: Run the engine and bundle test slice**
+- [x] **Step 5: Run the engine and bundle test slice**
 
 Run:
 
@@ -799,7 +799,7 @@ npx vitest run test/ts/engine-state.test.ts test/ts/engine-run-store.test.ts tes
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit the remaining domain slice**
+- [x] **Step 6: Commit the remaining domain slice**
 
 ```bash
 git add domains/engine domains/bundle domains/factory domains/eval src/commands/bundle.ts src/commands/status.ts src/commands/doctor.ts
@@ -838,7 +838,7 @@ git commit -m "refactor: move engine bundle and factory into domains"
 - Removes: runtime dependency on `src/cli` and `src/commands`.
 - Preserves: CLI E2E build freshness checks after the compiled entry moves to `dist/app/cli/index.js`.
 
-- [ ] **Step 1: Move the CLI and command sources into `app/`**
+- [x] **Step 1: Move the CLI and command sources into `app/`**
 
 Run:
 
@@ -847,7 +847,7 @@ git mv src/cli app/cli
 git mv src/commands app/commands
 ```
 
-- [ ] **Step 2: Update the binary entry to the new dist location**
+- [x] **Step 2: Update the binary entry to the new dist location**
 
 Update `bin/comet.js`:
 
@@ -857,7 +857,7 @@ Update `bin/comet.js`:
 import '../dist/app/cli/index.js';
 ```
 
-- [ ] **Step 3: Rewrite the new app-layer imports to point at domains and platform**
+- [x] **Step 3: Rewrite the new app-layer imports to point at domains and platform**
 
 Update `app/cli/index.ts` imports:
 
@@ -890,11 +890,11 @@ import { installProjectSkill } from '../../domains/skill/install.js';
 
 Keep the rest of `app/commands/*.ts` imports unchanged relative to Task 2-5 unless a move in this task changes only the `../commands/*` local references. Because `src/commands/*` and `app/commands/*` are both two levels below repo root, all already-rewritten `../../domains/*` and `../../platform/*` imports should remain valid after the move.
 
-- [ ] **Step 4: Update CLI build probes and helpers to the new compiled entry**
+- [x] **Step 4: Update CLI build probes and helpers to the new compiled entry**
 
 Update `test/ts/helpers/ensure-cli-built.ts` so the freshness check looks for `dist/app/cli/index.js` after the app-layer move. In this same slice, search for any remaining repository-owned references to `dist/cli/index.js` and update them if they are part of the CLI build/test path.
 
-- [ ] **Step 5: Remove `src/**` from compiler, lint, and coverage roots**
+- [x] **Step 5: Remove `src/**` from compiler, lint, and coverage roots**
 
 Update `tsconfig.json` include section:
 
@@ -925,7 +925,7 @@ coverage: {
 }
 ```
 
-- [ ] **Step 6: Run the command-surface test slice**
+- [x] **Step 6: Run the command-surface test slice**
 
 Run:
 
@@ -935,7 +935,7 @@ npx vitest run test/ts/skill-command.test.ts test/ts/status.test.ts test/ts/doct
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit the app migration**
+- [x] **Step 7: Commit the app migration**
 
 ```bash
 git add app bin/comet.js tsconfig.json vitest.config.ts package.json test/ts/helpers/ensure-cli-built.ts
@@ -968,7 +968,7 @@ git commit -m "refactor: move CLI entrypoints into app layer"
 - Preserves: all test behavior and benchmark command behavior.
 - Removes: the final old `src/` directory and old flat script organization.
 
-- [ ] **Step 1: Move scripts into grouped directories and update package.json commands**
+- [x] **Step 1: Move scripts into grouped directories and update package.json commands**
 
 Run:
 
@@ -1019,7 +1019,7 @@ Also update `package.json` packaging metadata in the same commit:
 }
 ```
 
-- [ ] **Step 2: Move tests into app/domains/platform mirrors**
+- [x] **Step 2: Move tests into app/domains/platform mirrors**
 
 Run these exact moves:
 
@@ -1092,7 +1092,7 @@ exclude: [
 ],
 ```
 
-- [ ] **Step 3: Move docs into architecture/operations groupings and update repo guidance**
+- [x] **Step 3: Move docs into architecture/operations groupings and update repo guidance**
 
 Run:
 
@@ -1112,7 +1112,7 @@ domains/
 platform/
 ```
 
-- [ ] **Step 4: Delete the final old source tree**
+- [x] **Step 4: Delete the final old source tree**
 
 Run:
 
@@ -1122,7 +1122,7 @@ git rm -r src
 
 Only do this after `tsc`, Vitest, and runtime build all resolve exclusively from `app/`, `domains/`, and `platform/`.
 
-- [ ] **Step 5: Run the full project verification suite**
+- [x] **Step 5: Run the full project verification suite**
 
 Run:
 
@@ -1135,7 +1135,7 @@ npx vitest run
 
 Expected: all commands exit successfully.
 
-- [ ] **Step 6: Commit the final restructure**
+- [x] **Step 6: Commit the final restructure**
 
 ```bash
 git add scripts test docs AGENTS.md CLAUDE.md CONTRIBUTING.md CONTRIBUTING-zh.md package.json vitest.config.ts
@@ -1160,7 +1160,7 @@ git commit -m "refactor: reorganize repository by domain"
 - Produces: updated release-note and contributor-facing references where old internal source paths were previously documented.
 - Proves: install/update/runtime compatibility after internal path reorganization.
 
-- [ ] **Step 1: Add a user-visible changelog entry once behavior is stable**
+- [x] **Step 1: Add a user-visible changelog entry once behavior is stable**
 
 Update `CHANGELOG.md` at the current version heading with a `### Changed` item:
 
@@ -1170,7 +1170,7 @@ Update `CHANGELOG.md` at the current version heading with a `### Changed` item:
 - **Repository layout**: Reorganized the codebase into top-level app, domain, and platform areas while preserving Comet CLI behavior and installed skill output paths.
 ```
 
-- [ ] **Step 2: Update user-facing and release-note references where the old internal paths leaked**
+- [x] **Step 2: Update user-facing and release-note references where the old internal paths leaked**
 
 Run:
 
@@ -1189,7 +1189,7 @@ scripts/build-classic-runtime.mjs -> scripts/build/build-classic-runtime.mjs
 
 If the search returns no matches, leave `README.md`, `README-zh.md`, and `NEWS.md` unchanged in this step.
 
-- [ ] **Step 3: Run doc and CI-focused validation**
+- [x] **Step 3: Run doc and CI-focused validation**
 
 Run:
 
@@ -1201,7 +1201,7 @@ npx vitest run test/domains/comet-classic/comet-scripts.test.ts test/ts/skills.t
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit the audit slice**
+- [x] **Step 4: Commit the audit slice**
 
 ```bash
 git add CHANGELOG.md README.md README-zh.md NEWS.md

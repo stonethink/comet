@@ -1,6 +1,6 @@
 # Comet Skill Engine Foundation Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 建立不改变 Comet 0.3.8 用户行为的 Skill Engine 基础层，包括 Skill Package、Run 持久化、统一循环、Guardrails、Runtime Evals 和 Runtime Adapter 契约。
 

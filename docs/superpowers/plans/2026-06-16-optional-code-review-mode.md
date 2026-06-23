@@ -23,7 +23,7 @@
 
 ### Task 1: Add Failing Script-State Tests
 
-- [ ] **Step 1: Write tests that expect `review_mode` defaults and validation**
+- [x] **Step 1: Write tests that expect `review_mode` defaults and validation**
 
 Add Vitest coverage in `test/ts/comet-scripts.test.ts`:
 
@@ -85,7 +85,7 @@ it('rejects invalid review_mode values during schema validation', async () => {
 });
 ```
 
-- [ ] **Step 2: Run focused script tests and verify RED**
+- [x] **Step 2: Run focused script tests and verify RED**
 
 Run: `npx vitest run test/ts/comet-scripts.test.ts`
 
@@ -93,7 +93,7 @@ Expected: FAIL because `review_mode` is not initialized, not accepted by `set`, 
 
 ### Task 2: Implement `review_mode` State Support
 
-- [ ] **Step 1: Add the field to `comet-state.sh` initialization and setter validation**
+- [x] **Step 1: Add the field to `comet-state.sh` initialization and setter validation**
 
 Add `review_mode: null` near `tdd_mode` and allow values:
 
@@ -107,7 +107,7 @@ review_mode)
   ;;
 ```
 
-- [ ] **Step 2: Add the field to YAML validation**
+- [x] **Step 2: Add the field to YAML validation**
 
 Update `comet-yaml-validate.sh` to parse and validate:
 
@@ -118,7 +118,7 @@ validate_enum "review_mode" "$review_mode" "off standard thorough"
 
 Add `review_mode` to `KNOWN_KEYS`.
 
-- [ ] **Step 3: Run focused script tests and verify GREEN**
+- [x] **Step 3: Run focused script tests and verify GREEN**
 
 Run: `npx vitest run test/ts/comet-scripts.test.ts`
 
@@ -126,7 +126,7 @@ Expected: PASS for the new `review_mode` script tests.
 
 ### Task 3: Add Failing Chinese Skill Contract Tests
 
-- [ ] **Step 1: Update `test/ts/skills.test.ts` Chinese expectations**
+- [x] **Step 1: Update `test/ts/skills.test.ts` Chinese expectations**
 
 Replace hard-review expectations with `review_mode` expectations:
 
@@ -143,7 +143,7 @@ expect(zhDispatch).toContain('当 `review_mode: thorough` 时');
 expect(zhDispatch).toContain('当 `review_mode: off` 时');
 ```
 
-- [ ] **Step 2: Run skill tests and verify RED**
+- [x] **Step 2: Run skill tests and verify RED**
 
 Run: `npx vitest run test/ts/skills.test.ts`
 
@@ -151,7 +151,7 @@ Expected: FAIL because Chinese docs do not yet describe `review_mode`.
 
 ### Task 4: Update Chinese Skill Docs
 
-- [ ] **Step 1: Update `/comet-build` decision point and exit conditions**
+- [x] **Step 1: Update `/comet-build` decision point and exit conditions**
 
 Add review mode selection beside execution and TDD mode:
 
@@ -173,7 +173,7 @@ Record with:
 
 Change the executing-plans review gate so it runs only for `standard` or `thorough`.
 
-- [ ] **Step 2: Update subagent dispatch reference**
+- [x] **Step 2: Update subagent dispatch reference**
 
 Make review behavior conditional:
 
@@ -183,7 +183,7 @@ Make review behavior conditional:
 - `review_mode: off`: 不自动派发 reviewer 或 fix reviewer；task 完成依据测试、构建、定向勾选验证和用户要求。
 ```
 
-- [ ] **Step 3: Update `/comet-verify` and `/comet-hotfix`**
+- [x] **Step 3: Update `/comet-verify` and `/comet-hotfix`**
 
 Make lightweight code review conditional:
 
@@ -197,7 +197,7 @@ Hotfix default:
 Hotfix 默认 `review_mode: off`，避免小范围 bug fix 被额外审查循环拖慢；用户可在验证前手动设置为 `light` 或 `standard`。
 ```
 
-- [ ] **Step 4: Run skill tests and verify GREEN for Chinese expectations**
+- [x] **Step 4: Run skill tests and verify GREEN for Chinese expectations**
 
 Run: `npx vitest run test/ts/skills.test.ts`
 
@@ -205,10 +205,10 @@ Expected: Chinese `review_mode` assertions pass. English assertions may still re
 
 ### Task 5: Stop for Chinese Review
 
-- [ ] **Step 1: Report changed Chinese contract and test status**
+- [x] **Step 1: Report changed Chinese contract and test status**
 
 Do not update English skill docs or `CHANGELOG.md` yet, because repo instructions require Chinese Skill changes to be confirmed before English sync, and changelog waits until bilingual Skill content is complete.
 
-- [ ] **Step 2: Ask user to confirm Chinese wording**
+- [x] **Step 2: Ask user to confirm Chinese wording**
 
 Ask for confirmation to sync English versions, add changelog/version changes, and run final verification.

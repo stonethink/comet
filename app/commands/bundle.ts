@@ -44,6 +44,19 @@ interface BundleCommandOptions {
   reason?: string;
 }
 
+interface BundleNextAction {
+  action:
+    | 'resolve-candidates'
+    | 'generate-factory-package'
+    | 'choose-eval-level'
+    | 'request-review'
+    | 'publish'
+    | 'ask-distribution'
+    | 'done';
+  reason: string;
+  command: string;
+}
+
 function projectRoot(options: BundleCommandOptions): string {
   return path.resolve(options.project ?? '.');
 }
@@ -79,6 +92,69 @@ function formatStateReview(
   return `Review: ${reviewState.decision} by ${reviewState.reviewer} @ ${reviewState.hash}`;
 }
 
+function determineNextAction(
+  state: Awaited<ReturnType<typeof reconcileBundleAuthoringState>>,
+): BundleNextAction {
+  const unresolved =
+    state.factory?.resolvedSkills.filter(
+      (skill) => skill.status === 'missing' || skill.status === 'ambiguous',
+    ) ?? [];
+  if (unresolved.length > 0) {
+    const first = unresolved[0];
+    return {
+      action: 'resolve-candidates',
+      reason: `${unresolved.length} unresolved Factory candidate(s) remain`,
+      command: `comet bundle factory-resolve ${state.name} --candidate ${first.query}`,
+    };
+  }
+
+  if (state.factory && !state.factory.generatedSkillPackage) {
+    return {
+      action: 'generate-factory-package',
+      reason: 'Factory metadata exists but no generated Skill package is recorded yet',
+      command: `comet bundle factory-generate ${state.name}`,
+    };
+  }
+
+  if (!state.eval || state.eval.hash !== state.currentHash || !state.eval.passed) {
+    return {
+      action: 'choose-eval-level',
+      reason: 'Current draft hash is missing passing Eval evidence',
+      command: `comet bundle eval-plan ${state.name} --level quick`,
+    };
+  }
+
+  if (!state.review || state.review.hash !== state.currentHash) {
+    return {
+      action: 'request-review',
+      reason: 'Current draft hash is missing review approval',
+      command: `comet bundle review-summary ${state.name} --platform <reference-platform>`,
+    };
+  }
+
+  if (state.status === 'review-approved' && !state.ready) {
+    return {
+      action: 'publish',
+      reason: 'Eval and review are present; the draft is ready to publish',
+      command: `comet bundle publish ${state.name} --platform <reference-platform>`,
+    };
+  }
+
+  if (state.ready) {
+    return {
+      action: 'ask-distribution',
+      reason: 'Ready Bundle exists; the next step is distribution after user confirmation',
+      command: `comet bundle distribute ${state.name} --platform <platform> --scope project`,
+    };
+  }
+
+  return {
+    action: 'done',
+    reason: 'No further automatic Bundle action is required',
+    command: 'none',
+  };
+}
+
 function formatStatusText(
   state: Awaited<ReturnType<typeof reconcileBundleAuthoringState>>,
 ): string {
@@ -86,6 +162,8 @@ function formatStatusText(
     state.factory?.generatedSkillPackage?.packageRoot ??
     state.factory?.planPath ??
     'missing; run comet bundle factory-generate or inspect factory-init plan';
+
+  const nextAction = determineNextAction(state);
 
   return [
     `Bundle: ${state.name}`,
@@ -95,6 +173,9 @@ function formatStatusText(
     `Factory package: ${factoryPackage}`,
     formatStateEval(state.eval),
     formatStateReview(state.review),
+    `Next action: ${nextAction.action}`,
+    `Reason: ${nextAction.reason}`,
+    `Suggested command: ${nextAction.command}`,
     ...(state.ready ? [`Ready: ${state.ready.path}`] : []),
   ].join('\n');
 }
@@ -189,7 +270,8 @@ export async function bundleStatusCommand(
   options: BundleCommandOptions = {},
 ): Promise<void> {
   const state = await reconcileBundleAuthoringState(projectRoot(options), name);
-  emit(state, options.json, formatStatusText(state));
+  const nextAction = determineNextAction(state);
+  emit({ ...state, nextAction }, options.json, formatStatusText(state));
 }
 
 export async function bundleFactoryGenerateCommand(

@@ -47,7 +47,7 @@ This plan does not implement a full LLM creator, full adaptive runtime, or real 
 - Modify: `src/bundle/preferences.ts`
 - Test: `test/ts/skill-find.test.ts`
 
-- [ ] **Step 1: Write the failing finder tests**
+- [x] **Step 1: Write the failing finder tests**
 
 Create `test/ts/skill-find.test.ts`:
 
@@ -231,7 +231,7 @@ ${explicit}
 });
 ```
 
-- [ ] **Step 2: Run the finder tests and verify RED**
+- [x] **Step 2: Run the finder tests and verify RED**
 
 Run:
 
@@ -241,7 +241,7 @@ npx vitest run test/ts/skill-find.test.ts
 
 Expected: FAIL because `src/skill/find.ts` does not exist.
 
-- [ ] **Step 3: Implement the shared finder**
+- [x] **Step 3: Implement the shared finder**
 
 Create `src/skill/find.ts`:
 
@@ -577,7 +577,7 @@ export async function findPreferredSkills(
 }
 ```
 
-- [ ] **Step 4: Keep the old preference API as a compatibility wrapper**
+- [x] **Step 4: Keep the old preference API as a compatibility wrapper**
 
 Replace `src/bundle/preferences.ts` with:
 
@@ -592,7 +592,7 @@ export async function readSkillPreferences(projectRoot: string): Promise<string[
 export { readSkillPreferenceEntries };
 ```
 
-- [ ] **Step 5: Run finder tests and verify GREEN**
+- [x] **Step 5: Run finder tests and verify GREEN**
 
 Run:
 
@@ -602,7 +602,7 @@ npx vitest run test/ts/skill-find.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/skill/find.ts src/bundle/preferences.ts test/ts/skill-find.test.ts
@@ -617,7 +617,7 @@ git commit -m "feat: resolve local preferred skills"
 - Modify: `src/commands/bundle.ts`
 - Modify: `test/ts/bundle-candidates.test.ts`
 
-- [ ] **Step 1: Write failing compatibility assertions for preference order**
+- [x] **Step 1: Write failing compatibility assertions for preference order**
 
 Add this test to `test/ts/bundle-candidates.test.ts`:
 
@@ -657,7 +657,7 @@ it('preserves preference order metadata in Bundle candidate discovery', async ()
 });
 ```
 
-- [ ] **Step 2: Run candidate tests and verify RED**
+- [x] **Step 2: Run candidate tests and verify RED**
 
 Run:
 
@@ -667,7 +667,7 @@ npx vitest run test/ts/bundle-candidates.test.ts
 
 Expected: FAIL because `preferenceIndex` is not exposed by Bundle candidates.
 
-- [ ] **Step 3: Extend Bundle candidate types**
+- [x] **Step 3: Extend Bundle candidate types**
 
 In `src/bundle/candidates.ts`, add `preferenceIndex` to both interfaces:
 
@@ -691,7 +691,7 @@ export interface BundleCandidate {
 }
 ```
 
-- [ ] **Step 4: Delegate candidate discovery to `findPreferredSkills`**
+- [x] **Step 4: Delegate candidate discovery to `findPreferredSkills`**
 
 Replace the body of `src/bundle/candidates.ts` with a thin adapter:
 
@@ -753,7 +753,7 @@ export async function discoverBundleCandidates(options: {
 }
 ```
 
-- [ ] **Step 5: Update candidate tests for the new scope values**
+- [x] **Step 5: Update candidate tests for the new scope values**
 
 In `test/ts/bundle-candidates.test.ts`, replace assertions that assume `scope: 'project' | 'global'` only with broader exact values:
 
@@ -770,7 +770,7 @@ and keep explicit missing assertions unchanged:
 { name: 'missing', preferenceIndex: 1, status: 'missing', sources: [] }
 ```
 
-- [ ] **Step 6: Run candidate and command tests**
+- [x] **Step 6: Run candidate and command tests**
 
 Run:
 
@@ -780,7 +780,7 @@ npx vitest run test/ts/skill-find.test.ts test/ts/bundle-candidates.test.ts test
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/bundle/candidates.ts src/bundle/types.ts src/commands/bundle.ts test/ts/bundle-candidates.test.ts
@@ -795,7 +795,7 @@ git commit -m "feat: preserve preferred skill order in bundles"
 - Modify: `src/bundle/state.ts`
 - Test: `test/ts/bundle-authoring.test.ts`
 
-- [ ] **Step 1: Write failing Factory metadata persistence test**
+- [x] **Step 1: Write failing Factory metadata persistence test**
 
 Add this test to `test/ts/bundle-authoring.test.ts`:
 
@@ -850,7 +850,7 @@ it('persists Skill Factory metadata without invalidating draft state', async () 
 });
 ```
 
-- [ ] **Step 2: Run authoring tests and verify RED**
+- [x] **Step 2: Run authoring tests and verify RED**
 
 Run:
 
@@ -860,7 +860,7 @@ npx vitest run test/ts/bundle-authoring.test.ts
 
 Expected: FAIL because draft options and state types do not accept `factory`.
 
-- [ ] **Step 3: Extend Bundle authoring types**
+- [x] **Step 3: Extend Bundle authoring types**
 
 In `src/bundle/types.ts`, add:
 
@@ -894,7 +894,7 @@ Then add this optional field to `BundleAuthoringState`:
 factory?: BundleFactoryMetadata;
 ```
 
-- [ ] **Step 4: Accept Factory metadata in draft creation**
+- [x] **Step 4: Accept Factory metadata in draft creation**
 
 In `src/bundle/draft.ts`, extend `CreateBundleDraftOptions` and `OptimizeBundleDraftOptions`:
 
@@ -908,7 +908,7 @@ When constructing state, include:
 ...(options.factory ? { factory: options.factory } : {}),
 ```
 
-- [ ] **Step 5: Validate Factory metadata shape when reading state**
+- [x] **Step 5: Validate Factory metadata shape when reading state**
 
 In `src/bundle/state.ts`, add a focused guard inside `assertState`:
 
@@ -930,7 +930,7 @@ if ('factory' in state && state.factory !== undefined) {
 }
 ```
 
-- [ ] **Step 6: Run authoring tests and verify GREEN**
+- [x] **Step 6: Run authoring tests and verify GREEN**
 
 Run:
 
@@ -940,7 +940,7 @@ npx vitest run test/ts/bundle-authoring.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/bundle/types.ts src/bundle/draft.ts src/bundle/state.ts test/ts/bundle-authoring.test.ts
@@ -954,7 +954,7 @@ git commit -m "feat: persist skill factory metadata"
 - Create: `src/factory/package.ts`
 - Test: `test/ts/factory-package.test.ts`
 
-- [ ] **Step 1: Write failing package generation tests**
+- [x] **Step 1: Write failing package generation tests**
 
 Create `test/ts/factory-package.test.ts`:
 
@@ -1038,7 +1038,7 @@ describe('generateFactorySkillPackage', () => {
 });
 ```
 
-- [ ] **Step 2: Run package tests and verify RED**
+- [x] **Step 2: Run package tests and verify RED**
 
 Run:
 
@@ -1048,7 +1048,7 @@ npx vitest run test/ts/factory-package.test.ts
 
 Expected: FAIL because `src/factory/package.ts` does not exist.
 
-- [ ] **Step 3: Add Factory package types**
+- [x] **Step 3: Add Factory package types**
 
 Create `src/factory/types.ts`:
 
@@ -1084,7 +1084,7 @@ export interface GeneratedFactorySkillPackage {
 }
 ```
 
-- [ ] **Step 4: Implement deterministic package generation**
+- [x] **Step 4: Implement deterministic package generation**
 
 Create `src/factory/package.ts`:
 
@@ -1226,7 +1226,7 @@ export async function generateFactorySkillPackage(
 }
 ```
 
-- [ ] **Step 5: Run package tests and verify GREEN**
+- [x] **Step 5: Run package tests and verify GREEN**
 
 Run:
 
@@ -1236,7 +1236,7 @@ npx vitest run test/ts/factory-package.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/factory/types.ts src/factory/package.ts test/ts/factory-package.test.ts
@@ -1251,7 +1251,7 @@ git commit -m "feat: generate factory skill packages"
 - Modify: `assets/skills-zh/comet-any/reference/eval-provider.md`
 - Modify: `test/ts/comet-any-skill.test.ts`
 
-- [ ] **Step 1: Write failing Chinese Skill contract assertions**
+- [x] **Step 1: Write failing Chinese Skill contract assertions**
 
 In `test/ts/comet-any-skill.test.ts`, add these expected Chinese phrases to the first test:
 
@@ -1281,7 +1281,7 @@ Update the ordered workflow list to include:
 '生成 Engine Package',
 ```
 
-- [ ] **Step 2: Run comet-any tests and verify RED**
+- [x] **Step 2: Run comet-any tests and verify RED**
 
 Run:
 
@@ -1291,7 +1291,7 @@ npx vitest run test/ts/comet-any-skill.test.ts
 
 Expected: FAIL because the Chinese Skill still describes Bundle creator behavior.
 
-- [ ] **Step 3: Update Chinese `/comet-any` Skill**
+- [x] **Step 3: Update Chinese `/comet-any` Skill**
 
 Modify `assets/skills-zh/comet-any/SKILL.md` so the opening model reads:
 
@@ -1340,7 +1340,7 @@ Update the workflow steps to include:
 为多步骤或高风险生成物生成 `comet/skill.yaml`、`guardrails.yaml` 和 `evals.yaml`。
 ```
 
-- [ ] **Step 4: Update Chinese references**
+- [x] **Step 4: Update Chinese references**
 
 In `assets/skills-zh/comet-any/reference/bundle-authoring.md`, add:
 
@@ -1355,7 +1355,7 @@ Eval、发布和分发。
 评审摘要必须包含偏离原因。
 ```
 
-- [ ] **Step 5: Run Chinese comet-any tests**
+- [x] **Step 5: Run Chinese comet-any tests**
 
 Run:
 
@@ -1365,7 +1365,7 @@ npx vitest run test/ts/comet-any-skill.test.ts
 
 Expected: PASS for Chinese assertions and FAIL only if English parity assertions still expect old wording. If English parity fails, update parity in Task 6 instead of weakening the Chinese test.
 
-- [ ] **Step 6: Commit Chinese Factory guidance**
+- [x] **Step 6: Commit Chinese Factory guidance**
 
 ```bash
 git add assets/skills-zh/comet-any test/ts/comet-any-skill.test.ts
@@ -1380,7 +1380,7 @@ git commit -m "feat: update chinese comet-any factory flow"
 - Modify: `assets/skills/comet-any/reference/eval-provider.md`
 - Modify: `test/ts/comet-any-skill.test.ts`
 
-- [ ] **Step 1: Add English parity assertions**
+- [x] **Step 1: Add English parity assertions**
 
 In `test/ts/comet-any-skill.test.ts`, extend the parity table:
 
@@ -1398,7 +1398,7 @@ const parity: Array<{ zh: string; en: string }> = [
 ];
 ```
 
-- [ ] **Step 2: Run parity tests and verify RED**
+- [x] **Step 2: Run parity tests and verify RED**
 
 Run:
 
@@ -1408,7 +1408,7 @@ npx vitest run test/ts/comet-any-skill.test.ts
 
 Expected: FAIL because English files still describe the old Bundle creator model.
 
-- [ ] **Step 3: Update English `/comet-any` Skill**
+- [x] **Step 3: Update English `/comet-any` Skill**
 
 Modify `assets/skills/comet-any/SKILL.md` with the English equivalent:
 
@@ -1437,7 +1437,7 @@ Add the order rule:
 - The line order in `.comet/skills.txt` is the recommended call order. The generated call chain should follow it when possible; if it deviates from the preferred order, the review summary must explain why.
 ```
 
-- [ ] **Step 4: Update English references**
+- [x] **Step 4: Update English references**
 
 In `assets/skills/comet-any/reference/bundle-authoring.md`, add:
 
@@ -1452,7 +1452,7 @@ The order in `.comet/skills.txt` must be preserved as Factory metadata. If the g
 deviates from that order, the review summary must include the reason.
 ```
 
-- [ ] **Step 5: Run comet-any parity tests**
+- [x] **Step 5: Run comet-any parity tests**
 
 Run:
 
@@ -1462,7 +1462,7 @@ npx vitest run test/ts/comet-any-skill.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit English parity**
+- [x] **Step 6: Commit English parity**
 
 ```bash
 git add assets/skills/comet-any test/ts/comet-any-skill.test.ts
@@ -1478,7 +1478,7 @@ git commit -m "feat: sync english comet-any factory flow"
 - Modify if needed: `package.json`
 - Modify if needed: `assets/manifest.json`
 
-- [ ] **Step 1: Check master version**
+- [x] **Step 1: Check master version**
 
 Run:
 
@@ -1488,7 +1488,7 @@ git show origin/master:package.json
 
 Expected: identify the current master version. If the current branch already has a version exactly one increment above master, append to that version's top changelog entry. If not, update `package.json` and `assets/manifest.json` to exactly one version above master.
 
-- [ ] **Step 2: Add concise README-zh note**
+- [x] **Step 2: Add concise README-zh note**
 
 In `README-zh.md`, add a short `/comet-any` note near existing Skill/Bundle documentation:
 
@@ -1498,7 +1498,7 @@ Comet 会读取 `.comet/skills.txt` 偏好、查找本地真实 Skill 内容、�
 并在内部使用 CLI 后端完成校验、Eval、发布和可选分发。
 ```
 
-- [ ] **Step 3: Add concise README note**
+- [x] **Step 3: Add concise README note**
 
 In `README.md`, add the English equivalent:
 
@@ -1509,7 +1509,7 @@ the recommended call order when possible, and internally uses CLI backends for v
 publishing, and optional distribution.
 ```
 
-- [ ] **Step 4: Add Changelog entry**
+- [x] **Step 4: Add Changelog entry**
 
 At the top matching version in `CHANGELOG.md`, add:
 
@@ -1523,7 +1523,7 @@ At the top matching version in `CHANGELOG.md`, add:
 - **Skill Factory coverage**: Adds finder, preference-order, Factory metadata, generated Skill package, and bilingual `/comet-any` contract coverage so ordered local Skill preferences and Engine-aware generated Skills remain stable.
 ```
 
-- [ ] **Step 5: Run documentation tests**
+- [x] **Step 5: Run documentation tests**
 
 Run:
 
@@ -1534,7 +1534,7 @@ git diff --check
 
 Expected: PASS and no whitespace errors.
 
-- [ ] **Step 6: Commit docs and changelog**
+- [x] **Step 6: Commit docs and changelog**
 
 ```bash
 git add README.md README-zh.md CHANGELOG.md package.json assets/manifest.json
@@ -1546,7 +1546,7 @@ git commit -m "docs: document comet-any skill factory"
 **Files:**
 - No source edits expected.
 
-- [ ] **Step 1: Run focused test suite**
+- [x] **Step 1: Run focused test suite**
 
 Run:
 
@@ -1562,7 +1562,7 @@ npx vitest run \
 
 Expected: PASS.
 
-- [ ] **Step 2: Run required build checks**
+- [x] **Step 2: Run required build checks**
 
 Run:
 
@@ -1574,7 +1574,7 @@ pnpm build
 
 Expected: all exit 0.
 
-- [ ] **Step 3: Run required tests**
+- [x] **Step 3: Run required tests**
 
 Run:
 
@@ -1585,7 +1585,7 @@ npx vitest run
 
 Expected: all tests pass. If unrelated failures appear, capture exact failing test names and compare with current branch status before changing unrelated code.
 
-- [ ] **Step 4: Check generated runtime freshness if compat files changed**
+- [x] **Step 4: Check generated runtime freshness if compat files changed**
 
 Run this only if `src/compat/*` was modified:
 
@@ -1596,7 +1596,7 @@ git diff -- assets/skills/comet/scripts/comet-runtime.mjs
 
 Expected: no unexpected stale runtime diff. This plan should not require `src/compat/*` edits.
 
-- [ ] **Step 5: Final diff audit**
+- [x] **Step 5: Final diff audit**
 
 Run:
 

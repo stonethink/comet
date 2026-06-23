@@ -1,4 +1,5 @@
 import path from 'path';
+import { existsSync } from 'fs';
 import { readFile, writeFile } from 'fs/promises';
 import { fileURLToPath } from 'url';
 
@@ -69,7 +70,17 @@ description: Run the {skillName} Comet workflow
 const PI_COMMAND_EXTENSION_FILE = 'comet-commands.ts';
 
 function getAssetsDir(): string {
-  return path.resolve(__dirname, '..', '..', 'assets');
+  const directAssets = path.resolve(__dirname, '..', '..', 'assets');
+  if (existsSync(path.join(directAssets, 'manifest.json'))) {
+    return directAssets;
+  }
+
+  const packageRootAssets = path.resolve(__dirname, '..', '..', '..', 'assets');
+  if (existsSync(path.join(packageRootAssets, 'manifest.json'))) {
+    return packageRootAssets;
+  }
+
+  return directAssets;
 }
 
 async function copyCometSkillsForPlatform(

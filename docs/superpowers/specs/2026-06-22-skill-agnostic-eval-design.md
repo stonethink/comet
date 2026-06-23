@@ -1,7 +1,7 @@
 # Skill Agnostic Eval 设计
 
 **日期：** 2026-06-22
-**状态：** 草稿
+**状态：** 已完成主体实现（当前代码已支持 Skill-agnostic profile、manifest、interaction 配置、source/hash metadata 与 local/LangSmith 共享 pytest runner）
 **范围：** 将 Comet eval 从 Comet 专用 benchmark 扩展为可评估任意 Skill 的共享评估框架
 
 ## 1. 背景
@@ -634,4 +634,3 @@ uv run pytest local/tests/tasks/test_tasks.py --eval-manifest ./my-skill/comet/e
 - `generic` profile 能输出可比较的基础 rubric。
 - `comet-workflow` profile 保留现有 Comet 五阶段评分能力。
 - `/comet-any` 能生成 eval manifest，并用它触发至少一个 quick eval。
-

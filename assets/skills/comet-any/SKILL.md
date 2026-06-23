@@ -52,6 +52,8 @@ comet bundle status <name> --json
 ```
 
 If the user has not provided `<name>`, ask for the Skill/Bundle name or ask whether to derive it from the target workflow. If state exists, resume from it; otherwise continue to the next step.
+When you need to explain the blocker to the user, the text-mode status output must surface `Next action`, the reason,
+and the suggested command directly.
 
 ### 2. Choose create/optimize and Language
 
@@ -148,6 +150,13 @@ For multi-step or higher-risk output, generate `comet/skill.yaml`, `guardrails.y
 The Engine Package must match the call chain, guardrails, runtime evals, and script side-effect declarations.
 For Engine-enabled generated Skills, Factory also writes `comet/eval.yaml` using the `authoring-skill`
 profile and the `authoring-skill-smoke` quick eval.
+
+When running local evals internally, prefer the unified entry instead of hand-built pytest commands:
+
+```bash
+comet eval collect --manifest <path-to-comet/eval.yaml>
+comet eval run --manifest <path-to-comet/eval.yaml> --html
+```
 
 If `runnerMode` is `standalone`, the generated Skill should instruct the Agent to store run state
 under `.comet/runs/<run-id>`. When persistent execution is needed, the internal runner entry is:

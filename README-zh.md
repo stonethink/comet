@@ -37,7 +37,7 @@
 中断后恢复、诊断漂移，并把可复用 Skill 发布出去。
 
 > [!IMPORTANT]
-> **0.4.0-beta.1** — Classic 工作流命令迁移为纯 Node runtime，新增内部 Skill Engine 与 Bundle 生命周期基础，并加固归档恢复、change name 校验、hook 多 change 治理、配置命令链和 beta context JSON 校验。
+> **0.4.0-beta.1** — 这是相对 master（0.3.9）的一次产品面升级：Comet 现在是纯 Node runtime，不再把 Bash/WSL 当成工作流前提；新增 `comet skill` 与 `comet eval` 两条稳定 CLI 主路径；`/comet-any` 被收敛成真正的 Skill Factory，具备 next action、readiness、generated `comet/eval.yaml` 与更清晰的发布前证据链。
 >
 > **0.3.9** — `review_mode: off|standard|thorough` 控制 Build/Verify 自动代码审查并支持项目级默认；init/update 改为可选依赖安装，补齐 CLI 国际化、阶段守护加固和 macOS 可执行权限。
 >
@@ -88,6 +88,14 @@ comet init
 > [!TIP]
 > 推荐安装 Superpowers v6.0.0+ —— 相比旧版速度快约 2 倍，节省约 50% token。
 > 后续升级 Comet 本身：执行 `comet update` 或 `npm install -g @rpamis/comet@latest`。
+
+## 任务入口
+
+- **开始 Comet 工作流** — 先用 `comet init` 安装运行时和 Skills，再在你的 Agent 平台里调用 `/comet`。
+- **创建或优化可复用 Skill** — `/comet-any` 是普通用户主路径。让它读取 `.comet/skills.txt`、生成 Skill/Bundle 草稿；只有当它要求你查看后端状态时，再用 `comet bundle status` 或 `review-summary`。
+- **评估本地或生成出的 Skill** — 先用 `comet eval collect --manifest ./comet/eval.yaml` 做发现，再用 `comet eval run --manifest ./comet/eval.yaml --html` 跑真实 eval 并拿到可浏览摘要。
+- **诊断为什么流程卡住** — 先看 `comet status` 的当前阶段和下一步命令，状态、运行时证据或安装健康有问题时再跑 `comet doctor`。
+- **恢复 deterministic Skill Run** — 先用 `comet skill run`，按输出里的 `Pending action` 执行，再根据 `Next:` 提示运行 `comet skill resume` 或 `comet skill eval`。
 
 ## 对OpenClaw和Hermes、或其他AI平台的支持
 
@@ -202,15 +210,36 @@ comet skill resume --change ./changes/demo --upgrade my-skill --project .
 
 六个子命令都支持 `--json`。Run 可以绑定 `--change` 目录，也可以用 `--run-id` 存到
 `.comet/runs/<run-id>`。Plan 3 的 `run` 支持 deterministic Skill；adaptive 执行需要 Agent
-候选动作。项目 Skill 按名称覆盖内置 Skill，无效覆盖会失败关闭，不会静默回退。
+候选动作。项目 Skill 按名称覆盖内置 Skill，无效覆盖会失败关闭，不会静默回退。文本输出还会直接给出
+`Pending action` 和 `Next:` 恢复提示，避免用户在 run/eval 失败后自己猜下一步。
 
 </details>
 
 <details>
-<summary><code>comet bundle &lt;command&gt;</code> — 编写和分发多 Skill Bundle</summary>
+<summary><code>comet eval &lt;command&gt;</code> — 通过共享 eval harness 运行 Skill Eval</summary>
+
+为本地 Skill 或 `comet/eval.yaml` 提供统一 CLI 入口，内部固定从仓库 `eval/` 根目录启动，
+避免用户手工切目录、拼 pytest 参数或自己记 `--collect-only`。
+
+```bash
+comet eval collect --manifest ./comet/eval.yaml
+comet eval run --manifest ./comet/eval.yaml --html
+comet eval run --skill-path ./assets/skills-zh/comet-any --skill-name comet-any --quick
+```
+
+`collect` 用于只做发现与预检查；`run` 执行本地 eval。`--manifest` 适合 Bundle/Engine 生成物，
+`--skill-path` 适合直接验证一个本地 Skill。对 `--skill-path`，`--quick` 默认选择
+`generic-skill-smoke`，先给出低成本冒烟路径。
+
+</details>
+
+<details>
+<summary><code>comet bundle &lt;command&gt;</code> — <code>/comet-any</code> 与 Bundle 发布流程的高级后端</summary>
 
 从新目标或现有候选 Skill 创建平台无关的 Skill Bundle。Bundle 草稿具备确定性生命周期：可以编译为原生平台
 Skill/rule/hook 安装计划，可以携带可选 Engine 元数据，必须记录结构化 Eval 证据，并且发布和分发前都需要人工批准。
+
+对大多数用户来说，`/comet-any` 才是主路径。只有在审计后端状态、修复被阻塞的草稿，或你明确要手工操作发布流水线时，才需要直接调用 Bundle CLI。
 
 ```bash
 comet bundle candidates --project . --json
@@ -232,7 +261,8 @@ comet bundle distribute my-bundle --platform claude --scope project --confirm-ex
 `/comet-any` 是 Comet Skill Factory：用户描述想创建或优化的工作流，Comet 会把请求整理成一个可评审的
 Bundle 草稿，并绑定真实本地 Skill 证据。它会读取 `.comet/skills.txt` 偏好、定位真实 Skill 内容、尽量遵守推荐调用顺序，
 再通过 CLI 后端完成校验、Eval、发布和可选分发。缺失或歧义候选会先暂停到 `factory-resolve`，review 和 publish
-必须依赖结构化证据，分发同时支持 `project` 和 `global` scope。
+必须依赖结构化证据，分发同时支持 `project` 和 `global` scope。`comet bundle status` 的文本输出现在会直接显示
+`Next action`、原因和建议命令；JSON 输出包含 `nextAction`，便于 `/comet-any` 或其他自动化恢复到正确下一步。上面的完整命令列表应视为高级后端参考，而不是 `/comet-any` 普通用户的默认主流程。
 
 </details>
 

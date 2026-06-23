@@ -39,4 +39,16 @@ describe('README assets', () => {
     expect(readmeZh).toContain('Skill 平台');
     expect(readmeEn).toContain('Skill platform');
   });
+
+  it('documents task-first paths for comet-any and eval without making Bundle CLI the default user path', async () => {
+    const readmeEn = await fs.readFile('README.md', 'utf-8');
+    const readmeZh = await fs.readFile('README-zh.md', 'utf-8');
+
+    expect(readmeEn).toContain('Create or optimize a reusable Skill');
+    expect(readmeEn).toContain('`/comet-any` is the main user path');
+    expect(readmeEn).toContain('advanced backend');
+    expect(readmeZh).toContain('创建或优化可复用 Skill');
+    expect(readmeZh).toContain('`/comet-any` 是普通用户主路径');
+    expect(readmeZh).toContain('高级后端');
+  });
 });

@@ -53,7 +53,7 @@
 - Produces: `build_eval_artifact_references(base_dir: Path, treatment_name: str, rep: int) -> dict[str, str]`.
 - Consumes: existing `save_events`, `save_raw`, `save_report`, and `_save_artifacts` output layout.
 
-- [ ] **Step 1: Write failing artifact-reference tests**
+- [x] **Step 1: Write failing artifact-reference tests**
 
 Create `eval/local/tests/scaffold/test_evidence.py`:
 
@@ -99,7 +99,7 @@ def test_treatment_result_can_carry_artifact_references():
     assert result.events_summary["artifact_references"]["report"].endswith("_report.json")
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run:
 
@@ -110,7 +110,7 @@ uv run pytest local/tests/scaffold/test_evidence.py local/tests/scaffold/test_lo
 
 Expected: `test_evidence.py` fails because `scaffold.python.evidence` does not exist.
 
-- [ ] **Step 3: Implement artifact references**
+- [x] **Step 3: Implement artifact references**
 
 Create `eval/scaffold/python/evidence.py`:
 
@@ -166,7 +166,7 @@ Add this value to `report["events_summary"]` and `TreatmentResult.events_summary
 "artifact_references": artifact_references,
 ```
 
-- [ ] **Step 4: Run focused tests**
+- [x] **Step 4: Run focused tests**
 
 Run:
 
@@ -177,7 +177,7 @@ uv run pytest local/tests/scaffold/test_evidence.py local/tests/scaffold/test_lo
 
 Expected: all selected tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 
@@ -202,7 +202,7 @@ Expected: commit succeeds.
 - Produces: `classify_failures(failed: list[str], events: dict, profile: str | None) -> list[dict[str, str]]`.
 - Consumes: report `checks_failed`, `events_summary.skills_invoked`, `events_summary.profile`, and legacy failed-check strings.
 
-- [ ] **Step 1: Write failing attribution tests**
+- [x] **Step 1: Write failing attribution tests**
 
 Create `eval/local/tests/scaffold/test_attribution.py`:
 
@@ -246,7 +246,7 @@ def test_classifies_validator_path_mismatch_as_task():
     assert result[0]["bucket"] == "task"
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run:
 
@@ -257,7 +257,7 @@ uv run pytest local/tests/scaffold/test_attribution.py -q
 
 Expected: failure because `scaffold.python.attribution` does not exist.
 
-- [ ] **Step 3: Implement attribution module**
+- [x] **Step 3: Implement attribution module**
 
 Create `eval/scaffold/python/attribution.py`:
 
@@ -329,7 +329,7 @@ Add to `report["events_summary"]` and `TreatmentResult.events_summary`:
 "failure_attribution": failure_attribution,
 ```
 
-- [ ] **Step 4: Prefer structured attribution in comparison reports**
+- [x] **Step 4: Prefer structured attribution in comparison reports**
 
 In `eval/local/scripts/compare_baselines.py`, replace `_attributions()` body with structured-first logic:
 
@@ -366,7 +366,7 @@ Iterate buckets in this order:
 for bucket in ("harness", "workflow", "task", "model"):
 ```
 
-- [ ] **Step 5: Add comparison-report test**
+- [x] **Step 5: Add comparison-report test**
 
 Append to `eval/local/tests/scaffold/test_compare_baselines.py`:
 
@@ -402,7 +402,7 @@ def test_compare_report_uses_structured_failure_attribution(tmp_path: Path):
     assert "[harness] target Skill was never invoked" in report
 ```
 
-- [ ] **Step 6: Run focused tests**
+- [x] **Step 6: Run focused tests**
 
 Run:
 
@@ -413,7 +413,7 @@ uv run pytest local/tests/scaffold/test_attribution.py local/tests/scaffold/test
 
 Expected: all selected tests pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 Run:
 
@@ -437,7 +437,7 @@ Expected: commit succeeds.
 - Produces: `authoring_skill_rubric_validator(test_dir: Path, outputs: dict) -> tuple[list[str], list[str]]`.
 - Consumes: `outputs["skill_package_path"]`, `outputs["eval_manifest"]`, `outputs["required_skills"]`, `outputs["completion"]`, and existing generic rubric.
 
-- [ ] **Step 1: Write failing authoring rubric tests**
+- [x] **Step 1: Write failing authoring rubric tests**
 
 Append to `eval/local/tests/scaffold/test_profiles.py`:
 
@@ -499,7 +499,7 @@ def test_authoring_skill_profile_fails_missing_resolved_skill_evidence(tmp_path:
     assert any("[RUBRIC] resolved_skill_evidence: 0.00" in item for item in passed)
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run:
 
@@ -510,7 +510,7 @@ uv run pytest local/tests/scaffold/test_profiles.py -q
 
 Expected: failures because `authoring-skill` still uses the generic rubric.
 
-- [ ] **Step 3: Implement authoring rubric**
+- [x] **Step 3: Implement authoring rubric**
 
 Create `eval/scaffold/python/validation/authoring_rubric.py`:
 
@@ -675,7 +675,7 @@ In `eval/local/tests/tasks/test_tasks.py`, add to `outputs`:
 "skill_package_path": skill_hints.get("path"),
 ```
 
-- [ ] **Step 4: Run focused tests**
+- [x] **Step 4: Run focused tests**
 
 Run:
 
@@ -686,7 +686,7 @@ uv run pytest local/tests/scaffold/test_profiles.py -q
 
 Expected: all selected tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 
@@ -707,7 +707,7 @@ Expected: commit succeeds.
 - Consumes: report `run_id`, `events_summary.profile`, `events_summary.skill_sources`, `events_summary.eval_manifest`, and `events_summary.artifact_references`.
 - Produces: comparison report sections `Source evidence` and structured attribution with report paths.
 
-- [ ] **Step 1: Write failing source-evidence test**
+- [x] **Step 1: Write failing source-evidence test**
 
 Append to `eval/local/tests/scaffold/test_compare_baselines.py`:
 
@@ -744,7 +744,7 @@ def test_compare_report_lists_source_evidence(tmp_path: Path):
     assert "reports/comet_full_report.json" in report
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run:
 
@@ -755,7 +755,7 @@ uv run pytest local/tests/scaffold/test_compare_baselines.py -q
 
 Expected: new source-evidence test fails.
 
-- [ ] **Step 3: Add source evidence section**
+- [x] **Step 3: Add source evidence section**
 
 In `eval/local/scripts/compare_baselines.py`, add helper:
 
@@ -790,7 +790,7 @@ for treatment in TREATMENTS:
 lines.append("")
 ```
 
-- [ ] **Step 4: Run focused tests**
+- [x] **Step 4: Run focused tests**
 
 Run:
 
@@ -801,7 +801,7 @@ uv run pytest local/tests/scaffold/test_compare_baselines.py -q
 
 Expected: all selected tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 
@@ -827,7 +827,7 @@ Expected: commit succeeds.
 - Consumes: generated Skill package passed through `--eval-manifest` or `--skill-path`.
 - Produces: validation checks for `SKILL.md`, `reference/resolved-skills.json`, and optional `comet/` Engine files.
 
-- [ ] **Step 1: Add task files**
+- [x] **Step 1: Add task files**
 
 Create `eval/local/tasks/authoring-skill-smoke/task.toml`:
 
@@ -916,11 +916,11 @@ Add to `eval/local/tasks/index.yaml`:
     description: Smoke task for generated Comet-native Skill packages.
 ```
 
-- [ ] **Step 2: Update task index test**
+- [x] **Step 2: Update task index test**
 
 In `eval/local/tests/scaffold/test_tasks.py`, add `authoring-skill-smoke` to the expected task name set.
 
-- [ ] **Step 3: Run focused task tests**
+- [x] **Step 3: Run focused task tests**
 
 Run:
 
@@ -932,7 +932,7 @@ uv run pytest local/tests/tasks/test_tasks.py --task=authoring-skill-smoke --tre
 
 Expected: scaffold tests pass and collection includes one authoring smoke case.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 Run:
 
@@ -952,7 +952,7 @@ Expected: commit succeeds.
 **Interfaces:**
 - Documents: `--profile=authoring-skill`, `--eval-manifest`, artifact references, and attribution buckets.
 
-- [ ] **Step 1: Update eval docs**
+- [x] **Step 1: Update eval docs**
 
 Add this section to `eval/README.md`:
 
@@ -973,7 +973,7 @@ uv run pytest local/tests/tasks/test_tasks.py \
   --profile=authoring-skill -v
 ```
 
-- [ ] **Step 2: Run focused verification**
+- [x] **Step 2: Run focused verification**
 
 Run:
 
@@ -986,7 +986,7 @@ uv run pytest local/tests/tasks/test_tasks.py --task=generic-skill-smoke --treat
 
 Expected: all scaffold tests pass and both task collection commands collect one test.
 
-- [ ] **Step 3: Run repository whitespace check**
+- [x] **Step 3: Run repository whitespace check**
 
 Run:
 
@@ -996,7 +996,7 @@ git diff --check
 
 Expected: no output.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 Run:
 
@@ -1009,7 +1009,7 @@ Expected: commit succeeds.
 
 ## Final Verification
 
-- [ ] Run the full eval scaffold suite:
+- [x] Run the full eval scaffold suite:
 
 ```bash
 cd eval
@@ -1018,7 +1018,7 @@ uv run pytest local/tests/scaffold -q
 
 Expected: all scaffold tests pass.
 
-- [ ] Run task collection for generic and authoring profiles:
+- [x] Run task collection for generic and authoring profiles:
 
 ```bash
 cd eval
@@ -1028,7 +1028,7 @@ uv run pytest local/tests/tasks/test_tasks.py --task=authoring-skill-smoke --tre
 
 Expected: each command collects one test.
 
-- [ ] Run the comparison report unit tests:
+- [x] Run the comparison report unit tests:
 
 ```bash
 cd eval
@@ -1037,7 +1037,7 @@ uv run pytest local/tests/scaffold/test_compare_baselines.py -q
 
 Expected: all tests pass.
 
-- [ ] Run whitespace check:
+- [x] Run whitespace check:
 
 ```bash
 git diff --check

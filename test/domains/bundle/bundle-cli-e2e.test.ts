@@ -522,7 +522,7 @@ describe('comet bundle CLI end to end', () => {
       },
     });
     expect(summary.readiness).toMatchObject({
-      blockers: ['Eval evidence for the current draft hash is missing'],
+      blockers: ['[eval] Eval evidence for the current draft hash is missing'],
     });
   });
 
@@ -738,5 +738,112 @@ describe('comet bundle CLI end to end', () => {
     expect(bundleStatus.stdout).toContain(
       'Review: missing; run comet bundle review-summary before approval',
     );
+    expect(bundleStatus.stdout).toContain('Next action: choose-eval-level');
+    expect(bundleStatus.stdout).toContain(
+      'Suggested command: comet bundle eval-plan factory-status-text-mode --level quick',
+    );
+  });
+
+  it('reports next action metadata in bundle status JSON output', async () => {
+    await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
+    await fs.mkdir(path.join(projectRoot, '.claude', 'skills', 'factory-alpha'), {
+      recursive: true,
+    });
+    await fs.writeFile(path.join(projectRoot, '.comet', 'skills.txt'), 'factory-alpha\n');
+    await fs.writeFile(
+      path.join(projectRoot, '.claude', 'skills', 'factory-alpha', 'SKILL.md'),
+      '---\nname: factory-alpha\ndescription: Alpha factory step.\n---\n# Alpha\n',
+    );
+    const planFile = path.join(root, 'factory-next-action-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Create a review-oriented Skill.',
+          preferredSkills: ['factory-alpha'],
+          callChain: ['factory-alpha'],
+          deviations: [],
+          engineMode: 'deterministic',
+          runnerMode: 'standalone',
+          defaultLocale: 'zh',
+          locales: ['zh', 'en'],
+          creator: 'native',
+          engineEnabled: true,
+        },
+        null,
+        2,
+      ),
+    );
+
+    runJson('bundle', 'factory-init', 'factory-next-action', '--project', projectRoot, '--file', planFile);
+    runJson(
+      'bundle',
+      'factory-generate',
+      'factory-next-action',
+      '--project',
+      projectRoot,
+    );
+
+    const status = runJson(
+      'bundle',
+      'status',
+      'factory-next-action',
+      '--project',
+      projectRoot,
+    );
+
+    expect(status).toMatchObject({
+      nextAction: {
+        action: 'choose-eval-level',
+        command: 'comet bundle eval-plan factory-next-action --level quick',
+      },
+    });
+  });
+
+  it('points unresolved factory states at factory-resolve as the next action', async () => {
+    await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
+    await fs.writeFile(path.join(projectRoot, '.comet', 'skills.txt'), 'missing-skill\n');
+    const planFile = path.join(root, 'factory-resolve-action-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Create a review-oriented Skill.',
+          preferredSkills: ['missing-skill'],
+          callChain: ['missing-skill'],
+          deviations: [],
+          engineMode: 'deterministic',
+          runnerMode: 'standalone',
+          defaultLocale: 'zh',
+          locales: ['zh', 'en'],
+          creator: 'native',
+          engineEnabled: true,
+        },
+        null,
+        2,
+      ),
+    );
+
+    runJson(
+      'bundle',
+      'factory-init',
+      'factory-resolve-action',
+      '--project',
+      projectRoot,
+      '--file',
+      planFile,
+    );
+
+    const status = runCli(
+      'bundle',
+      'status',
+      'factory-resolve-action',
+      '--project',
+      projectRoot,
+    );
+
+    expect(status.status, status.stderr).toBe(0);
+    expect(status.stdout).toContain('Next action: resolve-candidates');
+    expect(status.stdout).toContain('Suggested command: comet bundle factory-resolve factory-resolve-action --candidate missing-skill');
   });
 });

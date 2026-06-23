@@ -65,7 +65,7 @@
 - Produces: `resolve_profile_name(task: Task, override: str | None = None, target_profile: str | None = None) -> str`.
 - Consumes: existing `Task`, `TaskConfig`, and `ValidationConfig`.
 
-- [ ] **Step 1: Write failing task config tests**
+- [x] **Step 1: Write failing task config tests**
 
 Add these tests to `eval/local/tests/scaffold/test_tasks.py`:
 
@@ -111,7 +111,7 @@ def test_comet_tasks_default_to_comet_workflow_profile():
     assert task.config.interaction.mode == "auto_user"
 ```
 
-- [ ] **Step 2: Write failing profile registry tests**
+- [x] **Step 2: Write failing profile registry tests**
 
 Create `eval/local/tests/scaffold/test_profiles.py`:
 
@@ -159,7 +159,7 @@ def test_resolve_profile_name_uses_task_profile_by_default():
     assert resolve_profile_name(task) == "comet-workflow"
 ```
 
-- [ ] **Step 3: Run tests to verify failure**
+- [x] **Step 3: Run tests to verify failure**
 
 Run:
 
@@ -170,7 +170,7 @@ uv run pytest local/tests/scaffold/test_tasks.py local/tests/scaffold/test_profi
 
 Expected: failures mention missing `evaluation`, `interaction`, or `scaffold.python.profiles`.
 
-- [ ] **Step 4: Add task config dataclasses and parsing**
+- [x] **Step 4: Add task config dataclasses and parsing**
 
 In `eval/scaffold/python/tasks.py`, add:
 
@@ -246,7 +246,7 @@ evaluation=evaluation_config,
 interaction=interaction_config,
 ```
 
-- [ ] **Step 5: Create profile registry**
+- [x] **Step 5: Create profile registry**
 
 Create `eval/scaffold/python/profiles.py`:
 
@@ -370,7 +370,7 @@ def resolve_profile_name(
     return GENERIC_PROFILE
 ```
 
-- [ ] **Step 6: Export profile helpers**
+- [x] **Step 6: Export profile helpers**
 
 In `eval/scaffold/python/__init__.py`, export:
 
@@ -386,7 +386,7 @@ from scaffold.python.profiles import (
 )
 ```
 
-- [ ] **Step 7: Run focused tests**
+- [x] **Step 7: Run focused tests**
 
 Run:
 
@@ -397,7 +397,7 @@ uv run pytest local/tests/scaffold/test_tasks.py local/tests/scaffold/test_profi
 
 Expected: all selected tests pass.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 Run:
 
@@ -426,7 +426,7 @@ Expected: commit succeeds.
 - Produces: `run_profile_rubric(profile_name: str, test_dir: Path, outputs: dict) -> tuple[list[str], list[str]]`.
 - Produces: `rubric_columns(dimensions: tuple[str, ...] | None = None) -> list[ReportColumn]`.
 
-- [ ] **Step 1: Write failing generic rubric tests**
+- [x] **Step 1: Write failing generic rubric tests**
 
 Append to `eval/local/tests/scaffold/test_profiles.py`:
 
@@ -475,7 +475,7 @@ def test_generic_profile_can_fail_required_skill_invocation(tmp_path: Path):
     assert any("[RUBRIC] skill_invocation: 0.00" in msg for msg in passed)
 ```
 
-- [ ] **Step 2: Write failing logging dimension test**
+- [x] **Step 2: Write failing logging dimension test**
 
 Append to `eval/local/tests/scaffold/test_logging.py`:
 
@@ -494,7 +494,7 @@ def test_rubric_columns_accept_profile_dimensions():
     ]
 ```
 
-- [ ] **Step 3: Run tests to verify failure**
+- [x] **Step 3: Run tests to verify failure**
 
 Run:
 
@@ -505,7 +505,7 @@ uv run pytest local/tests/scaffold/test_profiles.py local/tests/scaffold/test_lo
 
 Expected: failures mention missing `run_profile_rubric`, missing `generic_rubric`, or `rubric_columns()` argument mismatch.
 
-- [ ] **Step 4: Create generic rubric**
+- [x] **Step 4: Create generic rubric**
 
 Create `eval/scaffold/python/validation/generic_rubric.py`:
 
@@ -651,7 +651,7 @@ def generic_rubric_validator(test_dir: Path, outputs: dict[str, Any]) -> tuple[l
     return passed, failed
 ```
 
-- [ ] **Step 5: Wire profiles to real validators**
+- [x] **Step 5: Wire profiles to real validators**
 
 In `eval/scaffold/python/profiles.py`, replace `_no_rubric` usage for `generic` and `authoring-skill`:
 
@@ -676,7 +676,7 @@ def run_profile_rubric(
     return profile.rubric(test_dir, outputs)
 ```
 
-- [ ] **Step 6: Make report columns profile-dimension aware**
+- [x] **Step 6: Make report columns profile-dimension aware**
 
 In `eval/scaffold/python/logging.py`, change:
 
@@ -716,7 +716,7 @@ def all_rubric_dimensions() -> tuple[str, ...]:
     return tuple(seen)
 ```
 
-- [ ] **Step 7: Dispatch profile rubric in task runner**
+- [x] **Step 7: Dispatch profile rubric in task runner**
 
 In `eval/local/tests/tasks/test_tasks.py`, replace the fixed Comet rubric block with:
 
@@ -759,7 +759,7 @@ passed = passed + rubric_passed
 failed = failed + rubric_failed
 ```
 
-- [ ] **Step 8: Run focused tests**
+- [x] **Step 8: Run focused tests**
 
 Run:
 
@@ -770,7 +770,7 @@ uv run pytest local/tests/scaffold/test_profiles.py local/tests/scaffold/test_lo
 
 Expected: all selected tests pass.
 
-- [ ] **Step 9: Run task-runner unit coverage**
+- [x] **Step 9: Run task-runner unit coverage**
 
 Run:
 
@@ -781,7 +781,7 @@ uv run pytest local/tests/scaffold/test_tasks.py local/tests/scaffold/test_treat
 
 Expected: all selected tests pass.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 Run:
 
@@ -807,7 +807,7 @@ Expected: commit succeeds.
 - Produces: helper `_get_dynamic_treatment_config(config) -> TreatmentConfig | None`.
 - Consumes: existing `setup_test_context(skills=...)`.
 
-- [ ] **Step 1: Write failing treatment path tests**
+- [x] **Step 1: Write failing treatment path tests**
 
 Append to `eval/local/tests/scaffold/test_treatments.py`:
 
@@ -846,7 +846,7 @@ def test_build_treatment_skills_rejects_path_without_skill_md(tmp_path: Path):
         )
 ```
 
-- [ ] **Step 2: Write failing CLI helper tests**
+- [x] **Step 2: Write failing CLI helper tests**
 
 Append to `eval/local/tests/scaffold/test_conftest_helpers.py`:
 
@@ -882,7 +882,7 @@ def test_dynamic_treatment_config_from_skill_path(tmp_path: Path):
     ]
 ```
 
-- [ ] **Step 3: Run tests to verify failure**
+- [x] **Step 3: Run tests to verify failure**
 
 Run:
 
@@ -893,7 +893,7 @@ uv run pytest local/tests/scaffold/test_treatments.py local/tests/scaffold/test_
 
 Expected: failures mention unsupported `source: path` and missing `_get_dynamic_treatment_config`.
 
-- [ ] **Step 4: Add SkillSource path loading**
+- [x] **Step 4: Add SkillSource path loading**
 
 In `eval/scaffold/python/treatments.py`, add imports:
 
@@ -963,7 +963,7 @@ if cfg.get("source") == "path":
     continue
 ```
 
-- [ ] **Step 5: Add pytest dynamic Skill options**
+- [x] **Step 5: Add pytest dynamic Skill options**
 
 In `eval/local/tests/conftest.py`, add to `pytest_addoption(parser)`:
 
@@ -998,7 +998,7 @@ def _get_dynamic_treatment_config(config):
     )
 ```
 
-- [ ] **Step 6: Make test parameter generation include dynamic Skill target**
+- [x] **Step 6: Make test parameter generation include dynamic Skill target**
 
 In `eval/local/tests/tasks/test_tasks.py`, replace the `generate_test_params()` signature:
 
@@ -1065,7 +1065,7 @@ profile_name = resolve_profile_name(
 )
 ```
 
-- [ ] **Step 7: Run focused tests**
+- [x] **Step 7: Run focused tests**
 
 Run:
 
@@ -1076,7 +1076,7 @@ uv run pytest local/tests/scaffold/test_treatments.py local/tests/scaffold/test_
 
 Expected: all selected tests pass.
 
-- [ ] **Step 8: Run collection smoke for dynamic Skill**
+- [x] **Step 8: Run collection smoke for dynamic Skill**
 
 Run:
 
@@ -1087,7 +1087,7 @@ uv run pytest local/tests/tasks/test_tasks.py --task comet-fix-median --skill-pa
 
 Expected: collection lists one `comet-fix-median-DYNAMIC_SKILL-r1` test and does not run Docker or Claude.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 Run:
 
@@ -1111,7 +1111,7 @@ Expected: commit succeeds.
 - Produces: helper `_resolve_interaction_config(task, profile_name, config) -> InteractionConfig`.
 - Produces: `run-claude-loop.sh` options `--simulator-prompt-file`, `--decision-pattern`, and `--continue-prompt`.
 
-- [ ] **Step 1: Write failing interaction resolution tests**
+- [x] **Step 1: Write failing interaction resolution tests**
 
 Append to `eval/local/tests/scaffold/test_conftest_helpers.py`:
 
@@ -1158,7 +1158,7 @@ def test_resolve_interaction_config_uses_profile_default_prompt():
     assert "Comet development workflow" in resolved.simulator_prompt
 ```
 
-- [ ] **Step 2: Add pytest interaction options**
+- [x] **Step 2: Add pytest interaction options**
 
 In `eval/local/tests/conftest.py`, add options:
 
@@ -1168,7 +1168,7 @@ parser.addoption("--max-turns", action="store", default=None, help="Override aut
 parser.addoption("--simulator-prompt", action="store", default=None, help="Override simulator prompt")
 ```
 
-- [ ] **Step 3: Add interaction resolver helper**
+- [x] **Step 3: Add interaction resolver helper**
 
 In `eval/local/tests/conftest.py`, add:
 
@@ -1200,7 +1200,7 @@ def _resolve_interaction_config(task, profile_name: str, config):
     )
 ```
 
-- [ ] **Step 4: Pass interaction config into `run_claude` fixture**
+- [x] **Step 4: Pass interaction config into `run_claude` fixture**
 
 Change fixture signature:
 
@@ -1255,7 +1255,7 @@ for pattern in interaction.decision_patterns if interaction else []:
     loop_args += ["--decision-pattern", pattern]
 ```
 
-- [ ] **Step 5: Update task runner to supply interaction**
+- [x] **Step 5: Update task runner to supply interaction**
 
 In `eval/local/tests/tasks/test_tasks.py`, after resolving `profile_name`, add:
 
@@ -1278,7 +1278,7 @@ outputs["interaction"] = {
 }
 ```
 
-- [ ] **Step 6: Make loop script configurable**
+- [x] **Step 6: Make loop script configurable**
 
 In `eval/scaffold/shell/run-claude-loop.sh`, add variables:
 
@@ -1331,7 +1331,7 @@ Change the nudge:
 USER_REPLY="$CONTINUE_PROMPT"
 ```
 
-- [ ] **Step 7: Run focused tests and shell syntax check**
+- [x] **Step 7: Run focused tests and shell syntax check**
 
 Run:
 
@@ -1343,7 +1343,7 @@ bash -n scaffold/shell/run-claude-loop.sh
 
 Expected: pytest passes and `bash -n` prints nothing.
 
-- [ ] **Step 8: Run collection smoke**
+- [x] **Step 8: Run collection smoke**
 
 Run:
 
@@ -1354,7 +1354,7 @@ uv run pytest local/tests/tasks/test_tasks.py --task comet-full-workflow --treat
 
 Expected: collection lists one Comet test and does not run Docker or Claude.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 Run:
 
@@ -1380,7 +1380,7 @@ Expected: commit succeeds.
 - Produces: pytest option `--eval-manifest`.
 - Consumes: `--skill-path`, `--skill-name`, `--profile`, and interaction override behavior from earlier tasks.
 
-- [ ] **Step 1: Write failing manifest tests**
+- [x] **Step 1: Write failing manifest tests**
 
 Create `eval/local/tests/scaffold/test_manifests.py`:
 
@@ -1450,7 +1450,7 @@ def test_load_eval_manifest_rejects_wrong_kind(tmp_path: Path):
         load_eval_manifest(manifest_path)
 ```
 
-- [ ] **Step 2: Write failing conftest manifest helper test**
+- [x] **Step 2: Write failing conftest manifest helper test**
 
 Append to `eval/local/tests/scaffold/test_conftest_helpers.py`:
 
@@ -1495,7 +1495,7 @@ interaction:
     assert cfg.skills[0]["profile"] == "generic"
 ```
 
-- [ ] **Step 3: Run tests to verify failure**
+- [x] **Step 3: Run tests to verify failure**
 
 Run:
 
@@ -1506,7 +1506,7 @@ uv run pytest local/tests/scaffold/test_manifests.py local/tests/scaffold/test_c
 
 Expected: failures mention missing `scaffold.python.manifests` or missing `--eval-manifest` handling.
 
-- [ ] **Step 4: Implement manifest parser**
+- [x] **Step 4: Implement manifest parser**
 
 Create `eval/scaffold/python/manifests.py`:
 
@@ -1578,7 +1578,7 @@ def load_eval_manifest(path: Path | str) -> SkillEvalManifest:
     )
 ```
 
-- [ ] **Step 5: Add manifest pytest option and dynamic treatment support**
+- [x] **Step 5: Add manifest pytest option and dynamic treatment support**
 
 In `eval/local/tests/conftest.py`, add:
 
@@ -1612,7 +1612,7 @@ if manifest_path:
     )
 ```
 
-- [ ] **Step 6: Let manifest recommended tasks drive params when `--task` is omitted**
+- [x] **Step 6: Let manifest recommended tasks drive params when `--task` is omitted**
 
 In `generate_test_params(task_filter, treatment_filter, config=None)`, after dynamic config resolution:
 
@@ -1636,7 +1636,7 @@ with:
 tasks_to_run = [task_filter] if task_filter else (manifest_tasks or all_tasks)
 ```
 
-- [ ] **Step 7: Merge manifest evaluation hints into runner outputs**
+- [x] **Step 7: Merge manifest evaluation hints into runner outputs**
 
 In `test_task_treatment()`, after `treatment_cfg = treatments[treatment_name]`, inspect first skill config:
 
@@ -1653,7 +1653,7 @@ outputs["required_skills"] = manifest_required_skills or task.config.evaluation.
 outputs["expected_artifacts"] = manifest_expected_artifacts or task.config.evaluation.expected_artifacts
 ```
 
-- [ ] **Step 8: Run focused tests**
+- [x] **Step 8: Run focused tests**
 
 Run:
 
@@ -1664,7 +1664,7 @@ uv run pytest local/tests/scaffold/test_manifests.py local/tests/scaffold/test_c
 
 Expected: all selected tests pass.
 
-- [ ] **Step 9: Run manifest collection smoke**
+- [x] **Step 9: Run manifest collection smoke**
 
 Create a temporary manifest package under a temp directory outside git, then run:
 
@@ -1675,7 +1675,7 @@ uv run pytest local/tests/tasks/test_tasks.py --eval-manifest <temp-package>/com
 
 Expected: collection includes manifest recommended tasks and `DYNAMIC_SKILL`.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 Run:
 
@@ -1709,7 +1709,7 @@ Expected: commit succeeds.
 - Produces: report metadata keys `profile`, `skill_sources`, `eval_manifest`, and `interaction`.
 - Produces: a minimal generic task for arbitrary Skill smoke evaluation.
 
-- [ ] **Step 1: Write failing report metadata test**
+- [x] **Step 1: Write failing report metadata test**
 
 Append to `eval/local/tests/scaffold/test_logging.py`:
 
@@ -1735,7 +1735,7 @@ def test_treatment_result_exposes_eval_metadata():
     assert result.events_summary["skill_sources"][0]["hash"] == "sha256:abc"
 ```
 
-- [ ] **Step 2: Add generic smoke task files**
+- [x] **Step 2: Add generic smoke task files**
 
 Create `eval/local/tasks/generic-skill-smoke/task.toml`:
 
@@ -1847,7 +1847,7 @@ assert set(names) == {
 }
 ```
 
-- [ ] **Step 3: Record metadata in reports**
+- [x] **Step 3: Record metadata in reports**
 
 In `eval/local/tests/tasks/test_tasks.py`, after `skills = build_treatment_skills(...)`, collect:
 
@@ -1891,7 +1891,7 @@ events["interaction"] = outputs["interaction"]
 
 Also add the same keys to `events_summary` inside `report` and `TreatmentResult(...)`.
 
-- [ ] **Step 4: Update README docs**
+- [x] **Step 4: Update README docs**
 
 In `eval/README.md`, change the first line from:
 
@@ -1932,7 +1932,7 @@ In `eval/langsmith/README.md`, add the same manifest example with `langsmith/tes
 
 In `eval/local/README.md`, add the `generic-skill-smoke` quick command.
 
-- [ ] **Step 5: Add changelog entry**
+- [x] **Step 5: Add changelog entry**
 
 Check the current top version in `package.json` and `CHANGELOG.md`. If the top changelog version already matches `package.json` and is greater than master, append under that version. Otherwise create the next patch version above master.
 
@@ -1944,7 +1944,7 @@ Add:
 - **Skill-agnostic eval profiles**: Added pytest-compatible eval contracts for arbitrary local Skills, with generic rubric scoring, dynamic Skill paths, configurable interaction loops, and generated Skill eval manifests while preserving the existing Comet workflow profile.
 ```
 
-- [ ] **Step 6: Run focused tests**
+- [x] **Step 6: Run focused tests**
 
 Run:
 
@@ -1955,7 +1955,7 @@ uv run pytest local/tests/scaffold/test_tasks.py local/tests/scaffold/test_treat
 
 Expected: all selected tests pass.
 
-- [ ] **Step 7: Run collection checks for local and LangSmith**
+- [x] **Step 7: Run collection checks for local and LangSmith**
 
 Run:
 
@@ -1967,7 +1967,7 @@ uv run pytest langsmith/tests/tasks/test_tasks.py --task=generic-skill-smoke --t
 
 Expected: each command collects one test and does not require Docker, Claude, or LangSmith API credentials during collection.
 
-- [ ] **Step 8: Run existing eval unit/regression tests**
+- [x] **Step 8: Run existing eval unit/regression tests**
 
 Run:
 
@@ -1978,7 +1978,7 @@ uv run pytest local/tests/scaffold local/tests/tasks/test_validation_scripts.py 
 
 Expected: all selected tests pass.
 
-- [ ] **Step 9: Run repository formatting check**
+- [x] **Step 9: Run repository formatting check**
 
 Run:
 
@@ -1988,7 +1988,7 @@ git diff --check
 
 Expected: no output.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 Run:
 
@@ -2001,7 +2001,7 @@ Expected: commit succeeds.
 
 ## Final Verification
 
-- [ ] Run the full eval scaffold unit suite:
+- [x] Run the full eval scaffold unit suite:
 
 ```bash
 cd eval
@@ -2010,7 +2010,7 @@ uv run pytest local/tests/scaffold -q
 
 Expected: all scaffold tests pass.
 
-- [ ] Run generic task collection in both suites:
+- [x] Run generic task collection in both suites:
 
 ```bash
 cd eval
@@ -2020,7 +2020,7 @@ uv run pytest langsmith/tests/tasks/test_tasks.py --task=generic-skill-smoke --t
 
 Expected: both commands collect one test.
 
-- [ ] Run Comet task collection to verify compatibility:
+- [x] Run Comet task collection to verify compatibility:
 
 ```bash
 cd eval
@@ -2029,7 +2029,7 @@ uv run pytest local/tests/tasks/test_tasks.py --task=comet-full-workflow --treat
 
 Expected: one Comet test is collected with `COMET_FULL`.
 
-- [ ] Run repository whitespace check:
+- [x] Run repository whitespace check:
 
 ```bash
 git diff --check
@@ -2037,7 +2037,7 @@ git diff --check
 
 Expected: no output.
 
-- [ ] If Docker, Claude CLI, and API credentials are available, run one full generic smoke:
+- [x] If Docker, Claude CLI, and API credentials are available, run one full generic smoke:
 
 ```bash
 cd eval

@@ -147,6 +147,104 @@ describe('skill validate and inspect commands', () => {
     });
   });
 
+  it('prints actionable next steps in text mode for pending and failed eval states', async () => {
+    const changeDir = path.join(root, 'text-change');
+    await fs.writeFile(
+      path.join(skillRoot, 'comet', 'evals.yaml'),
+      `runtime:
+  - id: report
+    scope: completion
+    type: artifact_exists
+    artifact: report
+`,
+    );
+
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    try {
+      await skillRunCommand('demo', {
+        project: projectRoot,
+        change: changeDir,
+      });
+      const runOutput = log.mock.calls.map((call) => call.join(' ')).join('\n');
+      expect(runOutput).toContain('Pending action:');
+      expect(runOutput).toContain('Next: complete the pending action, then run comet skill resume');
+
+      log.mockClear();
+      await skillResumeCommand({
+        change: changeDir,
+        status: 'succeeded',
+        summary: 'Finished without artifact',
+      });
+      await skillEvalCommand({ change: changeDir, scope: 'completion' });
+      const evalOutput = log.mock.calls.map((call) => call.join(' ')).join('\n');
+      expect(evalOutput).toContain('FAIL report: artifact report not found');
+      expect(evalOutput).toContain('Next: record the missing artifact/state and rerun comet skill eval');
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it('covers waiting run, succeeded resume, failed eval, and passed eval text states', async () => {
+    const changeDir = path.join(root, 'state-coverage-change');
+    await fs.writeFile(
+      path.join(skillRoot, 'comet', 'evals.yaml'),
+      `runtime:
+  - id: report
+    scope: completion
+    type: artifact_exists
+    artifact: report
+`,
+    );
+
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    try {
+      await skillRunCommand('demo', {
+        project: projectRoot,
+        change: changeDir,
+      });
+      const waitingOutput = log.mock.calls.map((call) => call.join(' ')).join('\n');
+      expect(waitingOutput).toContain('Status: waiting');
+      expect(waitingOutput).toContain('Pending action:');
+
+      log.mockClear();
+      await skillResumeCommand({
+        change: changeDir,
+        status: 'succeeded',
+        summary: 'Finished',
+        artifact: ['report=report.md'],
+      });
+      const resumedOutput = log.mock.calls.map((call) => call.join(' ')).join('\n');
+      expect(resumedOutput).toContain('Status: completed');
+      expect(resumedOutput).toContain('Next: none');
+
+      log.mockClear();
+      await skillEvalCommand({ change: changeDir, scope: 'completion' });
+      const passedEvalOutput = log.mock.calls.map((call) => call.join(' ')).join('\n');
+      expect(passedEvalOutput).toContain('PASS report: artifact report -> report.md');
+
+      const failedChangeDir = path.join(root, 'state-coverage-failed-change');
+      log.mockClear();
+      await skillRunCommand('demo', {
+        project: projectRoot,
+        change: failedChangeDir,
+      });
+      log.mockClear();
+      await skillResumeCommand({
+        change: failedChangeDir,
+        status: 'succeeded',
+        summary: 'Finished without artifact',
+      });
+      await skillEvalCommand({ change: failedChangeDir, scope: 'completion' });
+      const failedEvalOutput = log.mock.calls.map((call) => call.join(' ')).join('\n');
+      expect(failedEvalOutput).toContain('FAIL report: artifact report not found');
+      expect(failedEvalOutput).toContain(
+        'Next: record the missing artifact/state and rerun comet skill eval',
+      );
+    } finally {
+      log.mockRestore();
+    }
+  });
+
   it('explicitly upgrades a completed Run to a compatible Skill snapshot', async () => {
     const changeDir = path.join(root, 'upgrade-change');
     await skillRunCommand('demo', {

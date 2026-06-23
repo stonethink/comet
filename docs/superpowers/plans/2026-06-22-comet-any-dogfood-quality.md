@@ -49,7 +49,7 @@
 - Produces: `BundleReviewSummary.readiness: { state: "blocked" | "reviewable" | "publishable"; blockers: string[]; warnings: string[]; evidence: Record<string, string> }`.
 - Consumes: `BundleAuthoringState.factory`, `eval`, `review`, `ready`, `currentHash`, `draftPath`, and compile/eval plans.
 
-- [ ] **Step 1: Write failing review summary tests**
+- [x] **Step 1: Write failing review summary tests**
 
 Create `test/domains/bundle/bundle-review-summary.test.ts`:
 
@@ -179,7 +179,7 @@ describe('Bundle review summary readiness', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run:
 
@@ -189,7 +189,7 @@ npx vitest run test/domains/bundle/bundle-review-summary.test.ts
 
 Expected: failure because `readiness` is not present on `BundleReviewSummary`.
 
-- [ ] **Step 3: Add readiness model**
+- [x] **Step 3: Add readiness model**
 
 In `domains/bundle/review-summary.ts`, add:
 
@@ -254,7 +254,7 @@ Include it in the returned summary:
 readiness: buildReadiness(state),
 ```
 
-- [ ] **Step 4: Run focused tests**
+- [x] **Step 4: Run focused tests**
 
 Run:
 
@@ -264,7 +264,7 @@ npx vitest run test/domains/bundle/bundle-review-summary.test.ts
 
 Expected: all selected tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 
@@ -284,7 +284,7 @@ Expected: commit succeeds.
 - Consumes: existing CLI commands `factory-init`, `factory-resolve`, `factory-generate`, `compile`, `eval-plan`, and `review-summary`.
 - Produces: one E2E test proving state JSON is only mutated by CLI commands.
 
-- [ ] **Step 1: Add missing-candidate dogfood path**
+- [x] **Step 1: Add missing-candidate dogfood path**
 
 Extend `test/domains/bundle/bundle-cli-e2e.test.ts` with a new test:
 
@@ -355,7 +355,7 @@ it('recovers missing Factory candidates through factory-resolve and keeps genera
 });
 ```
 
-- [ ] **Step 2: Run test to verify current behavior**
+- [x] **Step 2: Run test to verify current behavior**
 
 Run:
 
@@ -365,7 +365,7 @@ npx vitest run test/domains/bundle/bundle-cli-e2e.test.ts
 
 Expected: the new test fails until the review summary readiness task is implemented; after Task 1 it should pass or reveal a real CLI recovery gap.
 
-- [ ] **Step 3: Fix any missing CLI behavior in current modules**
+- [x] **Step 3: Fix any missing CLI behavior in current modules**
 
 If the test exposes missing behavior, change only these files:
 
@@ -388,7 +388,7 @@ delete updated.conflict;
 
 The CLI parser must require exactly one of `--source` or `--ignore-missing`, and must require `--reason` for `--ignore-missing`.
 
-- [ ] **Step 4: Run focused E2E**
+- [x] **Step 4: Run focused E2E**
 
 Run:
 
@@ -398,7 +398,7 @@ npx vitest run test/domains/bundle/bundle-cli-e2e.test.ts
 
 Expected: all Bundle CLI E2E tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 
@@ -419,7 +419,7 @@ Expected: commit succeeds with only files that changed staged.
 - Consumes: `FactorySkillPackagePlan.resolvedSkills`, `callChain`, `deviations`, `engineMode`.
 - Produces: generated `SKILL.md` sections for composed workflow, stop points, risks, internal Skill usage, capability loss, and evidence.
 
-- [ ] **Step 1: Write failing generated-guidance assertions**
+- [x] **Step 1: Write failing generated-guidance assertions**
 
 Append to `test/domains/factory/factory-package.test.ts`:
 
@@ -466,7 +466,7 @@ it('explains stop points, risks, and internal Skill usage', async () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run:
 
@@ -476,7 +476,7 @@ npx vitest run test/domains/factory/factory-package.test.ts
 
 Expected: new assertions fail until generated `SKILL.md` is enriched.
 
-- [ ] **Step 3: Enrich generated markdown**
+- [x] **Step 3: Enrich generated markdown**
 
 In `domains/factory/package.ts`, extend `skillMarkdown(plan)` with these sections after `## 真实 Skill 证据`:
 
@@ -517,7 +517,7 @@ ${risks}
 ${internalUsage}
 ```
 
-- [ ] **Step 4: Run focused tests**
+- [x] **Step 4: Run focused tests**
 
 Run:
 
@@ -527,7 +527,7 @@ npx vitest run test/domains/factory/factory-package.test.ts
 
 Expected: all factory package tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 
@@ -550,7 +550,7 @@ Expected: commit succeeds.
 - Produces: `GeneratedFactorySkillPackage.evalManifestPath: string | null`.
 - Consumes: eval plan from `2026-06-22-eval-quality-closure.md` where `authoring-skill` profile is supported.
 
-- [ ] **Step 1: Write failing eval manifest test**
+- [x] **Step 1: Write failing eval manifest test**
 
 Append to `test/domains/factory/factory-package.test.ts`:
 
@@ -578,7 +578,7 @@ it('writes an authoring-skill eval manifest for Engine-enabled generated package
 });
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run:
 
@@ -588,7 +588,7 @@ npx vitest run test/domains/factory/factory-package.test.ts
 
 Expected: failure because `evalManifestPath` and `eval.yaml` do not exist.
 
-- [ ] **Step 3: Extend generated package type**
+- [x] **Step 3: Extend generated package type**
 
 In `domains/factory/types.ts`, add:
 
@@ -598,7 +598,7 @@ evalManifestPath: string | null;
 
 to `GeneratedFactorySkillPackage`.
 
-- [ ] **Step 4: Write eval manifest**
+- [x] **Step 4: Write eval manifest**
 
 In `domains/factory/package.ts`, add:
 
@@ -642,7 +642,7 @@ Return:
 evalManifestPath: plan.engineMode === 'none' ? null : path.join(cometRoot, 'eval.yaml'),
 ```
 
-- [ ] **Step 5: Run focused tests**
+- [x] **Step 5: Run focused tests**
 
 Run:
 
@@ -652,7 +652,7 @@ npx vitest run test/domains/factory/factory-package.test.ts
 
 Expected: all selected tests pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Run:
 
@@ -673,7 +673,7 @@ Expected: commit succeeds.
 - Consumes: `state.factory.generatedSkillPackage`, `state.currentHash`, `state.eval`, `state.review`.
 - Produces: Factory-specific publish errors for missing generated package evidence or stale hash evidence.
 
-- [ ] **Step 1: Write failing publish gate test**
+- [x] **Step 1: Write failing publish gate test**
 
 Append to `test/domains/bundle/bundle-publish.test.ts`:
 
@@ -707,7 +707,7 @@ it('blocks Factory publish when generated package evidence is missing', async ()
 });
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run:
 
@@ -717,7 +717,7 @@ npx vitest run test/domains/bundle/bundle-publish.test.ts
 
 Expected: new test fails with the existing generic eval/review error.
 
-- [ ] **Step 3: Add Factory-specific publish preflight**
+- [x] **Step 3: Add Factory-specific publish preflight**
 
 In `domains/bundle/publish.ts`, after loading `state` and before `loadBundle(state.draftPath)`, add:
 
@@ -729,7 +729,7 @@ if (state.factory && !state.factory.generatedSkillPackage) {
 
 Keep the existing current-hash, eval, review, capability and executable checks unchanged.
 
-- [ ] **Step 4: Run focused tests**
+- [x] **Step 4: Run focused tests**
 
 Run:
 
@@ -739,7 +739,7 @@ npx vitest run test/domains/bundle/bundle-publish.test.ts
 
 Expected: all Bundle publish tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 
@@ -762,7 +762,7 @@ Expected: commit succeeds.
 **Interfaces:**
 - Documents: Factory readiness summary, generated eval manifest, authoring quick eval, review blockers, and non-Engine capability loss.
 
-- [ ] **Step 1: Add Chinese assertions first**
+- [x] **Step 1: Add Chinese assertions first**
 
 In `test/ts/comet-any-skill.test.ts`, add Chinese contract phrases:
 
@@ -780,7 +780,7 @@ for (const expected of [
 }
 ```
 
-- [ ] **Step 2: Update Chinese Skill docs**
+- [x] **Step 2: Update Chinese Skill docs**
 
 Add to `assets/skills-zh/comet-any/SKILL.md`:
 
@@ -797,7 +797,7 @@ profile 和 `authoring-skill-smoke` quick eval。Eval 证据缺失时不得发�
 
 Add equivalent backend detail to `assets/skills-zh/comet-any/reference/bundle-authoring.md`.
 
-- [ ] **Step 3: Sync English parity**
+- [x] **Step 3: Sync English parity**
 
 Add the matching English assertions and update English files with:
 
@@ -810,7 +810,7 @@ For Engine-enabled generated Skills, Factory writes `comet/eval.yaml` using the 
 profile and `authoring-skill-smoke` quick eval. Missing Eval evidence blocks ready publish.
 ```
 
-- [ ] **Step 4: Run Skill guidance tests**
+- [x] **Step 4: Run Skill guidance tests**
 
 Run:
 
@@ -820,7 +820,7 @@ npx vitest run test/ts/comet-any-skill.test.ts
 
 Expected: Chinese and English behavior assertions pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 
@@ -833,7 +833,7 @@ Expected: commit succeeds.
 
 ## Final Verification
 
-- [ ] Run focused Factory and Bundle tests:
+- [x] Run focused Factory and Bundle tests:
 
 ```bash
 npx vitest run \
@@ -846,7 +846,7 @@ npx vitest run \
 
 Expected: all selected tests pass.
 
-- [ ] Run build and repository checks:
+- [x] Run build and repository checks:
 
 ```bash
 pnpm format:check
@@ -857,7 +857,7 @@ git diff --check
 
 Expected: all commands exit 0 and whitespace check has no output.
 
-- [ ] Run full tests after cross-domain changes:
+- [x] Run full tests after cross-domain changes:
 
 ```bash
 npx vitest run

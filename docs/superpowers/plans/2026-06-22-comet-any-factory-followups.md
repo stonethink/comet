@@ -23,12 +23,12 @@
 
 ## Tasks
 
-- [ ] **Task 1: Dogfood regression.** Write a failing CLI E2E test that starts with an ambiguous Skill from `.comet/skills.txt`, resolves it, generates a Bundle draft, checks `reference/resolved-skills.json`, compiles, produces Eval plans, and builds a review summary.
-- [ ] **Task 2: Factory resolve backend.** Implement `factory-resolve` so `/comet-any` can recover from `missing` and `ambiguous` candidates without hand-editing state JSON.
-- [ ] **Task 3: Rich generated Skill synthesis.** Write failing package tests for summary sections extracted from resolved `SKILL.md`, then add deterministic extraction into generated `SKILL.md` and `reference/resolved-skills.json`.
-- [ ] **Task 4: Standalone runner.** Write failing engine and CLI tests for `.comet/runs/<run-id>`, then add project-scoped `--run-id` support while preserving the existing `--change` path.
-- [ ] **Task 5: Bilingual docs and `/comet-any`.** Update Chinese first, then English, covering `factory-resolve`, richer evidence, and standalone run usage as an internal backend.
-- [ ] **Task 6: Verification and commit.** Run focused tests, `pnpm format:check`, `pnpm lint`, `pnpm build`, `npx vitest run test/ts/comet-scripts.test.ts`, full `npx vitest run`, `git diff --check`, then commit.
+- [x] **Task 1: Dogfood regression.** Write a failing CLI E2E test that starts with an ambiguous Skill from `.comet/skills.txt`, resolves it, generates a Bundle draft, checks `reference/resolved-skills.json`, compiles, produces Eval plans, and builds a review summary.
+- [x] **Task 2: Factory resolve backend.** Implement `factory-resolve` so `/comet-any` can recover from `missing` and `ambiguous` candidates without hand-editing state JSON.
+- [x] **Task 3: Rich generated Skill synthesis.** Write failing package tests for summary sections extracted from resolved `SKILL.md`, then add deterministic extraction into generated `SKILL.md` and `reference/resolved-skills.json`.
+- [x] **Task 4: Standalone runner.** Write failing engine and CLI tests for `.comet/runs/<run-id>`, then add project-scoped `--run-id` support while preserving the existing `--change` path.
+- [x] **Task 5: Bilingual docs and `/comet-any`.** Update Chinese first, then English, covering `factory-resolve`, richer evidence, and standalone run usage as an internal backend.
+- [x] **Task 6: Verification and commit.** Run focused tests, `pnpm format:check`, `pnpm lint`, `pnpm build`, `npx vitest run test/ts/comet-scripts.test.ts`, full `npx vitest run`, `git diff --check`, then commit.
 
 ## Self-Review
 

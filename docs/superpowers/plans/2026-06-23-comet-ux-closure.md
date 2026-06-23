@@ -35,7 +35,7 @@
 - Consumes: `BundleReviewSummary["readiness"]` with `state`, `blockers`, `warnings`, and `evidence`
 - Produces: richer non-JSON `comet bundle status` and `comet bundle review-summary` output that explicitly shows readiness state, blockers, warnings, and next-action context
 
-- [ ] **Step 1: Write the failing CLI/text-output tests**
+- [x] **Step 1: Write the failing CLI/text-output tests**
 
 ```ts
 it('prints readiness blockers and evidence in review-summary text mode', async () => {
@@ -60,12 +60,12 @@ it('prints factory/eval/review hints in bundle status text mode', async () => {
 });
 ```
 
-- [ ] **Step 2: Run the targeted tests to verify they fail**
+- [x] **Step 2: Run the targeted tests to verify they fail**
 
 Run: `npx vitest run test/domains/bundle/bundle-cli-e2e.test.ts test/ts/comet-any-skill.test.ts -t "readiness|status text"`  
 Expected: FAIL with missing `Readiness:` / `Blockers:` / status hint assertions
 
-- [ ] **Step 3: Implement minimal text rendering in the CLI**
+- [x] **Step 3: Implement minimal text rendering in the CLI**
 
 ```ts
 const readinessLines = [
@@ -85,19 +85,19 @@ const readinessLines = [
 ];
 ```
 
-- [ ] **Step 4: Update `/comet-any` bilingual guidance so the text-mode contract matches the CLI**
+- [x] **Step 4: Update `/comet-any` bilingual guidance so the text-mode contract matches the CLI**
 
 ```md
 - 在非 JSON 输出下，也必须读取并展示 readiness、blockers、warnings 和 evidence。
 - 当 readiness 为 `blocked` 时，先根据 blockers 处理候选恢复 / Eval / review，再继续 publish。
 ```
 
-- [ ] **Step 5: Re-run the targeted tests to verify they pass**
+- [x] **Step 5: Re-run the targeted tests to verify they pass**
 
 Run: `npx vitest run test/domains/bundle/bundle-cli-e2e.test.ts test/ts/comet-any-skill.test.ts`  
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add app/commands/bundle.ts assets/skills-zh/comet-any/SKILL.md assets/skills-zh/comet-any/reference/bundle-authoring.md assets/skills/comet-any/SKILL.md assets/skills/comet-any/reference/bundle-authoring.md test/domains/bundle/bundle-cli-e2e.test.ts test/ts/comet-any-skill.test.ts
@@ -117,7 +117,7 @@ git commit -m "feat: clarify comet-any readiness recovery flow"
 - Consumes: `ClassicDiagnostic["runtimeMode" | "currentStep" | "runtimeEval" | "error"]`
 - Produces: user-facing status/doctor output that explains why a change is blocked or recoverable instead of only surfacing raw fields
 
-- [ ] **Step 1: Write the failing output tests**
+- [x] **Step 1: Write the failing output tests**
 
 ```ts
 it('prints a concise next-action hint for invalid changes in status text output', async () => {
@@ -131,12 +131,12 @@ it('prints runtime eval evidence in doctor output for valid changes', async () =
 });
 ```
 
-- [ ] **Step 2: Run the targeted tests to verify they fail**
+- [x] **Step 2: Run the targeted tests to verify they fail**
 
 Run: `npx vitest run test/app/status.test.ts test/app/doctor.test.ts`  
 Expected: FAIL because output does not yet include runtime-eval or recovery phrasing
 
-- [ ] **Step 3: Implement concise evidence/recovery text without changing the shared diagnostics source**
+- [x] **Step 3: Implement concise evidence/recovery text without changing the shared diagnostics source**
 
 ```ts
 if (c.error) {
@@ -148,12 +148,12 @@ if (diagnostic.runtimeEval) {
 }
 ```
 
-- [ ] **Step 4: Re-run the targeted tests to verify they pass**
+- [x] **Step 4: Re-run the targeted tests to verify they pass**
 
 Run: `npx vitest run test/app/status.test.ts test/app/doctor.test.ts`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/commands/status.ts app/commands/doctor.ts test/app/status.test.ts test/app/doctor.test.ts
@@ -172,7 +172,7 @@ git commit -m "feat: improve classic diagnostics user output"
 - Consumes: the live CLI/runtime behavior from Tasks 1-2
 - Produces: concise bilingual public docs that describe Comet as a Node-only runtime + Skill platform, and accurately describe `status`, `doctor`, and `/comet-any`
 
-- [ ] **Step 1: Write the failing doc assertions**
+- [x] **Step 1: Write the failing doc assertions**
 
 ```ts
 it('documents status and doctor as diagnostics-aware user commands', async () => {
@@ -187,12 +187,12 @@ it('keeps English and Chinese README feature summaries aligned', async () => {
 });
 ```
 
-- [ ] **Step 2: Run the focused doc test to verify it fails**
+- [x] **Step 2: Run the focused doc test to verify it fails**
 
 Run: `npx vitest run test/ts/readme.test.ts`  
 Expected: FAIL because README content still emphasizes the older dual-star framing and under-describes current diagnostics
 
-- [ ] **Step 3: Update the docs with concise user-facing language**
+- [x] **Step 3: Update the docs with concise user-facing language**
 
 ```md
 - Reframe the top summary around the current 0.4.0 product: Node-only runtime, resumable workflow, Skill platform.
@@ -201,12 +201,12 @@ Expected: FAIL because README content still emphasizes the older dual-star frami
 - Keep heavy implementation detail in `docs/architecture/ARCHITECTURE.md`, not in README.
 ```
 
-- [ ] **Step 4: Re-run the focused doc test**
+- [x] **Step 4: Re-run the focused doc test**
 
 Run: `npx vitest run test/ts/readme.test.ts`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add README.md README-zh.md docs/architecture/ARCHITECTURE.md test/ts/readme.test.ts
@@ -222,44 +222,44 @@ git commit -m "docs: align public docs with comet runtime model"
 - Consumes: completed code and docs from Tasks 1-3
 - Produces: validated working tree with changelog updated only if the final user-visible behavior changed materially
 
-- [ ] **Step 1: Update changelog only if final user-visible behavior changed beyond the existing 0.4.0-beta.1 entry**
+- [x] **Step 1: Update changelog only if final user-visible behavior changed beyond the existing 0.4.0-beta.1 entry**
 
 ```md
 ### Changed
 - **User-facing diagnostics and readiness output**: Clarifies `/comet-any` recovery/publish text output and exposes Classic runtime diagnostics more directly in `status` and `doctor`.
 ```
 
-- [ ] **Step 2: Run format check**
+- [x] **Step 2: Run format check**
 
 Run: `pnpm format:check`  
 Expected: PASS
 
-- [ ] **Step 3: Run lint**
+- [x] **Step 3: Run lint**
 
 Run: `pnpm lint`  
 Expected: PASS
 
-- [ ] **Step 4: Run build**
+- [x] **Step 4: Run build**
 
 Run: `pnpm build`  
 Expected: PASS
 
-- [ ] **Step 5: Run Classic runtime contract test**
+- [x] **Step 5: Run Classic runtime contract test**
 
 Run: `npx vitest run test/domains/comet-classic/comet-scripts.test.ts`  
 Expected: PASS
 
-- [ ] **Step 6: Run full test suite**
+- [x] **Step 6: Run full test suite**
 
 Run: `npx vitest run`  
 Expected: PASS
 
-- [ ] **Step 7: Run diff sanity check**
+- [x] **Step 7: Run diff sanity check**
 
 Run: `git diff --check`  
 Expected: no output
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add CHANGELOG.md

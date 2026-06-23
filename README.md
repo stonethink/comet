@@ -37,7 +37,7 @@ It keeps OpenSpec artifacts, Superpowers methods, and Comet state aligned so you
 diagnose drift, and publish reusable Skills from one toolchain.
 
 > [!IMPORTANT]
-> **0.4.0-beta.1** — Migrates Classic workflow commands to a Node-only runtime, adds the internal Skill Engine and Bundle lifecycle foundation, and hardens archive recovery, change-name validation, hook governance, configured command chains, and beta context JSON checks.
+> **0.4.0-beta.1** — This is the main product jump beyond master (`0.3.9`): Comet is now a Node-only runtime instead of a Bash/WSL-dependent workflow layer, adds stable `comet skill` and `comet eval` user paths, and turns `/comet-any` into a real Skill Factory with next-action guidance, readiness gates, generated `comet/eval.yaml`, and a clearer publish evidence chain.
 >
 > **0.3.9** — Review mode (`off|standard|thorough`) controls Build/Verify code review with project defaults; init/update now use optional dependency prompts, broader CLI i18n, stronger phase guards, and macOS executable bits.
 >
@@ -92,6 +92,14 @@ comet init
 > [!TIP]
 > Superpowers v6.0.0+ is recommended — about 2× faster and ~50% fewer tokens than older versions.
 > To upgrade Comet itself later: `comet update` or `npm install -g @rpamis/comet@latest`.
+
+## Task Paths
+
+- **Start a Comet workflow** — `comet init` to install the runtime and Skills, then invoke `/comet` from your agent surface.
+- **Create or optimize a reusable Skill** — `/comet-any` is the main user path. Let it inspect `.comet/skills.txt`, generate the Skill/Bundle draft, and read `comet bundle status` or `review-summary` only when it asks for the next backend step.
+- **Evaluate a local or generated Skill** — `comet eval collect --manifest ./comet/eval.yaml` for discovery, then `comet eval run --manifest ./comet/eval.yaml --html` for a real run with a browsable summary.
+- **Diagnose a stuck workflow** — `comet status` for the current phase and next command, then `comet doctor` when state, runtime evidence, or install health looks wrong.
+- **Resume a deterministic Skill Run** — `comet skill run`, follow the printed `Pending action`, then `comet skill resume` or `comet skill eval` using the `Next:` hint.
 
 ## Support for OpenClaw and Hermes, and other AI platforms
 
@@ -211,16 +219,39 @@ comet skill resume --change ./changes/demo --upgrade my-skill --project .
 
 All six subcommands support `--json`. Runs can bind to a `--change` directory or use `--run-id` under
 `.comet/runs/<run-id>`. `run` supports deterministic Skills in Plan 3; adaptive execution requires an Agent candidate.
-Project Skills override built-ins by name, and invalid overrides fail closed instead of silently falling back.
+Project Skills override built-ins by name, and invalid overrides fail closed instead of silently falling back. Text mode
+also prints direct `Pending action` and `Next:` recovery hints so users do not have to infer what to do after a paused
+Run or failed eval.
 
 </details>
 
 <details>
-<summary><code>comet bundle &lt;command&gt;</code> — Author and distribute multi-Skill Bundles</summary>
+<summary><code>comet eval &lt;command&gt;</code> — Run Skill evals through the shared harness</summary>
+
+Provides one stable CLI entry point for local Skills and `comet/eval.yaml`, always launching from the repository
+`eval/` root so users do not have to cd manually, reconstruct pytest arguments, or remember `--collect-only`.
+
+```bash
+comet eval collect --manifest ./comet/eval.yaml
+comet eval run --manifest ./comet/eval.yaml --html
+comet eval run --skill-path ./assets/skills/comet-any --skill-name comet-any --quick
+```
+
+Use `collect` for discovery and preflight only; use `run` for actual local eval execution. `--manifest` fits
+Bundle/Engine outputs, while `--skill-path` is the direct path for a local Skill. With `--skill-path`, `--quick`
+defaults to `generic-skill-smoke` for a low-cost smoke path first.
+
+</details>
+
+<details>
+<summary><code>comet bundle &lt;command&gt;</code> — Advanced backend for <code>/comet-any</code> and Bundle release operators</summary>
 
 Creates platform-independent Skill Bundles from new goals or existing candidate Skills. Bundle drafts are deterministic:
 they compile into native platform Skill/rule/hook install plans, can carry optional Engine metadata, require structured
 Eval evidence, and must receive human approval before publishing or distribution.
+
+For most users, `/comet-any` is the main user path. Use the Bundle CLI directly when you are auditing backend state,
+repairing a blocked draft, or intentionally operating the release pipeline by hand.
 
 ```bash
 comet bundle candidates --project . --json
@@ -243,7 +274,10 @@ comet bundle distribute my-bundle --platform claude --scope project --confirm-ex
 that request into a reviewable Bundle draft backed by real local Skill evidence. It reads `.comet/skills.txt`, locates
 real Skill contents, preserves the recommended call order when possible, and uses CLI backends for validation, Eval,
 publishing, and optional distribution. Missing or ambiguous candidates pause for `factory-resolve` first, review and
-publish stay gated by structured evidence, and distribution supports both `project` and `global` scopes.
+publish stay gated by structured evidence, and distribution supports both `project` and `global` scopes. `comet bundle status`
+now prints `Next action`, the reason, and a suggested command in text mode; JSON output includes `nextAction` so
+`/comet-any` and other automation can resume the correct next step deterministically. Treat the full command list above as
+an advanced backend reference, not the ordinary first-run path for `/comet-any`.
 
 </details>
 

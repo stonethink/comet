@@ -54,7 +54,7 @@
 - Produces: `inspectClassicChange(changeDir: string, name: string) -> Promise<ClassicDiagnostic>`.
 - Consumes: `ensureStrictClassicRuntimeRun`, `collectClassicEvidence`, `resolveClassicStepId`, `ClassicState`, and `RunState`.
 
-- [ ] **Step 1: Write failing diagnostics tests**
+- [x] **Step 1: Write failing diagnostics tests**
 
 Create `test/domains/comet-classic/classic-diagnostics.test.ts`:
 
@@ -78,7 +78,7 @@ describe('Classic diagnostics', () => {
     await runClassicCli(['state', 'init', 'demo', 'full']);
     await fs.writeFile(path.join(changeDir, 'proposal.md'), '# Proposal\n');
     await fs.writeFile(path.join(changeDir, 'design.md'), '# Design\n');
-    await fs.writeFile(path.join(changeDir, 'tasks.md'), '- [ ] build\n');
+    await fs.writeFile(path.join(changeDir, 'tasks.md'), '- [x] build\n');
   });
 
   afterEach(async () => {
@@ -109,7 +109,7 @@ describe('Classic diagnostics', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run:
 
@@ -119,7 +119,7 @@ npx vitest run test/domains/comet-classic/classic-diagnostics.test.ts
 
 Expected: failure because `classic-diagnostics.ts` does not exist.
 
-- [ ] **Step 3: Implement diagnostics module**
+- [x] **Step 3: Implement diagnostics module**
 
 Create `domains/comet-classic/classic-diagnostics.ts`:
 
@@ -202,7 +202,7 @@ Export from `domains/comet-classic/index.ts`:
 export * from './classic-diagnostics.js';
 ```
 
-- [ ] **Step 4: Run focused tests**
+- [x] **Step 4: Run focused tests**
 
 Run:
 
@@ -212,7 +212,7 @@ npx vitest run test/domains/comet-classic/classic-diagnostics.test.ts
 
 Expected: all diagnostics tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 
@@ -236,7 +236,7 @@ Expected: commit succeeds.
 - Produces: status JSON field `runtimeMode`.
 - Produces: doctor `.comet.yaml` message `valid (step: <step>, mode: engine-projection)`.
 
-- [ ] **Step 1: Write failing status test**
+- [x] **Step 1: Write failing status test**
 
 Append to `test/app/status.test.ts`:
 
@@ -246,7 +246,7 @@ it('reports Classic runtime mode from shared diagnostics', async () => {
   state(tmpDir, 'init', 'demo', 'full');
   await fs.writeFile(path.join(changeDir, 'proposal.md'), '# Proposal\n');
   await fs.writeFile(path.join(changeDir, 'design.md'), '# Design\n');
-  await fs.writeFile(path.join(changeDir, 'tasks.md'), '- [ ] build\n');
+  await fs.writeFile(path.join(changeDir, 'tasks.md'), '- [x] build\n');
 
   const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
   let json = '';
@@ -266,7 +266,7 @@ it('reports Classic runtime mode from shared diagnostics', async () => {
 });
 ```
 
-- [ ] **Step 2: Write failing doctor test**
+- [x] **Step 2: Write failing doctor test**
 
 Append to `test/app/doctor.test.ts`:
 
@@ -293,7 +293,7 @@ it('uses Classic diagnostics for comet yaml validity messages', async () => {
 });
 ```
 
-- [ ] **Step 3: Run tests to verify failure**
+- [x] **Step 3: Run tests to verify failure**
 
 Run:
 
@@ -303,7 +303,7 @@ npx vitest run test/app/status.test.ts test/app/doctor.test.ts
 
 Expected: failures because status and doctor do not expose `runtimeMode` or the new message.
 
-- [ ] **Step 4: Route status through diagnostics**
+- [x] **Step 4: Route status through diagnostics**
 
 In `app/commands/status.ts`, remove the local `getNextCommand()` helper and replace `ensureStrictClassicRuntimeRun(changeDir)` with:
 
@@ -341,7 +341,7 @@ runtimeMode: diagnostic.runtimeMode,
 
 Add `runtimeMode: string;` to `ChangeStatus`.
 
-- [ ] **Step 5: Route doctor through diagnostics**
+- [x] **Step 5: Route doctor through diagnostics**
 
 In `app/commands/doctor.ts`, replace the `.comet.yaml` check body with:
 
@@ -362,7 +362,7 @@ results.push(
 );
 ```
 
-- [ ] **Step 6: Run focused tests**
+- [x] **Step 6: Run focused tests**
 
 Run:
 
@@ -372,7 +372,7 @@ npx vitest run test/app/status.test.ts test/app/doctor.test.ts
 
 Expected: all selected tests pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 Run:
 
@@ -397,7 +397,7 @@ Expected: commit succeeds.
 - Produces: `evaluateClassicRuntimeStep(stepId: string, evidence: ClassicEvidence[]) -> ClassicRuntimeEvalStatus`.
 - Adds: `ClassicDiagnostic.runtimeEval`.
 
-- [ ] **Step 1: Write failing runtime eval tests**
+- [x] **Step 1: Write failing runtime eval tests**
 
 Create `test/domains/comet-classic/classic-runtime-evals.test.ts`:
 
@@ -430,7 +430,7 @@ describe('Classic runtime eval readiness', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run:
 
@@ -440,7 +440,7 @@ npx vitest run test/domains/comet-classic/classic-runtime-evals.test.ts
 
 Expected: failure because `classic-runtime-evals.ts` does not exist.
 
-- [ ] **Step 3: Implement runtime eval helper**
+- [x] **Step 3: Implement runtime eval helper**
 
 Create `domains/comet-classic/classic-runtime-evals.ts`:
 
@@ -503,7 +503,7 @@ Export it from `domains/comet-classic/index.ts`:
 export * from './classic-runtime-evals.js';
 ```
 
-- [ ] **Step 4: Attach runtime eval to diagnostics**
+- [x] **Step 4: Attach runtime eval to diagnostics**
 
 In `domains/comet-classic/classic-diagnostics.ts`, import:
 
@@ -538,7 +538,7 @@ expect(diagnostic.runtimeEval).toMatchObject({
 });
 ```
 
-- [ ] **Step 5: Run focused tests**
+- [x] **Step 5: Run focused tests**
 
 Run:
 
@@ -548,7 +548,7 @@ npx vitest run test/domains/comet-classic/classic-runtime-evals.test.ts test/dom
 
 Expected: all selected tests pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Run:
 
@@ -570,7 +570,7 @@ Expected: commit succeeds.
 - Produces: JSON payload `{ phase, change, currentStep, runtimeEval, blocked, checks }` when `comet-runtime guard <change> <phase> --json` is used.
 - Preserves: existing stderr output and exit codes for non-JSON guard calls.
 
-- [ ] **Step 1: Write failing guard JSON test**
+- [x] **Step 1: Write failing guard JSON test**
 
 Append to `test/domains/comet-classic/classic-guard.test.ts`:
 
@@ -579,7 +579,7 @@ it('returns resolver diagnostics in json mode', async () => {
   expect(run(dir, 'state', 'init', 'demo', 'full').status).toBe(0);
   await fs.writeFile(path.join(dir, 'openspec', 'changes', 'demo', 'proposal.md'), '# Proposal\n');
   await fs.writeFile(path.join(dir, 'openspec', 'changes', 'demo', 'design.md'), '# Design\n');
-  await fs.writeFile(path.join(dir, 'openspec', 'changes', 'demo', 'tasks.md'), '- [ ] build\n');
+  await fs.writeFile(path.join(dir, 'openspec', 'changes', 'demo', 'tasks.md'), '- [x] build\n');
 
   const result = run(dir, 'guard', 'demo', 'open', '--json');
   const wrapper = JSON.parse(result.stdout);
@@ -594,7 +594,7 @@ it('returns resolver diagnostics in json mode', async () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run:
 
@@ -604,7 +604,7 @@ npx vitest run test/domains/comet-classic/classic-guard.test.ts
 
 Expected: new JSON diagnostics assertion fails.
 
-- [ ] **Step 3: Add diagnostics to guard output**
+- [x] **Step 3: Add diagnostics to guard output**
 
 In `domains/comet-classic/classic-guard.ts`, import:
 
@@ -642,7 +642,7 @@ if (options.json) {
 
 Keep non-JSON stderr unchanged. If `runClassicCli --json` currently wraps handler stdout/stderr, update the test expectation to read the wrapped `stdout` string and parse the nested payload.
 
-- [ ] **Step 4: Run focused guard tests**
+- [x] **Step 4: Run focused guard tests**
 
 Run:
 
@@ -652,7 +652,7 @@ npx vitest run test/domains/comet-classic/classic-guard.test.ts
 
 Expected: all selected tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 
@@ -673,7 +673,7 @@ Expected: commit succeeds.
 - Consumes: legacy `.comet.yaml` without `classic_profile`, `classic_migration`, and Run fields.
 - Produces: idempotent migrated projection where repeated reads do not rewrite state or change run id.
 
-- [ ] **Step 1: Add idempotency test**
+- [x] **Step 1: Add idempotency test**
 
 Append to `test/domains/comet-classic/classic-migrate.test.ts`:
 
@@ -718,7 +718,7 @@ handoff_hash: null
 });
 ```
 
-- [ ] **Step 2: Run tests to verify current behavior**
+- [x] **Step 2: Run tests to verify current behavior**
 
 Run:
 
@@ -728,7 +728,7 @@ npx vitest run test/domains/comet-classic/classic-migrate.test.ts
 
 Expected: pass if migration is already idempotent; fail if repeated reads rewrite state.
 
-- [ ] **Step 3: Fix migration only if test fails**
+- [x] **Step 3: Fix migration only if test fails**
 
 If the idempotency test fails, update `domains/comet-classic/classic-migrate.ts` so `ensureClassicRun()` returns the existing run when `classic_migration` is current:
 
@@ -743,7 +743,7 @@ if (classic.classicMigration === CLASSIC_MIGRATION_VERSION && projection.run) {
 
 Do not add new `.comet.yaml` fields.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 Run:
 
@@ -765,7 +765,7 @@ Expected: commit succeeds with only changed files staged.
 - Produces: generated Classic runtime with diagnostics and runtime eval support.
 - Documents: Classic is progressively Engine-native; lightweight compatibility entrypoints remain.
 
-- [ ] **Step 1: Rebuild generated Classic runtime**
+- [x] **Step 1: Rebuild generated Classic runtime**
 
 Run:
 
@@ -775,7 +775,7 @@ pnpm build:classic-runtime
 
 Expected: `assets/skills/comet/scripts/comet-runtime.mjs` updates only if generated runtime content changed.
 
-- [ ] **Step 2: Run focused Classic tests**
+- [x] **Step 2: Run focused Classic tests**
 
 Run:
 
@@ -793,7 +793,7 @@ npx vitest run \
 
 Expected: all selected tests pass.
 
-- [ ] **Step 3: Run required Classic script test**
+- [x] **Step 3: Run required Classic script test**
 
 Run:
 
@@ -803,7 +803,7 @@ npx vitest run test/domains/comet-classic/comet-scripts.test.ts
 
 Expected: script launcher behavior remains compatible.
 
-- [ ] **Step 4: Update architecture docs**
+- [x] **Step 4: Update architecture docs**
 
 Add to `docs/architecture/ARCHITECTURE.md`:
 
@@ -817,7 +817,7 @@ trajectory. Lightweight compatibility paths stay available for simple workflows;
 recoverable, or review/eval-bound workflows should use Engine-backed diagnostics and evidence.
 ```
 
-- [ ] **Step 5: Run repository checks**
+- [x] **Step 5: Run repository checks**
 
 Run:
 
@@ -830,7 +830,7 @@ git diff --check
 
 Expected: all commands exit 0 and whitespace check has no output.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Run:
 
@@ -843,7 +843,7 @@ Expected: commit succeeds with only files that changed staged.
 
 ## Final Verification
 
-- [ ] Run Classic focused tests:
+- [x] Run Classic focused tests:
 
 ```bash
 npx vitest run \
@@ -859,7 +859,7 @@ npx vitest run \
 
 Expected: all selected tests pass.
 
-- [ ] Run full repository verification:
+- [x] Run full repository verification:
 
 ```bash
 pnpm format:check
@@ -870,7 +870,7 @@ npx vitest run
 
 Expected: all commands pass. If unrelated failures appear, capture exact failing tests and do not change unrelated code.
 
-- [ ] Run whitespace check:
+- [x] Run whitespace check:
 
 ```bash
 git diff --check

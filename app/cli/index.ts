@@ -2,6 +2,7 @@ import { Command, Option } from 'commander';
 import { initCommand } from '../commands/init.js';
 import { statusCommand } from '../commands/status.js';
 import { doctorCommand } from '../commands/doctor.js';
+import { evalCollectCommand, evalRunCommand } from '../commands/eval.js';
 import { updateCommand } from '../commands/update.js';
 import { uninstallCommand } from '../commands/uninstall.js';
 import { getCurrentVersion } from '../../platform/version/version.js';
@@ -109,6 +110,39 @@ program
       }
       throw error;
     }
+  });
+
+const evalCommand = program
+  .command('eval')
+  .description('Run Comet Skill evals through the shared harness');
+
+evalCommand
+  .command('run')
+  .description('Run a local Skill or eval manifest through the local eval suite')
+  .option('--project <dir>', 'Repository root that contains eval/', '.')
+  .option('--manifest <path>', 'Path to comet/eval.yaml')
+  .option('--skill-path <path>', 'Local Skill directory or SKILL.md')
+  .option('--skill-name <name>', 'Skill name used with --skill-path')
+  .option('--profile <name>', 'Eval profile override')
+  .option('--task <task>', 'Explicit eval task override')
+  .option('--report-config <path>', 'JSON/YAML report output config')
+  .option('--html', 'Enable HTML report output')
+  .option('--quick', 'Use the default quick smoke task where applicable')
+  .action(async (options) => {
+    await evalRunCommand(options);
+  });
+
+evalCommand
+  .command('collect')
+  .description('Collect eval targets without executing Claude or Docker workloads')
+  .option('--project <dir>', 'Repository root that contains eval/', '.')
+  .option('--manifest <path>', 'Path to comet/eval.yaml')
+  .option('--skill-path <path>', 'Local Skill directory or SKILL.md')
+  .option('--skill-name <name>', 'Skill name used with --skill-path')
+  .option('--profile <name>', 'Eval profile override')
+  .option('--task <task>', 'Explicit eval task override')
+  .action(async (options) => {
+    await evalCollectCommand(options);
   });
 
 const skill = program.command('skill').description('Author and run Comet Skill packages');

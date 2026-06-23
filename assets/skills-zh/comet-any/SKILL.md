@@ -48,6 +48,7 @@ comet bundle status <name> --json
 ```
 
 如果用户尚未提供 `<name>`，先询问 Skill/Bundle 名称或询问是否从目标工作流推导。若已有状态，按状态恢复；否则进入下一步。
+若需要面向用户解释当前阻塞点，可补充查看文本输出；它必须直接展示 `Next action`、原因和建议命令。
 
 ### 2. 选择 create/optimize 与语言
 
@@ -144,6 +145,13 @@ comet bundle status <name> --json
 Engine Package 必须与调用链、guardrails、runtime evals 和脚本副作用声明一致。
 Engine-enabled 生成物还必须写入 `comet/eval.yaml`，默认使用 `authoring-skill`
 profile 和 `authoring-skill-smoke` quick eval。
+
+内部运行本地 eval 时，优先使用统一入口而不是手工拼 pytest：
+
+```bash
+comet eval collect --manifest <path-to-comet/eval.yaml>
+comet eval run --manifest <path-to-comet/eval.yaml> --html
+```
 
 如果 `runnerMode` 是 `standalone`，生成的 Skill 应指示 Agent 使用 `.comet/runs/<run-id>` 保存运行状态。
 需要持久化执行时，内部 runner 入口是：
