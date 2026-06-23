@@ -123,6 +123,21 @@ async function getActiveChanges(projectPath: string): Promise<ChangeStatus[]> {
   return changes;
 }
 
+function formatMissingEvidence(missingEvidence: readonly string[]): string {
+  return missingEvidence.join(', ');
+}
+
+function formatRuntimeEvalRecovery(
+  nextCommand: string | null,
+  missingEvidence: readonly string[],
+): string {
+  const missing = formatMissingEvidence(missingEvidence);
+  if (nextCommand) {
+    return `run ${nextCommand} or restore missing evidence (${missing}), then rerun comet doctor`;
+  }
+  return `restore missing evidence (${missing}) and rerun comet doctor`;
+}
+
 function displayStatus(changes: ChangeStatus[]): void {
   if (changes.length === 0) {
     console.log('No active changes.\n');
@@ -147,13 +162,19 @@ function displayStatus(changes: ChangeStatus[]): void {
     if (c.runtimeEval) {
       const suffix = c.runtimeEval.passed
         ? `(${c.runtimeEval.stepId})`
-        : `(${c.runtimeEval.stepId}; missing: ${c.runtimeEval.missingEvidence.join(', ')})`;
+        : `(${c.runtimeEval.stepId}; missing: ${formatMissingEvidence(c.runtimeEval.missingEvidence)})`;
       console.log(`     runtime_eval: ${c.runtimeEval.passed ? 'pass' : 'fail'} ${suffix}`);
     }
     if (c.designDoc) console.log(`     design: ${c.designDoc}`);
     if (c.plan) console.log(`     plan:   ${c.plan}`);
     if (c.phase === 'verify') console.log(`     verify_result: ${c.verifyResult}`);
-    if (c.nextCommand) console.log(`     next: ${c.nextCommand}`);
+    if (c.runtimeEval && !c.runtimeEval.passed) {
+      console.log(
+        `     next: ${formatRuntimeEvalRecovery(c.nextCommand, c.runtimeEval.missingEvidence)}`,
+      );
+    } else if (c.nextCommand) {
+      console.log(`     next: ${c.nextCommand}`);
+    }
     console.log();
   }
 }

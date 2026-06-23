@@ -100,10 +100,13 @@ describe('status command', () => {
     expect(await fs.readFile(path.join(changeDir, '.comet.yaml'), 'utf8')).toBe(before);
   });
 
-  it('prints a concise next-action hint for invalid changes in status text output', async () => {
+  it('keeps invalid errors visible and only prints the invalid recovery hint for invalid changes', async () => {
     const changeDir = path.join(tmpDir, 'openspec', 'changes', 'invalid');
     state(tmpDir, 'init', 'invalid', 'full');
     await fs.appendFile(path.join(changeDir, '.comet.yaml'), 'unknown_root_field: true\n');
+
+    const runtimeEvalFailDir = path.join(tmpDir, 'openspec', 'changes', 'runtime-eval-fail');
+    state(tmpDir, 'init', 'runtime-eval-fail', 'full');
 
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     let output = '';
@@ -114,7 +117,29 @@ describe('status command', () => {
       log.mockRestore();
     }
 
+    expect(output).toContain('error: Invalid Classic state: unknown field(s): unknown_root_field');
     expect(output).toContain('next: inspect .comet.yaml and rerun comet doctor');
+    expect(output).toContain('runtime-eval-fail [phase: open]');
+    expect(output.match(/next: inspect \.comet\.yaml and rerun comet doctor/g)).toHaveLength(1);
+  });
+
+  it('prints actionable runtime-eval recovery guidance for valid changes', async () => {
+    const changeDir = path.join(tmpDir, 'openspec', 'changes', 'runtime-eval-fail');
+    state(tmpDir, 'init', 'runtime-eval-fail', 'full');
+
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    let output = '';
+    try {
+      await statusCommand(tmpDir);
+      output = log.mock.calls.map((call) => call.join(' ')).join('\n');
+    } finally {
+      log.mockRestore();
+    }
+
+    expect(output).toContain('runtime_eval: fail (full.open; missing: openspec.proposal, openspec.tasks)');
+    expect(output).toContain(
+      'next: run /comet-open or restore missing evidence (openspec.proposal, openspec.tasks), then rerun comet doctor',
+    );
   });
 
   it('reports Classic runtime mode from shared diagnostics', async () => {

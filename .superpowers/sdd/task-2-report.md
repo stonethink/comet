@@ -71,3 +71,41 @@ npx vitest run test/app/status.test.ts test/app/doctor.test.ts
 ```bash
 feat: improve classic diagnostics user output
 ```
+
+## Review Follow-up
+
+### Fixed in this pass
+
+- `status`
+  - Kept the invalid `.comet.yaml` branch showing the original error and its dedicated recovery step.
+  - Added actionable recovery guidance for valid changes where `runtimeEval.passed === false`, using the shared `nextCommand` plus the missing evidence list instead of only printing a passive `missing:` summary.
+
+- `doctor`
+  - Kept invalid `.comet.yaml` output showing the original diagnostics error.
+  - Added a dedicated follow-up line for invalid changes:
+    - `next: <change>: inspect .comet.yaml and rerun comet doctor`
+  - Expanded failing `runtime_eval` output to include both `missingEvidence` and a concrete recovery action.
+
+- Tests
+  - Strengthened `status` coverage so it now verifies:
+    - invalid output keeps the original error
+    - the invalid recovery hint appears only once for the invalid branch
+    - runtime-eval failure output includes a concrete recovery action
+  - Strengthened `doctor` coverage so it now verifies:
+    - runtime-eval failure output includes `missingEvidence` and a concrete next step
+    - invalid output includes both the original error and a concrete next step
+
+### Focused test command and result
+
+```bash
+npx vitest run test/app/status.test.ts test/app/doctor.test.ts
+```
+
+Result:
+- Exit code `0`
+- `Test Files  2 passed (2)`
+- `Tests  11 passed (11)`
+
+### Concerns
+
+- None at the current task boundary.

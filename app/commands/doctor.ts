@@ -163,6 +163,21 @@ async function checkScriptsPresent(): Promise<CheckResult> {
   };
 }
 
+function formatMissingEvidence(missingEvidence: readonly string[]): string {
+  return missingEvidence.join(', ');
+}
+
+function formatRuntimeEvalRecovery(
+  nextCommand: string | null,
+  missingEvidence: readonly string[],
+): string {
+  const missing = formatMissingEvidence(missingEvidence);
+  if (nextCommand) {
+    return `run ${nextCommand} or restore missing evidence (${missing}), then rerun comet doctor`;
+  }
+  return `restore missing evidence (${missing}) and rerun comet doctor`;
+}
+
 async function checkCometYamlValidity(projectPath: string): Promise<CheckResult[]> {
   const changesDir = path.join(projectPath, 'openspec', 'changes');
   if (!(await fileExists(changesDir))) return [];
@@ -186,7 +201,7 @@ async function checkCometYamlValidity(projectPath: string): Promise<CheckResult[
       if (diagnostic.runtimeEval) {
         const runtimeEvalMessage = diagnostic.runtimeEval.passed
           ? `pass (${diagnostic.runtimeEval.stepId})`
-          : `fail (${diagnostic.runtimeEval.stepId}; missing: ${diagnostic.runtimeEval.missingEvidence.join(', ')})`;
+          : `fail (${diagnostic.runtimeEval.stepId}; missing: ${formatMissingEvidence(diagnostic.runtimeEval.missingEvidence)}; next: ${formatRuntimeEvalRecovery(diagnostic.nextCommand, diagnostic.runtimeEval.missingEvidence)})`;
         results.push({
           check: `runtime_eval: ${entry}`,
           status: diagnostic.runtimeEval.passed ? 'pass' : 'warn',
@@ -200,6 +215,11 @@ async function checkCometYamlValidity(projectPath: string): Promise<CheckResult[
       check: `.comet.yaml: ${entry}`,
       status: 'fail',
       message: diagnostic.error ?? 'invalid Classic state',
+    });
+    results.push({
+      check: `next: ${entry}`,
+      status: 'warn',
+      message: 'inspect .comet.yaml and rerun comet doctor',
     });
   }
 

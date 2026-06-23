@@ -108,11 +108,7 @@ describe('doctor command', () => {
   });
 
   it('prints runtime eval evidence in doctor output for valid changes', async () => {
-    const changeDir = path.join(tmpDir, 'openspec', 'changes', 'demo');
     state(tmpDir, 'init', 'demo', 'full');
-    await fs.writeFile(path.join(changeDir, 'proposal.md'), '# Proposal\n');
-    await fs.writeFile(path.join(changeDir, 'design.md'), '# Design\n');
-    await fs.writeFile(path.join(changeDir, 'tasks.md'), '- [ ] build\n');
 
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     let output = '';
@@ -123,6 +119,31 @@ describe('doctor command', () => {
       log.mockRestore();
     }
 
-    expect(output).toContain('runtime_eval:');
+    expect(output).toContain('runtime_eval: demo: fail (full.open; missing: openspec.proposal, openspec.tasks;');
+    expect(output).toContain(
+      'next: run /comet-open or restore missing evidence (openspec.proposal, openspec.tasks), then rerun comet doctor',
+    );
+  });
+
+  it('prints invalid comet yaml errors together with a concrete next step', async () => {
+    const invalidChangeDir = path.join(tmpDir, 'openspec', 'changes', 'top-level-invalid');
+    state(tmpDir, 'init', 'top-level-invalid', 'full');
+    await fs.appendFile(path.join(invalidChangeDir, '.comet.yaml'), 'unknown_root_field: true\n');
+
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    let output = '';
+    try {
+      await doctorCommand(tmpDir);
+      output = log.mock.calls.map((call) => call.join(' ')).join('\n');
+    } finally {
+      log.mockRestore();
+    }
+
+    expect(output).toContain(
+      '.comet.yaml: top-level-invalid: Invalid Classic state: unknown field(s): unknown_root_field',
+    );
+    expect(output).toContain(
+      'next: top-level-invalid: inspect .comet.yaml and rerun comet doctor',
+    );
   });
 });
