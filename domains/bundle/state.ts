@@ -62,6 +62,30 @@ export async function readBundleAuthoringState(
   return value;
 }
 
+export async function listBundleAuthoringStates(
+  projectRoot: string,
+): Promise<BundleAuthoringState[]> {
+  const root = path.resolve(projectRoot, '.comet', 'bundle-authoring');
+  let entries;
+  try {
+    entries = await fs.readdir(root, { withFileTypes: true });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw error;
+  }
+
+  const names = entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
+    .map((entry) => entry.name.slice(0, -'.json'.length))
+    .sort((left, right) => left.localeCompare(right));
+
+  const states: BundleAuthoringState[] = [];
+  for (const name of names) {
+    states.push(await reconcileBundleAuthoringState(projectRoot, name));
+  }
+  return states;
+}
+
 export async function writeBundleAuthoringState(
   projectRoot: string,
   state: BundleAuthoringState,

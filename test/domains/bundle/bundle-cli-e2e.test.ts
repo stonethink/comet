@@ -224,6 +224,24 @@ describe('comet bundle CLI end to end', () => {
     ).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
+  it('lists recoverable authoring states through the built CLI', async () => {
+    runJson('bundle', 'draft', 'create', 'recoverable-bundle', '--project', projectRoot);
+
+    const listed = runJson('bundle', 'list', '--project', projectRoot);
+
+    expect(listed).toMatchObject({
+      bundles: [
+        {
+          name: 'recoverable-bundle',
+          status: 'draft',
+          nextAction: {
+            action: 'choose-eval-level',
+          },
+        },
+      ],
+    });
+  });
+
   it('runs the factory path from plan to review summary through the CLI', async () => {
     await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
     await fs.mkdir(path.join(projectRoot, '.claude', 'skills', 'factory-alpha'), {

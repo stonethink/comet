@@ -94,6 +94,7 @@ Common commands:
 
 ```bash
 comet bundle candidates --json
+comet bundle list --json
 comet bundle factory-init <name> --file <plan.json> --json
 comet bundle factory-resolve <name> --candidate <query> --source <root-or-hash> --json
 comet bundle factory-resolve <name> --candidate <query> --ignore-missing --reason <reason> --json

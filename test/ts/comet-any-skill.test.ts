@@ -127,6 +127,7 @@ describe('Chinese comet-any Skill', () => {
 
     for (const command of [
       'comet bundle candidates',
+      'comet bundle list',
       'comet bundle factory-init',
       'comet bundle factory-resolve',
       'comet bundle draft create',
@@ -216,6 +217,7 @@ describe('Bilingual comet-any Skill parity', () => {
 
     for (const command of [
       'comet bundle candidates',
+      'comet bundle list',
       'comet bundle factory-init',
       'comet bundle factory-resolve',
       'comet bundle draft create',

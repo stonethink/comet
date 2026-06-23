@@ -22,9 +22,10 @@ import {
   bundleDraftOptimizeCommand,
   bundleEvalPlanCommand,
   bundleEvalRecordCommand,
-  bundleFactoryInitCommand,
   bundleFactoryGenerateCommand,
+  bundleFactoryInitCommand,
   bundleFactoryResolveCommand,
+  bundleListCommand,
   bundlePublishCommand,
   bundleReviewSummaryCommand,
   bundleReviewCommand,
@@ -255,6 +256,15 @@ draft
   .option('--json', 'Output as JSON')
   .action(async (source, options) => {
     await bundleDraftOptimizeCommand(source, options);
+  });
+
+bundle
+  .command('list')
+  .description('List recoverable Bundle authoring states')
+  .option('--project <dir>', 'Project root', '.')
+  .option('--json', 'Output as JSON')
+  .action(async (options) => {
+    await bundleListCommand(options);
   });
 
 bundle

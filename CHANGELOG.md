@@ -9,6 +9,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Node-only runtime foundation**: Moves the Classic workflow launchers onto thin `.mjs` entrypoints backed by a shared TypeScript runtime, so Comet no longer depends on Bash, Git Bash, or WSL for normal workflow execution.
 - **Comet Skill platform**: Adds the internal Skill Engine plus user-facing `comet skill install|validate|inspect|run|resume|eval`, project Skill discovery, immutable Run snapshots, runtime evals, and standalone `.comet/runs/<run-id>` execution.
 - **`/comet-any` Skill Factory backend**: Adds the deterministic Bundle authoring backend that `/comet-any` now uses internally: `factory-init`, `factory-resolve`, `factory-generate`, generated `resolved-skills.json`, generated `comet/eval.yaml`, review summaries, and ready-state publishing/distribution.
+- **Bundle authoring recovery list**: Adds `comet bundle list` so `/comet-any` can discover recoverable Skill Factory authoring sessions when users return without remembering the Bundle name.
 - **Shared eval system**: Adds a reusable eval harness for Comet workflows and arbitrary local Skills, including profiles, generated Skill manifests, generic smoke tasks, HTML reports, failure attribution, token/cost reporting, and the new `comet eval run|collect` CLI entry.
 - **Platform expansion**: Adds ZCode support and continues to grow the cross-platform install/distribute layer used by Comet Skills and Bundles.
 
@@ -32,6 +33,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **User-path smoke coverage**: Adds built-CLI checks for `doctor`, `status`, and packaged asset lookup so repo-level tests cover the actual shipped entry point, not only source imports.
 - **Skill Factory contract coverage**: Adds command-level and end-to-end coverage for `factory-init`, `factory-resolve`, `factory-generate`, readiness aggregation, generated `comet/eval.yaml`, and `/comet-any` bilingual contract expectations.
 - **Skill/Eval UX coverage**: Adds tests for `comet eval run|collect`, task-first README guidance, typed readiness blockers/warnings, and text-mode `comet skill` recovery hints across waiting, success, and failed-eval states.
+- **Bundle recovery coverage**: Adds command-level and built-CLI coverage for listing recoverable Bundle authoring states with next-action metadata.
 - **Classic diagnostics coverage**: Adds focused coverage for shared diagnostics, malformed-state isolation, runtime-step eval evidence, and generated runtime parity.
 
 ### Removed
@@ -118,7 +120,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **OpenSpec per-artifact instructions compliance**: Chinese and English `comet-open` now apply OpenSpec per-artifact instructions (`openspec instructions proposal/design/tasks --change "<name>" --json`) for each standard artifact, loading `context`, `rules`, `template`, `instruction`, `resolvedOutputPath`, and `dependencies` from the JSON payload instead of hard-coded artifact prose. Stops artifact generation on instruction failure rather than silently bypassing project rules ([#66](https://github.com/rpamis/comet/issues/66)).
 - **CI Windows path escaping in skill verification**: The `init-e2e` workflow's Pi settings verification step interpolated a Windows `$RUNNER_TEMP` path (containing backslashes) directly into a `node -e "require('...')"` JS string literal, where `\a`/`\_` were parsed as escape characters and mangled the path (`D:\a\_temp` → `D:a_temp`), failing the `init-e2e (windows-latest)` runners on Node 20 and 22. The path is now passed via an environment variable (`process.env`) so it never enters a JS string literal; Linux/macOS were unaffected.
 - **OpenSpec source formatting**: Re-formatted `src/core/openspec.ts` (long-line wrapping) to satisfy `prettier --check`, unblocking the `format:check` CI step.
-- **Symlink-safe removal during uninstall**: `removeFile`/`removeDir` no longer resolve symlinks before deleting. A symlinked skill, rules, or hooks directory previously had its *resolved target* recursively deleted by `comet uninstall`; symlinked directories are now unlinked directly. `isDirEmpty` also no longer reports unreadable directories as empty, so cleanup never deletes a directory it could not inspect.
+- **Symlink-safe removal during uninstall**: `removeFile`/`removeDir` no longer resolve symlinks before deleting. A symlinked skill, rules, or hooks directory previously had its _resolved target_ recursively deleted by `comet uninstall`; symlinked directories are now unlinked directly. `isDirEmpty` also no longer reports unreadable directories as empty, so cleanup never deletes a directory it could not inspect.
 - **`comet update --json` output corruption**: npm's inherited stdio previously interleaved into the JSON document; npm stdout/stderr are now discarded in JSON mode so machine-readable output stays parseable.
 - **`comet update --json` no-targets shape**: the early-return JSON emitted when no installed targets exist now includes `codegraph: 'skipped'`, matching the normal output shape so consumers need not special-case the empty path.
 - **JSON-mode version-check latency**: `comet init` and `comet update` now skip the npm-registry version check in JSON mode, emitting output without a network round-trip.
@@ -336,11 +338,11 @@ All notable changes to @rpamis/comet will be documented in this file.
 
 ### New Contributors
 
-* @felanny made their first contribution in #38
-* @Joechan11 made their first contribution in #44
-* @bevishe made their first contribution in #47
-* @kathy32 made their first contribution in #39
-* @gleami made their first contribution in #46
+- @felanny made their first contribution in #38
+- @Joechan11 made their first contribution in #44
+- @bevishe made their first contribution in #47
+- @kathy32 made their first contribution in #39
+- @gleami made their first contribution in #46
 
 ## What's Changed [0.3.3] - 2026-05-27
 

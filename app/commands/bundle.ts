@@ -9,7 +9,10 @@ import { resolveBundleFactoryCandidate } from '../../domains/bundle/factory-reso
 import { readSkillPreferences } from '../../domains/bundle/preferences.js';
 import { createBundleDraft, optimizeBundleDraft } from '../../domains/bundle/draft.js';
 import { loadBundle } from '../../domains/bundle/load.js';
-import { reconcileBundleAuthoringState } from '../../domains/bundle/state.js';
+import {
+  listBundleAuthoringStates,
+  reconcileBundleAuthoringState,
+} from '../../domains/bundle/state.js';
 import { compileBundleIr } from '../../domains/bundle/compiler.js';
 import { compileBundleForPlatform } from '../../domains/bundle/platform.js';
 import { buildBundleReviewSummary } from '../../domains/bundle/review-summary.js';
@@ -180,6 +183,25 @@ function formatStatusText(
   ].join('\n');
 }
 
+function formatListText(
+  states: Array<
+    Awaited<ReturnType<typeof reconcileBundleAuthoringState>> & { nextAction: BundleNextAction }
+  >,
+): string {
+  if (states.length === 0) return 'No Bundle authoring states found.';
+  return states
+    .map((state) =>
+      [
+        `${state.name}: ${state.status}`,
+        `Hash: ${state.currentHash ?? '(invalid)'}`,
+        `Draft: ${state.draftPath}`,
+        `Next action: ${state.nextAction.action}`,
+        `Reason: ${state.nextAction.reason}`,
+      ].join('\n'),
+    )
+    .join('\n\n');
+}
+
 function formatReviewSummaryText(
   summary: Awaited<ReturnType<typeof buildBundleReviewSummary>>,
 ): string {
@@ -272,6 +294,14 @@ export async function bundleStatusCommand(
   const state = await reconcileBundleAuthoringState(projectRoot(options), name);
   const nextAction = determineNextAction(state);
   emit({ ...state, nextAction }, options.json, formatStatusText(state));
+}
+
+export async function bundleListCommand(options: BundleCommandOptions = {}): Promise<void> {
+  const states = (await listBundleAuthoringStates(projectRoot(options))).map((state) => ({
+    ...state,
+    nextAction: determineNextAction(state),
+  }));
+  emit({ bundles: states }, options.json, formatListText(states));
 }
 
 export async function bundleFactoryGenerateCommand(

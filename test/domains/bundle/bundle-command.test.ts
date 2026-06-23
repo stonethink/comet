@@ -13,6 +13,7 @@ import {
   bundleFactoryInitCommand,
   bundleFactoryGenerateCommand,
   bundleFactoryResolveCommand,
+  bundleListCommand,
   bundlePublishCommand,
   bundleReviewSummaryCommand,
   bundleReviewCommand,
@@ -193,6 +194,44 @@ describe('bundle commands', () => {
     expect(optimized).toMatchObject({ name: 'optimized-bundle', status: 'draft' });
     expect(status).toMatchObject({ name: 'optimized-bundle', status: 'draft' });
     expect(status.currentHash).toMatch(/^[a-f0-9]{64}$/u);
+  });
+
+  it('lists recoverable Bundle authoring states with next actions', async () => {
+    const source = path.join(root, 'source');
+    await writeBundle(source, { name: 'optimized-bundle' });
+
+    await captureJson(() =>
+      bundleDraftCreateCommand('created-bundle', { project: projectRoot, json: true }),
+    );
+    await captureJson(() =>
+      bundleDraftOptimizeCommand(source, { project: projectRoot, json: true }),
+    );
+
+    const result = await captureJson(() => bundleListCommand({ project: projectRoot, json: true }));
+
+    expect(result).toMatchObject({
+      bundles: [
+        {
+          name: 'created-bundle',
+          status: 'draft',
+          nextAction: {
+            action: 'choose-eval-level',
+          },
+        },
+        {
+          name: 'optimized-bundle',
+          status: 'draft',
+          nextAction: {
+            action: 'choose-eval-level',
+          },
+        },
+      ],
+    });
+
+    const text = await captureText(() => bundleListCommand({ project: projectRoot }));
+    expect(text).toContain('created-bundle: draft');
+    expect(text).toContain('Next action: choose-eval-level');
+    expect(text).toContain('optimized-bundle: draft');
   });
 
   it('initializes factory metadata from a structured plan file', async () => {

@@ -45,13 +45,21 @@ words, lightweight single-step Skills can skip Engine only when the capability l
 
 ### 1. Recover Existing Authoring State
 
-First run:
+If the user has not provided `<name>`, first run:
+
+```bash
+comet bundle list --json
+```
+
+If recoverable Factory / Bundle authoring states exist, show each name, status, next action, and reason, then ask the user which one to resume. Do not ask the user to inspect `.comet/bundle-authoring/` manually.
+
+After the user provides `<name>` or chooses an existing entry, run:
 
 ```bash
 comet bundle status <name> --json
 ```
 
-If the user has not provided `<name>`, ask for the Skill/Bundle name or ask whether to derive it from the target workflow. If state exists, resume from it; otherwise continue to the next step.
+If state exists, resume from it; otherwise continue to the next step and ask whether to derive the Skill/Bundle name from the target workflow.
 When you need to explain the blocker to the user, the text-mode status output must surface `Next action`, the reason,
 and the suggested command directly.
 
