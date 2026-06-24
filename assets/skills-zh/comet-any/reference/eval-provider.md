@@ -15,6 +15,7 @@
 skip 或失败 Eval 时不得进入 ready；也不得 publish 或 distribute。
 
 普通用户的 Eval 路径保持单一：日常评估统一走 `comet eval`。`/comet-any` 可以在内部调用 `comet bundle eval-plan` 和 `comet bundle eval-record` 规划与登记证据，但不要把它们包装成面向普通用户的替代 Eval 命令。
+对普通用户，解释时优先使用“验证”，不要把 `Publish readiness:` 当成第一层概念。
 
 ## 结果记录
 
@@ -34,7 +35,7 @@ Eval 通过后仍必须人工批准。评审摘要至少包含：
 
 - Bundle 名称、版本、hash。
 - 多个 entry 与 internal Skill 列表。
-- `planHash`、`preferenceHash` 与 `reference/resolved-skills.json` 真实 Skill 证据，包括项目级偏好模式、required Skill、`sourceSummaries` 与“组合后的工作方式”摘要。
+- `planHash`、`preferenceHash` 与 `reference/resolved-skills.json` 真实 Skill 证据，包括项目级偏好模式、required Skill、`sourceSummaries` 与“整理后的工作方式”摘要。
 - 推荐调用顺序与 `preferenceIndex`。
 - 偏离偏好顺序的项和原因。
 - `.comet/skill-preferences.yaml` 是否在 Factory 初始化后发生漂移；`advisory` 模式给出 warning，`strict` 模式阻塞。
@@ -43,7 +44,7 @@ Eval 通过后仍必须人工批准。评审摘要至少包含：
 - `hooks/*.yaml` 是否仅被当作 portable hook descriptor，等待 `comet publish distribute` 编译到目标平台。
 - 能力缺口和可执行披露。
 - Eval 选择、token 消耗和结果摘要。
-- `Publish readiness:` 与 `User next steps:`，让用户知道 readiness 为什么可发布或被阻塞。
+- `Validate this Skill` 与下一步提示，让用户知道 readiness 为什么可发布或被阻塞。
 
 readiness blockers 会阻止 publish。只要存在当前 hash 缺失 Eval 证据、人工 approval 缺失、required capability gap 或 executable disclosure 未确认，就必须停在评审阶段，不能继续发布。
 
@@ -59,7 +60,7 @@ comet publish distribute <name> --platform <id> --scope project --preview --json
 
 preview 是强制检查，不是可选附加项。它应向用户展示：
 
-- `Distribution preview`
+- `Install preview`
 - planned files
 - unsupported capability
 - executable disclosures

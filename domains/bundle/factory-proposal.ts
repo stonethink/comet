@@ -1,9 +1,12 @@
 import { createHash } from 'crypto';
 import path from 'path';
 import { discoverBundleCandidates } from './candidates.js';
+import type { BundleCandidate, BundleCandidateSource } from './candidates.js';
 import { composeBundleFactoryPlan } from './factory-compose.js';
 import { normalizeBundleFactoryPlan, readBundleFactoryPlan } from './factory-plan.js';
 import { readBundleSkillPreferences } from './preferences.js';
+import { buildSkillMakerPlanSummary, type SkillMakerPlanSummary } from './user-facing.js';
+import { isCometSkillMakerBuiltin } from './templates/comet-skill-maker-template.js';
 import type {
   BundleFactoryCallChainItem,
   BundleFactoryComposition,
@@ -29,6 +32,7 @@ export interface BundleFactoryProposal {
   warnings: string[];
   canGenerate: boolean;
   userSummary: BundleFactoryProposalSummary;
+  skillMakerSummary: SkillMakerPlanSummary;
   actions: BundleFactoryProposalAction[];
   proposalHash: string;
 }
@@ -56,6 +60,47 @@ function validationPlan(): string[] {
   return ['quick smoke eval', 'generated Skill manifest eval', 'publish readiness review'];
 }
 
+function builtInCandidate(
+  projectRoot: string,
+  skill: string,
+  preferenceIndex: number | null,
+): BundleCandidate {
+  const source: BundleCandidateSource = {
+    name: skill,
+    preferenceIndex,
+    platform: 'builtin',
+    scope: 'builtin',
+    origin: 'builtin',
+    factory: {
+      query: skill,
+    },
+    root: path.join(projectRoot, '.comet', '__bundle_builtin__', skill),
+    description: `Built-in Comet workflow step: ${skill}.`,
+    skillMd: `# ${skill}\n`,
+    references: [],
+    scripts: [],
+    hash: `builtin:${skill}`,
+  };
+  return {
+    name: skill,
+    preferenceIndex,
+    status: 'available',
+    sources: [source],
+  };
+}
+
+function applyBuiltInCandidates(
+  projectRoot: string,
+  candidates: BundleCandidate[],
+): BundleCandidate[] {
+  return candidates.map((candidate) => {
+    if (!isCometSkillMakerBuiltin(candidate.name)) {
+      return candidate;
+    }
+    return builtInCandidate(projectRoot, candidate.name, candidate.preferenceIndex);
+  });
+}
+
 export async function buildBundleFactoryProposal(options: {
   projectRoot: string;
   name: string;
@@ -67,10 +112,13 @@ export async function buildBundleFactoryProposal(options: {
     plan: await readBundleFactoryPlan(path.resolve(options.filePath)),
     projectPreferredSkills: projectPreferences?.names ?? null,
   });
-  const candidates = await discoverBundleCandidates({
+  const candidates = applyBuiltInCandidates(
     projectRoot,
-    preferences: plan.preferredSkills.length > 0 ? plan.preferredSkills : null,
-  });
+    await discoverBundleCandidates({
+      projectRoot,
+      preferences: plan.preferredSkills.length > 0 ? plan.preferredSkills : null,
+    }),
+  );
   const resolvedSkills = candidates.map((candidate) => ({
     query: candidate.name,
     preferenceIndex: candidate.preferenceIndex,
@@ -137,6 +185,23 @@ export async function buildBundleFactoryProposal(options: {
       ...blockers.filter((item) => item.startsWith('[policy]')),
     ],
   };
+  const skillMakerSummary = buildSkillMakerPlanSummary({
+    intent: plan.skillMakerIntent,
+    skillName: options.name,
+    goal: plan.goal,
+    retained: plan.templateExpansion?.retained ?? [],
+    additions: plan.templateExpansion?.additions ?? plan.callChain.map((item) => item.skill),
+    replacements: plan.templateExpansion?.replacements ?? [],
+    disabled: plan.templateExpansion?.disabled ?? [],
+    rejected: [...(plan.templateExpansion?.rejected ?? []), ...blockers],
+    generated: generatedControlPlane(),
+    validation: validationPlan(),
+    install: ['Install/enable into the current Agent after validation and preview.'],
+    advanced: [
+      `Preference mode: ${projectPreferences?.preferences.mode ?? 'advisory'}`,
+      'Factory proposal hash will be recorded after confirmation.',
+    ],
+  });
   const canGenerate = blockers.length === 0;
   const actions: BundleFactoryProposalAction[] = [
     ...(canGenerate
@@ -180,6 +245,7 @@ export async function buildBundleFactoryProposal(options: {
     warnings: plan.deviations.map((item) => `[deviation] ${item.skill}: ${item.reason}`),
     canGenerate,
     userSummary,
+    skillMakerSummary,
     actions,
   };
   return { ...proposal, proposalHash: proposalHash(proposal) };

@@ -81,6 +81,17 @@ export interface FactorySkillPackagePlan {
   goal: string;
   defaultLocale: string;
   callChain: FactoryCallChainItem[];
+  skillMaker?: {
+    intent: 'customize-comet' | 'new-skill' | 'upgrade-existing';
+    baseTemplate?: { skill: 'comet'; profile: 'full' | 'hotfix' | 'tweak' };
+    templateExpansion?: {
+      retained: string[];
+      additions: string[];
+      replacements: string[];
+      disabled: string[];
+      rejected: string[];
+    };
+  };
   composition?: FactoryComposition;
   resolvedSkills?: FactoryResolvedSkill[];
   preference?: {

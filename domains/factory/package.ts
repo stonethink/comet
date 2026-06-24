@@ -295,11 +295,25 @@ function compositionReport(plan: FactorySkillPackagePlan): string {
 - Preference hash: ${plan.preference?.sourceHash ?? 'none'}
 - Required Skills: ${(plan.preference?.requiredSkills ?? []).join(', ') || 'none'}
 `;
+  const skillMaker = plan.skillMaker
+    ? `## Skill Maker Summary
+
+- Intent: ${plan.skillMaker.intent}
+- Base template: ${plan.skillMaker.baseTemplate ? `${plan.skillMaker.baseTemplate.skill}/${plan.skillMaker.baseTemplate.profile}` : 'none'}
+- Retained: ${(plan.skillMaker.templateExpansion?.retained ?? []).join(', ') || 'none'}
+- Additions: ${(plan.skillMaker.templateExpansion?.additions ?? []).join(', ') || 'none'}
+- Replacements: ${(plan.skillMaker.templateExpansion?.replacements ?? []).join(', ') || 'none'}
+- Disabled: ${(plan.skillMaker.templateExpansion?.disabled ?? []).join(', ') || 'none'}
+- Rejected: ${(plan.skillMaker.templateExpansion?.rejected ?? []).join(', ') || 'none'}
+`
+    : '';
   const composition = plan.composition;
   if (!composition) {
     return `# Composition Report
 
 ${preference}
+
+${skillMaker}
 
 No composition metadata was recorded.
 `;
@@ -337,6 +351,8 @@ No composition metadata was recorded.
   return `# Composition Report
 
 ${preference}
+
+${skillMaker}
 
 ## Entry Skills
 

@@ -16,6 +16,7 @@ describe('bundle factory plan normalization', () => {
 
     expect(normalized).toEqual({
       goal: 'Create a review-oriented Comet-native Skill.',
+      skillMakerIntent: 'new-skill',
       preferredSkills: ['brainstorming', 'writing-plans', 'requesting-code-review'],
       callChain: [
         { skill: 'brainstorming', preferenceIndex: 0 },
@@ -63,6 +64,7 @@ describe('bundle factory plan normalization', () => {
 
     expect(normalized).toEqual({
       goal: 'Optimize an existing Bundle.',
+      skillMakerIntent: 'upgrade-existing',
       preferredSkills: ['brainstorming', 'writing-plans'],
       callChain: [
         { skill: 'writing-plans', preferenceIndex: 5 },
@@ -97,5 +99,45 @@ describe('bundle factory plan normalization', () => {
         },
       }),
     ).toThrow(/sourceRoot/i);
+  });
+
+  it('expands derive mode from the comet base template without changing persisted state mode', () => {
+    const normalized = normalizeBundleFactoryPlan({
+      plan: {
+        goal: 'Customize /comet with security review.',
+        mode: 'derive' as never,
+        baseTemplate: { skill: 'comet', profile: 'full' } as never,
+        templateDelta: {
+          add: [{ phase: 'verify', position: 'before', skill: 'security-review' }],
+          replace: [{ phase: 'build', step: 'writing-plans', skill: 'team-planning' }],
+          disable: [{ phase: 'build', step: 'build-review' }],
+        } as never,
+      } as never,
+    });
+
+    expect(normalized).toMatchObject({
+      skillMakerIntent: 'customize-comet',
+      baseTemplate: { skill: 'comet', profile: 'full' },
+      templateDelta: {
+        add: [{ phase: 'verify', position: 'before', skill: 'security-review' }],
+        replace: [{ phase: 'build', step: 'writing-plans', skill: 'team-planning' }],
+        disable: [{ phase: 'build', step: 'build-review' }],
+      },
+      templateExpansion: {
+        additions: ['verify before: security-review'],
+        replacements: ['build writing-plans: writing-plans -> team-planning'],
+        disabled: ['build build-review'],
+      },
+      mode: 'create',
+    });
+    expect(normalized.callChain.map((item) => item.skill)).toEqual([
+      'comet-open',
+      'comet-design',
+      'team-planning',
+      'comet-build',
+      'security-review',
+      'comet-verify',
+      'comet-archive',
+    ]);
   });
 });

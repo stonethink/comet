@@ -2,7 +2,7 @@ import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { stringify } from 'yaml';
-import { discoverBundleCandidates } from './candidates.js';
+import { discoverBundleCandidates, type BundleCandidate } from './candidates.js';
 import { createBundleDraft, optimizeBundleDraft } from './draft.js';
 import { composeBundleFactoryPlan } from './factory-compose.js';
 import {
@@ -18,6 +18,7 @@ import { generateFactorySkillPackage } from '../factory/package.js';
 import { hashBundle } from './hash.js';
 import { loadBundle } from './load.js';
 import type { BundleAuthoringState, BundleFactoryMetadata, BundleManifest } from './types.js';
+import { isCometSkillMakerBuiltin } from './templates/comet-skill-maker-template.js';
 
 function slug(value: string): string {
   return value
@@ -225,6 +226,40 @@ function assertPreferenceCapabilitiesAllowed(
   }
 }
 
+function applyBuiltInCandidates(
+  projectRoot: string,
+  candidates: BundleCandidate[],
+): BundleCandidate[] {
+  return candidates.map((candidate) => {
+    if (!isCometSkillMakerBuiltin(candidate.name)) {
+      return candidate;
+    }
+    return {
+      name: candidate.name,
+      preferenceIndex: candidate.preferenceIndex,
+      status: 'available',
+      sources: [
+        {
+          name: candidate.name,
+          preferenceIndex: candidate.preferenceIndex,
+          platform: 'builtin',
+          scope: 'builtin',
+          origin: 'builtin',
+          factory: {
+            query: candidate.name,
+          },
+          root: path.join(projectRoot, '.comet', '__bundle_builtin__', candidate.name),
+          description: `Built-in Comet workflow step: ${candidate.name}.`,
+          skillMd: `# ${candidate.name}\n`,
+          references: [],
+          scripts: [],
+          hash: `builtin:${candidate.name}`,
+        },
+      ],
+    };
+  });
+}
+
 export async function composeFactoryMetadata(
   factory: BundleFactoryMetadata,
 ): Promise<BundleFactoryMetadata> {
@@ -288,6 +323,13 @@ export async function generateBundleDraftFromFactoryState(options: {
     },
     deviations: factory.deviations,
     engineMode: factory.engineMode,
+    skillMaker: factory.skillMakerIntent
+      ? {
+          intent: factory.skillMakerIntent,
+          baseTemplate: factory.baseTemplate,
+          templateExpansion: factory.templateExpansion,
+        }
+      : undefined,
   });
   await fs.mkdir(path.join(state.draftPath, 'rules'), { recursive: true });
   await fs.writeFile(
@@ -386,10 +428,13 @@ export async function initializeBundleFactoryState(options: {
   if (options.confirmedProposal && !proposal.canGenerate) {
     throw new Error(`Cannot confirm blocked Factory proposal: ${proposal.blockers.join('; ')}`);
   }
-  const resolvedSkills = await discoverBundleCandidates({
+  const resolvedSkills = applyBuiltInCandidates(
     projectRoot,
-    preferences: plan.preferredSkills.length > 0 ? plan.preferredSkills : null,
-  });
+    await discoverBundleCandidates({
+      projectRoot,
+      preferences: plan.preferredSkills.length > 0 ? plan.preferredSkills : null,
+    }),
+  );
   const factoryResolvedSkills = resolvedSkills.map((candidate) => ({
     query: candidate.name,
     preferenceIndex: candidate.preferenceIndex,
@@ -406,6 +451,18 @@ export async function initializeBundleFactoryState(options: {
     goal: plan.goal,
     preferredSkills: plan.preferredSkills,
     requiredSkills: projectPreferences?.preferences.require ?? [],
+    skillMakerIntent: plan.skillMakerIntent,
+    baseTemplate: plan.baseTemplate,
+    templateDelta: plan.templateDelta,
+    templateExpansion: plan.templateExpansion
+      ? {
+          retained: plan.templateExpansion.retained,
+          additions: plan.templateExpansion.additions,
+          replacements: plan.templateExpansion.replacements,
+          disabled: plan.templateExpansion.disabled,
+          rejected: plan.templateExpansion.rejected,
+        }
+      : undefined,
     preferenceMode: projectPreferences?.preferences.mode,
     preferencePolicies: projectPreferences?.preferences.policies,
     preferencePath: projectPreferences?.path,

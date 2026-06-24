@@ -4,6 +4,7 @@ import type {
   SkillPreferencePolicies,
   SkillPreferenceWarning,
 } from '../skill/preferences.js';
+import type { SkillMakerIntent } from './user-facing.js';
 
 export type BundleSkillVisibility = 'entry' | 'internal';
 export type BundleCapability = 'skills' | 'rules' | 'hooks' | 'scripts' | 'references' | 'assets';
@@ -220,6 +221,27 @@ export interface BundleFactoryProposalConfirmation {
   warnings: string[];
 }
 
+export type BundleAuthoringPlanMode = BundleAuthoringState['mode'] | 'derive';
+
+export interface BundleBaseTemplate {
+  skill: 'comet';
+  profile: 'full' | 'hotfix' | 'tweak';
+}
+
+export interface BundleTemplateDelta {
+  add: Array<{ phase: string; position: 'before' | 'after'; skill: string }>;
+  replace: Array<{ phase: string; step: string; skill: string }>;
+  disable: Array<{ phase: string; step: string }>;
+}
+
+export interface BundleTemplateExpansion {
+  retained: string[];
+  additions: string[];
+  replacements: string[];
+  disabled: string[];
+  rejected: string[];
+}
+
 export interface BundleControlPlaneOutput {
   checksPath: string | null;
   evalManifestPath: string | null;
@@ -240,6 +262,10 @@ export interface BundleFactoryMetadata {
   goal: string;
   preferredSkills: string[];
   requiredSkills?: string[];
+  skillMakerIntent?: SkillMakerIntent;
+  baseTemplate?: BundleBaseTemplate;
+  templateDelta?: BundleTemplateDelta;
+  templateExpansion?: BundleTemplateExpansion;
   preferenceMode?: NormalizedSkillPreferences['mode'];
   preferencePolicies?: SkillPreferencePolicies;
   preferencePath?: string;

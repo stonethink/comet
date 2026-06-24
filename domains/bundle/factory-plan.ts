@@ -3,19 +3,28 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import type {
   BundleAuthoringState,
+  BundleAuthoringPlanMode,
+  BundleBaseTemplate,
   BundleFactoryCallChainItem,
   BundleFactoryMetadata,
   BundleFactoryOrderDeviation,
+  BundleTemplateDelta,
+  BundleTemplateExpansion,
 } from './types.js';
+import type { SkillMakerIntent } from './user-facing.js';
+import { expandCometSkillMakerTemplate } from './templates/comet-skill-maker-template.js';
 
 export interface BundleFactoryPlanFile {
   goal: string;
   preferredSkills?: string[];
-  callChain: Array<string | { skill: string; preferenceIndex?: number | null }>;
+  skillMakerIntent?: SkillMakerIntent;
+  callChain?: Array<string | { skill: string; preferenceIndex?: number | null }>;
+  baseTemplate?: BundleBaseTemplate;
+  templateDelta?: BundleTemplateDelta;
   deviations?: BundleFactoryOrderDeviation[];
   engineMode?: BundleFactoryMetadata['engineMode'];
   runnerMode?: BundleFactoryMetadata['runnerMode'];
-  mode?: BundleAuthoringState['mode'];
+  mode?: BundleAuthoringPlanMode;
   sourceRoot?: string;
   creator?: BundleAuthoringState['creator'];
   defaultLocale?: string;
@@ -25,8 +34,12 @@ export interface BundleFactoryPlanFile {
 
 export interface NormalizedBundleFactoryPlan {
   goal: string;
+  skillMakerIntent: SkillMakerIntent;
   preferredSkills: string[];
   callChain: BundleFactoryCallChainItem[];
+  baseTemplate?: BundleBaseTemplate;
+  templateDelta?: BundleTemplateDelta;
+  templateExpansion?: BundleTemplateExpansion;
   deviations: BundleFactoryOrderDeviation[];
   engineMode: BundleFactoryMetadata['engineMode'];
   runnerMode: BundleFactoryMetadata['runnerMode'];
@@ -77,7 +90,7 @@ function dedupe(values: string[]): string[] {
 }
 
 function normalizeCallChain(
-  value: BundleFactoryPlanFile['callChain'],
+  value: Array<string | { skill: string; preferenceIndex?: number | null }>,
   preferredSkills: string[],
 ): BundleFactoryCallChainItem[] {
   if (!Array.isArray(value) || value.length === 0) {
@@ -121,7 +134,20 @@ export async function readBundleFactoryPlan(filePath: string): Promise<BundleFac
     throw new Error(`Invalid factory plan: ${absolutePath} must include goal`);
   }
   if (!Array.isArray(plan.callChain)) {
-    throw new Error(`Invalid factory plan: ${absolutePath} must include callChain`);
+    if (plan.mode === 'derive') {
+      if (!plan.baseTemplate) {
+        throw new Error(
+          `Invalid factory plan: ${absolutePath} derive mode must include baseTemplate`,
+        );
+      }
+      if (!plan.templateDelta) {
+        throw new Error(
+          `Invalid factory plan: ${absolutePath} derive mode must include templateDelta`,
+        );
+      }
+    } else {
+      throw new Error(`Invalid factory plan: ${absolutePath} must include callChain`);
+    }
   }
   if (plan.preferredSkills !== undefined) {
     ensureStringArray(plan.preferredSkills, 'preferredSkills');
@@ -152,25 +178,45 @@ export function normalizeBundleFactoryPlan(options: {
   projectPreferredSkills?: string[] | null;
 }): NormalizedBundleFactoryPlan {
   const { plan } = options;
+  const derived =
+    plan.mode === 'derive' && plan.baseTemplate && plan.templateDelta
+      ? expandCometSkillMakerTemplate({
+          baseTemplate: plan.baseTemplate,
+          templateDelta: plan.templateDelta,
+        })
+      : null;
+  const rawCallChain = plan.callChain ?? derived?.callChain ?? [];
   const preferredSkills = dedupe([
     ...(plan.preferredSkills ?? options.projectPreferredSkills ?? []),
-    ...plan.callChain
+    ...rawCallChain
       .map((item) => (typeof item === 'string' ? item : item.skill))
       .filter((skill) => skill.length > 0),
   ]);
-  const callChain = normalizeCallChain(plan.callChain, preferredSkills);
+  const callChain = normalizeCallChain(rawCallChain, preferredSkills);
   const defaultLocale = plan.defaultLocale ?? 'en';
   const locales = dedupe(plan.locales ?? [defaultLocale]);
   const engineMode = plan.engineMode ?? 'deterministic';
-  const mode = plan.mode ?? 'create';
-  if (mode === 'optimize' && !plan.sourceRoot) {
+  const planMode = plan.mode ?? 'create';
+  if (planMode === 'optimize' && !plan.sourceRoot) {
     throw new Error('factory plan sourceRoot is required for optimize mode');
   }
+  const mode = planMode === 'optimize' ? 'optimize' : 'create';
+  const skillMakerIntent =
+    plan.skillMakerIntent ??
+    (planMode === 'derive'
+      ? 'customize-comet'
+      : planMode === 'optimize'
+        ? 'upgrade-existing'
+        : 'new-skill');
 
   return {
     goal: plan.goal,
+    skillMakerIntent,
     preferredSkills,
     callChain,
+    ...(plan.baseTemplate ? { baseTemplate: plan.baseTemplate } : {}),
+    ...(plan.templateDelta ? { templateDelta: plan.templateDelta } : {}),
+    ...(derived ? { templateExpansion: derived } : {}),
     deviations: structuredClone(plan.deviations ?? []),
     engineMode,
     runnerMode: plan.runnerMode ?? 'standalone',

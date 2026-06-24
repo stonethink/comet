@@ -395,6 +395,75 @@ prefer:
     ).resolves.toContain('"schemaVersion": 1');
   });
 
+  it('initializes derive plans with skill maker metadata while keeping authoring state in create mode', async () => {
+    await writeFactorySkill(projectRoot, 'security-review', {
+      description: 'Add a security review before verification.',
+    });
+    await writeFactorySkill(projectRoot, 'team-planning', {
+      description: 'Replace the default planning step.',
+    });
+    const planFile = path.join(root, 'factory-derive-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Customize /comet with a security review.',
+          mode: 'derive',
+          baseTemplate: { skill: 'comet', profile: 'full' },
+          templateDelta: {
+            add: [{ phase: 'verify', position: 'before', skill: 'security-review' }],
+            replace: [{ phase: 'build', step: 'writing-plans', skill: 'team-planning' }],
+            disable: [{ phase: 'build', step: 'build-review' }],
+          },
+          engineMode: 'deterministic',
+          runnerMode: 'change',
+          defaultLocale: 'zh',
+          locales: ['zh', 'en'],
+        },
+        null,
+        2,
+      ),
+    );
+
+    const initialized = await captureJson(() =>
+      bundleFactoryInitCommand('derived-comet-skill', {
+        project: projectRoot,
+        file: planFile,
+        json: true,
+      }),
+    );
+
+    expect(initialized).toMatchObject({
+      name: 'derived-comet-skill',
+      mode: 'create',
+      factory: {
+        skillMakerIntent: 'customize-comet',
+        baseTemplate: { skill: 'comet', profile: 'full' },
+        templateDelta: {
+          add: [{ phase: 'verify', position: 'before', skill: 'security-review' }],
+          replace: [{ phase: 'build', step: 'writing-plans', skill: 'team-planning' }],
+          disable: [{ phase: 'build', step: 'build-review' }],
+        },
+        templateExpansion: {
+          additions: ['verify before: security-review'],
+          replacements: ['build writing-plans: writing-plans -> team-planning'],
+          disabled: ['build build-review'],
+        },
+      },
+    });
+    expect(initialized.factory).toMatchObject({
+      callChain: [
+        { skill: 'comet-open' },
+        { skill: 'comet-design' },
+        { skill: 'team-planning' },
+        { skill: 'comet-build' },
+        { skill: 'security-review' },
+        { skill: 'comet-verify' },
+        { skill: 'comet-archive' },
+      ],
+    });
+  });
+
   it('persists project Skill preference metadata in Factory state', async () => {
     await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
     await fs.writeFile(
@@ -597,8 +666,9 @@ prefer:
       }),
     );
     expect(text).toContain('Will reuse Skills:');
-    expect(text).toContain('Will generate control plane:');
-    expect(text).toContain('Required confirmations:');
+    expect(text).toContain('Will generate:');
+    expect(text).toContain('Validate:');
+    expect(text).toContain('Install/enable:');
     expect(text).toContain('Actions:');
   });
 
@@ -681,6 +751,54 @@ prefer:
     expect(state.factory?.proposalConfirmation).toMatchObject({
       confirmed: true,
       proposalHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
+    });
+  });
+
+  it('keeps derive metadata when the proposal is confirmed through factory-init', async () => {
+    await writeFactorySkill(projectRoot, 'security-review', {
+      description: 'Add a security review before verification.',
+    });
+    const planFile = path.join(root, 'factory-confirmed-derive-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Customize /comet with a security review.',
+          mode: 'derive',
+          baseTemplate: { skill: 'comet', profile: 'full' },
+          templateDelta: {
+            add: [{ phase: 'verify', position: 'before', skill: 'security-review' }],
+            replace: [],
+            disable: [],
+          },
+          engineMode: 'deterministic',
+          runnerMode: 'change',
+        },
+        null,
+        2,
+      ),
+    );
+
+    const initialized = await captureJson(() =>
+      bundleFactoryInitCommand('confirmed-derived-comet', {
+        project: projectRoot,
+        file: planFile,
+        confirmedProposal: true,
+        json: true,
+      }),
+    );
+
+    expect(initialized).toMatchObject({
+      factory: {
+        skillMakerIntent: 'customize-comet',
+        baseTemplate: { skill: 'comet', profile: 'full' },
+        templateExpansion: {
+          additions: ['verify before: security-review'],
+        },
+        proposalConfirmation: {
+          confirmed: true,
+        },
+      },
     });
   });
 
@@ -2025,8 +2143,8 @@ prefer:
         platform: 'claude',
       }),
     );
-    expect(text).toContain('Publish readiness:');
-    expect(text).toContain('User next steps:');
+    expect(text).toContain('Validate this Skill:');
+    expect(text).toContain('Next steps:');
     expect(text).not.toContain('Readiness: blocked\nBlockers:\n- [eval]');
   });
 
@@ -2198,8 +2316,8 @@ prefer:
     expect(evaluated).toMatchObject({ status: 'eval-passed' });
     expect(reviewed).toMatchObject({ status: 'review-approved' });
     expect(published).toMatchObject({ status: 'ready' });
-    expect(publishedReviewText).toContain('Publish readiness: Already published');
-    expect(publishedReviewText).toContain('User next steps:');
+    expect(publishedReviewText).toContain('Validate this Skill: ready for the next step');
+    expect(publishedReviewText).toContain('Next steps:');
     expect(distributed).toMatchObject({
       platforms: [{ platform: 'claude', status: 'installed' }],
     });
@@ -2279,7 +2397,7 @@ prefer:
         scope: 'project',
       }),
     );
-    expect(text).toContain('executable protect-write:');
+    expect(text).toContain('Executable disclosures:');
     expect(text).toContain('protect-write');
   });
 });

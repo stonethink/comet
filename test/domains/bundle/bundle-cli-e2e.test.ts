@@ -316,6 +316,37 @@ prefer:
     });
   });
 
+  it('shows Skill Maker language before backend details in factory proposal text', async () => {
+    await fs.mkdir(path.join(projectRoot, '.comet', 'skills', 'factory-alpha'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(projectRoot, '.comet', 'skills', 'factory-alpha', 'SKILL.md'),
+      '---\nname: factory-alpha\ndescription: Alpha factory step.\n---\n# Alpha\n',
+    );
+    const planFile = path.join(root, 'factory-proposal-text-plan.json');
+    await writeFactoryPlan(planFile);
+
+    const result = runCli(
+      'bundle',
+      'factory-propose',
+      'skill-maker-alpha',
+      '--project',
+      projectRoot,
+      '--file',
+      planFile,
+    );
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain('You are making: Create a new Skill');
+    expect(result.stdout).toContain('Will generate:');
+    expect(result.stdout).toContain('Validate:');
+    expect(result.stdout).toContain('Install/enable:');
+    expect(result.stdout.indexOf('You are making:')).toBeLessThan(
+      result.stdout.indexOf('Advanced details:'),
+    );
+  });
+
   it('runs the factory path from plan to review summary through the CLI', async () => {
     await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
     await fs.mkdir(path.join(projectRoot, '.claude', 'skills', 'factory-alpha'), {

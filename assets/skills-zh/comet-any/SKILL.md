@@ -1,16 +1,18 @@
 ---
 name: comet-any
-description: "Skill 创建向导：创建或优化用户可直接调用的 Comet-native Skill。用 /comet-any 调用，读取项目级偏好 `.comet/skill-preferences.yaml`、解析本地真实 Skill、展示组合方案并生成 Skill Factory 产物，在内部使用 CLI 后端完成校验、Eval、发布与可选分发。"
+description: "Skill 创建向导：把 /comet-any 收敛为普通用户可理解的 Skill Maker。用 /comet-any 调用，围绕“改一版 /comet / 做一个新 Skill / 整理已有 Skill”和“加 / 换 / 关”生成可直接调用的 Comet-native Skill，并在内部使用 CLI 后端完成验证、生成可安装候选与可选安装。"
 ---
 
-# Comet Any — Comet Skill Factory
+# Comet Any — Skill Maker
 
-`/comet-any` 是 Comet 的 Skill 创建向导。用户只需要调用本 Skill，描述想创建或优化的工作流；
+`/comet-any` 是 Comet 的 Skill 创建向导。用户只需要调用本 Skill，描述想创建或整理的工作流；
 本 Skill 会先恢复现有流程、提供首次使用帮助、读取项目级偏好 `.comet/skill-preferences.yaml`、
-用 `find-skill` 查找本地真实 Skill 内容，先展示组合方案确认页并等待用户确认，再生成稳定组合 Skill Bundle，
-再在内部调用 CLI 后端完成校验、Eval、发布和可选分发。CLI 是内部确定性后端，用户只需要调用本 Skill。
-普通用户路径必须收束为 `/comet-any -> comet eval -> comet publish review/approve/run -> comet publish distribute --preview -> comet publish distribute`；其中 `comet skill`
-是底层 Skill 工具（Low-level Skill utilities），`comet bundle` 是高级 Bundle 后端（Advanced Bundle backend）。
+用 `find-skill` 查找本地真实 Skill 内容，先展示 Skill Maker 方案确认页并等待用户确认，再生成稳定组合 Skill Bundle，
+再在内部调用 CLI 后端完成验证、生成可安装候选和可选安装。CLI 是内部确定性后端，用户只需要调用本 Skill。
+普通用户第一层只看三种起点：`改一版 /comet`、`做一个新 Skill`、`整理已有 Skill`。普通用户不需要理解 Bundle、Factory、composition、
+Phase Recipe 或 template delta 这些后端概念；这些概念只存在于内部实现与审计证据中。
+当用户选择 `改一版 /comet` 时，必须把 `/comet` 视为受保护边界：`open / design / build / verify / archive` 和 `.comet.yaml`
+状态机不能被改写，允许修改的只有加、换、关。
 
 <IMPORTANT>
 Engine 是运行语义底座。多步骤、需要恢复、需要 guardrails、需要 runtime evals
@@ -32,17 +34,20 @@ Bundle 至少包含 `SKILL.md`、`comet/skill.yaml`、`comet/guardrails.yaml`、
 
 - 用户只需要调用本 Skill；不得把手动运行 `comet bundle` 或 `comet skill` 当作用户主流程。
 - CLI 是内部确定性后端，用户只需要调用本 Skill；不要要求用户记忆 Bundle 子命令。
+- 普通用户第一层必须收束为 Skill Maker：`改一版 /comet`、`做一个新 Skill`、`整理已有 Skill`，以及“加 / 换 / 关”。
+- 当用户选择 `改一版 /comet` 时，必须明确 `/comet` 的受保护边界：`open / design / build / verify / archive`、`.comet.yaml`、decision point、verify-result-transition、archive-delta-sync 不能被替换或删除。
 - 必须使用 `find-skill` 解析本地真实 Skill，不得只按名字猜测能力。
 - `.comet/skill-preferences.yaml` 是项目级偏好文件，支持 `advisory` 和 `strict`；生成前必须展示组合方案，说明 prefer/require、缺失/歧义、偏离原因、scripts/hooks 披露，并在确认后记录 `preferenceHash`。
 - 缺失或歧义候选必须暂停并询问用户，不得静默忽略或替用户选择。
 - 必须使用 `comet bundle` CLI 维护确定性状态，不得手写 `.comet/bundle-*` 状态文件。
-- 必须先展示 Eval 工作量和 token 消耗，再让用户选择 `skip / quick / full Eval`。
-- skip 或失败 Eval 时不得进入 ready，不得发布，不得分发。
+- 必须先展示验证工作量和 token 消耗，再让用户选择 `skip / quick / full Eval`。
+- skip 或失败验证时不得进入 ready，不得生成可安装候选，不得安装/启用。
+- Eval 证据缺失时不得进入 ready。
 - 在非 JSON 输出下，也必须明确展示 `Readiness:`、`Blockers:`、`Warnings:` 和 `Evidence:`，
   让用户能直接看懂 readiness、阻塞点、警告、证据和恢复线索。
 - 发布前必须读取 review summary 的 readiness；存在 unresolved candidate、缺失当前 hash 的 Eval 证据、
   缺失当前 hash 的人工 approval、capability gap 或 executable disclosure 未确认时，不得发布 ready。
-- 发布前必须人工批准；分发前必须询问用户。
+- 进入 ready 前必须人工批准；安装前必须询问用户。
 - 原生 `skill-creator` 优先；回退前必须询问用户是否允许 Comet fallback。
 
 ## 步骤
@@ -84,12 +89,13 @@ comet publish status <name> --json
 
 如果用户是第一次使用 `/comet-any`，应明确告诉用户：CLI 是内部确定性后端，用户只需要调用本 Skill。
 
-### 3. 选择 create/optimize 与语言
+### 3. 选择起点与语言
 
-询问用户选择：
+询问用户选择三种起点之一：
 
-- `create`：从目标描述创建新 Skill Factory 产物。
-- `optimize`：读取现有 Skill 或候选 Skill，优化成新的 Comet-native Skill。
+- `改一版 /comet`：在 `/comet` 受保护边界内做增量调整，只允许加、换、关。
+- `做一个新 Skill`：从目标描述创建新的 Comet-native Skill。
+- `整理已有 Skill`：读取现有 Skill 或候选 Skill，整理成新的 Comet-native Skill。
 
 同时确认默认语言和 locales。至少记录默认 locale；多语言 Skill 需要说明哪些文件由 locale overlay 覆盖。
 
@@ -125,12 +131,13 @@ comet bundle factory-resolve <name> --candidate <query> --ignore-missing --reaso
 
 读取候选 `SKILL.md`，并按需读取候选引用的 reference、rules、scripts、hooks。这里只读真实实现，绝不执行候选脚本。
 
-### 7. 展示组合方案并等待确认
+### 7. 生成 Skill Maker 方案并等待确认
 
 先按 `.comet/skill-preferences.yaml` 的 `prefer`/`require` 提出组合方案，并标注每个 Skill 的 `preferenceIndex`、来源、hash、用途和调用顺序。
 组合方案必须说明哪些 Skill 来自项目级偏好，哪些由目标语义自动补充，哪些缺失或歧义，是否偏离偏好顺序，以及 scripts/hooks 会产生什么可执行披露。
+如果起点是 `改一版 /comet`，必须把方案表达成对 `/comet` 的“加 / 换 / 关”，而不是直接向用户暴露 Bundle/Factory/composition 术语。
 用户确认前不得生成 Bundle draft；用户可以调整偏好、选择歧义来源、移除缺失 Skill、切换 `advisory`/`strict` 或取消。
-必须明确告诉用户现在展示的是“组合方案确认页”。
+必须明确告诉用户现在展示的是“Skill Maker 方案确认页”。
 
 用户必须在组合方案确认页做三选一：
 
@@ -150,7 +157,7 @@ comet bundle factory-resolve <name> --candidate <query> --ignore-missing --reaso
 - 目标平台、required/optional 能力与能力缺口策略。
 - 是否需要 Engine、runner 恢复和 runtime eval。
 
-### 9. 通过 CLI 初始化草稿与 Factory metadata
+### 9. 通过 CLI 初始化草稿与内部 metadata
 
 优先生成结构化 plan 文件。写入任何 Bundle draft 前，先运行 dry-run proposal：
 
@@ -164,14 +171,14 @@ comet bundle factory-propose <name> --file <plan.json> --json
 comet bundle factory-init <name> --file <plan.json> --confirmed-proposal --json
 ```
 
-`proposalHash` 必须由本次 proposal 的 Factory metadata 记录并在后端校验，不由用户作为 CLI 参数传入。
+`proposalHash` 必须由本次 proposal 的 Factory metadata 记录并在后端校验，不由用户作为 CLI 参数传入；这属于内部 metadata 记录的一部分。
 
 若前一次为了 `factory-resolve` 已创建 unresolved Factory state，解决候选/组合 blocker 后仍然要重新运行同一条 `factory-init --confirmed-proposal`；后端会基于当前已解决 state 写入确认 metadata，缺少该 metadata 时 `factory-generate`、review 和 publish 都会拒绝继续。
 
 这个命令必须负责两件事：
 
 - 若 draft 尚不存在，则按 create/optimize 模式创建 draft。
-- 把偏好顺序、required Skill、`advisory`/`strict` 模式、策略、`preferenceHash`、解析后的真实 Skill、默认调用链、偏离原因和 Engine 模式写入 Factory metadata，由 CLI 维护确定性状态。
+- 把偏好顺序、required Skill、`advisory`/`strict` 模式、策略、`preferenceHash`、解析后的真实 Skill、默认调用链、偏离原因和 Engine 模式写入内部 metadata，由 CLI 维护确定性状态。
 - 将规范化后的计划固化到 `.comet/bundle-factory-plans/<name>/plan.json`，并在 metadata 中记录 `planHash`，供恢复、评审和审计使用。
 
 只有在需要恢复旧状态、排查后端问题或显式优化既有 Bundle 时，才单独使用：
@@ -189,7 +196,7 @@ comet bundle status <name> --json
 生成 entry Skill、internal Skill、references、scripts、rules 和 hooks。用户不需要手动运行
 `comet bundle` 或 `comet skill`；所有这些都是内部后端步骤。
 
-生成物必须包含真实 Skill 证据摘要和“组合后的工作方式”，并把结构化证据写入
+生成物必须包含真实 Skill 证据摘要和“整理后的工作方式”，并把结构化证据写入
 `reference/resolved-skills.json`。摘要应引用 resolved Skill 的名称、来源、描述、hash 和从真实
 `SKILL.md` 正文提炼出的内容；`resolved-skills.json` 必须包含 `sourceSummaries`，证明组合基于本地真实内容而不是只按名称猜测。
 
@@ -227,7 +234,7 @@ comet bundle compile <name> --platform <id> --json
 
 如存在能力缺口或可执行披露，必须展示给用户。required 能力缺口会阻塞对应平台；optional 能力缺口必须由用户显式选择 skip。
 
-### 13. 展示 Eval 工作量并询问 skip/quick/full
+### 13. 展示验证工作量并询问 skip/quick/full
 
 运行：
 
@@ -238,7 +245,7 @@ comet bundle eval-plan <name> --level full --json
 
 向用户解释 quick/full 的 token 消耗、预计运行次数和覆盖范围，然后询问 `skip / quick / full Eval`。选择 skip 时，状态保持 draft，不得继续 ready。
 
-### 14. 记录 Eval 证据
+### 14. 记录验证证据
 
 用户选择 quick/full 后，调用 Eval provider，生成结构化结果文件，再运行：
 
@@ -248,7 +255,7 @@ comet bundle eval-record <name> --result <file> --json
 
 Eval 失败或哈希不匹配时停止，回到草稿修复。
 
-### 展示用户可读 readiness 并等待显式批准
+### 展示用户可读验证摘要并等待显式批准
 
 先运行：
 
@@ -257,7 +264,7 @@ comet publish review <name> --platform <reference-platform> --json
 ```
 
 基于该摘要展示 entry Skill、internal Skill、planHash、preferenceHash、项目级偏好模式、真实 Skill 证据、推荐调用顺序、偏离偏好顺序、能力缺口、可执行披露、quick/full Eval 工作量、Eval 结果和目标平台。偏离偏好顺序时必须说明原因。
-必须把用户可读 readiness 摘要直接展示出来，至少包括 `Publish readiness:`、`User next steps:`、`Readiness:`、`Blockers:`、`Warnings:` 和 `Evidence:`。若使用非 JSON 输出，也必须逐项读取这些字段。
+必须把用户可读验证摘要直接展示出来，至少包括 `Validate this Skill`、`Readiness:`、`Blockers:`、`Warnings:` 和 `Evidence:`。若使用非 JSON 输出，也必须逐项读取这些字段。
 当 `Readiness: blocked` 时，先根据 blockers 处理候选恢复、Eval 或 review，再继续 publish。若 readiness 不是 `publishable`，或其中显示 Eval 证据缺失时不得发布 ready。
 
 批准：
@@ -272,7 +279,7 @@ comet publish approve <name> --reviewer <reviewer> --json
 comet bundle review <name> --reject --reviewer <reviewer> --json
 ```
 
-### 15. 发布
+### 15. 生成可安装候选
 
 只有当前哈希已通过 Eval 且人工批准后，才能运行：
 
@@ -280,7 +287,7 @@ comet bundle review <name> --reject --reviewer <reviewer> --json
 comet publish run <name> --platform <reference-platform> --json
 ```
 
-### 16. 分发预览
+### 16. 安装预览
 
 分发前必须先运行：
 
@@ -288,12 +295,12 @@ comet publish run <name> --platform <reference-platform> --json
 comet publish distribute <name> --platform <id> --scope project --preview --json
 ```
 
-必须把 `Distribution preview`、planned files、unsupported capability、可执行披露和 `No files were written` 明确展示给用户。
+必须把 `Install preview`、planned files、unsupported capability、可执行披露和 `No files were written` 明确展示给用户。
 只有用户确认 preview 中的 planned files、unsupported capability 和 executable disclosures 后，才可以移除 `--preview` 执行真实分发。
 
-### 17. 询问是否执行分发
+### 17. 询问是否执行安装
 
-发布后询问用户是否执行分发。不得自动分发。
+ready 后询问用户是否执行安装/启用。不得自动安装。
 
 如果用户同意，先展示平台能力缺口和可执行披露；存在 Hook/脚本时必须取得确认，然后运行：
 

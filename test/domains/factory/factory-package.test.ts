@@ -258,7 +258,18 @@ Ask clarifying questions one at a time before presenting a design.
         issues: [],
       },
       engineMode: 'deterministic',
-    });
+      skillMaker: {
+        intent: 'customize-comet',
+        baseTemplate: { skill: 'comet', profile: 'full' },
+        templateExpansion: {
+          retained: ['open / design / build / verify / archive'],
+          additions: ['verify before: security-review'],
+          replacements: ['build writing-plans: writing-plans -> team-planning'],
+          disabled: ['build build-review'],
+          rejected: [],
+        },
+      },
+    } as any);
 
     await expect(
       fs.access(path.join(output.packageRoot, 'reference', 'composition-report.md')),
@@ -288,6 +299,9 @@ Ask clarifying questions one at a time before presenting a design.
     expect(report).toContain('- stable-workflow');
     expect(report).toContain('step-1-brainstorming');
     expect(report).toContain('No composition issues.');
+    expect(report).toContain('## Skill Maker Summary');
+    expect(report).toContain('Intent: customize-comet');
+    expect(report).toContain('verify before: security-review');
     const planScript = await fs.readFile(
       path.join(output.packageRoot, 'scripts', 'comet-plan.mjs'),
       'utf8',

@@ -29,6 +29,11 @@ import {
 } from '../../domains/bundle/next-action.js';
 import { readProjectSkillPreferences } from '../../domains/skill/preferences.js';
 import type { BundleCapability } from '../../domains/bundle/types.js';
+import {
+  buildSkillMakerInstallText,
+  buildSkillMakerResumeText,
+  formatSkillMakerPlanSummary,
+} from '../../domains/bundle/user-facing.js';
 
 interface BundleCommandOptions {
   project?: string;
@@ -96,12 +101,21 @@ function formatStatusText(
   state: Awaited<ReturnType<typeof reconcileBundleAuthoringState>>,
   resumeSummary: ReturnType<typeof buildBundleResumeSummary>,
 ): string {
+  const userText = buildSkillMakerResumeText({
+    title: 'Found an unfinished Skill creation',
+    completed: resumeSummary.completed,
+    missing: resumeSummary.missing,
+    nextAction: resumeSummary.recommendedNextStep.userLabel,
+    choices: resumeSummary.choices.map((choice) => choice.label),
+  });
   const factoryPackage =
     state.factory?.generatedSkillPackage?.packageRoot ??
     state.factory?.planPath ??
     'missing; run comet bundle factory-generate or inspect factory-init plan';
 
   return [
+    userText,
+    'Advanced details:',
     `Bundle: ${state.name}`,
     `Status: ${state.status}`,
     `Hash: ${state.currentHash ?? '(invalid)'}`,
@@ -181,10 +195,12 @@ function formatReviewSummaryText(
   summary: Awaited<ReturnType<typeof buildBundleReviewSummary>>,
 ): string {
   const userLines = [
-    `Publish readiness: ${summary.userSummary.title}`,
+    summary.userSummary.conclusion === 'blocked'
+      ? 'Validate this Skill: blocked'
+      : 'Validate this Skill: ready for the next step',
     summary.userSummary.summary,
     ...formatOptionalSection(
-      'User next steps:',
+      'Next steps:',
       summary.userSummary.nextSteps.map((step) => `${step.label}: ${step.command}`),
     ),
   ];
@@ -212,31 +228,28 @@ function formatReviewSummaryText(
 }
 
 function formatDistributionText(result: Awaited<ReturnType<typeof distributeBundle>>): string {
-  const lines = [
-    result.preview ? 'Distribution preview' : 'Distribution result',
-    `Bundle: ${result.bundle}`,
-    `Hash: ${result.hash}`,
-    ...(result.preview ? ['No files were written'] : []),
-  ];
-  for (const platform of result.platforms) {
-    lines.push(`${platform.platform}: ${platform.status}`);
-    lines.push(...platform.plannedFiles.map((file) => `  plan ${file.kind}: ${file.destination}`));
-    lines.push(...platform.written.map((file) => `  wrote: ${file}`));
-    lines.push(...platform.skipped.map((file) => `  skipped: ${file}`));
-    for (const unsupported of platform.unsupported) {
-      lines.push(
-        `  unsupported ${unsupported.capability}${unsupported.required ? ' (required)' : ''}: ${unsupported.reason}`,
-      );
-    }
-    for (const disclosure of platform.executableDisclosures) {
-      lines.push(
-        `  executable ${disclosure.id}: ${disclosure.command} (${disclosure.sideEffect}) -> ${disclosure.destination}`,
-      );
-    }
-    if (platform.manualAction) lines.push(`  next: ${platform.manualAction}`);
-    if (platform.error) lines.push(`  error: ${platform.error}`);
-  }
-  return lines.join('\n');
+  return buildSkillMakerInstallText({
+    preview: result.preview,
+    skillName: result.bundle,
+    platforms: result.platforms.map((platform) => `${platform.platform}: ${platform.status}`),
+    plannedFiles: result.platforms.flatMap((platform) =>
+      platform.plannedFiles.map((file) => `${file.kind}: ${file.destination}`),
+    ),
+    disclosures: result.platforms.flatMap((platform) => [
+      ...platform.executableDisclosures.map(
+        (disclosure) =>
+          `${disclosure.id}: ${disclosure.command} (${disclosure.sideEffect}) -> ${disclosure.destination}`,
+      ),
+      ...platform.unsupported.map(
+        (unsupported) =>
+          `${unsupported.capability}${unsupported.required ? ' (required)' : ''}: ${unsupported.reason}`,
+      ),
+      ...(platform.manualAction ? [platform.manualAction] : []),
+      ...(platform.error ? [platform.error] : []),
+      ...platform.written.map((file) => `wrote: ${file}`),
+      ...platform.skipped.map((file) => `skipped: ${file}`),
+    ]),
+  });
 }
 
 async function compileDraft(
@@ -382,9 +395,9 @@ export async function bundleFactoryProposeCommand(
     proposal,
     options.json,
     [
+      formatSkillMakerPlanSummary(proposal.skillMakerSummary),
+      'Advanced details:',
       `Factory proposal ${proposal.name}`,
-      proposal.userSummary.title,
-      `Goal: ${proposal.goal}`,
       `Preference mode: ${proposal.preference.mode}`,
       `Can generate: ${proposal.canGenerate ? 'yes' : 'no'}`,
       ...formatOptionalSection(
@@ -392,15 +405,6 @@ export async function bundleFactoryProposeCommand(
         proposal.userSummary.reusedSkills.map(
           (item) => `${item.skill}: ${item.status}; ${item.sourceCount} source(s)`,
         ),
-      ),
-      ...formatOptionalSection(
-        'Will generate control plane:',
-        proposal.userSummary.generatedControlPlane,
-      ),
-      ...formatOptionalSection('Validation plan:', proposal.userSummary.validationPlan),
-      ...formatOptionalSection(
-        'Required confirmations:',
-        proposal.userSummary.requiredConfirmations.map((item) => `${item.label} - ${item.reason}`),
       ),
       ...formatOptionalSection('Blockers:', proposal.blockers),
       ...formatOptionalSection(

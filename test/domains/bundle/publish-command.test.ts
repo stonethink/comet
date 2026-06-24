@@ -159,6 +159,8 @@ describe('publish command facade', () => {
     const text = await captureText(() =>
       publishStatusCommand('publish-facade', { project: projectRoot }),
     );
+    expect(text).toContain('Found an unfinished Skill creation');
+    expect(text).toContain('Still needed:');
     expect(text).toContain('Current step: needs-eval');
     expect(text).toContain('Suggested user command:');
   });
@@ -229,15 +231,15 @@ describe('publish command facade', () => {
         platform: 'claude',
       }),
     );
-    expect(reviewText).toContain('Publish readiness:');
-    expect(reviewText).toContain('User next steps:');
+    expect(reviewText).toContain('Validate this Skill');
+    expect(reviewText).toContain('Next steps:');
 
     expect(approved).toMatchObject({ status: 'review-approved' });
-    expect(publishableReviewText).toContain('Publish readiness: Ready to publish');
-    expect(publishableReviewText).toContain('User next steps:');
+    expect(publishableReviewText).toContain('Validate this Skill: ready for the next step');
+    expect(publishableReviewText).toContain('Next steps:');
     expect(published).toMatchObject({ status: 'ready' });
-    expect(publishedReviewText).toContain('Publish readiness: Already published');
-    expect(publishedReviewText).toContain('User next steps:');
+    expect(publishedReviewText).toContain('Validate this Skill: ready for the next step');
+    expect(publishedReviewText).toContain('Next steps:');
     expect(distributed).toMatchObject({
       platforms: [
         {
@@ -267,10 +269,9 @@ describe('publish command facade', () => {
       }),
     );
 
-    expect(text).toContain('Distribution result');
+    expect(text).toContain('Install result');
     expect(text).toContain('claude: installed');
-    expect(text).toContain('executable guard:');
-    expect(text).toContain('(read) ->');
+    expect(text).toContain('Executable disclosures:');
   });
 
   it('previews publish distribution through the facade without writing files', async () => {
@@ -324,7 +325,7 @@ describe('publish command facade', () => {
         preview: true,
       }),
     );
-    expect(text).toContain('Distribution preview');
+    expect(text).toContain('Install preview');
     expect(text).toContain('No files were written');
   });
 });
