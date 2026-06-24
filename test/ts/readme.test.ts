@@ -48,6 +48,7 @@ describe('README assets', () => {
     expect(readmeEn).toContain('`/comet-any` is the main user path');
     expect(readmeEn).toContain('`comet eval`');
     expect(readmeEn).toContain('`comet publish`');
+    expect(readmeEn).toContain('`comet publish distribute --preview`');
     expect(readmeEn).toContain('stable composed Skill');
     expect(readmeEn).toContain('Advanced Bundle backend');
     expect(readmeEn).toContain('Skill creation guide');
@@ -55,6 +56,7 @@ describe('README assets', () => {
     expect(readmeZh).toContain('`/comet-any` 是普通用户主路径');
     expect(readmeZh).toContain('`comet eval`');
     expect(readmeZh).toContain('`comet publish`');
+    expect(readmeZh).toContain('`comet publish distribute --preview`');
     expect(readmeZh).toContain('稳定组合 Skill');
     expect(readmeZh).toContain('高级 Bundle 后端');
     expect(readmeZh).toContain('Skill 创建文档');

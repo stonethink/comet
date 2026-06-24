@@ -15,6 +15,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **MimoCode support**: Adds native MimoCode platform support with project installs under `.mimocode/`, global installs under `.config/mimocode/`, OpenCode-style slash commands, and mirrored OpenSpec output.
 - **Stable composed Skill control plane**: Generated `/comet-any` Skill Bundles now include the required scripts, rules, hooks, runtime checks, Eval manifest, and composition evidence needed for resumable and guarded execution.
 - **Factory Skill composition**: Adds creation-time expansion for source Skill `comet/flow.yaml` files, including choice resolution and cycle detection before compiling the final Plan.
+- **Comet Any user guidance**: Added a first-use Factory guide, confirmable composition proposals, resume summaries, and distribution preview so `/comet-any` can guide users through creation, Eval, publish, and platform distribution without requiring Bundle CLI knowledge.
 
 ### Changed
 
@@ -27,6 +28,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Bundle distribution disclosure**: Publish distribution output now exposes planned files and executable hook disclosures so required control-plane effects are visible before installation.
 - **Stable composed Skill Bundle wording**: Clarifies the `/comet-any` surface, docs, and CLI help so the stable composed Skill Bundle contract names the `skills/scripts/rules/hooks/references` capability set, keeps `scripts/rules/hooks` as the required control plane, and uses the exact `Low-level Skill utilities` / `Advanced Bundle backend` help text casing users now see in the CLI.
 - **Comet Any preferences**: Replaces the unpublished `.comet/skills.txt` user path with project-level `.comet/skill-preferences.yaml`, inventory-backed preference setup, proposal preview, and preference-aware review readiness so users can create Comet-style Skills without learning internal Bundle files.
+- **Publish readiness**: Review output now includes user-facing readiness conclusions and next steps before raw blocker evidence, making publish blockers actionable for ordinary users.
 
 ### Fixed
 
@@ -51,6 +53,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Submodule hook coverage**: Adds regression coverage for stable hook command generation and phase guarding when the hook process runs from a nested submodule directory.
 - **MimoCode platform coverage**: Adds regression coverage for platform detection, slash command generation, OpenSpec mirroring, Superpowers staging, init E2E behavior, CI path checks, and Bundle compatibility.
 - **Comet Any preference guide**: Adds coverage for preference parsing, Skill inventory grouping, Factory proposal previews, strict/advisory policy readiness, generated preference evidence, and bilingual `/comet-any` docs.
+- **Comet Any lifecycle**: Added coverage for Factory guide output, proposal confirmation metadata, resume summaries, readiness user summaries, and publish distribution preview.
 
 ### Removed
 

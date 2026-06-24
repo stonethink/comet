@@ -226,11 +226,17 @@ describe('Bilingual comet-any Skill parity', () => {
       { zh: '回退前必须询问用户', en: 'must ask the user before fallback' },
       { zh: 'skip / quick / full Eval', en: 'skip / quick / full Eval' },
       { zh: 'readiness', en: 'readiness' },
+      { zh: '首次使用向导', en: 'first-use guide' },
+      { zh: '恢复摘要', en: 'resume summary' },
       { zh: '非 JSON 输出', en: 'non-JSON output' },
       { zh: 'Readiness:', en: 'Readiness:' },
       { zh: 'Blockers:', en: 'Blockers:' },
       { zh: 'Warnings:', en: 'Warnings:' },
       { zh: 'Evidence:', en: 'Evidence:' },
+      { zh: '展示组合方案确认页', en: 'show the composition confirmation page' },
+      { zh: '--confirmed-proposal', en: '--confirmed-proposal' },
+      { zh: 'Publish readiness:', en: 'Publish readiness:' },
+      { zh: 'User next steps:', en: 'User next steps:' },
       { zh: 'authoring-skill', en: 'authoring-skill' },
       { zh: 'authoring-skill-smoke', en: 'authoring-skill-smoke' },
       { zh: 'comet/eval.yaml', en: 'comet/eval.yaml' },
@@ -254,6 +260,9 @@ describe('Bilingual comet-any Skill parity', () => {
       { zh: '读取候选 `SKILL.md`', en: 'read candidate `SKILL.md`' },
       { zh: '能力缺口', en: 'capability gaps' },
       { zh: '可执行披露', en: 'executable disclosures' },
+      { zh: '--preview', en: '--preview' },
+      { zh: 'Distribution preview', en: 'Distribution preview' },
+      { zh: 'No files were written', en: 'No files were written' },
     ];
 
     for (const { zh: zhPhrase, en: enPhrase } of parity) {
