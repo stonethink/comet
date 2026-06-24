@@ -8,6 +8,10 @@ import { reconcileBundleAuthoringState } from './state.js';
 import type { BundleAuthoringState, BundleCompilerIr, SkillBundle } from './types.js';
 import { listBundlePlatformTargets } from './bundle-platform.js';
 import { readProjectSkillPreferences } from '../skill/preferences.js';
+import {
+  buildReadinessUserSummary,
+  type BundleReadinessUserSummary,
+} from './readiness-user-summary.js';
 
 export interface BundleReviewReadiness {
   state: 'blocked' | 'reviewable' | 'publishable' | 'published';
@@ -32,6 +36,7 @@ export interface BundleReviewSummary {
   review: BundleAuthoringState['review'] | null;
   ready: BundleAuthoringState['ready'] | null;
   readiness: BundleReviewReadiness;
+  userSummary: BundleReadinessUserSummary;
 }
 
 function buildReadiness(
@@ -222,6 +227,7 @@ export async function buildBundleReviewSummary(options: {
         locale,
       })
     : fallbackCompileReport({ bundle, platform: target.id, scope });
+  const readiness = buildReadiness(state, controlPlane, compile, currentPreferences?.hash ?? null);
 
   return {
     schemaVersion: 1,
@@ -238,6 +244,7 @@ export async function buildBundleReviewSummary(options: {
     eval: state.eval ?? null,
     review: state.review ?? null,
     ready: state.ready ?? null,
-    readiness: buildReadiness(state, controlPlane, compile, currentPreferences?.hash ?? null),
+    readiness,
+    userSummary: buildReadinessUserSummary(state.name, readiness),
   };
 }

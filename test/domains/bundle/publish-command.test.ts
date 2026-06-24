@@ -210,6 +210,16 @@ describe('publish command facade', () => {
       name: 'publish-facade',
       readiness: { state: 'reviewable' },
     });
+
+    const reviewText = await captureText(() =>
+      publishReviewCommand('publish-facade', {
+        project: projectRoot,
+        platform: 'claude',
+      }),
+    );
+    expect(reviewText).toContain('Publish readiness:');
+    expect(reviewText).toContain('User next steps:');
+
     expect(approved).toMatchObject({ status: 'review-approved' });
     expect(published).toMatchObject({ status: 'ready' });
     expect(distributed).toMatchObject({

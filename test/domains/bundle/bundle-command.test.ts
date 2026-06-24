@@ -1704,6 +1704,16 @@ prefer:
       eval: null,
       review: null,
     });
+
+    const text = await captureText(() =>
+      bundleReviewSummaryCommand('review-factory', {
+        project: projectRoot,
+        platform: 'claude',
+      }),
+    );
+    expect(text).toContain('Publish readiness:');
+    expect(text).toContain('User next steps:');
+    expect(text).not.toContain('Readiness: blocked\nBlockers:\n- [eval]');
   });
 
   it('points composition-blocked factory states away from factory-generate as the next action', async () => {

@@ -618,6 +618,28 @@ prefer:
         expect.stringContaining('[eval]'),
       ]),
     );
+    expect(blocked.userSummary).toMatchObject({
+      conclusion: 'blocked',
+      title: 'Cannot publish yet',
+    });
+    expect(blocked.userSummary.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'candidate',
+          severity: 'blocker',
+          nextAction: expect.objectContaining({
+            label: expect.stringContaining('Resolve'),
+          }),
+        }),
+        expect.objectContaining({
+          code: 'eval',
+          severity: 'blocker',
+          nextAction: expect.objectContaining({
+            command: expect.stringContaining('comet eval run'),
+          }),
+        }),
+      ]),
+    );
 
     await writeBundleAuthoringState(projectRoot, {
       ...blockedState,
@@ -657,6 +679,10 @@ prefer:
       platform: 'claude',
     });
     expect(reviewable.readiness.state).toBe('reviewable');
+    expect(reviewable.userSummary).toMatchObject({
+      conclusion: 'needs-confirmation',
+      title: 'Ready for review approval',
+    });
     expect(reviewable.readiness.warnings).toEqual(
       expect.arrayContaining([expect.stringContaining('[review]')]),
     );
@@ -685,6 +711,10 @@ prefer:
       platform: 'claude',
     });
     expect(publishable.readiness.state).toBe('publishable');
+    expect(publishable.userSummary).toMatchObject({
+      conclusion: 'can-publish',
+      title: 'Ready to publish',
+    });
 
     await writeBundleAuthoringState(projectRoot, {
       ...(await reconcileBundleAuthoringState(projectRoot, 'factory-classified')),
@@ -720,6 +750,10 @@ prefer:
     });
     expect(published.status).toBe('ready');
     expect(published.readiness.state).toBe('published');
+    expect(published.userSummary).toMatchObject({
+      conclusion: 'published',
+      title: 'Already published',
+    });
   });
 
   it('surfaces capability and executable-disclosure readiness hints from real platform compile output', async () => {

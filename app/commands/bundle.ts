@@ -179,8 +179,17 @@ function formatFactoryGuideText(
 function formatReviewSummaryText(
   summary: Awaited<ReturnType<typeof buildBundleReviewSummary>>,
 ): string {
+  const userLines = [
+    `Publish readiness: ${summary.userSummary.title}`,
+    summary.userSummary.summary,
+    ...formatOptionalSection(
+      'User next steps:',
+      summary.userSummary.nextSteps.map((step) => `${step.label}: ${step.command}`),
+    ),
+  ];
   const readinessLines = [
     `Readiness: ${summary.readiness.state}`,
+    'Readiness details:',
     ...formatOptionalSection('Blockers:', summary.readiness.blockers),
     ...formatOptionalSection('Warnings:', summary.readiness.warnings),
     ...formatOptionalSection(
@@ -194,6 +203,7 @@ function formatReviewSummaryText(
     `Status: ${summary.status}`,
     `Hash: ${summary.hash ?? '(invalid)'}`,
     `Platform: ${summary.compile.platform}`,
+    ...userLines,
     `Quick Eval runs: ${summary.evalPlans.quick.estimatedRuns}`,
     `Full Eval runs: ${summary.evalPlans.full.estimatedRuns}`,
     ...readinessLines,
