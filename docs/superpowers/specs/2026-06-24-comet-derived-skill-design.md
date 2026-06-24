@@ -22,7 +22,7 @@
 
 1. 让用户可以用 `/comet-any` 创建“像 `/comet`，但带有自定义 Skill 增删”的新工作流。
 2. 保留 `/comet` 的核心可靠性：OpenSpec change 生命周期、`.comet.yaml`、phase guard、handoff、verify、archive。
-3. 允许用户在明确槽位上插入、替换或关闭 Skill。
+3. 允许用户在明确阶段、阶段内步骤或可选扩展点上插入、替换或关闭 Skill。
 4. 在生成前展示模板差异确认页，让用户知道哪些部分来自原始 `/comet`，哪些是自定义变化。
 5. 复用现有 Bundle Factory、composition、proposal confirmation、eval、publish/distribute 流程。
 6. 不直接修改 Superpowers、OpenSpec 或原始 Comet Skill。
@@ -56,12 +56,13 @@ derive      基于受保护模板派生新 Skill
 
 ## 用户扩展体验
 
-用户不需要理解 `templateDelta`、`callChain` 或 Bundle 内部状态。`derive` 模式应把扩展动作收敛成三类用户语言：
+用户不需要理解 `templateDelta`、`callChain` 或 Bundle 内部状态。`derive` 模式应把扩展动作收敛成四类用户语言：
 
 ```text
 加一步：在某个阶段前后插入 Skill
-换一步：替换某个可替换槽位的默认 Skill
-关一步：关闭某个可选槽位
+加到阶段内：在某阶段内部某一步前后插入 Skill
+换一步：替换某个可替换步骤或扩展点的默认 Skill
+关一步：关闭某个可选步骤或扩展点
 ```
 
 典型对话：
@@ -92,6 +93,28 @@ build-execution: default -> team-builder
 请选择：确认生成 / 修改方案 / 取消
 ```
 
+阶段内扩展示例：
+
+```text
+用户：
+在 design 阶段 brainstorming 之后加 architecture-review，
+在 build 阶段写计划之前加 risk-assessment，
+然后把 writing-plans 换成 team-planning。
+
+/comet-any：
+我会保留 /comet 的阶段边界和状态迁移，只修改阶段内部可扩展步骤。
+
+阶段内新增：
+design.after(brainstorming): architecture-review
+build.before(writing-plans): risk-assessment
+
+阶段内替换：
+build.step(writing-plans): writing-plans -> team-planning
+
+保留：
+design entry check、design guard、build entry check、build guard、verify 和 archive 闭环
+```
+
 另一个关闭可选能力的例子：
 
 ```text
@@ -99,7 +122,7 @@ build-execution: default -> team-builder
 我想要一个轻量版 comet，不要最终代码审查，但其他阶段都保留。
 
 /comet-any：
-可以关闭 build-review 这个可选槽位。
+可以关闭 build-review 这个可选步骤。
 不能删除 verify 阶段；verify 是 Comet 的核心闭环。
 
 关闭：
@@ -120,15 +143,15 @@ build-review -> review_mode: off
 3. 新增 post-verify 自动摘要 Skill。
 ```
 
-因此，普通用户扩展的是“槽位”，不是 `/comet` 本体。Agent 可以把用户自然语言翻译成 `templateDelta`，但必须在生成前用确认页让用户看到实际差异。
+因此，普通用户扩展的是“阶段配方里的扩展点”，不是 `/comet` 本体。Agent 可以把用户自然语言翻译成 `templateDelta`，但必须在生成前用确认页让用户看到实际差异。
 
 ## 受保护模板
 
-Comet 模板应分成两层：
+Comet 模板应表达为 Phase Recipe，而不是只有一层粗粒度扩展点。每个 phase recipe 包含阶段边界、阶段内步骤和扩展点。
 
-### Protected Anchors
+### Protected Phase Boundaries
 
-这些锚点不能被删除，只能被包装或在前后插入扩展：
+这些阶段边界不能被删除，只能被包装或在前后插入扩展：
 
 - `open`
 - `design`
@@ -142,9 +165,41 @@ Comet 模板应分成两层：
 - verify result handling
 - archive delta sync semantics
 
-### Extension Slots
+### Step Types
 
-用户可以在这些槽位上添加、替换或关闭能力：
+阶段内部的 step 必须有类型，决定用户能否插入、替换或关闭：
+
+- `protected`：核心步骤，不能替换或关闭，只能在前后插入扩展。
+- `mutable`：可替换步骤，可以替换为另一个 Skill，但必须保留输入输出语义。
+- `optional`：可关闭步骤，关闭时必须记录映射到的 Comet 配置或生成物行为。
+- `extension`：空扩展点，可插入一个或多个 Skill。
+
+示例 phase recipe：
+
+```text
+phase: design
+  protected: entry-check
+  mutable: brainstorming
+  protected: design-doc-recorded
+  protected: guard-transition
+
+phase: build
+  protected: entry-check
+  mutable: writing-plans
+  mutable: build-execution
+  optional: build-review
+  protected: guard-transition
+
+phase: verify
+  protected: entry-check
+  mutable: verification-before-completion
+  optional: finishing-branch
+  protected: verify-result-transition
+```
+
+### Extension Points
+
+用户可以在这些粗粒度扩展点上添加能力：
 
 - `before-open`
 - `after-open`
@@ -158,7 +213,9 @@ Comet 模板应分成两层：
 - `pre-archive`
 - `post-archive`
 
-关闭能力只适用于可选槽位。例如关闭最终代码审查应映射为 `review_mode: off` 或移除 `build-review` 扩展，而不是删除 `verify` 阶段。
+粗粒度扩展点适合“在某阶段前后加一步”。复杂情况应使用 phase 内部 step 级操作。
+
+关闭能力只适用于 `optional` step 或可选扩展点。例如关闭最终代码审查应映射为 `review_mode: off` 或移除 `build-review` 扩展，而不是删除 `verify` 阶段。
 
 ## 派生计划结构
 
@@ -174,10 +231,36 @@ Factory plan 扩展 `mode: "derive"`，并新增 `baseTemplate` 与 `templateDel
     "versionHash": "<resolved-comet-hash>"
   },
   "templateDelta": {
-    "insertAfter": {
-      "design": ["security-review"]
+    "extensionPoints": {
+      "insertAfter": {
+        "design": ["security-review"]
+      }
     },
-    "replace": {
+    "phases": {
+      "design": {
+        "insertAfterStep": [
+          {
+            "targetStep": "brainstorming",
+            "skill": "architecture-review"
+          }
+        ]
+      },
+      "build": {
+        "insertBeforeStep": [
+          {
+            "targetStep": "writing-plans",
+            "skill": "risk-assessment"
+          }
+        ],
+        "replaceStep": [
+          {
+            "targetStep": "writing-plans",
+            "skill": "team-planning"
+          }
+        ]
+      }
+    },
+    "replaceExtensionPoint": {
       "build-execution": "team-builder"
     },
     "disable": ["build-review"]
@@ -196,33 +279,46 @@ Factory plan 扩展 `mode: "derive"`，并新增 `baseTemplate` 与 `templateDel
 
 ### Insert
 
-`insertBefore` / `insertAfter` 在指定 protected anchor 或 extension slot 前后插入 Skill。
+`insertBefore` / `insertAfter` 在指定 protected phase boundary 或 extension point 前后插入 Skill。
+`insertBeforeStep` / `insertAfterStep` 在指定 phase 内部 step 前后插入 Skill。
 
 要求：
 
-- 插入目标必须是已知 anchor 或 slot。
+- 插入目标必须是已知 phase boundary、extension point 或 phase step。
 - 插入 Skill 必须通过真实候选解析。
 - 插入位置必须出现在确认页和 composition report 中。
+- 插入到 `protected` step 前后是允许的，但不得改变该 step 本身。
 
 ### Replace
 
-`replace` 只允许替换 extension slot 的默认实现，不允许替换 protected anchor。
+`replaceStep` 只允许替换 `mutable` step。`replaceExtensionPoint` 只允许替换可替换扩展点的默认实现。
+不允许替换 protected phase boundary 或 `protected` step。
 
 示例：
 
 ```json
 {
-  "replace": {
+  "replaceExtensionPoint": {
     "build-execution": "team-builder"
+  },
+  "phases": {
+    "build": {
+      "replaceStep": [
+        {
+          "targetStep": "writing-plans",
+          "skill": "team-planning"
+        }
+      ]
+    }
   }
 }
 ```
 
-如果用户尝试替换 `verify` 或 `archive`，proposal 必须阻塞并解释这些是核心阶段。
+如果用户尝试替换 `verify`、`archive`、phase guard、archive delta sync 或 decision-point confirmation protocol，proposal 必须阻塞并解释这些是 protected。
 
 ### Disable
 
-`disable` 只允许关闭可选 slot。
+`disable` 只允许关闭 `optional` step 或可选扩展点。
 
 示例：
 
@@ -233,6 +329,7 @@ Factory plan 扩展 `mode: "derive"`，并新增 `baseTemplate` 与 `templateDel
 ```
 
 禁用的结果必须映射到现有 Comet 配置或生成 Skill 文案中。例如 `build-review` 可映射到 `review_mode: off` 的决策提示，但不能绕过 verify。
+如果用户要求禁用 `guard-transition`、`verify-result-transition` 或 `archive-delta-sync`，proposal 必须阻塞。
 
 ## Proposal 确认页
 
@@ -241,9 +338,10 @@ Factory plan 扩展 `mode: "derive"`，并新增 `baseTemplate` 与 `templateDel
 - 基础模板：`comet`、profile、hash、来源。
 - 保留的核心阶段。
 - 用户新增的 Skill。
-- 用户替换的 slot。
-- 用户关闭的可选 slot。
+- 用户替换的 phase step 或扩展点。
+- 用户关闭的可选 step 或扩展点。
 - 被拒绝的修改及原因。
+- 每个阶段的最终 phase recipe 摘要。
 - 最终展开后的 call chain / composition。
 - 会生成的 control plane。
 - Eval 与 publish readiness 计划。
@@ -262,7 +360,9 @@ Factory plan 扩展 `mode: "derive"`，并新增 `baseTemplate` 与 `templateDel
 - `baseTemplateHash`
 - `templateDelta`
 - `expandedCallChain`
-- protected anchor validation result
+- `phaseRecipes`
+- `stepTypeValidation`
+- protected phase boundary validation result
 - proposal confirmation metadata
 
 ## Backend Design
@@ -288,10 +388,12 @@ domains/bundle/templates/comet-classic-template.ts
 
 - template id
 - supported profiles: `full`, `hotfix`, `tweak`
-- protected anchors
-- extension slots
-- default slot implementations
-- slot-to-state-field hints，例如 `build-review -> review_mode`
+- protected phase boundaries
+- phase recipes
+- step type registry
+- extension points
+- default step implementations
+- step-to-state-field hints，例如 `build-review -> review_mode`
 
 模板定义是代码中的受保护 contract，不从用户可写文件读取。
 
@@ -306,8 +408,9 @@ baseTemplate + templateDelta -> expanded callChain + composition metadata
 展开阶段负责：
 
 - 解析基础 `/comet` Skill 的真实来源和 hash。
-- 校验 delta 是否触碰 protected anchor。
-- 把 insert/replace/disable 转成 composition steps。
+- 校验 delta 是否触碰 protected phase boundary 或 protected step。
+- 把 phase-level insert/replace/disable 转成 composition steps。
+- 把 step-level insert/replace/disable 转成 expanded phase recipes。
 - 生成 blockers/warnings。
 - 输出用户可读 diff summary。
 
@@ -319,8 +422,9 @@ baseTemplate + templateDelta -> expanded callChain + composition metadata
 
 - step 来源于 base template。
 - step 来源于 user delta insert。
-- step 来源于 slot replacement。
-- optional slot disabled。
+- step 来源于 phase-internal insert。
+- step 来源于 step replacement。
+- optional step disabled。
 
 如果不扩展现有 step source enum，也可以先在 `factory` metadata 中单独保存 `templateExpansion`，再在 composition report 里渲染。
 
@@ -330,7 +434,7 @@ baseTemplate + templateDelta -> expanded callChain + composition metadata
 
 - 本 Skill 派生自 `/comet`。
 - 哪些核心阶段保持不变。
-- 哪些 slot 被插入、替换或关闭。
+- 哪些 phase step 或扩展点被插入、替换或关闭。
 - 运行时仍遵循 Comet decision points、guard、handoff、verify 和 archive 协议。
 
 如果生成物包含脚本、rules、hooks，继续按稳定组合 Skill Bundle 的 required control plane 处理。
@@ -351,8 +455,9 @@ baseTemplate + templateDelta -> expanded callChain + composition metadata
 
 - 基础 `/comet` Skill 缺失：阻塞，提示先安装或启用 Comet。
 - 基础 `/comet` hash 变化：恢复时提示模板 drift，要求重新确认 proposal。
-- 用户删除 protected anchor：阻塞，解释可替代方案。
-- 用户替换 unknown slot：阻塞，展示可用 slot。
+- 用户删除 protected phase boundary：阻塞，解释可替代方案。
+- 用户替换 unknown extension point 或 step：阻塞，展示可用 phase、step 和扩展点。
+- 用户替换 protected step：阻塞，解释只能在该 step 前后插入。
 - 插入 Skill 缺失或歧义：复用现有 candidate resolve 流程。
 - 禁用 required control plane：阻塞，解释 scripts/rules/hooks 是稳定组合 Skill 的 required capability set。
 
@@ -362,12 +467,18 @@ baseTemplate + templateDelta -> expanded callChain + composition metadata
 
 - `derive` plan parser 接受 baseTemplate/templateDelta。
 - 缺失 baseTemplate 阻塞。
-- 替换 protected anchor 阻塞。
-- 插入 known slot 成功展开。
-- 替换 extension slot 成功展开。
-- 禁用 optional slot 成功记录。
-- 禁用 required anchor 失败。
+- 替换 protected phase boundary 阻塞。
+- 插入 known extension point 成功展开。
+- 替换 replaceable extension point 成功展开。
+- 禁用 optional extension point 成功记录。
+- 禁用 required phase boundary 失败。
+- 阶段内 `insertBeforeStep` / `insertAfterStep` 成功展开。
+- 阶段内替换 `mutable` step 成功展开。
+- 替换 `protected` step 阻塞。
+- 禁用 `optional` step 成功记录。
+- 禁用 `protected` step 阻塞。
 - proposal summary 展示 base template、delta、expanded call chain。
+- proposal summary 展示 phase recipe diff。
 - metadata 记录 base hash 与 delta。
 - template drift 后 readiness/recovery 阻塞。
 - generated package 的 composition report 包含模板差异。
@@ -394,9 +505,13 @@ baseTemplate + templateDelta -> expanded callChain + composition metadata
 
 - 用户可以通过 `/comet-any` 选择 `derive` 并基于 `/comet` 创建新 Skill。
 - 用户不能删除 open/design/build/verify/archive 核心阶段。
-- 用户可以在明确 slot 上插入 Skill。
-- 用户可以替换 extension slot。
-- 用户可以关闭 optional slot。
+- 用户可以在明确 extension point 上插入 Skill。
+- 用户可以替换可替换 extension point。
+- 用户可以关闭 optional extension point。
+- 用户可以在阶段内部某个 step 前后插入 Skill。
+- 用户可以替换 `mutable` step。
+- 用户不能替换或关闭 `protected` step。
+- 用户可以关闭 `optional` step。
 - 生成前必须展示模板差异确认页。
 - 生成物保留 Comet 的状态机、guard、handoff、verify、archive 语义。
 - Eval/publish/distribute 继续复用现有路径。
