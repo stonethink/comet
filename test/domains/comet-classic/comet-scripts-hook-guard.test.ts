@@ -30,8 +30,14 @@ async function writeFile(filePath: string, content: string) {
   await fs.writeFile(filePath, content);
 }
 
-function runHookGuard(cwd: string, script: string, stdin: string, env: NodeJS.ProcessEnv = {}) {
-  return spawnSync(process.execPath, [script], {
+function runHookGuard(
+  cwd: string,
+  script: string,
+  stdin: string,
+  env: NodeJS.ProcessEnv = {},
+  args: string[] = [],
+) {
+  return spawnSync(process.execPath, [script, ...args], {
     cwd,
     encoding: 'utf8',
     input: stdin,
@@ -82,6 +88,27 @@ describe('hook guard', () => {
 
       expect(result.status).not.toBe(0);
       expect(result.stderr).toContain('BLOCKED');
+    }, 20_000);
+
+    it('uses project root when the hook runs from a git submodule directory', async () => {
+      await createChange(tmpDir, 'submodule-open', 'phase: open\narchived: false\n');
+
+      const submoduleDir = path.join(tmpDir, 'front');
+      const srcDir = path.join(submoduleDir, 'src');
+      await fs.mkdir(srcDir, { recursive: true });
+      const targetFile = path.join(srcDir, 'new-feature.ts');
+
+      const result = runHookGuard(
+        submoduleDir,
+        hookGuardScript,
+        hookStdin(targetFile),
+        {},
+        ['--project-root', tmpDir],
+      );
+
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain('BLOCKED');
+      expect(result.stderr).toContain('Target file: front/src/new-feature.ts');
     }, 20_000);
   });
 

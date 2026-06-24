@@ -10780,21 +10780,31 @@ function inputTarget() {
 function normalized(value) {
   return value.replaceAll("\\", "/").replace(/\/+/gu, "/");
 }
-async function projectRelative(target) {
-  const cwd = normalized(process.cwd());
-  let candidate = normalized(target);
-  if (path14.isAbsolute(target) || /^[A-Za-z]:\//u.test(candidate)) {
-    if (candidate.startsWith(`${cwd}/`)) return candidate.slice(cwd.length + 1);
-    try {
-      const parent = await fs14.realpath(path14.dirname(target));
-      candidate = normalized(path14.join(parent, path14.basename(target)));
-      const physicalCwd = normalized(await fs14.realpath(process.cwd()));
-      if (candidate.startsWith(`${physicalCwd}/`)) {
-        return candidate.slice(physicalCwd.length + 1);
-      }
-    } catch {
-      return candidate;
-    }
+function parseProjectRoot(args) {
+  const index = args.indexOf("--project-root");
+  const value = index >= 0 ? args[index + 1] : void 0;
+  return path14.resolve(value && !value.startsWith("--") ? value : process.cwd());
+}
+function relativeToProjectRoot(target, projectRoot) {
+  const relative = normalized(path14.relative(projectRoot, target));
+  if (relative === "") return "";
+  if (relative.startsWith("../") || relative === ".." || path14.isAbsolute(relative)) return null;
+  return relative;
+}
+async function projectRelative(target, projectRoot) {
+  const rawCandidate = path14.isAbsolute(target) ? target : path14.resolve(process.cwd(), target);
+  let candidate = normalized(rawCandidate);
+  const rootRelative = relativeToProjectRoot(rawCandidate, projectRoot);
+  if (rootRelative !== null) return rootRelative;
+  try {
+    const parent = await fs14.realpath(path14.dirname(rawCandidate));
+    const physicalCandidate = path14.join(parent, path14.basename(rawCandidate));
+    const physicalRoot = await fs14.realpath(projectRoot);
+    const physicalRootRelative = relativeToProjectRoot(physicalCandidate, physicalRoot);
+    if (physicalRootRelative !== null) return physicalRootRelative;
+    candidate = normalized(physicalCandidate);
+  } catch {
+    if (!path14.isAbsolute(target)) return normalized(target).replace(/^\.\//u, "");
   }
   return candidate.replace(/^\.\//u, "");
 }
@@ -10818,8 +10828,8 @@ async function loadGoverningChange(changeDir) {
     };
   }
 }
-async function activeChanges() {
-  const changesDir = path14.join("openspec", "changes");
+async function activeChanges(projectRoot) {
+  const changesDir = path14.join(projectRoot, "openspec", "changes");
   const governingChanges = [];
   if (!existsSync2(changesDir)) return governingChanges;
   for (const entry2 of (await fs14.readdir(changesDir, { withFileTypes: true })).sort(
@@ -10840,17 +10850,17 @@ function blocksSourceWrites(governing) {
   }
   return governing.phase === "build" && governing.classic?.workflow === "full" && !governing.classic.designDoc;
 }
-async function repoSourceGoverningChange() {
-  const active = await activeChanges();
+async function repoSourceGoverningChange(projectRoot) {
+  const active = await activeChanges(projectRoot);
   return active.find(blocksSourceWrites) ?? active[0] ?? null;
 }
-async function governingChange(relativePath2) {
+async function governingChange(relativePath2, projectRoot) {
   const prefix = "openspec/changes/";
   if (relativePath2.startsWith(prefix)) {
     const rest = relativePath2.slice(prefix.length);
     const [name] = rest.split("/");
     if (name && name !== "archive") {
-      const changeDir = path14.join("openspec", "changes", name);
+      const changeDir = path14.join(projectRoot, "openspec", "changes", name);
       const stateFile2 = path14.join(changeDir, ".comet.yaml");
       if (existsSync2(stateFile2)) {
         const governing = await loadGoverningChange(changeDir);
@@ -10860,7 +10870,7 @@ async function governingChange(relativePath2) {
       return { changeDir, phase: "open", classic: null, archived: false };
     }
   }
-  return repoSourceGoverningChange();
+  return repoSourceGoverningChange(projectRoot);
 }
 function isRootMarkdown(relativePath2) {
   return !relativePath2.includes("/") && relativePath2.endsWith(".md");
@@ -10942,13 +10952,14 @@ function blockedMissingDesignDoc(relativePath2) {
     ].join("\n")
   );
 }
-var classicHookGuardCommand = async () => {
+var classicHookGuardCommand = async (args) => {
+  const projectRoot = parseProjectRoot(args);
   const target = inputTarget();
   if (!target) return allowed("no file path in tool input");
-  const relativePath2 = await projectRelative(target);
+  const relativePath2 = await projectRelative(target, projectRoot);
   let governing;
   try {
-    governing = await governingChange(relativePath2);
+    governing = await governingChange(relativePath2, projectRoot);
   } catch (error) {
     return result(
       2,

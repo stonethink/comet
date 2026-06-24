@@ -439,18 +439,18 @@ async function installCometHooksForPlatform(
   try {
     switch (hookFormat) {
       case 'claude-code':
-        return installClaudeCodeHooks(platformBase, skillsDir, hooksConfig);
+        return installClaudeCodeHooks(baseDir, platformBase, skillsDir, hooksConfig);
       case 'qwen':
       case 'qoder':
-        return installQwenStyleHooks(platformBase, skillsDir, hooksConfig, hookFormat);
+        return installQwenStyleHooks(baseDir, platformBase, skillsDir, hooksConfig, hookFormat);
       case 'gemini':
-        return installGeminiHooks(platformBase, skillsDir, hooksConfig);
+        return installGeminiHooks(baseDir, platformBase, skillsDir, hooksConfig);
       case 'windsurf':
-        return installWindsurfHooks(platformBase, skillsDir, hooksConfig);
+        return installWindsurfHooks(baseDir, platformBase, skillsDir, hooksConfig);
       case 'copilot':
-        return installCopilotHooks(platformBase, skillsDir, hooksConfig);
+        return installCopilotHooks(baseDir, platformBase, skillsDir, hooksConfig);
       case 'kiro':
-        return installKiroHooks(platformBase, skillsDir, hooksConfig);
+        return installKiroHooks(baseDir, platformBase, skillsDir, hooksConfig);
       default:
         return { installed: false, reason: `unsupported hook format: ${hookFormat}` };
     }
@@ -459,9 +459,15 @@ async function installCometHooksForPlatform(
   }
 }
 
-/** Build the command path for a hook script given its manifest rel path and skillsDir */
-function buildHookCommand(skillsDir: string, scriptRelPath: string): string {
-  return `node ${skillsDir}/skills/${scriptRelPath}`;
+function quoteCommandArg(value: string): string {
+  return `"${value.replaceAll('\\', '/').replaceAll('"', '\\"')}"`;
+}
+
+/** Build a hook command that is stable even when the hook runner executes from a subdirectory. */
+function buildHookCommand(baseDir: string, skillsDir: string, scriptRelPath: string): string {
+  const projectRoot = path.resolve(baseDir);
+  const scriptPath = path.join(projectRoot, skillsDir, 'skills', ...scriptRelPath.split('/'));
+  return `node ${quoteCommandArg(scriptPath)} --project-root ${quoteCommandArg(projectRoot)}`;
 }
 
 function isManagedHookCommand(command: unknown, scriptRelPaths: string[]): boolean {
@@ -526,6 +532,7 @@ function asHookGroup(value: unknown): Array<Record<string, unknown>> {
  * Writes to settings.local.json with { hooks: { PreToolUse: [...] } }
  */
 async function installClaudeCodeHooks(
+  baseDir: string,
   platformBase: string,
   skillsDir: string,
   hooksConfig: Record<string, HookConfig>,
@@ -541,7 +548,7 @@ async function installClaudeCodeHooks(
   // Group by matcher so hooks sharing the same matcher are merged
   const matcherGroups: Record<string, Array<{ type: string; command: string }>> = {};
   for (const [scriptRelPath, config] of Object.entries(hooksConfig)) {
-    const command = buildHookCommand(skillsDir, scriptRelPath);
+    const command = buildHookCommand(baseDir, skillsDir, scriptRelPath);
     if (!matcherGroups[config.matcher]) {
       matcherGroups[config.matcher] = [];
     }
@@ -576,6 +583,7 @@ async function installClaudeCodeHooks(
  * Writes to settings.json with { hooks: { PreToolUse: [{ matcher, hooks: [{ type, command }] }] } }
  */
 async function installQwenStyleHooks(
+  baseDir: string,
   platformBase: string,
   skillsDir: string,
   hooksConfig: Record<string, HookConfig>,
@@ -594,7 +602,7 @@ async function installQwenStyleHooks(
     }
     matcherGroups[config.matcher].push({
       type: 'command',
-      command: buildHookCommand(skillsDir, scriptRelPath),
+      command: buildHookCommand(baseDir, skillsDir, scriptRelPath),
       description: config.description,
     });
   }
@@ -628,6 +636,7 @@ async function installQwenStyleHooks(
  * Writes to .gemini/settings.json with { hooks: { BeforeTool: [{ matcher, hooks: [{ type, command }] }] } }
  */
 async function installGeminiHooks(
+  baseDir: string,
   platformBase: string,
   skillsDir: string,
   hooksConfig: Record<string, HookConfig>,
@@ -644,7 +653,7 @@ async function installGeminiHooks(
       hooks: [
         {
           type: 'command',
-          command: buildHookCommand(skillsDir, scriptRelPath),
+          command: buildHookCommand(baseDir, skillsDir, scriptRelPath),
           name: config.description,
         },
       ],
@@ -675,6 +684,7 @@ async function installGeminiHooks(
  * Writes to .windsurf/hooks.json with { hooks: { pre_write_code: [{ command }] } }
  */
 async function installWindsurfHooks(
+  baseDir: string,
   platformBase: string,
   skillsDir: string,
   hooksConfig: Record<string, HookConfig>,
@@ -684,7 +694,7 @@ async function installWindsurfHooks(
   const entries: Array<{ command: string; show_output: boolean }> = [];
   for (const [scriptRelPath] of Object.entries(hooksConfig)) {
     entries.push({
-      command: buildHookCommand(skillsDir, scriptRelPath),
+      command: buildHookCommand(baseDir, skillsDir, scriptRelPath),
       show_output: true,
     });
   }
@@ -716,6 +726,7 @@ async function installWindsurfHooks(
  * Writes to .github/hooks/comet-guard.json with preToolUse hooks config.
  */
 async function installCopilotHooks(
+  baseDir: string,
   platformBase: string,
   skillsDir: string,
   hooksConfig: Record<string, HookConfig>,
@@ -725,7 +736,7 @@ async function installCopilotHooks(
 
   const scriptEntries: Array<{ bash: string; powershell: string }> = [];
   for (const [scriptRelPath] of Object.entries(hooksConfig)) {
-    const cmd = buildHookCommand(skillsDir, scriptRelPath);
+    const cmd = buildHookCommand(baseDir, skillsDir, scriptRelPath);
     // Hook runs through node on every platform; both fields use the same command
     scriptEntries.push({ bash: cmd, powershell: cmd });
   }
@@ -747,6 +758,7 @@ async function installCopilotHooks(
  * Writes to .kiro/hooks/comet-phase-guard.kiro.hook as a JSON file.
  */
 async function installKiroHooks(
+  baseDir: string,
   platformBase: string,
   skillsDir: string,
   hooksConfig: Record<string, HookConfig>,
@@ -771,7 +783,7 @@ async function installKiroHooks(
       },
       then: {
         type: 'runCommand',
-        command: buildHookCommand(skillsDir, scriptRelPath),
+        command: buildHookCommand(baseDir, skillsDir, scriptRelPath),
       },
     };
 

@@ -189,6 +189,9 @@ describe('skills', () => {
   describe('installCometHooksForPlatform', () => {
     const staleCometCommand = 'bash .legacy/skills/comet/scripts/comet-hook-guard.sh';
     const currentCometScript = 'comet/scripts/comet-hook-guard.mjs';
+    const normalized = (value: string) => value.replace(/\\/g, '/');
+    const expectedHookCommand = (skillsDir: string) =>
+      `node "${normalized(path.join(tmpDir, skillsDir, 'skills', ...currentCometScript.split('/')))}" --project-root "${normalized(tmpDir)}"`;
 
     it('merges Claude-style hooks into an existing matcher group without replacing user hooks', async () => {
       const platform: Platform = {
@@ -231,11 +234,15 @@ describe('skills', () => {
       expect(firstInstall.model).toBe('sonnet');
       expect(firstInstall.hooks.PostToolUse).toEqual(initialSettings.hooks.PostToolUse);
       expect(firstInstall.hooks.PreToolUse).toHaveLength(2);
+      const command = writeGroup.hooks[1].command as string;
+      expect(normalized(command)).toContain(`/.claude/skills/${currentCometScript}`);
+      expect(normalized(command)).toContain(`--project-root "${normalized(tmpDir)}"`);
+      expect(command).not.toContain('node .claude/');
       expect(writeGroup.hooks).toEqual([
         { type: 'command', command: 'echo user-write-check' },
         {
           type: 'command',
-          command: `node .claude/skills/${currentCometScript}`,
+          command,
         },
       ]);
 
@@ -328,7 +335,7 @@ describe('skills', () => {
           },
           {
             type: 'command',
-            command: `node ${skillsDir}/skills/${currentCometScript}`,
+            command: expectedHookCommand(skillsDir),
             description: 'Block code writes in wrong Comet phase (open/design/archive)',
           },
         ]);
@@ -389,7 +396,7 @@ describe('skills', () => {
         },
         {
           type: 'command',
-          command: `node .gemini/skills/${currentCometScript}`,
+          command: expectedHookCommand('.gemini'),
           name: 'Block code writes in wrong Comet phase (open/design/archive)',
         },
       ]);
@@ -430,7 +437,7 @@ describe('skills', () => {
       expect(firstInstall.hooks.pre_write_code).toEqual([
         { command: 'echo user-write-check', show_output: false },
         {
-          command: `node .windsurf/skills/${currentCometScript}`,
+          command: expectedHookCommand('.windsurf'),
           show_output: true,
         },
       ]);

@@ -30,21 +30,34 @@ function normalized(value: string): string {
   return value.replaceAll('\\', '/').replace(/\/+/gu, '/');
 }
 
-async function projectRelative(target: string): Promise<string> {
-  const cwd = normalized(process.cwd());
-  let candidate = normalized(target);
-  if (path.isAbsolute(target) || /^[A-Za-z]:\//u.test(candidate)) {
-    if (candidate.startsWith(`${cwd}/`)) return candidate.slice(cwd.length + 1);
-    try {
-      const parent = await fs.realpath(path.dirname(target));
-      candidate = normalized(path.join(parent, path.basename(target)));
-      const physicalCwd = normalized(await fs.realpath(process.cwd()));
-      if (candidate.startsWith(`${physicalCwd}/`)) {
-        return candidate.slice(physicalCwd.length + 1);
-      }
-    } catch {
-      return candidate;
-    }
+function parseProjectRoot(args: string[]): string {
+  const index = args.indexOf('--project-root');
+  const value = index >= 0 ? args[index + 1] : undefined;
+  return path.resolve(value && !value.startsWith('--') ? value : process.cwd());
+}
+
+function relativeToProjectRoot(target: string, projectRoot: string): string | null {
+  const relative = normalized(path.relative(projectRoot, target));
+  if (relative === '') return '';
+  if (relative.startsWith('../') || relative === '..' || path.isAbsolute(relative)) return null;
+  return relative;
+}
+
+async function projectRelative(target: string, projectRoot: string): Promise<string> {
+  const rawCandidate = path.isAbsolute(target) ? target : path.resolve(process.cwd(), target);
+  let candidate = normalized(rawCandidate);
+  const rootRelative = relativeToProjectRoot(rawCandidate, projectRoot);
+  if (rootRelative !== null) return rootRelative;
+
+  try {
+    const parent = await fs.realpath(path.dirname(rawCandidate));
+    const physicalCandidate = path.join(parent, path.basename(rawCandidate));
+    const physicalRoot = await fs.realpath(projectRoot);
+    const physicalRootRelative = relativeToProjectRoot(physicalCandidate, physicalRoot);
+    if (physicalRootRelative !== null) return physicalRootRelative;
+    candidate = normalized(physicalCandidate);
+  } catch {
+    if (!path.isAbsolute(target)) return normalized(target).replace(/^\.\//u, '');
   }
   return candidate.replace(/^\.\//u, '');
 }
@@ -80,8 +93,8 @@ async function loadGoverningChange(changeDir: string): Promise<GoverningChange |
   }
 }
 
-async function activeChanges(): Promise<GoverningChange[]> {
-  const changesDir = path.join('openspec', 'changes');
+async function activeChanges(projectRoot: string): Promise<GoverningChange[]> {
+  const changesDir = path.join(projectRoot, 'openspec', 'changes');
   const governingChanges: GoverningChange[] = [];
   if (!existsSync(changesDir)) return governingChanges;
   for (const entry of (await fs.readdir(changesDir, { withFileTypes: true })).sort((left, right) =>
@@ -108,18 +121,21 @@ function blocksSourceWrites(governing: GoverningChange): boolean {
   );
 }
 
-async function repoSourceGoverningChange(): Promise<GoverningChange | null> {
-  const active = await activeChanges();
+async function repoSourceGoverningChange(projectRoot: string): Promise<GoverningChange | null> {
+  const active = await activeChanges(projectRoot);
   return active.find(blocksSourceWrites) ?? active[0] ?? null;
 }
 
-async function governingChange(relativePath: string): Promise<GoverningChange | null> {
+async function governingChange(
+  relativePath: string,
+  projectRoot: string,
+): Promise<GoverningChange | null> {
   const prefix = 'openspec/changes/';
   if (relativePath.startsWith(prefix)) {
     const rest = relativePath.slice(prefix.length);
     const [name] = rest.split('/');
     if (name && name !== 'archive') {
-      const changeDir = path.join('openspec', 'changes', name);
+      const changeDir = path.join(projectRoot, 'openspec', 'changes', name);
       const stateFile = path.join(changeDir, '.comet.yaml');
       if (existsSync(stateFile)) {
         const governing = await loadGoverningChange(changeDir);
@@ -129,7 +145,7 @@ async function governingChange(relativePath: string): Promise<GoverningChange | 
       return { changeDir, phase: 'open', classic: null, archived: false };
     }
   }
-  return repoSourceGoverningChange();
+  return repoSourceGoverningChange(projectRoot);
 }
 
 function isRootMarkdown(relativePath: string): boolean {
@@ -234,13 +250,14 @@ function blockedMissingDesignDoc(relativePath: string): ClassicCommandResult {
   );
 }
 
-export const classicHookGuardCommand: ClassicCommandHandler = async () => {
+export const classicHookGuardCommand: ClassicCommandHandler = async (args) => {
+  const projectRoot = parseProjectRoot(args);
   const target = inputTarget();
   if (!target) return allowed('no file path in tool input');
-  const relativePath = await projectRelative(target);
+  const relativePath = await projectRelative(target, projectRoot);
   let governing: GoverningChange | null;
   try {
-    governing = await governingChange(relativePath);
+    governing = await governingChange(relativePath, projectRoot);
   } catch (error) {
     return result(
       2,

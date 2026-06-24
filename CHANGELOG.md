@@ -35,6 +35,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Skill and eval CLI ergonomics**: Fixes `comet skill resume` option handling, adds actionable text-mode recovery hints, and removes the need to manually assemble most `cd eval && uv run pytest ...` command lines.
 - **Windows and path reliability**: Fixes OpenSpec init/update path quoting for directories with spaces and hardens the eval/task harness for Windows UTF-8, Docker, and report-output workflows.
 - **Stable Bundle readiness**: Factory-generated Bundles cannot be evaluated, reviewed, or published when required control-plane files are missing.
+- **Submodule hook execution**: Installs Comet hook commands with an absolute script path and explicit project root so agents working inside Git submodules still use the parent workspace's Comet scripts and phase state.
 
 ### Tests
 
@@ -45,6 +46,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Classic diagnostics coverage**: Adds focused coverage for shared diagnostics, malformed-state isolation, runtime-step eval evidence, and generated runtime parity.
 - **Comet-any doc/help sync**: Adds assertions for the stable composed Skill Bundle required capability set, portable hook descriptor wording, and the exact CLI help capitalization expected by the public help text.
 - **Stable composed Skill coverage**: Adds tests for checks loading, flow composition, generated control-plane files, runtime scripts, Eval readiness, publish validation, fail-closed distribution, and user-facing docs.
+- **Submodule hook coverage**: Adds regression coverage for stable hook command generation and phase guarding when the hook process runs from a nested submodule directory.
 
 ### Removed
 
