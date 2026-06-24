@@ -15,7 +15,7 @@
 普通用户只需要记住这条主线：
 
 ```text
-/comet-any -> comet eval -> comet publish -> distribute
+/comet-any 创建 -> comet eval 验证 -> comet publish review/approve/run -> comet publish distribute --preview -> comet publish distribute
 ```
 
 `comet bundle` 是高级 Bundle 后端，负责确定性状态、hash、readiness、publish 和 distribute；`comet skill` 是底层 Skill 工具，适合本地调试和 Engine Run。它们不是普通用户创建 Skill 的主入口。
@@ -31,6 +31,13 @@
 它和 `.comet/config.yaml` 同级，表达这个项目希望 `/comet-any` 优先复用哪些 Skill，以及遇到缺失、歧义、偏离和 scripts/hooks 时怎么处理。
 
 如果文件不存在，`/comet-any` 应先扫描 Comet 支持的平台 Skill，按能力分组展示可复用能力，并询问是否保存推荐偏好。用户不需要每次在输入框里重新列一长串 Skill。
+首次使用时，`/comet-any` 的内部 guide 后端是：
+
+```bash
+comet bundle factory-guide --project . --json
+```
+
+它会返回首次使用向导需要的 `preference`、`inventory`、`resumable`、`nextQuestions` 和 `userMessage`。是否写入 `.comet/skill-preferences.yaml` 必须先询问用户。
 
 推荐起点：
 
@@ -131,10 +138,16 @@ policies:
 comet bundle factory-propose <name> --file <plan.json> --json
 ```
 
+proposal 应给用户展示 `userSummary`、候选动作和 `proposalHash`。确认页至少要支持：
+
+- `confirm-generate`
+- `revise-proposal`
+- `cancel`
+
 用户确认后，`/comet-any` 才会调用：
 
 ```bash
-comet bundle factory-init <name> --file <plan.json> --json
+comet bundle factory-init <name> --file <plan.json> --confirmed-proposal <proposalHash> --json
 ```
 
 `factory-init` 会把规范化 plan 固化到 `.comet/bundle-factory-plans/<name>/plan.json`，并在 Factory metadata 中记录 `planHash`、`preferenceHash`、偏好模式、策略、required Skill、resolved Skill 证据和偏离原因。
@@ -207,6 +220,8 @@ Review summary 必须展示：
 - 组合方案和偏离原因
 - Eval evidence
 - readiness、blockers、warnings、evidence
+- `Publish readiness:`
+- `User next steps:`
 
 阻塞项包括：
 
@@ -221,6 +236,20 @@ Review summary 必须展示：
 ## Distribute
 
 发布后，`/comet-any` 必须询问用户是否分发，不能自动分发。
+
+真正执行前，必须先跑 preview：
+
+```bash
+comet publish distribute <name> --platform <id> --scope project --preview --json
+```
+
+用户应先看到：
+
+- `Distribution preview`
+- planned files
+- unsupported capability
+- executable disclosures
+- `No files were written`
 
 如果用户确认分发，才运行：
 
@@ -256,6 +285,14 @@ comet publish distribute <name> --platform <id> --scope project --json
 - resolved Skill hash 是否变化。
 - Eval evidence 是否仍匹配当前 hash。
 - approval 是否仍匹配当前 hash。
+
+面向用户的恢复示例：
+
+```text
+恢复摘要
+Current step: review
+Suggested user command: /comet-any 继续当前 Skill 创建
+```
 
 如果偏好或 Skill 来源发生变化，`advisory` 模式应提示并让用户选择继续旧组合方案或重新生成；`strict` 模式应默认阻塞，要求用户确认继续或重新生成。
 

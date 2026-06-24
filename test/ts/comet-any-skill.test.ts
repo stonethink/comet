@@ -36,10 +36,12 @@ describe('Chinese comet-any Skill', () => {
     const combined = `${skill}\n${authoring}\n${evalProvider}`;
 
     for (const expected of [
+      'comet bundle factory-guide',
       'create',
       'optimize',
       '.comet/skill-preferences.yaml',
       'Skill 创建向导',
+      '首次使用向导',
       '项目级偏好',
       '组合方案',
       'advisory',
@@ -80,11 +82,21 @@ describe('Chinese comet-any Skill', () => {
       'token 消耗',
       'skip 或失败 Eval 时不得进入 ready',
       'readiness',
+      '恢复摘要',
       '非 JSON 输出',
+      'Current step',
+      'Suggested user command',
       'Readiness:',
       'Blockers:',
       'Warnings:',
       'Evidence:',
+      '展示组合方案确认页',
+      'confirm-generate',
+      'revise-proposal',
+      'cancel',
+      '--confirmed-proposal',
+      'Publish readiness:',
+      'User next steps:',
       'authoring-skill',
       'authoring-skill-smoke',
       'comet/eval.yaml',
@@ -99,6 +111,9 @@ describe('Chinese comet-any Skill', () => {
       'portable hook descriptor',
       'comet/checks.yaml',
       'comet publish distribute',
+      '--preview',
+      'Distribution preview',
+      'No files were written',
     ]) {
       expect(combined).toContain(expected);
     }
@@ -112,21 +127,18 @@ describe('Chinese comet-any Skill', () => {
     const { skill } = await readCometAnyZh();
     const ordered = [
       '恢复现有创作状态',
+      '首次使用向导',
       '选择 create/optimize 与语言',
       '读取偏好并解析真实 Skill',
-      '解决缺失/歧义候选',
-      '读取候选的真实实现',
       '展示组合方案并等待确认',
-      '澄清 Skill Factory 目标',
       '通过 CLI 初始化草稿与 Factory metadata',
       '生成 Comet-native Skill 源码',
-      '生成 Engine Package',
-      '编译并校验',
       '展示 Eval 工作量并询问 skip/quick/full',
       '记录 Eval 证据',
-      '展示评审摘要并等待显式批准',
+      '展示用户可读 readiness 并等待显式批准',
       '### 15. 发布',
-      '### 16. 询问是否分发',
+      '### 16. 分发预览',
+      '### 17. 询问是否执行分发',
     ];
 
     let previous = -1;
@@ -144,6 +156,7 @@ describe('Chinese comet-any Skill', () => {
 
     for (const command of [
       'comet bundle candidates',
+      'comet bundle factory-guide',
       'comet bundle factory-propose',
       'comet bundle factory-init',
       'comet bundle factory-resolve',
@@ -157,6 +170,8 @@ describe('Chinese comet-any Skill', () => {
       'comet publish approve',
       'comet publish run',
       'comet publish distribute',
+      '--confirmed-proposal',
+      '--preview',
     ]) {
       expect(combined).toContain(command);
     }

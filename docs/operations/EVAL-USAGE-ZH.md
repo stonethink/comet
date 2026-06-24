@@ -44,6 +44,23 @@ comet eval run --manifest ./generated-skill/comet/eval.yaml --html
 
 第二步 `run --html` 才执行真实评估，并生成可浏览报告。评估通过后，`/comet-any` 可以把这份结果作为发布前证据的一部分。
 
+## Eval 结果如何进入 publish readiness
+
+`/comet-any` 或后端在记录 Eval 结果后，会把它并入 publish readiness。用户需要知道的只有两点：
+
+1. `comet eval` 产出的结果会成为 `Publish readiness:` 的证据来源。
+2. 当前 hash 缺少 Eval 证据时，`User next steps:` 必须先指向补齐评估，而不是继续发布。
+
+通常顺序是：
+
+```bash
+comet eval collect --manifest ./generated-skill/comet/eval.yaml
+comet eval run --manifest ./generated-skill/comet/eval.yaml --html
+comet publish review <name> --platform <reference-platform> --json
+```
+
+`comet publish review` 需要把 `Publish readiness:`、`User next steps:`、`Readiness:`、`Blockers:`、`Warnings:` 和 `Evidence:` 直接展示给用户。
+
 ## 为什么先 `collect`
 
 `collect` 是用户最便宜的排错入口。它主要回答：
@@ -195,4 +212,5 @@ comet skill eval --change ./changes/demo --scope completion
 ```bash
 comet eval collect --manifest ./generated-skill/comet/eval.yaml
 comet eval run --manifest ./generated-skill/comet/eval.yaml --html
+comet publish review <name> --platform <reference-platform> --json
 ```

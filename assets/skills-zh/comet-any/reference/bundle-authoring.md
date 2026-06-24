@@ -13,6 +13,26 @@ Eval、发布和分发。
 说明偏好来源、自动补充、缺失/歧义、偏离原因和可执行披露；用户确认后，Factory metadata
 必须记录 `preferenceHash`、模式、策略和 required Skill。若生成调用链偏离偏好顺序，评审摘要必须包含偏离原因。
 
+## 首次使用和恢复后端
+
+`/comet-any` 在开始新建流程前，必须优先检查 guide 与可恢复状态。推荐顺序：
+
+```bash
+comet bundle factory-guide --project . --json
+comet publish list --json
+comet publish status <name> --json
+```
+
+`factory-guide` 返回首次使用向导和恢复入口需要的统一 JSON。重点字段：
+
+- `preference`：当前项目级偏好，或建议写入 `.comet/skill-preferences.yaml` 的默认值。
+- `inventory`：平台 Skill inventory 摘要，用于首次使用向导说明当前项目可复用能力。
+- `resumable`：可恢复的 Factory / Bundle 状态列表。
+- `nextQuestions`：首次使用或恢复时仍需向用户确认的问题。
+- `userMessage`：直接面向用户的 guide 文案。
+
+恢复相关输出应转写为“恢复摘要”，优先给用户看 `resumeSummary`、`Current step`、`Suggested user command` 和阻塞原因，而不是暴露内部状态文件路径。
+
 ## 创作模式
 
 `/comet-any` 支持两种模式：
@@ -98,10 +118,24 @@ comet bundle factory-propose <name> --file <plan.json> --json
 ```
 
 它用于展示组合方案、resolved Skill、blockers、warnings、偏好模式和 `preferenceHash`。
+proposal 输出还应直接给前端/Skill 使用这些字段：
+
+- `userSummary`：给用户看的组合方案摘要。
+- `actions`：至少包含 `confirm-generate`、`revise-proposal`、`cancel`。
+- `proposalHash`：确认 proposal 的哈希；真实初始化必须显式确认它。
+
 用户确认后再运行 `factory-init`。`factory-init` 读取 plan 后，会把规范化结果写入
 `.comet/bundle-factory-plans/<name>/plan.json`，并在 Factory metadata 中记录 `planPath`、`planHash`
 和 `preferenceHash`。`/comet-any` 的后续评审摘要应使用这些字段说明当前生成物对应的计划与偏好证据；
 如果 plan 或项目级偏好改动，必须重新生成组合方案或重新运行 `factory-init`。
+
+真实初始化必须带 proposal 确认：
+
+```bash
+comet bundle factory-init <name> --file <plan.json> --confirmed-proposal <proposalHash> --json
+```
+
+`status` / `list` 输出应包含 `resumeSummary`，以便 `/comet-any` 和中文文档向用户展示恢复入口，而不是让用户自行阅读内部状态。
 
 常用命令：
 
@@ -123,13 +157,14 @@ comet publish review <name> --platform <reference-platform> --json
 comet publish approve <name> --reviewer <reviewer> --json
 comet bundle review <name> --reject --reviewer <reviewer> --json
 comet publish run <name> --platform <reference-platform> --json
+comet publish distribute <name> --platform <id> --scope project --preview --json
 comet publish distribute <name> --platform <id> --scope project --json
 ```
 
 发布前必须读取 review summary 的 readiness：存在 unresolved candidate、缺失当前 hash 的 Eval 证据、
 缺失当前 hash 的人工 approval、capability gap 或 executable disclosure 未确认时，不得发布 ready。
 Eval 证据缺失时不得发布 ready。非 JSON 输出也必须明确展示 `Readiness:`、`Blockers:`、`Warnings:`、
-`Evidence:`；如果 `Readiness: blocked`，应先按 blockers 处理候选恢复、Eval 或 review，再继续 publish。
+`Evidence:`。面向用户的摘要还应直接包含 `Publish readiness:` 与 `User next steps:`；如果 `Readiness: blocked`，应先按 blockers 处理候选恢复、Eval 或 review，再继续 publish。
 
 ## Runner 模式
 
@@ -151,4 +186,6 @@ comet skill eval --run-id <run-id> --scope completion --json
 - required 能力缺口：取消该平台。
 - optional 能力缺口：必须由用户显式选择 skip。
 - Hook/脚本披露：必须由用户确认后才可分发。
+- 正式分发前必须先跑 `comet publish distribute <name> --platform <id> --scope project --preview --json`。
+- preview 应明确显示 `Distribution preview`、planned files、unsupported capability、可执行披露和 `No files were written`。
 - 分发前必须询问用户，不能自动执行。
