@@ -604,6 +604,51 @@ prefer:
     expect(text).toContain('Actions:');
   });
 
+  it('records confirmation metadata through the factory-init command', async () => {
+    await writeFactorySkill(projectRoot, 'task3-command-confirmed', {
+      description: 'Command confirmation test skill.',
+    });
+    const planFile = path.join(root, 'factory-init-confirmed-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Create a command-confirmed Skill',
+          preferredSkills: ['task3-command-confirmed'],
+          callChain: [{ skill: 'task3-command-confirmed' }],
+          engineMode: 'deterministic',
+          runnerMode: 'standalone',
+        },
+        null,
+        2,
+      ),
+    );
+
+    const initialized = await captureJson(() =>
+      bundleFactoryInitCommand('command-confirmed-skill', {
+        project: projectRoot,
+        file: planFile,
+        confirmedProposal: true,
+        json: true,
+      }),
+    );
+
+    expect(initialized).toMatchObject({
+      factory: {
+        proposalConfirmation: {
+          confirmed: true,
+          proposalHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
+        },
+      },
+    });
+
+    const state = await readBundleAuthoringState(projectRoot, 'command-confirmed-skill');
+    expect(state.factory?.proposalConfirmation).toMatchObject({
+      confirmed: true,
+      proposalHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
+    });
+  });
+
   it('stores composed flow metadata and uses it as the factory call chain', async () => {
     await writeFactorySkill(projectRoot, 'task3-review-flow', {
       description: 'Review flow.',

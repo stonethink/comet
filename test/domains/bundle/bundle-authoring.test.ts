@@ -377,6 +377,33 @@ describe('Bundle authoring lifecycle', () => {
     expect(state.factory?.proposalConfirmation?.confirmedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/u);
   });
 
+  it('rejects confirming a blocked Factory proposal', async () => {
+    const planFile = path.join(root, 'blocked-confirmed-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Create a blocked Skill',
+          preferredSkills: ['task3-missing-skill'],
+          callChain: [{ skill: 'task3-missing-skill' }],
+          engineMode: 'deterministic',
+          runnerMode: 'standalone',
+        },
+        null,
+        2,
+      ),
+    );
+
+    await expect(
+      initializeBundleFactoryState({
+        projectRoot,
+        name: 'blocked-confirmed-skill',
+        filePath: planFile,
+        confirmedProposal: true,
+      }),
+    ).rejects.toThrow(/Cannot confirm blocked Factory proposal/iu);
+  });
+
   async function preparedReadyState(name: string): Promise<BundleAuthoringState> {
     const sourceRoot = path.join(root, `${name}-source`);
     await writeBundle(sourceRoot, name);
