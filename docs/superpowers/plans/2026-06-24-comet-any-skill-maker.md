@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 将 `/comet-any` 收敛为普通用户可理解的 Skill Maker：用户只看到“改一版 `/comet` / 做一个新 Skill / 整理已有 Skill”和“加 / 换 / 关”，后端仍复用现有 Bundle Factory、Eval、Publish/Distribute。
+**Goal:** 将 `/comet-any` 收敛为普通用户可理解的 Skill Maker：用户只看到“改一版 `/comet` / 做一个新 Skill / 整理已有 Skill”和“增加 Skill / 替换 Skill / 关闭 Skill”，后端仍复用现有 Bundle Factory、Eval、Publish/Distribute。
 
 **Architecture:** 先新增用户层摘要模型，包装现有 Factory proposal、resume、readiness、distribution 输出，不改状态事实源。随后扩展 Factory plan 支持 `/comet` 派生的内部模板模型，但仍把它呈现为“改一版 `/comet`”。最后按中文先行规则更新 `/comet-any` Skill/docs，再同步英文和 Changelog。
 
@@ -85,7 +85,7 @@ base-ref: aea2f990fd2dfd6e7a299e8acbf6c68fc09e5748
   更新中文先行和双语结构断言。
 
 - `assets/skills-zh/comet-any/SKILL.md`  
-  中文 Skill 改成 Skill Maker 心智：三种入口、加/换/关、验证、安装/启用。
+  中文 Skill 改成 Skill Maker 心智：三种入口、增加 Skill / 替换 Skill / 关闭 Skill、验证、安装/启用。
 
 - `assets/skills-zh/comet-any/reference/bundle-authoring.md`  
   中文后端参考保留 Bundle Factory，但说明它是内部确定性后端。
@@ -1060,7 +1060,7 @@ for (const expected of [
   '改一版 /comet',
   '做一个新 Skill',
   '整理已有 Skill',
-  '加 / 换 / 关',
+  '增加 Skill / 替换 Skill / 关闭 Skill',
   '验证这个 Skill',
   '安装/启用到当前 Agent',
   'Bundle Factory 是内部确定性后端',
@@ -1108,15 +1108,15 @@ In `assets/skills-zh/comet-any/SKILL.md`, replace the opening section with:
 
 普通用户只需要理解三件事：
 
-1. `改一版 /comet` — 保留 Comet 的流程，只加、换、关一些能力。
+1. `改一版 /comet` — 保留 Comet 的流程，只增加 Skill、替换 Skill、关闭 Skill。
 2. `做一个新 Skill` — 从目标出发生成一个可调用、可验证、可安装的 Skill。
 3. `整理已有 Skill` — 把已有 Skill 调整成更稳定、可验证、可安装的版本。
 
 用户编辑动作只使用：
 
-- `加`：增加一个能力。
-- `换`：替换一个可替换能力。
-- `关`：关闭一个可选能力。
+- `增加 Skill`：增加一个能力。
+- `替换 Skill`：替换一个可替换能力。
+- `关闭 Skill`：关闭一个可选能力。
 
 Bundle Factory、composition、templateDelta、Phase Recipe、readiness、publish/distribute
 都是内部或高级详情概念。对普通用户转述时，使用“方案”“验证”“安装/启用”“恢复”这些词。
@@ -1211,7 +1211,7 @@ In `test/ts/comet-any-skill.test.ts`, add parity rows:
 { zh: '改一版 /comet', en: 'Customize /comet' },
 { zh: '做一个新 Skill', en: 'Create a new Skill' },
 { zh: '整理已有 Skill', en: 'Upgrade an existing Skill' },
-{ zh: '加 / 换 / 关', en: 'add / replace / turn off' },
+{ zh: '增加 Skill / 替换 Skill / 关闭 Skill', en: 'add Skill / replace Skill / turn off Skill' },
 { zh: '验证这个 Skill', en: 'Validate this Skill' },
 { zh: '安装/启用到当前 Agent', en: 'Install/enable into the current Agent' },
 ```
@@ -1360,7 +1360,7 @@ If `CHANGELOG.md` already has `## What's Changed [0.4.0-beta.1] - 2026-06-24`, a
 ```markdown
 ### Changed
 
-- **Comet Any Skill Maker UX**: Reframes `/comet-any` around user-facing Skill Maker intents, plain add/replace/turn-off edits, validation, and install/enable language while keeping Bundle Factory, Eval, and publish/distribute as internal backend capabilities.
+- **Comet Any Skill Maker UX**: Reframes `/comet-any` around user-facing Skill Maker intents, plain add Skill / replace Skill / turn off Skill edits, validation, and install/enable language while keeping Bundle Factory, Eval, and publish/distribute as internal backend capabilities.
 ```
 
 If no current entry exists, add a new top entry with the same version as `package.json`.

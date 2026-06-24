@@ -5,7 +5,7 @@
 `comet bundle` 是 `/comet-any` 的内部确定性后端。用户不需要直接执行 Bundle CLI。
 本 Skill 必须把 creator 输出适配为 Comet-native Skill Package，再交给 Bundle 后端编译、
 Eval、生成可安装候选与安装。
-对普通用户，第一层概念必须收束为 Skill Maker：`改一版 /comet`、`做一个新 Skill`、`整理已有 Skill`，以及“加 / 换 / 关”；
+对普通用户，第一层概念必须收束为 Skill Maker：`改一版 /comet`、`做一个新 Skill`、`整理已有 Skill`，以及“增加 Skill / 替换 Skill / 关闭 Skill”；
 `comet bundle` 只作为高级 Bundle 后端（Advanced Bundle backend）暴露给需要审计后端状态的人。
 
 `.comet/skill-preferences.yaml` 是项目级偏好文件，支持 `advisory` / `strict`、`prefer`、`require`
@@ -37,7 +37,7 @@ comet publish status <name> --json
 
 `/comet-any` 对普通用户暴露三种起点：
 
-- `改一版 /comet`：在 `/comet` 受保护边界内调整步骤，只允许加、换、关。
+- `改一版 /comet`：在 `/comet` 受保护边界内调整步骤，只允许增加 Skill、替换 Skill、关闭 Skill。
 - `做一个新 Skill`：从用户目标创建新的多 Skill Bundle。
 - `整理已有 Skill`：读取既有候选 Skill，把它们整理为可发布 Bundle。
 

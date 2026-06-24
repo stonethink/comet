@@ -35,10 +35,13 @@ describe('Chinese comet-any Skill', () => {
     const { skill } = await readCometAnyZh();
     const description = skill.match(/^description:\s*"([^"]+)"/m)?.[1] ?? '';
 
-    expect(description).toContain('用户想');
+    expect(description).toContain('当用户想');
     expect(description).toContain('改一版 /comet');
     expect(description).toContain('做一个新 Skill');
     expect(description).toContain('整理已有 Skill');
+    expect(description).toContain('增加 Skill');
+    expect(description).toContain('替换 Skill');
+    expect(description).toContain('关闭 Skill');
     expect(description).toContain('隐藏后端复杂度');
     expect(description).not.toMatch(/CLI|Bundle|Factory|composition|生成可安装候选|内部使用/u);
   });
@@ -52,9 +55,9 @@ describe('Chinese comet-any Skill', () => {
       '改一版 /comet',
       '做一个新 Skill',
       '整理已有 Skill',
-      '加',
-      '换',
-      '关',
+      '增加 Skill',
+      '替换 Skill',
+      '关闭 Skill',
       '.comet/skill-preferences.yaml',
       'Skill 创建向导',
       '首次使用向导',
@@ -73,7 +76,7 @@ describe('Chinese comet-any Skill', () => {
       'open / design / build / verify / archive',
       '.comet.yaml',
       '受保护边界',
-      '允许修改的只有加、换、关',
+      '允许修改的只有增加 Skill、替换 Skill、关闭 Skill',
       'unresolved factory Skill candidates',
       'comet bundle factory-resolve',
       '.comet/bundle-factory-plans',
@@ -139,6 +142,8 @@ describe('Chinese comet-any Skill', () => {
     expect(combined).toContain('comet/eval.yaml');
     expect(combined).not.toContain('evals.yaml');
     expect(combined).not.toContain(['.comet/skills', 'txt'].join('.'));
+    expect(combined).not.toContain('加 / 换 / 关');
+    expect(combined).not.toContain('允许修改的只有加、换、关');
   });
 
   it('preserves the required order of the Chinese workflow', async () => {

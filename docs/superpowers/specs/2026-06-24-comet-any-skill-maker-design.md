@@ -60,7 +60,7 @@ Eval/Publish/Distribute 教程
 你想做什么？
 
 1. 改一版 /comet
-   保留 Comet 的流程，只加、换、关一些能力。
+   保留 Comet 的流程，只增加 Skill、替换 Skill、关闭 Skill。
 
 2. 做一个新 Skill
    从你的目标出发，生成一个可调用、可验证、可安装的 Skill。
@@ -84,9 +84,9 @@ Eval/Publish/Distribute 教程
 用户编辑 Skill 时只理解三类动作：
 
 ```text
-加：增加一个能力
-换：替换一个可替换能力
-关：关闭一个可选能力
+增加 Skill：增加一个能力
+替换 Skill：替换一个可替换能力
+关闭 Skill：关闭一个可选能力
 ```
 
 对“改一版 `/comet`”的例子：
@@ -144,7 +144,7 @@ build 计划能力：writing-plans -> team-planning
 - `改一版`
 - `做一个新 Skill`
 - `整理已有 Skill`
-- `加 / 换 / 关`
+- `增加 Skill / 替换 Skill / 关闭 Skill`
 - `方案`
 - `验证`
 - `安装/启用到当前 Agent`
@@ -446,7 +446,7 @@ sources=...
 
 - 用 Phase Recipe 做内部保护边界。
 - 用户层仍只说“改一版 /comet”。
-- 支持加、换、关。
+- 支持增加 Skill、替换 Skill、关闭 Skill。
 
 第四阶段：同步中英文 Skill/docs，并补测试。
 
@@ -459,14 +459,14 @@ sources=...
 - 恢复输出先展示用户摘要。
 - 错误输出先展示用户可执行选项。
 - `/comet` 派生不能删除核心阶段。
-- `/comet` 派生可以加、换、关允许的能力。
+- `/comet` 派生可以增加 Skill、替换 Skill、关闭 Skill。
 - README 主路径不把 Bundle Factory 当作用户必须学习的概念。
 
 ## Acceptance Criteria
 
 - 新用户可以不理解 Bundle/Factory/composition 完成一个 `/comet-any` 创建流程。
 - 普通用户入口只暴露三种意图：改一版 `/comet`、做一个新 Skill、整理已有 Skill。
-- 用户编辑动作收敛为加、换、关。
+- 用户编辑动作收敛为增加 Skill、替换 Skill、关闭 Skill。
 - 所有生成前确认都使用统一确认页。
 - 验证和安装路径不要求普通用户理解 publish/distribute 的内部区别。
 - 高级详情和 JSON 仍保留完整后端证据。

@@ -1,6 +1,6 @@
 ---
 name: comet-any
-description: "用户想改一版 /comet、做一个新 Skill、整理已有 Skill，或只想用加 / 换 / 关表达工作流调整并隐藏后端复杂度时使用。"
+description: "当用户想改一版 /comet、做一个新 Skill、整理已有 Skill，或需要用增加 Skill / 替换 Skill / 关闭 Skill 表达工作流调整并隐藏后端复杂度时使用。"
 ---
 
 # Comet Any — Skill Maker
@@ -12,7 +12,7 @@ description: "用户想改一版 /comet、做一个新 Skill、整理已有 Skil
 普通用户第一层只看三种起点：`改一版 /comet`、`做一个新 Skill`、`整理已有 Skill`。普通用户不需要理解 Bundle、Factory、composition、
 Phase Recipe 或 template delta 这些后端概念；这些概念只存在于内部实现与审计证据中。
 当用户选择 `改一版 /comet` 时，必须把 `/comet` 视为受保护边界：`open / design / build / verify / archive` 和 `.comet.yaml`
-状态机不能被改写，允许修改的只有加、换、关。
+状态机不能被改写，允许修改的只有增加 Skill、替换 Skill、关闭 Skill。
 
 <IMPORTANT>
 Engine 是运行语义底座。多步骤、需要恢复、需要 guardrails、需要 runtime evals
@@ -34,7 +34,7 @@ Bundle 至少包含 `SKILL.md`、`comet/skill.yaml`、`comet/guardrails.yaml`、
 
 - 用户只需要调用本 Skill；不得把手动运行 `comet bundle` 或 `comet skill` 当作用户主流程。
 - CLI 是内部确定性后端，用户只需要调用本 Skill；不要要求用户记忆 Bundle 子命令。
-- 普通用户第一层必须收束为 Skill Maker：`改一版 /comet`、`做一个新 Skill`、`整理已有 Skill`，以及“加 / 换 / 关”。
+- 普通用户第一层必须收束为 Skill Maker：`改一版 /comet`、`做一个新 Skill`、`整理已有 Skill`，以及“增加 Skill / 替换 Skill / 关闭 Skill”。
 - 当用户选择 `改一版 /comet` 时，必须明确 `/comet` 的受保护边界：`open / design / build / verify / archive`、`.comet.yaml`、decision point、verify-result-transition、archive-delta-sync 不能被替换或删除。
 - 必须使用 `find-skill` 解析本地真实 Skill，不得只按名字猜测能力。
 - `.comet/skill-preferences.yaml` 是项目级偏好文件，支持 `advisory` 和 `strict`；生成前必须展示组合方案，说明 prefer/require、缺失/歧义、偏离原因、scripts/hooks 披露，并在确认后记录 `preferenceHash`。
@@ -93,7 +93,7 @@ comet publish status <name> --json
 
 询问用户选择三种起点之一：
 
-- `改一版 /comet`：在 `/comet` 受保护边界内做增量调整，只允许加、换、关。
+- `改一版 /comet`：在 `/comet` 受保护边界内做增量调整，只允许增加 Skill、替换 Skill、关闭 Skill。
 - `做一个新 Skill`：从目标描述创建新的 Comet-native Skill。
 - `整理已有 Skill`：读取现有 Skill 或候选 Skill，整理成新的 Comet-native Skill。
 
@@ -135,7 +135,7 @@ comet bundle factory-resolve <name> --candidate <query> --ignore-missing --reaso
 
 先按 `.comet/skill-preferences.yaml` 的 `prefer`/`require` 提出组合方案，并标注每个 Skill 的 `preferenceIndex`、来源、hash、用途和调用顺序。
 组合方案必须说明哪些 Skill 来自项目级偏好，哪些由目标语义自动补充，哪些缺失或歧义，是否偏离偏好顺序，以及 scripts/hooks 会产生什么可执行披露。
-如果起点是 `改一版 /comet`，必须把方案表达成对 `/comet` 的“加 / 换 / 关”，而不是直接向用户暴露 Bundle/Factory/composition 术语。
+如果起点是 `改一版 /comet`，必须把方案表达成对 `/comet` 的“增加 Skill / 替换 Skill / 关闭 Skill”，而不是直接向用户暴露 Bundle/Factory/composition 术语。
 用户确认前不得生成 Bundle draft；用户可以调整偏好、选择歧义来源、移除缺失 Skill、切换 `advisory`/`strict` 或取消。
 必须明确告诉用户现在展示的是“Skill Maker 方案确认页”。
 
