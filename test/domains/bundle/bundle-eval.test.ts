@@ -118,7 +118,12 @@ async function createFactoryStateWithGeneratedPackage(
     ),
     'utf8',
   );
-  const initialized = await initializeBundleFactoryState({ projectRoot, name, filePath: planFile });
+  const initialized = await initializeBundleFactoryState({
+    projectRoot,
+    name,
+    filePath: planFile,
+    confirmedProposal: true,
+  });
   return generateBundleDraftFromFactoryState({ projectRoot, state: initialized });
 }
 

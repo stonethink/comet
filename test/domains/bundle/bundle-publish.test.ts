@@ -333,6 +333,14 @@ describe('Bundle review and publish', () => {
         deviations: [],
         engineMode: 'deterministic',
         runnerMode: 'standalone',
+        proposalConfirmation: {
+          confirmed: true,
+          confirmedAt: new Date().toISOString(),
+          proposalHash: 'c'.repeat(64),
+          preferenceHash: null,
+          acceptedCapabilities: ['skills', 'scripts', 'rules', 'hooks', 'references'],
+          warnings: [],
+        },
       },
     });
     await expect(
@@ -438,7 +446,12 @@ describe('Bundle review and publish', () => {
       ),
       'utf8',
     );
-    const initialized = await initializeBundleFactoryState({ projectRoot, name, filePath: planFile });
+    const initialized = await initializeBundleFactoryState({
+      projectRoot,
+      name,
+      filePath: planFile,
+      confirmedProposal: true,
+    });
     return generateBundleDraftFromFactoryState({ projectRoot, state: initialized });
   }
 

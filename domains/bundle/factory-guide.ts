@@ -114,24 +114,30 @@ export async function buildBundleFactoryGuide(options: {
       'Should Comet save these preferences to .comet/skill-preferences.yaml?',
       'May Comet generate scripts, rules, and hooks as the control plane?',
     ],
-    userMessage: hasResumable
+    userMessage: hasInvalidPreferences
       ? {
-          title: 'Resume /comet-any',
-          summary: `Found ${resumable.length} unfinished Skill creation flow(s).`,
-          nextStep:
-            'Resume one flow before starting a new Skill unless the user explicitly starts over.',
+          title: 'Fix project Skill preferences',
+          summary: `Saved project preferences in .comet/skill-preferences.yaml are invalid: ${preferencesResult.error}`,
+          nextStep: 'Open .comet/skill-preferences.yaml, fix the error, then run /comet-any again.',
         }
-      : hasPreferences
+      : hasResumable
         ? {
-            title: 'Start with saved project preferences',
-            summary: `Using ${preferences!.preferences.prefer.length + preferences!.preferences.require.length} saved Skill preference(s).`,
-            nextStep: 'Ask for the Skill goal, then build a composition proposal.',
-          }
-        : {
-            title: 'Start with /comet-any',
-            summary: 'No project Skill preferences are saved yet.',
+            title: 'Resume /comet-any',
+            summary: `Found ${resumable.length} unfinished Skill creation flow(s).`,
             nextStep:
-              'Show discovered recommended Skills and ask whether to save project preferences.',
-          },
+              'Resume one flow before starting a new Skill unless the user explicitly starts over.',
+          }
+        : hasPreferences
+          ? {
+              title: 'Start with saved project preferences',
+              summary: `Using ${preferences!.preferences.prefer.length + preferences!.preferences.require.length} saved Skill preference(s).`,
+              nextStep: 'Ask for the Skill goal, then build a composition proposal.',
+            }
+          : {
+              title: 'Start with /comet-any',
+              summary: 'No project Skill preferences are saved yet.',
+              nextStep:
+                'Show discovered recommended Skills and ask whether to save project preferences.',
+            },
   };
 }

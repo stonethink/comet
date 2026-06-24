@@ -182,6 +182,13 @@ The user must choose one of these three actions on the composition confirmation 
    re-run the proposal
 3. `cancel` - do not write Bundle state
 
+If the proposal still has missing, ambiguous, or composition blockers, do not call
+`confirm-generate`. Only initialize an unresolved Factory state without `--confirmed-proposal`
+when backend state is needed for `factory-resolve`; after candidates and composition are resolved,
+show the generation-ready composition again and call
+`comet bundle factory-init <name> --file <plan> --confirmed-proposal` to persist confirmation
+metadata before `factory-generate`.
+
 ### 8. Clarify the Skill Factory goal
 
 Confirm with the user:
@@ -210,6 +217,11 @@ comet bundle factory-init <name> --file <plan.json> --confirmed-proposal --json
 
 `proposalHash` must be recorded and verified by Factory metadata; it is not a user-supplied CLI
 parameter.
+
+If an unresolved Factory state was created earlier for `factory-resolve`, run the same
+`factory-init --confirmed-proposal` command again after candidate/composition blockers are resolved.
+The backend records confirmation metadata from the current resolved state; without that metadata,
+`factory-generate`, review, and publish all refuse to continue.
 
 This command must handle both responsibilities:
 

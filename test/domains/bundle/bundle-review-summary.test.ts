@@ -139,7 +139,12 @@ async function createFactoryStateWithGeneratedPackage(
     ),
     'utf8',
   );
-  const initialized = await initializeBundleFactoryState({ projectRoot, name, filePath: planFile });
+  const initialized = await initializeBundleFactoryState({
+    projectRoot,
+    name,
+    filePath: planFile,
+    confirmedProposal: true,
+  });
   return generateBundleDraftFromFactoryState({ projectRoot, state: initialized });
 }
 
@@ -357,6 +362,57 @@ describe('Bundle review summary readiness', () => {
       compositionChoices: '1 choice(s)',
     });
     expect(summary.readiness.evidence).not.toHaveProperty('composition');
+  });
+
+  it('blocks publish readiness when Factory proposal confirmation is missing', async () => {
+    const generated = await createFactoryStateWithGeneratedPackage(
+      projectRoot,
+      'missing-proposal-confirmation',
+    );
+    const legacyState: BundleAuthoringState = {
+      ...generated,
+      status: 'review-approved',
+      eval: {
+        level: 'quick',
+        hash: generated.currentHash!,
+        resultPath: 'eval.json',
+        passed: true,
+      },
+      review: {
+        hash: generated.currentHash!,
+        decision: 'approved',
+        reviewer: 'alice',
+        at: '2026-06-24T00:00:00.000Z',
+      },
+      factory: {
+        ...generated.factory!,
+        proposalConfirmation: undefined,
+      },
+    };
+    delete legacyState.factory!.proposalConfirmation;
+    await writeBundleAuthoringState(projectRoot, legacyState);
+
+    const summary = await buildBundleReviewSummary({
+      projectRoot,
+      name: 'missing-proposal-confirmation',
+      platform: 'claude',
+    });
+
+    expect(summary.readiness.state).toBe('blocked');
+    expect(summary.readiness.blockers).toContain(
+      '[proposal] Factory proposal confirmation is missing',
+    );
+    expect(summary.userSummary.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'proposal',
+          severity: 'blocker',
+          nextAction: expect.objectContaining({
+            command: expect.stringContaining('--confirmed-proposal'),
+          }),
+        }),
+      ]),
+    );
   });
 
   it('surfaces preference hash evidence and drift warnings', async () => {
@@ -685,6 +741,14 @@ prefer:
       currentHash: blockedState.currentHash,
       factory: {
         ...blockedState.factory!,
+        proposalConfirmation: {
+          confirmed: true,
+          confirmedAt: '2026-06-23T00:00:00.000Z',
+          proposalHash: 'a'.repeat(64),
+          preferenceHash: null,
+          acceptedCapabilities: ['skills', 'scripts', 'rules', 'hooks', 'references'],
+          warnings: [],
+        },
         resolvedSkills: [
           {
             query: 'missing-skill',

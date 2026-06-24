@@ -32,6 +32,7 @@ function invalidateGeneratedFactoryState(state: BundleAuthoringState): BundleAut
   if (updated.factory) {
     delete updated.factory.generatedSkillPackage;
     delete updated.factory.composition;
+    delete updated.factory.proposalConfirmation;
   }
   delete updated.eval;
   delete updated.review;

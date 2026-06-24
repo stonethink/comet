@@ -3,6 +3,7 @@ import type { BundleAuthoringState } from './types.js';
 export type BundleNextActionKind =
   | 'resolve-candidates'
   | 'fix-composition'
+  | 'confirm-proposal'
   | 'generate-factory-package'
   | 'choose-eval-level'
   | 'request-review'
@@ -36,6 +37,7 @@ export interface BundleResumeSummary {
   currentStep:
     | 'needs-candidate-resolution'
     | 'needs-composition-fix'
+    | 'needs-proposal-confirmation'
     | 'needs-generation'
     | 'needs-eval'
     | 'needs-review'
@@ -90,6 +92,20 @@ export function determineBundleNextAction(state: BundleAuthoringState): BundleNe
       reason: `Factory composition has ${compositionIssues.length} issue(s): ${first.message}`,
       backendCommand: `comet bundle review-summary ${state.name} --platform <reference-platform>`,
       userCommand: 'Ask /comet-any to revise the composition proposal',
+      requiresUserConfirmation: true,
+    };
+  }
+
+  if (state.factory && state.factory.proposalConfirmation?.confirmed !== true) {
+    const planPath = state.factory.planPath ?? '<plan.json>';
+    return {
+      action: 'confirm-proposal',
+      category: 'factory',
+      userLabel: 'Confirm the resolved composition proposal',
+      reason:
+        'Factory candidates and composition are resolved but proposal confirmation is missing',
+      backendCommand: `comet bundle factory-init ${state.name} --file ${planPath} --confirmed-proposal`,
+      userCommand: 'Ask /comet-any to show and confirm the resolved composition proposal',
       requiresUserConfirmation: true,
     };
   }
@@ -181,6 +197,7 @@ export function buildBundleResumeSummary(
   const currentStepByAction: Record<BundleNextActionKind, BundleResumeSummary['currentStep']> = {
     'resolve-candidates': 'needs-candidate-resolution',
     'fix-composition': 'needs-composition-fix',
+    'confirm-proposal': 'needs-proposal-confirmation',
     'generate-factory-package': 'needs-generation',
     'choose-eval-level': 'needs-eval',
     'request-review': 'needs-review',

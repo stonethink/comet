@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { stringify } from 'yaml';
@@ -5,6 +6,7 @@ import { discoverBundleCandidates } from './candidates.js';
 import { createBundleDraft, optimizeBundleDraft } from './draft.js';
 import { composeBundleFactoryPlan } from './factory-compose.js';
 import {
+  hashBundleFactoryPlan,
   normalizeBundleFactoryPlan,
   readBundleFactoryPlan,
   writeBundleFactoryPlanArtifact,
@@ -32,6 +34,37 @@ function isMissingStateError(error: unknown): boolean {
   return (
     error instanceof Error && 'code' in error && (error as NodeJS.ErrnoException).code === 'ENOENT'
   );
+}
+
+function confirmationHash(factory: BundleFactoryMetadata): string {
+  return createHash('sha256')
+    .update(
+      JSON.stringify({
+        goal: factory.goal,
+        preferredSkills: factory.preferredSkills,
+        requiredSkills: factory.requiredSkills ?? [],
+        resolvedSkills: factory.resolvedSkills,
+        callChain: factory.callChain,
+        composition: factory.composition ?? null,
+        planHash: factory.planHash ?? null,
+      }),
+    )
+    .digest('hex');
+}
+
+function proposalConfirmation(options: {
+  proposalHash: string;
+  preferenceHash: string | null;
+  warnings?: string[];
+}): BundleFactoryMetadata['proposalConfirmation'] {
+  return {
+    confirmed: true,
+    confirmedAt: new Date().toISOString(),
+    proposalHash: options.proposalHash,
+    preferenceHash: options.preferenceHash,
+    acceptedCapabilities: ['skills', 'scripts', 'rules', 'hooks', 'references'],
+    warnings: options.warnings ?? [],
+  };
 }
 
 function bundleManifest(state: BundleAuthoringState, skillId: string): BundleManifest {
@@ -225,6 +258,7 @@ export async function generateBundleDraftFromFactoryState(options: {
     ? state.factory
     : await composeFactoryMetadata(state.factory);
   assertFactoryCompositionReady(state.name, factory);
+  assertFactoryProposalConfirmed(state);
 
   const skillId = entrySkillId(state);
   await clearDirectory(state.draftPath);
@@ -317,6 +351,38 @@ export async function initializeBundleFactoryState(options: {
     name: options.name,
     filePath: options.filePath,
   });
+  let state: BundleAuthoringState | null = null;
+  try {
+    state = await reconcileBundleAuthoringState(projectRoot, options.name);
+  } catch (error) {
+    if (!isMissingStateError(error)) throw error;
+  }
+  if (options.confirmedProposal && !proposal.canGenerate && state?.factory) {
+    const currentPlanHash = state.factory.planHash ?? null;
+    const requestedPlanHash = hashBundleFactoryPlan(plan);
+    if (currentPlanHash !== null && currentPlanHash !== requestedPlanHash) {
+      throw new Error(
+        `Confirmed Factory plan ${requestedPlanHash} does not match current Factory plan ${currentPlanHash}; rerun factory-init without --confirmed-proposal to replace the plan, or confirm the current plan file`,
+      );
+    }
+    const factory = state.factory.composition
+      ? state.factory
+      : await composeFactoryMetadata(state.factory);
+    assertFactoryCandidatesResolved({ ...state, factory });
+    assertFactoryCompositionReady(state.name, factory);
+    const updated: BundleAuthoringState = {
+      ...state,
+      factory: {
+        ...factory,
+        proposalConfirmation: proposalConfirmation({
+          proposalHash: confirmationHash(factory),
+          preferenceHash: factory.preferenceHash ?? proposal.preference.hash,
+        }),
+      },
+    };
+    await writeBundleAuthoringState(projectRoot, updated);
+    return updated;
+  }
   if (options.confirmedProposal && !proposal.canGenerate) {
     throw new Error(`Cannot confirm blocked Factory proposal: ${proposal.blockers.join('; ')}`);
   }
@@ -354,23 +420,13 @@ export async function initializeBundleFactoryState(options: {
     planPath: planArtifact.planPath,
     planHash: planArtifact.planHash,
     proposalConfirmation: options.confirmedProposal
-      ? {
-          confirmed: true,
-          confirmedAt: new Date().toISOString(),
+      ? proposalConfirmation({
           proposalHash: proposal.proposalHash,
           preferenceHash: proposal.preference.hash,
-          acceptedCapabilities: ['skills', 'scripts', 'rules', 'hooks', 'references'],
           warnings: [...proposal.warnings, ...proposal.blockers],
-        }
+        })
       : undefined,
   });
-
-  let state: BundleAuthoringState | null = null;
-  try {
-    state = await reconcileBundleAuthoringState(projectRoot, options.name);
-  } catch (error) {
-    if (!isMissingStateError(error)) throw error;
-  }
 
   if (!state) {
     const optimizeSourceRoot =
@@ -422,4 +478,15 @@ export async function initializeBundleFactoryState(options: {
   delete updated.conflict;
   await writeBundleAuthoringState(projectRoot, updated);
   return updated;
+}
+
+export function assertFactoryProposalConfirmed(state: {
+  name: string;
+  factory?: BundleFactoryMetadata;
+}): void {
+  if (!state.factory) return;
+  if (state.factory.proposalConfirmation?.confirmed === true) return;
+  throw new Error(
+    `Factory proposal confirmation is required before generating, reviewing, or publishing ${state.name}; review the Factory proposal and rerun factory-init with --confirmed-proposal`,
+  );
 }

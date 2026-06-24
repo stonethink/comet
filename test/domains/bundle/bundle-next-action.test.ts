@@ -22,6 +22,17 @@ function state(overrides: Partial<BundleAuthoringState> = {}): BundleAuthoringSt
   };
 }
 
+function proposalConfirmation(preferenceHash: string | null = null) {
+  return {
+    confirmed: true,
+    confirmedAt: '2026-06-24T00:00:00.000Z',
+    proposalHash: 'b'.repeat(64),
+    preferenceHash,
+    acceptedCapabilities: ['skills', 'scripts', 'rules', 'hooks', 'references'] as const,
+    warnings: [],
+  };
+}
+
 describe('Bundle next action', () => {
   it('uses the generated eval manifest path in the user-facing eval command', () => {
     const action = determineBundleNextAction(
@@ -36,6 +47,7 @@ describe('Bundle next action', () => {
           deviations: [],
           engineMode: 'deterministic',
           runnerMode: 'standalone',
+          proposalConfirmation: proposalConfirmation(),
           generatedSkillPackage: {
             entrySkill: 'demo-skill',
             internalSkills: [],
@@ -101,6 +113,7 @@ describe('Bundle next action', () => {
           engineMode: 'deterministic',
           runnerMode: 'standalone',
           preferenceHash: 'old-hash',
+          proposalConfirmation: proposalConfirmation('old-hash'),
           generatedSkillPackage: {
             entrySkill: 'demo-skill',
             internalSkills: [],
@@ -145,6 +158,7 @@ describe('Bundle next action', () => {
           engineMode: 'deterministic',
           runnerMode: 'standalone',
           preferenceHash: 'old-hash',
+          proposalConfirmation: proposalConfirmation('old-hash'),
           generatedSkillPackage: {
             entrySkill: 'demo-skill',
             internalSkills: [],

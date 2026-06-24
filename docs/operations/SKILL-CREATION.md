@@ -177,6 +177,13 @@ argument. `factory-init` persists the normalized plan to
 preference mode, policies, required Skills, resolved Skill evidence, and deviation reasons in
 Factory metadata.
 
+If the proposal still has missing, ambiguous, or composition blockers, `/comet-any` should not
+confirm generation. When backend state is needed for candidate repair, initialize the unresolved
+Factory state without `--confirmed-proposal` and run `factory-resolve`; after candidates and
+composition are resolved, show the generation-ready proposal again and call
+`factory-init --confirmed-proposal`. Without that confirmation metadata, `factory-generate`, review,
+and publish all refuse to continue.
+
 ## `/comet-any` output
 
 After a complete generation or optimization, output should look like:

@@ -163,6 +163,11 @@ comet bundle factory-init <name> --file <plan.json> --confirmed-proposal --json
 `proposalHash` is recorded by Factory metadata and used to confirm the current proposal; the user
 does not pass it as a CLI parameter.
 
+If the proposal still has missing, ambiguous, or composition blockers, create an unresolved Factory
+state only for `factory-resolve`; after resolving the blockers, run
+`factory-init --confirmed-proposal` again to persist confirmation metadata before
+`factory-generate`, review, or publish can continue.
+
 `status` / `list` output should include `resumeSummary` so `/comet-any` and the docs can surface
 the resume entry point without making users read internal state files.
 
@@ -172,9 +177,10 @@ Common commands:
 comet bundle candidates --json
 comet publish list --json
 comet bundle factory-propose <name> --file <plan.json> --json
-comet bundle factory-init <name> --file <plan.json> --confirmed-proposal --json
+comet bundle factory-init <name> --file <plan.json> --json
 comet bundle factory-resolve <name> --candidate <query> --source <root-or-hash> --json
 comet bundle factory-resolve <name> --candidate <query> --ignore-missing --reason <reason> --json
+comet bundle factory-init <name> --file <plan.json> --confirmed-proposal --json
 comet bundle draft create <name> --json
 comet bundle draft optimize <bundle> --json
 comet publish status <name> --json

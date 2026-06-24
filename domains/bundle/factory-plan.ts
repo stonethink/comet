@@ -42,6 +42,19 @@ interface PersistedBundleFactoryPlan extends NormalizedBundleFactoryPlan {
   schemaVersion: 1;
 }
 
+function persistedFactoryPlan(plan: NormalizedBundleFactoryPlan): PersistedBundleFactoryPlan {
+  return {
+    schemaVersion: 1,
+    ...plan,
+  };
+}
+
+export function hashBundleFactoryPlan(plan: NormalizedBundleFactoryPlan): string {
+  return createHash('sha256')
+    .update(JSON.stringify(persistedFactoryPlan(plan), null, 2) + '\n')
+    .digest('hex');
+}
+
 function ensureStringArray(value: unknown, label: string): string[] {
   if (
     !Array.isArray(value) ||
@@ -183,10 +196,7 @@ export async function writeBundleFactoryPlanArtifact(options: {
   plan: NormalizedBundleFactoryPlan;
 }): Promise<{ planPath: string; planHash: string }> {
   const planPath = factoryPlanPath(options.projectRoot, options.name);
-  const document: PersistedBundleFactoryPlan = {
-    schemaVersion: 1,
-    ...options.plan,
-  };
+  const document = persistedFactoryPlan(options.plan);
   const content = JSON.stringify(document, null, 2) + '\n';
   const temporary = path.join(path.dirname(planPath), `.plan.${randomUUID()}.tmp`);
   await fs.mkdir(path.dirname(planPath), { recursive: true });
@@ -198,6 +208,6 @@ export async function writeBundleFactoryPlanArtifact(options: {
   }
   return {
     planPath,
-    planHash: createHash('sha256').update(content).digest('hex'),
+    planHash: hashBundleFactoryPlan(options.plan),
   };
 }

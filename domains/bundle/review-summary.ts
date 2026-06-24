@@ -67,6 +67,9 @@ function buildReadiness(
         .join(', ')}`,
     );
   }
+  if (state.factory && state.factory.proposalConfirmation?.confirmed !== true) {
+    blockers.push('[proposal] Factory proposal confirmation is missing');
+  }
   const storedPreferenceHash = state.factory?.preferenceHash ?? null;
   if (storedPreferenceHash && currentPreferenceHash !== storedPreferenceHash) {
     const message = '[preference] Project Skill preferences changed after Factory initialization';

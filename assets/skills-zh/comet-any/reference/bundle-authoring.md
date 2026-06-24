@@ -137,6 +137,8 @@ comet bundle factory-init <name> --file <plan.json> --confirmed-proposal --json
 
 `proposalHash` 会由 Factory metadata 记录，用于确认当前 proposal；用户不需要把它作为 CLI 参数传入。
 
+如果 proposal 还有缺失、歧义或组合 blocker，只能先创建 unresolved Factory state 供 `factory-resolve` 使用；解决后必须再次运行 `factory-init --confirmed-proposal` 写入确认 metadata，之后才允许 `factory-generate`、review 和 publish。
+
 `status` / `list` 输出应包含 `resumeSummary`，以便 `/comet-any` 和中文文档向用户展示恢复入口，而不是让用户自行阅读内部状态。
 
 常用命令：
@@ -145,9 +147,10 @@ comet bundle factory-init <name> --file <plan.json> --confirmed-proposal --json
 comet bundle candidates --json
 comet publish list --json
 comet bundle factory-propose <name> --file <plan.json> --json
-comet bundle factory-init <name> --file <plan.json> --confirmed-proposal --json
+comet bundle factory-init <name> --file <plan.json> --json
 comet bundle factory-resolve <name> --candidate <query> --source <root-or-hash> --json
 comet bundle factory-resolve <name> --candidate <query> --ignore-missing --reason <reason> --json
+comet bundle factory-init <name> --file <plan.json> --confirmed-proposal --json
 comet bundle draft create <name> --json
 comet bundle draft optimize <bundle> --json
 comet publish status <name> --json

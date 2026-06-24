@@ -152,6 +152,8 @@ comet bundle factory-init <name> --file <plan.json> --confirmed-proposal --json
 
 `proposalHash` 会由 Factory metadata 记录并校验，不由用户作为参数传入。`factory-init` 会把规范化 plan 固化到 `.comet/bundle-factory-plans/<name>/plan.json`，并在 Factory metadata 中记录 `planHash`、`preferenceHash`、偏好模式、策略、required Skill、resolved Skill 证据和偏离原因。
 
+如果 proposal 还有缺失、歧义或组合 blocker，`/comet-any` 不应确认生成。需要用后端状态做候选修复时，可以先不带 `--confirmed-proposal` 初始化 unresolved Factory state 并运行 `factory-resolve`；候选和组合解决后，必须重新展示可生成方案并再次调用 `factory-init --confirmed-proposal`，否则 `factory-generate`、review 和 publish 都会拒绝继续。
+
 ## `/comet-any` 的产出
 
 一次完整生成或优化后，产物应包含：

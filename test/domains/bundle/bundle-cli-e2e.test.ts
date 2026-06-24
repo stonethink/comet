@@ -391,6 +391,16 @@ prefer:
         ],
       },
     });
+    runJson(
+      'bundle',
+      'factory-init',
+      'factory-bundle',
+      '--project',
+      projectRoot,
+      '--file',
+      planFile,
+      '--confirmed-proposal',
+    );
 
     const generated = runJson(
       'bundle',
@@ -601,6 +611,16 @@ prefer:
     expect(resolved.factory).toMatchObject({
       deviations: [expect.objectContaining({ skill: 'missing-skill', actualIndex: -1 })],
     });
+    runJson(
+      'bundle',
+      'factory-init',
+      'factory-missing',
+      '--project',
+      projectRoot,
+      '--file',
+      planFile,
+      '--confirmed-proposal',
+    );
 
     const generated = runJson(
       'bundle',
@@ -687,6 +707,16 @@ prefer:
       '--reason',
       'The target workflow can proceed with factory-alpha only.',
     );
+    runJson(
+      'bundle',
+      'factory-init',
+      'factory-text-mode',
+      '--project',
+      projectRoot,
+      '--file',
+      planFile,
+      '--confirmed-proposal',
+    );
     runJson('bundle', 'factory-generate', 'factory-text-mode', '--project', projectRoot);
 
     const reviewSummary = runCli(
@@ -751,6 +781,16 @@ prefer:
       'factory-alpha',
       '--source',
       path.join(projectRoot, '.claude', 'skills', 'factory-alpha'),
+    );
+    runJson(
+      'bundle',
+      'factory-init',
+      'factory-warning-text-mode',
+      '--project',
+      projectRoot,
+      '--file',
+      planFile,
+      '--confirmed-proposal',
     );
     runJson('bundle', 'factory-generate', 'factory-warning-text-mode', '--project', projectRoot);
     const status = runJson(
@@ -843,6 +883,16 @@ prefer:
       '--source',
       path.join(projectRoot, '.claude', 'skills', 'factory-alpha'),
     );
+    runJson(
+      'bundle',
+      'factory-init',
+      'factory-status-text-mode',
+      '--project',
+      projectRoot,
+      '--file',
+      planFile,
+      '--confirmed-proposal',
+    );
     runJson('bundle', 'factory-generate', 'factory-status-text-mode', '--project', projectRoot);
 
     const bundleStatus = runCli(
@@ -914,6 +964,7 @@ prefer:
       projectRoot,
       '--file',
       planFile,
+      '--confirmed-proposal',
     );
     runJson('bundle', 'factory-generate', 'factory-next-action', '--project', projectRoot);
 

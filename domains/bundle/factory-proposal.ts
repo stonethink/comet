@@ -137,13 +137,18 @@ export async function buildBundleFactoryProposal(options: {
       ...blockers.filter((item) => item.startsWith('[policy]')),
     ],
   };
+  const canGenerate = blockers.length === 0;
   const actions: BundleFactoryProposalAction[] = [
-    {
-      id: 'confirm-generate',
-      label: 'Confirm and initialize generation',
-      command: `comet bundle factory-init ${options.name} --file ${path.resolve(options.filePath)} --confirmed-proposal`,
-      writesState: true,
-    },
+    ...(canGenerate
+      ? [
+          {
+            id: 'confirm-generate' as const,
+            label: 'Confirm and initialize generation',
+            command: `comet bundle factory-init ${options.name} --file ${path.resolve(options.filePath)} --confirmed-proposal`,
+            writesState: true,
+          },
+        ]
+      : []),
     {
       id: 'revise-proposal',
       label: 'Revise the plan before generating',
@@ -173,7 +178,7 @@ export async function buildBundleFactoryProposal(options: {
     composition: composed.composition,
     blockers,
     warnings: plan.deviations.map((item) => `[deviation] ${item.skill}: ${item.reason}`),
-    canGenerate: blockers.length === 0,
+    canGenerate,
     userSummary,
     actions,
   };

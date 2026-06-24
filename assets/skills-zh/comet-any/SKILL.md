@@ -138,6 +138,8 @@ comet bundle factory-resolve <name> --candidate <query> --ignore-missing --reaso
 2. `revise-proposal` - 修改目标、偏好、候选或控制面策略后重新 proposal
 3. `cancel` - 不写入 Bundle state
 
+如果 proposal 仍有缺失、歧义或组合 blocker，不得调用 `confirm-generate`。只有在需要用后端状态承载 `factory-resolve` 时，才可先不带 `--confirmed-proposal` 初始化 unresolved Factory state；候选和组合解决后，必须重新展示可生成的组合方案，并再次调用 `comet bundle factory-init <name> --file <plan> --confirmed-proposal` 写入确认 metadata，然后才能 `factory-generate`。
+
 ### 8. 澄清 Skill Factory 目标
 
 与用户确认：
@@ -163,6 +165,8 @@ comet bundle factory-init <name> --file <plan.json> --confirmed-proposal --json
 ```
 
 `proposalHash` 必须由本次 proposal 的 Factory metadata 记录并在后端校验，不由用户作为 CLI 参数传入。
+
+若前一次为了 `factory-resolve` 已创建 unresolved Factory state，解决候选/组合 blocker 后仍然要重新运行同一条 `factory-init --confirmed-proposal`；后端会基于当前已解决 state 写入确认 metadata，缺少该 metadata 时 `factory-generate`、review 和 publish 都会拒绝继续。
 
 这个命令必须负责两件事：
 

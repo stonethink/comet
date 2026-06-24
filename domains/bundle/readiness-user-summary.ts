@@ -9,6 +9,7 @@ export type BundleReadinessConclusion =
 export interface BundleReadinessUserSummaryItem {
   code:
     | 'candidate'
+    | 'proposal'
     | 'preference'
     | 'composition'
     | 'control-plane'
@@ -66,6 +67,7 @@ function codeOf(message: string): BundleReadinessUserSummaryItem['code'] {
   if (
     [
       'candidate',
+      'proposal',
       'preference',
       'composition',
       'control-plane',
@@ -92,6 +94,12 @@ function advice(
         impact: 'Comet cannot safely compose the Skill until every source Skill is resolved.',
         label: 'Resolve missing or ambiguous Skill candidates',
         command: `comet bundle status ${bundleName}`,
+      };
+    case 'proposal':
+      return {
+        impact: 'The resolved Skill composition has not been confirmed by the user.',
+        label: 'Confirm the resolved composition proposal',
+        command: `comet bundle factory-init ${bundleName} --file <plan.json> --confirmed-proposal`,
       };
     case 'preference':
       return {

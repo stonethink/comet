@@ -97,7 +97,6 @@ comet init
 ## Task Paths
 
 - **Start a Comet workflow** — `comet init` to install the runtime and Skills, then invoke `/comet` from your agent surface.
-- **Create or optimize a reusable Skill** — `/comet-any` is the main user path. It now generates a stable composed Skill Bundle rather than only a `SKILL.md`, and the ordinary path is `/comet-any -> comet eval -> comet publish review/approve/run -> comet publish distribute --preview -> comet publish distribute`. Use `comet publish status` or `comet publish review` for normal release readiness, and reach for the `comet bundle` Advanced Bundle backend only when you are debugging the backend state directly. Detailed examples live in [docs/operations/SKILL-CREATION.md](docs/operations/SKILL-CREATION.md).
 - **Create or optimize a reusable Skill** — `/comet-any` is the main user path. It now generates a stable composed Skill Bundle rather than only a `SKILL.md`, and the ordinary path is `/comet-any -> comet eval -> comet publish review/approve/run -> comet publish distribute --preview -> comet publish distribute`. Use `comet publish status` or `comet publish review` for normal release readiness, run `comet publish distribute --preview` before any real platform writes, and reach for the `comet bundle` Advanced Bundle backend only when you are debugging the backend state directly. Detailed examples live in [docs/operations/SKILL-CREATION.md](docs/operations/SKILL-CREATION.md).
 - **Evaluate a local or generated Skill** — `comet eval collect --manifest ./comet/eval.yaml` for discovery, then `comet eval run --manifest ./comet/eval.yaml --html` for a real run with a browsable summary.
 - **Diagnose a stuck workflow** — `comet status` for the current phase and next command, then `comet doctor` when state, runtime evidence, or install health looks wrong.
@@ -283,8 +282,9 @@ repairing a blocked draft, or intentionally operating the release pipeline by ha
 comet bundle candidates --project . --json
 comet bundle list --project . --json
 comet bundle factory-propose my-bundle --file ./plan.json --json
-comet bundle factory-init my-bundle --file ./plan.json --confirmed-proposal --json
+comet bundle factory-init my-bundle --file ./plan.json --json
 comet bundle factory-resolve my-bundle --candidate review-flow --source ./skills/review-flow --json
+comet bundle factory-init my-bundle --file ./plan.json --confirmed-proposal --json
 comet bundle factory-generate my-bundle --json
 comet bundle draft create my-bundle --project .
 comet bundle draft optimize ./bundle-source --project .

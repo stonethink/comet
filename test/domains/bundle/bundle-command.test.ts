@@ -24,7 +24,10 @@ import {
 import type { BundleEvalResult } from '../../../domains/bundle/eval.js';
 import { createBundleDraft } from '../../../domains/bundle/draft.js';
 import { loadBundle } from '../../../domains/bundle/load.js';
-import { readBundleAuthoringState } from '../../../domains/bundle/state.js';
+import {
+  readBundleAuthoringState,
+  writeBundleAuthoringState,
+} from '../../../domains/bundle/state.js';
 
 async function writeBundle(
   root: string,
@@ -599,6 +602,43 @@ prefer:
     expect(text).toContain('Actions:');
   });
 
+  it('does not offer confirm-generate on blocked Factory proposals', async () => {
+    const planFile = path.join(root, 'factory-blocked-proposal-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Create a blocked proposal.',
+          preferredSkills: ['missing-factory-skill'],
+          callChain: [{ skill: 'missing-factory-skill' }],
+          engineMode: 'deterministic',
+          runnerMode: 'standalone',
+        },
+        null,
+        2,
+      ),
+    );
+
+    const proposal = await captureJson(() =>
+      bundleFactoryProposeCommand('blocked-proposal-factory', {
+        project: projectRoot,
+        file: planFile,
+        json: true,
+      }),
+    );
+
+    expect(proposal).toMatchObject({
+      canGenerate: false,
+      actions: expect.arrayContaining([
+        expect.objectContaining({ id: 'revise-proposal' }),
+        expect.objectContaining({ id: 'cancel' }),
+      ]),
+    });
+    expect(proposal.actions).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: 'confirm-generate' })]),
+    );
+  });
+
   it('records confirmation metadata through the factory-init command', async () => {
     await writeFactorySkill(projectRoot, 'task3-command-confirmed', {
       description: 'Command confirmation test skill.',
@@ -642,6 +682,264 @@ prefer:
       confirmed: true,
       proposalHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
     });
+  });
+
+  it('invalidates proposal confirmation after factory-resolve and points status at reconfirmation', async () => {
+    const skillRoot = await writeFactorySkill(projectRoot, 'task3-resolve-after-confirm', {
+      description: 'Resolve after confirm test skill.',
+    });
+    const planFile = path.join(root, 'factory-resolve-after-confirm-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Create a Skill that will be resolved after confirmation',
+          preferredSkills: ['task3-resolve-after-confirm'],
+          callChain: [{ skill: 'task3-resolve-after-confirm' }],
+          engineMode: 'deterministic',
+          runnerMode: 'standalone',
+        },
+        null,
+        2,
+      ),
+    );
+
+    await bundleFactoryInitCommand('resolve-after-confirm-skill', {
+      project: projectRoot,
+      file: planFile,
+      confirmedProposal: true,
+      json: true,
+    });
+
+    const resolved = await captureJson(() =>
+      bundleFactoryResolveCommand('resolve-after-confirm-skill', {
+        project: projectRoot,
+        candidate: 'task3-resolve-after-confirm',
+        source: skillRoot,
+        json: true,
+      }),
+    );
+
+    expect(resolved.factory).not.toHaveProperty('proposalConfirmation');
+    const status = await captureJson(() =>
+      bundleStatusCommand('resolve-after-confirm-skill', { project: projectRoot, json: true }),
+    );
+    expect(status).toMatchObject({
+      nextAction: {
+        action: 'confirm-proposal',
+        backendCommand: expect.stringContaining('--confirmed-proposal'),
+      },
+    });
+    await expect(
+      bundleFactoryGenerateCommand('resolve-after-confirm-skill', {
+        project: projectRoot,
+        json: true,
+      }),
+    ).rejects.toThrow(/Factory proposal confirmation/iu);
+  });
+
+  it('blocks Factory generation until the user confirms the proposal', async () => {
+    await writeFactorySkill(projectRoot, 'task3-unconfirmed-generate', {
+      description: 'Unconfirmed generation test skill.',
+    });
+    const planFile = path.join(root, 'factory-init-unconfirmed-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Create an unconfirmed Skill',
+          preferredSkills: ['task3-unconfirmed-generate'],
+          callChain: [{ skill: 'task3-unconfirmed-generate' }],
+          engineMode: 'deterministic',
+          runnerMode: 'standalone',
+        },
+        null,
+        2,
+      ),
+    );
+
+    await bundleFactoryInitCommand('unconfirmed-generate-skill', {
+      project: projectRoot,
+      file: planFile,
+      json: true,
+    });
+
+    await expect(
+      bundleFactoryGenerateCommand('unconfirmed-generate-skill', {
+        project: projectRoot,
+        json: true,
+      }),
+    ).rejects.toThrow(/Factory proposal confirmation/iu);
+  });
+
+  it('rejects confirming a resolved Factory state with a different plan', async () => {
+    await writeFactorySkill(projectRoot, 'task3-plan-match-alpha', {
+      description: 'Plan match test skill.',
+    });
+    const originalPlan = path.join(root, 'factory-plan-match-original.json');
+    await fs.writeFile(
+      originalPlan,
+      JSON.stringify(
+        {
+          goal: 'Create the original Skill',
+          preferredSkills: ['task3-plan-match-alpha'],
+          callChain: [{ skill: 'task3-plan-match-alpha' }],
+          engineMode: 'deterministic',
+          runnerMode: 'standalone',
+        },
+        null,
+        2,
+      ),
+    );
+    await bundleFactoryInitCommand('plan-match-skill', {
+      project: projectRoot,
+      file: originalPlan,
+      confirmedProposal: true,
+      json: true,
+    });
+
+    const blockedPlan = path.join(root, 'factory-plan-match-blocked.json');
+    await fs.writeFile(
+      blockedPlan,
+      JSON.stringify(
+        {
+          goal: 'Create a different blocked Skill',
+          preferredSkills: ['task3-plan-match-missing'],
+          callChain: [{ skill: 'task3-plan-match-missing' }],
+          engineMode: 'deterministic',
+          runnerMode: 'standalone',
+        },
+        null,
+        2,
+      ),
+    );
+
+    await expect(
+      bundleFactoryInitCommand('plan-match-skill', {
+        project: projectRoot,
+        file: blockedPlan,
+        confirmedProposal: true,
+        json: true,
+      }),
+    ).rejects.toThrow(/does not match current Factory plan/iu);
+  });
+
+  it('blocks publishing legacy Factory states that lack proposal confirmation', async () => {
+    await writeFactorySkill(projectRoot, 'task3-unconfirmed-publish', {
+      description: 'Unconfirmed publish test skill.',
+    });
+    const planFile = path.join(root, 'factory-init-publish-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Create a publish-gated Skill',
+          preferredSkills: ['task3-unconfirmed-publish'],
+          callChain: [{ skill: 'task3-unconfirmed-publish' }],
+          engineMode: 'deterministic',
+          runnerMode: 'standalone',
+        },
+        null,
+        2,
+      ),
+    );
+
+    await bundleFactoryInitCommand('unconfirmed-publish-skill', {
+      project: projectRoot,
+      file: planFile,
+      confirmedProposal: true,
+      json: true,
+    });
+    await bundleFactoryGenerateCommand('unconfirmed-publish-skill', {
+      project: projectRoot,
+      json: true,
+    });
+    const status = await captureJson(() =>
+      bundleStatusCommand('unconfirmed-publish-skill', { project: projectRoot, json: true }),
+    );
+    const resultFile = path.join(root, 'unconfirmed-publish-eval.json');
+    await fs.writeFile(
+      resultFile,
+      JSON.stringify(passingResult(String(status.currentHash), ['unconfirmed-publish-skill'])),
+    );
+    await bundleEvalRecordCommand('unconfirmed-publish-skill', {
+      project: projectRoot,
+      result: resultFile,
+    });
+    await bundleReviewCommand('unconfirmed-publish-skill', {
+      project: projectRoot,
+      approve: true,
+      reviewer: 'alice',
+    });
+
+    const state = await readBundleAuthoringState(projectRoot, 'unconfirmed-publish-skill');
+    const legacy = { ...state, factory: { ...state.factory! } };
+    delete legacy.factory.proposalConfirmation;
+    await writeBundleAuthoringState(projectRoot, legacy);
+
+    await expect(
+      bundlePublishCommand('unconfirmed-publish-skill', {
+        project: projectRoot,
+        platform: 'claude',
+      }),
+    ).rejects.toThrow(/Factory proposal confirmation/iu);
+  });
+
+  it('blocks reviewing legacy Factory states that lack proposal confirmation', async () => {
+    await writeFactorySkill(projectRoot, 'task3-unconfirmed-review', {
+      description: 'Unconfirmed review test skill.',
+    });
+    const planFile = path.join(root, 'factory-init-review-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Create a review-gated Skill',
+          preferredSkills: ['task3-unconfirmed-review'],
+          callChain: [{ skill: 'task3-unconfirmed-review' }],
+          engineMode: 'deterministic',
+          runnerMode: 'standalone',
+        },
+        null,
+        2,
+      ),
+    );
+
+    await bundleFactoryInitCommand('unconfirmed-review-skill', {
+      project: projectRoot,
+      file: planFile,
+      confirmedProposal: true,
+      json: true,
+    });
+    await bundleFactoryGenerateCommand('unconfirmed-review-skill', {
+      project: projectRoot,
+      json: true,
+    });
+    const status = await captureJson(() =>
+      bundleStatusCommand('unconfirmed-review-skill', { project: projectRoot, json: true }),
+    );
+    const resultFile = path.join(root, 'unconfirmed-review-eval.json');
+    await fs.writeFile(
+      resultFile,
+      JSON.stringify(passingResult(String(status.currentHash), ['unconfirmed-review-skill'])),
+    );
+    await bundleEvalRecordCommand('unconfirmed-review-skill', {
+      project: projectRoot,
+      result: resultFile,
+    });
+
+    const state = await readBundleAuthoringState(projectRoot, 'unconfirmed-review-skill');
+    const legacy = { ...state, factory: { ...state.factory! } };
+    delete legacy.factory.proposalConfirmation;
+    await writeBundleAuthoringState(projectRoot, legacy);
+
+    await expect(
+      bundleReviewCommand('unconfirmed-review-skill', {
+        project: projectRoot,
+        approve: true,
+        reviewer: 'alice',
+      }),
+    ).rejects.toThrow(/Factory proposal confirmation/iu);
   });
 
   it('stores composed flow metadata and uses it as the factory call chain', async () => {
@@ -853,6 +1151,13 @@ prefer:
     });
     expect(resolved.factory).not.toHaveProperty('composition');
 
+    await bundleFactoryInitCommand('recomputed-entry-factory', {
+      project: projectRoot,
+      file: planFile,
+      confirmedProposal: true,
+      json: true,
+    });
+
     const generated = await captureJson(() =>
       bundleFactoryGenerateCommand('recomputed-entry-factory', {
         project: projectRoot,
@@ -958,6 +1263,14 @@ prefer:
         deviations: [],
         engineMode: 'deterministic',
         runnerMode: 'standalone',
+        proposalConfirmation: {
+          confirmed: true,
+          confirmedAt: new Date().toISOString(),
+          proposalHash: 'd'.repeat(64),
+          preferenceHash: 'c'.repeat(64),
+          acceptedCapabilities: ['skills', 'scripts', 'rules', 'hooks', 'references'],
+          warnings: [],
+        },
       },
     });
 
@@ -1663,6 +1976,7 @@ prefer:
     await bundleFactoryInitCommand('review-factory', {
       project: projectRoot,
       file: planFile,
+      confirmedProposal: true,
       json: true,
     });
     await bundleFactoryGenerateCommand('review-factory', { project: projectRoot, json: true });

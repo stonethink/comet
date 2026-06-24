@@ -36,6 +36,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Classic diagnostics resilience**: Prevents malformed `.comet.yaml` files from crashing whole scans, keeps `status`/`doctor`/`guard --json` on one evidence path, and surfaces current step, runtime mode, runtime eval evidence, and recovery hints more directly.
 - **Doctor output clarity**: Adds Comet and Superpowers environment status to `comet doctor` and stops treating unrelated platform Skill directories as incomplete Comet installs in auto-scope diagnostics.
 - **`/comet-any` publish gates**: Tightens readiness evaluation so missing candidates, stale evals, missing review approval, unsupported required capabilities, and executable disclosures are surfaced explicitly before publish/distribute decisions.
+- **`/comet-any` proposal confirmation gate**: Requires confirmed Factory proposal metadata before generated Skill Bundles can be generated, reviewed, or published, while preserving a recovery path for resolving missing or ambiguous candidates before confirmation.
 - **Skill and eval CLI ergonomics**: Fixes `comet skill resume` option handling, adds actionable text-mode recovery hints, and removes the need to manually assemble most `cd eval && uv run pytest ...` command lines.
 - **Windows and path reliability**: Fixes OpenSpec init/update path quoting for directories with spaces and hardens the eval/task harness for Windows UTF-8, Docker, and report-output workflows.
 - **Stable Bundle readiness**: Factory-generated Bundles cannot be evaluated, reviewed, or published when required control-plane files are missing.
@@ -53,7 +54,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Submodule hook coverage**: Adds regression coverage for stable hook command generation and phase guarding when the hook process runs from a nested submodule directory.
 - **MimoCode platform coverage**: Adds regression coverage for platform detection, slash command generation, OpenSpec mirroring, Superpowers staging, init E2E behavior, CI path checks, and Bundle compatibility.
 - **Comet Any preference guide**: Adds coverage for preference parsing, Skill inventory grouping, Factory proposal previews, strict/advisory policy readiness, generated preference evidence, and bilingual `/comet-any` docs.
-- **Comet Any lifecycle**: Added coverage for Factory guide output, proposal confirmation metadata, resume summaries, readiness user summaries, and publish distribution preview.
+- **Comet Any lifecycle**: Added coverage for Factory guide output, proposal confirmation metadata, blocked proposal actions, confirmation-gated generation/review/publish, invalid preference guidance, resume summaries, readiness user summaries, and publish distribution preview.
 
 ### Removed
 

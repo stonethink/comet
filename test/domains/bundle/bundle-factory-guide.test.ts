@@ -108,6 +108,29 @@ describe('Bundle Factory first-use guide', () => {
     );
   });
 
+  it('points invalid saved preferences at the file to fix', async () => {
+    await fs.writeFile(
+      path.join(projectRoot, '.comet', 'skill-preferences.yaml'),
+      `version: 2
+prefer:
+  - brainstorming
+`,
+    );
+
+    const guide = await buildBundleFactoryGuide({ projectRoot, homeDir, builtinRoot });
+
+    expect(guide.firstRun).toBe(false);
+    expect(guide.preference).toMatchObject({
+      state: 'invalid',
+      error: expect.stringContaining('version must be 1'),
+    });
+    expect(guide.userMessage).toMatchObject({
+      title: 'Fix project Skill preferences',
+      summary: expect.stringContaining('.comet/skill-preferences.yaml'),
+      nextStep: expect.stringContaining('Open .comet/skill-preferences.yaml'),
+    });
+  });
+
   it('surfaces resumable Factory flows before starting a new one', async () => {
     await createBundleDraft({
       projectRoot,
@@ -137,9 +160,9 @@ describe('Bundle Factory first-use guide', () => {
       expect.objectContaining({
         name: 'half-built',
         goal: 'Create a half-built Skill',
-        currentStep: 'needs-generation',
+        currentStep: 'needs-proposal-confirmation',
         recommendedNextStep: expect.objectContaining({
-          action: 'generate-factory-package',
+          action: 'confirm-proposal',
         }),
       }),
     ]);
