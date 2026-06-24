@@ -9,7 +9,7 @@ import {
   readBundleFactoryPlan,
   writeBundleFactoryPlanArtifact,
 } from './factory-plan.js';
-import { readSkillPreferences } from './preferences.js';
+import { readBundleSkillPreferences } from './preferences.js';
 import { reconcileBundleAuthoringState, writeBundleAuthoringState } from './state.js';
 import { generateFactorySkillPackage } from '../factory/package.js';
 import { hashBundle } from './hash.js';
@@ -174,6 +174,23 @@ function assertFactoryCompositionReady(name: string, factory: BundleFactoryMetad
   );
 }
 
+function assertPreferenceCapabilitiesAllowed(
+  preferences: Awaited<ReturnType<typeof readBundleSkillPreferences>> | null,
+): void {
+  const policies = preferences?.preferences.policies;
+  if (!policies) return;
+  if (policies.scripts === 'deny') {
+    throw new Error(
+      'Project Skill preference policy denies scripts required by generated Factory output',
+    );
+  }
+  if (policies.hooks === 'deny') {
+    throw new Error(
+      'Project Skill preference policy denies hooks required by generated Factory output',
+    );
+  }
+}
+
 export async function composeFactoryMetadata(
   factory: BundleFactoryMetadata,
 ): Promise<BundleFactoryMetadata> {
@@ -226,6 +243,14 @@ export async function generateBundleDraftFromFactoryState(options: {
     callChain: factory.callChain,
     composition: factory.composition,
     resolvedSkills: factory.resolvedSkills,
+    preference: {
+      mode: factory.preferenceMode,
+      policies: factory.preferencePolicies,
+      requiredSkills: factory.requiredSkills,
+      sourcePath: factory.preferencePath,
+      sourceHash: factory.preferenceHash,
+      warnings: factory.preferenceWarnings,
+    },
     deviations: factory.deviations,
     engineMode: factory.engineMode,
   });
@@ -279,9 +304,11 @@ export async function initializeBundleFactoryState(options: {
   filePath: string;
 }): Promise<BundleAuthoringState> {
   const projectRoot = path.resolve(options.projectRoot);
+  const projectPreferences = await readBundleSkillPreferences(projectRoot);
+  assertPreferenceCapabilitiesAllowed(projectPreferences);
   const plan = normalizeBundleFactoryPlan({
     plan: await readBundleFactoryPlan(path.resolve(options.filePath)),
-    projectPreferredSkills: await readSkillPreferences(projectRoot),
+    projectPreferredSkills: projectPreferences?.names ?? null,
   });
   const resolvedSkills = await discoverBundleCandidates({
     projectRoot,
@@ -302,6 +329,12 @@ export async function initializeBundleFactoryState(options: {
   const factory: BundleFactoryMetadata = await composeFactoryMetadata({
     goal: plan.goal,
     preferredSkills: plan.preferredSkills,
+    requiredSkills: projectPreferences?.preferences.require ?? [],
+    preferenceMode: projectPreferences?.preferences.mode,
+    preferencePolicies: projectPreferences?.preferences.policies,
+    preferencePath: projectPreferences?.path,
+    preferenceHash: projectPreferences?.hash,
+    preferenceWarnings: projectPreferences?.warnings ?? [],
     compositionEntrySkills: plan.callChain.map((item) => item.skill),
     resolvedSkills: factoryResolvedSkills,
     callChain: plan.callChain,

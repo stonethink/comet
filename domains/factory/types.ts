@@ -83,6 +83,20 @@ export interface FactorySkillPackagePlan {
   callChain: FactoryCallChainItem[];
   composition?: FactoryComposition;
   resolvedSkills?: FactoryResolvedSkill[];
+  preference?: {
+    mode?: 'advisory' | 'strict';
+    policies?: {
+      missing?: string;
+      ambiguous?: string;
+      deviation?: string;
+      scripts?: string;
+      hooks?: string;
+    };
+    requiredSkills?: string[];
+    sourcePath?: string;
+    sourceHash?: string;
+    warnings?: unknown[];
+  };
   deviations: FactoryOrderDeviation[];
   engineMode: 'none' | 'deterministic' | 'adaptive';
 }

@@ -1,4 +1,9 @@
 import type { BundleCandidateSource } from './candidates.js';
+import type {
+  NormalizedSkillPreferences,
+  SkillPreferencePolicies,
+  SkillPreferenceWarning,
+} from '../skill/preferences.js';
 
 export type BundleSkillVisibility = 'entry' | 'internal';
 export type BundleCapability = 'skills' | 'rules' | 'hooks' | 'scripts' | 'references' | 'assets';
@@ -190,6 +195,12 @@ export interface BundleGeneratedSkillPackage {
 export interface BundleFactoryMetadata {
   goal: string;
   preferredSkills: string[];
+  requiredSkills?: string[];
+  preferenceMode?: NormalizedSkillPreferences['mode'];
+  preferencePolicies?: SkillPreferencePolicies;
+  preferencePath?: string;
+  preferenceHash?: string;
+  preferenceWarnings?: SkillPreferenceWarning[];
   compositionEntrySkills?: string[];
   resolvedSkills: BundleFactoryResolvedSkill[];
   callChain: BundleFactoryCallChainItem[];

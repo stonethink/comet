@@ -32,9 +32,10 @@ First run `comet bundle review-summary <name> --platform <reference-platform> --
 
 - Bundle name, version, and hash.
 - Multiple entry and internal Skill lists.
-- `planHash` and `reference/resolved-skills.json` real Skill evidence, including `sourceSummaries` and the composed workflow summary.
+- `planHash`, `preferenceHash`, and `reference/resolved-skills.json` real Skill evidence, including project-level preference mode, required Skills, `sourceSummaries`, and the composed workflow summary.
 - Recommended call order and `preferenceIndex`.
 - Every item that deviates from the preferred order, plus the reason.
+- Whether `.comet/skill-preferences.yaml` drifted after Factory initialization; `advisory` mode warns, while `strict` mode blocks.
 - Whether the stable composed Skill Bundle required capability set `skills/scripts/rules/hooks/references` is complete, and whether `scripts/rules/hooks` remain the required control plane.
 - Whether `comet/skill.yaml`, `comet/guardrails.yaml`, `comet/checks.yaml`, and `comet/eval.yaml` were generated.
 - Whether `hooks/*.yaml` are treated only as portable hook descriptors until `comet publish distribute` compiles them for the target platform.

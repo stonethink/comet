@@ -32,6 +32,7 @@ import {
   bundleEvalRecordCommand,
   bundleFactoryGenerateCommand,
   bundleFactoryInitCommand,
+  bundleFactoryProposeCommand,
   bundleFactoryResolveCommand,
   bundleListCommand,
   bundlePublishCommand,
@@ -363,6 +364,16 @@ bundle
   .option('--json', 'Output as JSON')
   .action(async (name, options) => {
     await bundleStatusCommand(name, options);
+  });
+
+bundle
+  .command('factory-propose <name>')
+  .description('Preview a /comet-any Factory proposal without writing Bundle state')
+  .option('--project <dir>', 'Project root', '.')
+  .requiredOption('--file <path>', 'Factory plan JSON file')
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await bundleFactoryProposeCommand(name, options);
   });
 
 bundle

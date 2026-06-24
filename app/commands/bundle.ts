@@ -20,6 +20,7 @@ import { listBundlePlatformTargets } from '../../domains/bundle/bundle-platform.
 import { planBundleEval, recordBundleEval } from '../../domains/bundle/eval.js';
 import { publishBundle, reviewBundle } from '../../domains/bundle/publish.js';
 import { distributeBundle } from '../../domains/bundle/distribute.js';
+import { buildBundleFactoryProposal } from '../../domains/bundle/factory-proposal.js';
 import type { BundleCapability } from '../../domains/bundle/types.js';
 
 interface BundleCommandOptions {
@@ -362,6 +363,29 @@ export async function bundleFactoryInitCommand(
     updated,
     options.json,
     `Initialized factory Bundle state ${updated.name}\nDraft: ${updated.draftPath}`,
+  );
+}
+
+export async function bundleFactoryProposeCommand(
+  name: string,
+  options: BundleCommandOptions = {},
+): Promise<void> {
+  if (!options.file) throw new Error('--file is required');
+  const proposal = await buildBundleFactoryProposal({
+    projectRoot: projectRoot(options),
+    name,
+    filePath: options.file,
+  });
+  emit(
+    proposal,
+    options.json,
+    [
+      `Factory proposal ${proposal.name}`,
+      `Goal: ${proposal.goal}`,
+      `Preference mode: ${proposal.preference.mode}`,
+      `Can generate: ${proposal.canGenerate ? 'yes' : 'no'}`,
+      ...formatOptionalSection('Blockers:', proposal.blockers),
+    ].join('\n'),
   );
 }
 

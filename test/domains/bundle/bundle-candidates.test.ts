@@ -3,7 +3,10 @@ import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
 import { discoverBundleCandidates } from '../../../domains/bundle/candidates.js';
-import { readSkillPreferences } from '../../../domains/bundle/preferences.js';
+import {
+  readBundleSkillPreferences,
+  readSkillPreferences,
+} from '../../../domains/bundle/preferences.js';
 
 async function writeSkill(root: string, name: string, description: string): Promise<void> {
   await fs.mkdir(root, { recursive: true });
@@ -36,23 +39,36 @@ describe('Bundle candidate preferences and discovery', () => {
     await fs.rm(root, { recursive: true, force: true });
   });
 
-  it('ignores comments and blanks while preserving first preference order', async () => {
+  it('reads project Skill preferences from .comet/skill-preferences.yaml', async () => {
     await fs.writeFile(
-      path.join(projectRoot, '.comet', 'skills.txt'),
-      `
-# preferred skills
-brainstorming
-writing-plans
-brainstorming
-  test-driven-development
+      path.join(projectRoot, '.comet', 'skill-preferences.yaml'),
+      `version: 1
+mode: strict
+prefer:
+  - brainstorming
+  - writing-plans
+require:
+  - verification-before-completion
+policies:
+  missing: fail
 `,
     );
 
     await expect(readSkillPreferences(projectRoot)).resolves.toEqual([
       'brainstorming',
       'writing-plans',
-      'test-driven-development',
+      'verification-before-completion',
     ]);
+    await expect(readBundleSkillPreferences(projectRoot)).resolves.toMatchObject({
+      names: ['brainstorming', 'writing-plans', 'verification-before-completion'],
+      preferences: {
+        mode: 'strict',
+        prefer: ['brainstorming', 'writing-plans'],
+        require: ['verification-before-completion'],
+        policies: expect.objectContaining({ missing: 'fail' }),
+      },
+      hash: expect.stringMatching(/^[a-f0-9]{64}$/u),
+    });
   });
 
   it('returns null when the preferences file is missing', async () => {

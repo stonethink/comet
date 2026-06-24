@@ -38,7 +38,13 @@ describe('Chinese comet-any Skill', () => {
     for (const expected of [
       'create',
       'optimize',
-      '.comet/skills.txt',
+      '.comet/skill-preferences.yaml',
+      'Skill 创建向导',
+      '项目级偏好',
+      '组合方案',
+      'advisory',
+      'strict',
+      'preferenceHash',
       '用户只需要调用本 Skill',
       'CLI 是内部确定性后端',
       'Comet-native',
@@ -99,6 +105,7 @@ describe('Chinese comet-any Skill', () => {
 
     expect(combined).toContain('comet/eval.yaml');
     expect(combined).not.toContain('evals.yaml');
+    expect(combined).not.toContain(['.comet/skills', 'txt'].join('.'));
   });
 
   it('preserves the required order of the Chinese workflow', async () => {
@@ -109,7 +116,7 @@ describe('Chinese comet-any Skill', () => {
       '读取偏好并解析真实 Skill',
       '解决缺失/歧义候选',
       '读取候选的真实实现',
-      '提出默认调用链',
+      '展示组合方案并等待确认',
       '澄清 Skill Factory 目标',
       '通过 CLI 初始化草稿与 Factory metadata',
       '生成 Comet-native Skill 源码',
@@ -137,6 +144,7 @@ describe('Chinese comet-any Skill', () => {
 
     for (const command of [
       'comet bundle candidates',
+      'comet bundle factory-propose',
       'comet bundle factory-init',
       'comet bundle factory-resolve',
       'comet bundle draft create',
@@ -166,6 +174,12 @@ describe('Bilingual comet-any Skill parity', () => {
       { zh: '用户只需要调用本 Skill', en: 'The user only invokes this Skill' },
       { zh: 'CLI 是内部确定性后端', en: 'internal deterministic backend' },
       { zh: 'Comet-native Skill', en: 'Comet-native Skill' },
+      { zh: '.comet/skill-preferences.yaml', en: '.comet/skill-preferences.yaml' },
+      { zh: '项目级偏好', en: 'project-level preferences' },
+      { zh: '组合方案', en: 'composition proposal' },
+      { zh: 'advisory', en: 'advisory' },
+      { zh: 'strict', en: 'strict' },
+      { zh: 'preferenceHash', en: 'preferenceHash' },
       { zh: 'find-skill', en: 'find-skill' },
       { zh: '推荐调用顺序', en: 'recommended call order' },
       { zh: '偏离偏好顺序', en: 'deviates from the preferred order' },
@@ -233,6 +247,7 @@ describe('Bilingual comet-any Skill parity', () => {
 
     for (const command of [
       'comet bundle candidates',
+      'comet bundle factory-propose',
       'comet bundle factory-init',
       'comet bundle factory-resolve',
       'comet bundle draft create',
@@ -252,5 +267,7 @@ describe('Bilingual comet-any Skill parity', () => {
 
     expect(zhCombined).not.toContain('evals.yaml');
     expect(enCombined).not.toContain('evals.yaml');
+    expect(zhCombined).not.toContain(['.comet/skills', 'txt'].join('.'));
+    expect(enCombined).not.toContain(['.comet/skills', 'txt'].join('.'));
   });
 });

@@ -32,9 +32,10 @@ Eval 通过后仍必须人工批准。评审摘要至少包含：
 
 - Bundle 名称、版本、hash。
 - 多个 entry 与 internal Skill 列表。
-- `planHash` 与 `reference/resolved-skills.json` 真实 Skill 证据，包括 `sourceSummaries` 与“组合后的工作方式”摘要。
+- `planHash`、`preferenceHash` 与 `reference/resolved-skills.json` 真实 Skill 证据，包括项目级偏好模式、required Skill、`sourceSummaries` 与“组合后的工作方式”摘要。
 - 推荐调用顺序与 `preferenceIndex`。
 - 偏离偏好顺序的项和原因。
+- `.comet/skill-preferences.yaml` 是否在 Factory 初始化后发生漂移；`advisory` 模式给出 warning，`strict` 模式阻塞。
 - 稳定组合 Skill Bundle 的 required capability set（必需能力集合）`skills/scripts/rules/hooks/references` 是否声明完整，且 `scripts/rules/hooks` 是否继续作为 required control plane。
 - 是否生成 `comet/skill.yaml`、`comet/guardrails.yaml`、`comet/checks.yaml` 与 `comet/eval.yaml`。
 - `hooks/*.yaml` 是否仅被当作 portable hook descriptor，等待 `comet publish distribute` 编译到目标平台。

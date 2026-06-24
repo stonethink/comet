@@ -447,3 +447,17 @@ README 不展示 Bundle CLI 生命周期细节。
 - `strict` 模式下，缺失 required Skill、歧义来源、禁止 scripts/hooks 等情况会阻塞。
 - Review summary 能解释“为什么这样组合”以及“是否偏离项目偏好”。
 - Eval、approval、publish、distribute 继续复用现有 Bundle 后端，不产生第二套状态。
+
+## 实现状态
+
+- [x] 新增 `.comet/skill-preferences.yaml` 项目级偏好解析、默认值、warning、hash 和严格枚举校验。
+- [x] 移除 `.comet/skills.txt` 作为用户主路径，active 代码、文档、README 和测试 fixture 已迁移。
+- [x] 保留 `find skill` 全平台扫描能力，并新增面向用户的 Skill inventory 分组、去重、歧义和推荐标记。
+- [x] `/comet-any` 后端新增 Factory proposal dry-run，生成前展示组合方案，不写 Bundle authoring state。
+- [x] Factory metadata 记录偏好模式、策略、required Skill、`preferenceHash`、warning 和 resolved Skill 证据。
+- [x] `advisory` / `strict` readiness 已覆盖：偏好漂移、required 缺失、scripts/hooks deny 和 unresolved candidates 会进入 warning 或 blocker。
+- [x] Factory 生成物包含 `SKILL.md`、`scripts/`、`rules/`、`hooks/`、`reference/`、`comet/*.yaml`、Eval manifest 和 Bundle 状态；生成证据写入偏好信息。
+- [x] Review summary 展示偏好 hash、模式、组合方案证据、Eval evidence 和 readiness。
+- [x] `/comet-any` 中英文 Skill、operations 文档和 README 已按新用户心智更新。
+- [x] 已完成至少一次实现后 review，并修复 review 发现的偏好解析校验问题。
+- [x] 已通过目标测试、格式检查、lint、build 和全量测试验证。

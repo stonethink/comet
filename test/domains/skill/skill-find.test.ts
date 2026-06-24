@@ -2,11 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
-import {
-  findPreferredSkills,
-  readSkillPreferenceEntries,
-  type SkillSearchRoot,
-} from '../../../domains/skill/find.js';
+import { findPreferredSkills, type SkillSearchRoot } from '../../../domains/skill/find.js';
 
 async function writeMarkdownSkill(
   root: string,
@@ -66,25 +62,28 @@ describe('findPreferredSkills', () => {
     await fs.rm(root, { recursive: true, force: true });
   });
 
-  it('parses preference order, comments, duplicates and explicit paths', async () => {
-    const explicit = path.join(root, 'explicit-skill');
-    await writeMarkdownSkill(explicit, 'explicit-skill', 'Explicit path skill.');
+  it('scans all Skill roots when preferences are omitted instead of reading the legacy text preference file', async () => {
     await fs.writeFile(
-      path.join(projectRoot, '.comet', 'skills.txt'),
-      `
-# preferred call chain
-brainstorming
-writing-plans
-brainstorming
-${explicit}
-`,
+      path.join(projectRoot, '.comet', `skills${'.txt'}`),
+      'ignored-skill\n',
+    );
+    await writeMarkdownSkill(
+      path.join(projectRoot, '.codex', 'skills', 'actual-skill'),
+      'actual-skill',
+      'Actual project Skill.',
     );
 
-    await expect(readSkillPreferenceEntries(projectRoot)).resolves.toEqual([
-      { query: 'brainstorming', preferenceIndex: 0 },
-      { query: 'writing-plans', preferenceIndex: 1 },
-      { query: explicit, preferenceIndex: 2 },
-    ]);
+    const result = await findPreferredSkills({
+      projectRoot,
+      homeDir,
+      builtinRoot,
+    });
+
+    expect(result.map((skill) => skill.query)).toEqual(['actual-skill']);
+    expect(result[0]).toMatchObject({
+      preferenceIndex: null,
+      status: 'available',
+    });
   });
 
   it('finds real local Skills and preserves preferenceIndex', async () => {

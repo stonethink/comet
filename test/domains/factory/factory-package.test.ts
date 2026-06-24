@@ -61,6 +61,20 @@ Ask clarifying questions one at a time before presenting a design.
           ],
         },
       ],
+      preference: {
+        mode: 'strict',
+        policies: {
+          missing: 'fail',
+          ambiguous: 'ask',
+          deviation: 'fail',
+          scripts: 'disclose',
+          hooks: 'disclose',
+        },
+        requiredSkills: ['verification-before-completion'],
+        sourcePath: path.join(root, '.comet', 'skill-preferences.yaml'),
+        sourceHash: 'c'.repeat(64),
+        warnings: [],
+      },
       deviations: [],
       engineMode: 'deterministic',
     });
@@ -111,7 +125,19 @@ Ask clarifying questions one at a time before presenting a design.
           summary: expect.stringContaining('Start by understanding the current project context.'),
         },
       ],
+      preference: {
+        mode: 'strict',
+        requiredSkills: ['verification-before-completion'],
+        sourceHash: 'c'.repeat(64),
+      },
     });
+    const compositionReport = await fs.readFile(
+      path.join(output.packageRoot, 'reference', 'composition-report.md'),
+      'utf8',
+    );
+    expect(compositionReport).toContain('Preference mode: strict');
+    expect(compositionReport).toContain('Required Skills');
+    expect(compositionReport).toContain('verification-before-completion');
   });
 
   it('records deviation reasons in the generated Skill guidance', async () => {

@@ -280,6 +280,7 @@ repairing a blocked draft, or intentionally operating the release pipeline by ha
 ```bash
 comet bundle candidates --project . --json
 comet bundle list --project . --json
+comet bundle factory-propose my-bundle --file ./plan.json --json
 comet bundle factory-init my-bundle --file ./plan.json --json
 comet bundle factory-resolve my-bundle --candidate review-flow --source ./skills/review-flow --json
 comet bundle factory-generate my-bundle --json
@@ -295,11 +296,11 @@ comet bundle publish my-bundle --platform claude --json
 comet bundle distribute my-bundle --platform claude --scope project --confirm-executables --json
 ```
 
-`/comet-any` is the Comet Skill Factory: users describe the workflow they want to create or optimize, and Comet turns
-that request into a reviewable stable composed Skill Bundle draft backed by real local Skill evidence. It reads
-`.comet/skills.txt`, locates real Skill contents, preserves the recommended call order when possible, and uses CLI
-backends for validation, Eval, publishing, and optional distribution; see the Skill creation guide for the detailed
-control-plane contract. Missing or ambiguous candidates pause for `factory-resolve` first, review and
+`/comet-any` is the Comet Skill creation guide: users describe the workflow they want to create or optimize, and Comet
+reads project-level preferences from `.comet/skill-preferences.yaml`, scans real local Skills, shows a composition
+proposal for confirmation, then turns the request into a reviewable stable composed Skill Bundle draft. Factory metadata
+records `preferenceHash`, resolved Skill evidence, and deviation reasons before CLI backends handle validation, Eval,
+publishing, and optional distribution; see the Skill creation guide for the detailed control-plane contract. Missing or ambiguous candidates pause for `factory-resolve` first, review and
 publish stay gated by structured evidence, and distribution supports both `project` and `global` scopes. `comet bundle list`
 lists recoverable authoring states; `comet bundle status` prints `Next action`, the reason, and a suggested command in
 text mode; JSON output includes `nextAction` so `/comet-any`, `comet publish`, and other automation can resume the correct next step

@@ -1,12 +1,13 @@
 ---
 name: comet-any
-description: "创建或优化用户可直接调用的 Comet-native Skill。用 /comet-any 调用，读取 `.comet/skills.txt`、解析本地真实 Skill、生成 Skill Factory 产物，并在内部使用 CLI 后端完成校验、Eval、发布与可选分发。"
+description: "Skill 创建向导：创建或优化用户可直接调用的 Comet-native Skill。用 /comet-any 调用，读取项目级偏好 `.comet/skill-preferences.yaml`、解析本地真实 Skill、展示组合方案并生成 Skill Factory 产物，在内部使用 CLI 后端完成校验、Eval、发布与可选分发。"
 ---
 
 # Comet Any — Comet Skill Factory
 
-`/comet-any` 是 Comet Skill Factory。用户只需要调用本 Skill，描述想创建或优化的工作流；
-本 Skill 会读取用户偏好、用 `find-skill` 查找本地真实 Skill 内容，生成稳定组合 Skill Bundle，
+`/comet-any` 是 Comet 的 Skill 创建向导。用户只需要调用本 Skill，描述想创建或优化的工作流；
+本 Skill 会读取项目级偏好 `.comet/skill-preferences.yaml`、用 `find-skill` 查找本地真实 Skill 内容、
+先展示组合方案并等待用户确认，再生成稳定组合 Skill Bundle，
 再在内部调用 CLI 后端完成校验、Eval、发布和可选分发。CLI 是内部确定性后端，不是用户主流程。
 普通用户路径必须收束为 `/comet-any -> comet eval -> comet publish -> distribute`；其中 `comet skill`
 是底层 Skill 工具（Low-level Skill utilities），`comet bundle` 是高级 Bundle 后端（Advanced Bundle backend）。
@@ -31,7 +32,7 @@ Bundle 至少包含 `SKILL.md`、`comet/skill.yaml`、`comet/guardrails.yaml`、
 
 - 用户只需要调用本 Skill；不得把手动运行 `comet bundle` 或 `comet skill` 当作用户主流程。
 - 必须使用 `find-skill` 解析本地真实 Skill，不得只按名字猜测能力。
-- `.comet/skills.txt` 的行顺序是推荐调用顺序；生成调用链时应尽量遵守，偏离偏好顺序时必须说明原因。
+- `.comet/skill-preferences.yaml` 是项目级偏好文件，支持 `advisory` 和 `strict`；生成前必须展示组合方案，说明 prefer/require、缺失/歧义、偏离原因、scripts/hooks 披露，并在确认后记录 `preferenceHash`。
 - 缺失或歧义候选必须暂停并询问用户，不得静默忽略或替用户选择。
 - 必须使用 `comet bundle` CLI 维护确定性状态，不得手写 `.comet/bundle-*` 状态文件。
 - 必须先展示 Eval 工作量和 token 消耗，再让用户选择 `skip / quick / full Eval`。
@@ -75,13 +76,13 @@ comet publish status <name> --json
 
 ### 3. 读取偏好并解析真实 Skill
 
-优先读取 `.comet/skills.txt`。如果文件存在，按其中顺序运行：
+优先读取项目级偏好 `.comet/skill-preferences.yaml`。如果文件不存在，先扫描平台 Skill inventory，按能力分组推荐默认偏好，并询问用户是否保存为项目级偏好。如果文件存在，按 `prefer` 与 `require` 运行：
 
 ```bash
 comet bundle candidates --json
 ```
 
-随后把候选交给 `find-skill` 解析真实来源。不得只按名字推测能力；必须读取最终候选的真实
+随后把候选交给 `find-skill` 解析真实来源。`advisory` 可在说明原因后补充目标需要的 Skill；`strict` 遇到 required 缺失、歧义或禁止的 scripts/hooks 必须阻塞。不得只按名字推测能力；必须读取最终候选的真实
 `SKILL.md`、直接 reference、rules、scripts 和 hooks。
 
 ### 4. 解决缺失/歧义候选
@@ -105,10 +106,11 @@ comet bundle factory-resolve <name> --candidate <query> --ignore-missing --reaso
 
 读取候选 `SKILL.md`，并按需读取候选引用的 reference、rules、scripts、hooks。这里只读真实实现，绝不执行候选脚本。
 
-### 6. 提出默认调用链
+### 6. 展示组合方案并等待确认
 
-先按 `.comet/skills.txt` 的推荐调用顺序提出默认调用链，并标注每个 Skill 的 `preferenceIndex`。
-若目标、依赖、风险、上下文恢复、安全确认或平台限制要求调整顺序，必须记录“偏离偏好顺序”的项，并说明原因。
+先按 `.comet/skill-preferences.yaml` 的 `prefer`/`require` 提出组合方案，并标注每个 Skill 的 `preferenceIndex`、来源、hash、用途和调用顺序。
+组合方案必须说明哪些 Skill 来自项目级偏好，哪些由目标语义自动补充，哪些缺失或歧义，是否偏离偏好顺序，以及 scripts/hooks 会产生什么可执行披露。
+用户确认前不得生成 Bundle draft；用户可以调整偏好、选择歧义来源、移除缺失 Skill、切换 `advisory`/`strict` 或取消。
 
 ### 7. 澄清 Skill Factory 目标
 
@@ -122,7 +124,13 @@ comet bundle factory-resolve <name> --candidate <query> --ignore-missing --reaso
 
 ### 8. 通过 CLI 初始化草稿与 Factory metadata
 
-优先生成结构化 plan 文件，并运行：
+优先生成结构化 plan 文件。写入任何 Bundle draft 前，先运行 dry-run proposal：
+
+```bash
+comet bundle factory-propose <name> --file <plan.json> --json
+```
+
+把 proposal 中的组合方案、`preferenceHash`、blockers、warnings、resolved Skill 证据和将生成文件清单展示给用户。用户确认后再运行：
 
 ```bash
 comet bundle factory-init <name> --file <plan.json> --json
@@ -131,7 +139,7 @@ comet bundle factory-init <name> --file <plan.json> --json
 这个命令必须负责两件事：
 
 - 若 draft 尚不存在，则按 create/optimize 模式创建 draft。
-- 把偏好顺序、解析后的真实 Skill、默认调用链、偏离原因和 Engine 模式写入 Factory metadata，由 CLI 维护确定性状态。
+- 把偏好顺序、required Skill、`advisory`/`strict` 模式、策略、`preferenceHash`、解析后的真实 Skill、默认调用链、偏离原因和 Engine 模式写入 Factory metadata，由 CLI 维护确定性状态。
 - 将规范化后的计划固化到 `.comet/bundle-factory-plans/<name>/plan.json`，并在 metadata 中记录 `planHash`，供恢复、评审和审计使用。
 
 只有在需要恢复旧状态、排查后端问题或显式优化既有 Bundle 时，才单独使用：
@@ -216,7 +224,7 @@ Eval 失败或哈希不匹配时停止，回到草稿修复。
 comet publish review <name> --platform <reference-platform> --json
 ```
 
-基于该摘要展示 entry Skill、internal Skill、planHash、真实 Skill 证据、推荐调用顺序、偏离偏好顺序、能力缺口、可执行披露、quick/full Eval 工作量、Eval 结果和目标平台。偏离偏好顺序时必须说明原因。
+基于该摘要展示 entry Skill、internal Skill、planHash、preferenceHash、项目级偏好模式、真实 Skill 证据、推荐调用顺序、偏离偏好顺序、能力缺口、可执行披露、quick/full Eval 工作量、Eval 结果和目标平台。偏离偏好顺序时必须说明原因。
 必须显式检查 readiness；若使用非 JSON 输出，也必须逐项读取 `Readiness:`、`Blockers:`、`Warnings:` 和 `Evidence:`。
 当 `Readiness: blocked` 时，先根据 blockers 处理候选恢复、Eval 或 review，再继续 publish。若 readiness 不是 `publishable`，或其中显示 Eval 证据缺失时不得发布 ready。
 

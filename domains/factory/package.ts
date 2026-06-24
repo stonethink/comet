@@ -142,7 +142,7 @@ function skillMarkdown(plan: FactorySkillPackagePlan): string {
   const risks = [
     '- 生成内容来自候选 Skill 摘要，不能声称完整复制原 Skill 的所有隐含经验。',
     '- Engine 文件表达运行语义，但当前平台入口仍由 Agent 执行 action/outcome 协议。',
-    '- 偏离 `.comet/skills.txt` 顺序会降低用户偏好可预测性，必须在 review summary 中解释。',
+    '- 偏离 `.comet/skill-preferences.yaml` 顺序会降低用户偏好可预测性，必须在 review summary 中解释。',
   ].join('\n');
   const internalUsage =
     plan.callChain.length === 0
@@ -288,9 +288,18 @@ function evalManifest(plan: FactorySkillPackagePlan): Record<string, unknown> {
 }
 
 function compositionReport(plan: FactorySkillPackagePlan): string {
+  const preference = `## Project Skill Preference
+
+- Preference mode: ${plan.preference?.mode ?? 'advisory'}
+- Preference source: ${plan.preference?.sourcePath ?? 'none'}
+- Preference hash: ${plan.preference?.sourceHash ?? 'none'}
+- Required Skills: ${(plan.preference?.requiredSkills ?? []).join(', ') || 'none'}
+`;
   const composition = plan.composition;
   if (!composition) {
     return `# Composition Report
+
+${preference}
 
 No composition metadata was recorded.
 `;
@@ -326,6 +335,8 @@ No composition metadata was recorded.
       : composition.issues.map((issue) => `- ${issue.type}: ${issue.message}`).join('\n');
 
   return `# Composition Report
+
+${preference}
 
 ## Entry Skills
 
@@ -591,6 +602,7 @@ export async function generateFactorySkillPackage(
         schemaVersion: 1,
         resolvedSkills: plan.resolvedSkills ?? [],
         sourceSummaries: buildSourceSummaries(plan),
+        preference: plan.preference ?? null,
       },
       null,
       2,

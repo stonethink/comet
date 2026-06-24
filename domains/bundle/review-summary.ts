@@ -7,6 +7,7 @@ import { compileBundleForPlatform, type PlatformCompileReport } from './platform
 import { reconcileBundleAuthoringState } from './state.js';
 import type { BundleAuthoringState, BundleCompilerIr, SkillBundle } from './types.js';
 import { listBundlePlatformTargets } from './bundle-platform.js';
+import { readProjectSkillPreferences } from '../skill/preferences.js';
 
 export interface BundleReviewReadiness {
   state: 'blocked' | 'reviewable' | 'publishable' | 'published';
@@ -37,6 +38,7 @@ function buildReadiness(
   state: BundleAuthoringState,
   controlPlane: Awaited<ReturnType<typeof validateStableFactoryControlPlane>>,
   compile?: PlatformCompileReport,
+  currentPreferenceHash?: string | null,
 ): BundleReviewReadiness {
   const blockers: string[] = [];
   const warnings: string[] = [];
@@ -50,6 +52,21 @@ function buildReadiness(
         .map((skill) => `${skill.query} (${skill.status})`)
         .join(', ')}`,
     );
+  }
+  const required = new Set(state.factory?.requiredSkills ?? []);
+  const unresolvedRequired = unresolved.filter((skill) => required.has(skill.query));
+  if (state.factory?.preferenceMode === 'strict' && unresolvedRequired.length > 0) {
+    blockers.push(
+      `[preference] Required Skill candidates are unresolved: ${unresolvedRequired
+        .map((skill) => `${skill.query} (${skill.status})`)
+        .join(', ')}`,
+    );
+  }
+  const storedPreferenceHash = state.factory?.preferenceHash ?? null;
+  if (storedPreferenceHash && currentPreferenceHash !== storedPreferenceHash) {
+    const message = '[preference] Project Skill preferences changed after Factory initialization';
+    if (state.factory?.preferenceMode === 'strict') blockers.push(message);
+    else warnings.push(message);
   }
   for (const issue of state.factory?.composition?.issues ?? []) {
     blockers.push(`[composition] ${issue.message}`);
@@ -123,6 +140,8 @@ function buildReadiness(
         : {}),
       ...(state.eval?.resultPath ? { evalResult: state.eval.resultPath } : {}),
       ...(state.factory?.planPath ? { factoryPlan: state.factory.planPath } : {}),
+      ...(state.factory?.preferenceHash ? { preferenceHash: state.factory.preferenceHash } : {}),
+      ...(state.factory?.preferenceMode ? { preferenceMode: state.factory.preferenceMode } : {}),
       ...(state.ready?.path ? { publishedBundle: state.ready.path } : {}),
     },
   };
@@ -182,6 +201,7 @@ export async function buildBundleReviewSummary(options: {
   locale?: string;
 }): Promise<BundleReviewSummary> {
   const state = await reconcileBundleAuthoringState(options.projectRoot, options.name);
+  const currentPreferences = await readProjectSkillPreferences(options.projectRoot);
   const bundle = await loadBundle(state.draftPath);
   const locale = options.locale ?? state.defaultLocale;
   const scope = options.scope ?? 'project';
@@ -218,6 +238,6 @@ export async function buildBundleReviewSummary(options: {
     eval: state.eval ?? null,
     review: state.review ?? null,
     ready: state.ready ?? null,
-    readiness: buildReadiness(state, controlPlane, compile),
+    readiness: buildReadiness(state, controlPlane, compile, currentPreferences?.hash ?? null),
   };
 }

@@ -358,6 +358,115 @@ describe('Bundle review summary readiness', () => {
     expect(summary.readiness.evidence).not.toHaveProperty('composition');
   });
 
+  it('surfaces preference hash evidence and drift warnings', async () => {
+    await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
+    await fs.writeFile(
+      path.join(projectRoot, '.comet', 'skill-preferences.yaml'),
+      `version: 1
+mode: advisory
+prefer:
+  - preference-drift-source
+`,
+      'utf8',
+    );
+    const state = await createFactoryStateWithGeneratedPackage(projectRoot, 'preference-drift');
+    await fs.writeFile(
+      path.join(projectRoot, '.comet', 'skill-preferences.yaml'),
+      `version: 1
+mode: advisory
+prefer:
+  - changed-skill
+`,
+      'utf8',
+    );
+
+    const summary = await buildBundleReviewSummary({
+      projectRoot,
+      name: state.name,
+      platform: 'claude',
+    });
+
+    expect(summary.readiness.evidence).toHaveProperty(
+      'preferenceHash',
+      state.factory?.preferenceHash,
+    );
+    expect(summary.readiness.warnings).toContain(
+      '[preference] Project Skill preferences changed after Factory initialization',
+    );
+  });
+
+  it('blocks strict preference drift', async () => {
+    await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
+    await fs.writeFile(
+      path.join(projectRoot, '.comet', 'skill-preferences.yaml'),
+      `version: 1
+mode: strict
+prefer:
+  - strict-preference-drift-source
+`,
+      'utf8',
+    );
+    const state = await createFactoryStateWithGeneratedPackage(
+      projectRoot,
+      'strict-preference-drift',
+    );
+    await fs.writeFile(
+      path.join(projectRoot, '.comet', 'skill-preferences.yaml'),
+      `version: 1
+mode: strict
+prefer:
+  - changed-skill
+`,
+      'utf8',
+    );
+
+    const summary = await buildBundleReviewSummary({
+      projectRoot,
+      name: state.name,
+      platform: 'claude',
+    });
+
+    expect(summary.readiness.blockers).toContain(
+      '[preference] Project Skill preferences changed after Factory initialization',
+    );
+  });
+
+  it('blocks unresolved required Skills in strict preference mode', async () => {
+    const state = await createBundleDraft({
+      projectRoot,
+      name: 'strict-required-missing',
+      candidates: [],
+      creator: 'native',
+      defaultLocale: 'en',
+      locales: ['en'],
+      engineEnabled: true,
+      factory: {
+        goal: 'Demo',
+        preferredSkills: ['missing-skill'],
+        requiredSkills: ['missing-skill'],
+        preferenceMode: 'strict',
+        resolvedSkills: [
+          { query: 'missing-skill', preferenceIndex: 0, status: 'missing', sources: [] },
+        ],
+        callChain: [{ skill: 'missing-skill', preferenceIndex: 0 }],
+        deviations: [],
+        engineMode: 'deterministic',
+        runnerMode: 'standalone',
+      },
+    });
+    await writeMinimalBundle(state.draftPath, 'strict-required-missing');
+
+    const summary = await buildBundleReviewSummary({
+      projectRoot,
+      name: 'strict-required-missing',
+      platform: 'claude',
+    });
+
+    expect(summary.readiness.blockers).toContain(
+      '[preference] Required Skill candidates are unresolved: missing-skill (missing)',
+    );
+  });
+
   it('surfaces missing factory control-plane files as readiness blockers', async () => {
     const state = await createFactoryStateWithGeneratedPackage(
       projectRoot,

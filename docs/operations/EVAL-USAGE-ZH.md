@@ -5,6 +5,7 @@
 ## 先理解 eval 在 Comet 里的位置
 
 `/comet-any` 负责创建或优化 Skill，`comet eval` 负责验证这个 Skill 是否能被 eval harness 发现、运行并产出报告。
+新版本的 `/comet-any` 还会把 eval 结果和项目级偏好证据一起放进 publish readiness：`preferenceHash`、组合方案、resolved Skill 证据和 Eval evidence 必须都能对应当前 draft。
 
 两者的关系可以这样理解：
 
@@ -95,6 +96,7 @@ eval/local/logs/experiments/<experiment-id>/summary.html
 - 没有 eval 证据：不能 publish
 - eval 失败：不能 publish
 - eval 证据对应旧 hash：不能 publish
+- `.comet/skill-preferences.yaml` 已变化且处于 strict 模式：不能 publish，必须重新确认或重新生成组合方案
 - eval 通过且 hash 匹配：可以进入 review / publish 判断
 
 用户不需要手工编辑 Bundle 状态，也不应该手工把报告路径写进内部 JSON。`/comet-any` 会通过 Bundle 后端记录结构化证据。

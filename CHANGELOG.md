@@ -26,6 +26,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Runtime checks naming**: New Engine-native packages use `comet/checks.yaml` for runtime checks while retaining legacy `comet/evals.yaml` loading during migration.
 - **Bundle distribution disclosure**: Publish distribution output now exposes planned files and executable hook disclosures so required control-plane effects are visible before installation.
 - **Stable composed Skill Bundle wording**: Clarifies the `/comet-any` surface, docs, and CLI help so the stable composed Skill Bundle contract names the `skills/scripts/rules/hooks/references` capability set, keeps `scripts/rules/hooks` as the required control plane, and uses the exact `Low-level Skill utilities` / `Advanced Bundle backend` help text casing users now see in the CLI.
+- **Comet Any preferences**: Replaces the unpublished `.comet/skills.txt` user path with project-level `.comet/skill-preferences.yaml`, inventory-backed preference setup, proposal preview, and preference-aware review readiness so users can create Comet-style Skills without learning internal Bundle files.
 
 ### Fixed
 
@@ -49,6 +50,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Stable composed Skill coverage**: Adds tests for checks loading, flow composition, generated control-plane files, runtime scripts, Eval readiness, publish validation, fail-closed distribution, and user-facing docs.
 - **Submodule hook coverage**: Adds regression coverage for stable hook command generation and phase guarding when the hook process runs from a nested submodule directory.
 - **MimoCode platform coverage**: Adds regression coverage for platform detection, slash command generation, OpenSpec mirroring, Superpowers staging, init E2E behavior, CI path checks, and Bundle compatibility.
+- **Comet Any preference guide**: Adds coverage for preference parsing, Skill inventory grouping, Factory proposal previews, strict/advisory policy readiness, generated preference evidence, and bilingual `/comet-any` docs.
 
 ### Removed
 

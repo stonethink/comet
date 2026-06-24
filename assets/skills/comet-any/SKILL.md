@@ -1,13 +1,14 @@
 ---
 name: comet-any
-description: "Create or optimize a user-facing Comet-native Skill. Use /comet-any to read `.comet/skills.txt`, resolve real local Skills, generate Skill Factory output, and internally use CLI backends for validation, Eval, publishing, and optional distribution."
+description: "Skill creation guide for creating or optimizing a user-facing Comet-native Skill. Use /comet-any to read project-level preferences in `.comet/skill-preferences.yaml`, resolve real local Skills, show a composition proposal, generate Skill Factory output, and internally use CLI backends for validation, Eval, publishing, and optional distribution."
 ---
 
 # Comet Any - Comet Skill Factory
 
-`/comet-any` is the Comet Skill Factory. The user only invokes this Skill and describes the
-workflow they want to create or optimize. This Skill reads user preferences, uses `find-skill`
-to locate real local Skill contents, generates a stable composed Skill Bundle, and internally
+`/comet-any` is the Comet Skill creation guide. The user only invokes this Skill and describes the
+workflow they want to create or optimize. This Skill reads project-level preferences in
+`.comet/skill-preferences.yaml`, uses `find-skill` to locate real local Skill contents, shows a
+composition proposal for confirmation, generates a stable composed Skill Bundle, and internally
 calls CLI backends for validation, Eval, publishing, and optional distribution. CLI is the
 internal deterministic backend, not the user-facing workflow. The ordinary user path must stay
 `/comet-any -> comet eval -> comet publish -> distribute`; `comet skill` is Low-level Skill
@@ -37,7 +38,7 @@ capability loss is disclosed.
 
 - The user only invokes this Skill; do not make manual `comet bundle` or `comet skill` commands the user-facing workflow.
 - Use `find-skill` to resolve real local Skills. Do not infer capability from names alone.
-- The line order in `.comet/skills.txt` is the recommended call order. The generated call chain should follow it when possible; if it deviates from the preferred order, the review summary must explain why.
+- `.comet/skill-preferences.yaml` is the project-level preferences file and supports `advisory` and `strict`; before generation, show the composition proposal with prefer/require sources, missing/ambiguous Skills, deviation reasons, scripts/hooks disclosures, and record `preferenceHash` after confirmation.
 - Missing or ambiguous candidates must pause for user input. Never ignore them or choose for the user.
 - Use the `comet bundle` CLI to maintain deterministic state. Do not hand-write `.comet/bundle-*` state files.
 - Show Eval workload and token workload before asking the user to choose `skip / quick / full Eval`.
@@ -83,13 +84,18 @@ Also confirm the default language and locales. Record at least the default local
 
 ### 3. Read Preferences and Resolve Real Skills
 
-Read `.comet/skills.txt` first. If it exists, preserve its order and run:
+Read project-level preferences from `.comet/skill-preferences.yaml` first. If the file is missing,
+scan the platform Skill inventory, group reusable capabilities, recommend default preferences, and
+ask whether to save them as project-level preferences. If it exists, use `prefer` and `require` and run:
 
 ```bash
 comet bundle candidates --json
 ```
 
-Then pass candidates through `find-skill` to resolve real sources. Do not infer capability from names alone; read the final candidates' real `SKILL.md`, direct references, rules, scripts, and hooks.
+Then pass candidates through `find-skill` to resolve real sources. `advisory` may add target-needed
+Skills when the proposal explains why; `strict` must block required missing Skills, ambiguity, or
+denied scripts/hooks. Do not infer capability from names alone; read the final candidates' real
+`SKILL.md`, direct references, rules, scripts, and hooks.
 
 ### 4. Resolve Missing or Ambiguous Candidates
 
@@ -112,10 +118,15 @@ comet bundle factory-resolve <name> --candidate <query> --ignore-missing --reaso
 
 Read candidate `SKILL.md`, then read referenced references, rules, scripts, and hooks as needed. This step only reads real implementation files; never execute candidate scripts.
 
-### 6. Propose the Default Call Chain
+### 6. Show Composition Proposal and Wait for Confirmation
 
-Start with the recommended call order from `.comet/skills.txt` and record each Skill's `preferenceIndex`.
-If goals, dependencies, risk, recovery needs, safety confirmations, or platform constraints require a different order, record every item that deviates from the preferred order and explain why.
+Start from `.comet/skill-preferences.yaml` `prefer`/`require` entries and show a composition
+proposal with each Skill's `preferenceIndex`, source, hash, role, and call order.
+The proposal must identify which Skills came from project-level preferences, which were added by
+target semantics, which are missing or ambiguous, whether the plan deviates from the preferred
+order, and what executable disclosures scripts/hooks introduce. Do not generate a Bundle draft
+before confirmation; the user may adjust preferences, choose ambiguous sources, remove missing
+Skills, switch `advisory`/`strict`, or cancel.
 
 ### 7. Clarify the Skill Factory Goal
 
@@ -129,7 +140,14 @@ Confirm with the user:
 
 ### 8. Initialize the Draft and Factory Metadata Through CLI
 
-First produce a structured plan file, then run:
+First produce a structured plan file. Before writing a Bundle draft, run the dry-run proposal:
+
+```bash
+comet bundle factory-propose <name> --file <plan.json> --json
+```
+
+Show the composition proposal, `preferenceHash`, blockers, warnings, resolved Skill evidence, and
+planned file list to the user. After confirmation, run:
 
 ```bash
 comet bundle factory-init <name> --file <plan.json> --json
@@ -138,7 +156,7 @@ comet bundle factory-init <name> --file <plan.json> --json
 This command must handle both responsibilities:
 
 - Create the draft in create/optimize mode when no draft exists yet.
-- Write preferred order, resolved real Skills, default call chain, deviation reasons, and Engine mode into Factory metadata so the CLI maintains deterministic state.
+- Write preferred order, required Skills, `advisory`/`strict` mode, policies, `preferenceHash`, resolved real Skills, default call chain, deviation reasons, and Engine mode into Factory metadata so the CLI maintains deterministic state.
 - Persist the normalized plan to `.comet/bundle-factory-plans/<name>/plan.json` and record `planHash` in metadata for recovery, review, and audit.
 
 Only when resuming old state, debugging backend behavior, or explicitly optimizing an existing Bundle should the Skill use these commands separately:
@@ -223,7 +241,10 @@ First run:
 comet publish review <name> --platform <reference-platform> --json
 ```
 
-Use that summary to show entry Skills, internal Skills, planHash, real Skill evidence, recommended call order, deviations from the preferred order, capability gaps, executable disclosures, quick/full Eval workload, Eval result, and target platforms. If the call chain deviates from the preferred order, the review summary must explain why.
+Use that summary to show entry Skills, internal Skills, planHash, preferenceHash, project-level
+preference mode, real Skill evidence, recommended call order, deviations from the preferred order,
+capability gaps, executable disclosures, quick/full Eval workload, Eval result, and target
+platforms. If the call chain deviates from the preferred order, the review summary must explain why.
 Read the readiness field explicitly. In non-JSON output, also read `Readiness:`, `Blockers:`,
 `Warnings:`, and `Evidence:` line by line. When `Readiness: blocked`, resolve candidate recovery,
 Eval, or review blockers before continuing to publish. If readiness is not `publishable`, or if it says Missing Eval evidence blocks ready publish, stop before publish.

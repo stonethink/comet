@@ -8,8 +8,13 @@ passing it to the Bundle backend for compile, Eval, publish, and distribution.
 For ordinary users, the path stays `/comet-any -> comet eval -> comet publish -> distribute`;
 `comet bundle` is exposed only as the Advanced Bundle backend for backend-state auditing.
 
-The order in `.comet/skills.txt` must be preserved as Factory metadata. If the generated call chain
-deviates from that order, the review summary must include the reason.
+`.comet/skill-preferences.yaml` is the project-level preferences file. It supports `advisory` /
+`strict`, `prefer`, `require`, and missing/ambiguous/deviation/scripts/hooks policies.
+`/comet-any` must first show a composition proposal that explains preference sources, semantic
+additions, missing or ambiguous Skills, deviation reasons, and executable disclosures. After user
+confirmation, Factory metadata must record `preferenceHash`, preference mode, policies, and
+required Skills. If the generated call chain deviates from the preferred order, the review summary
+must include the reason.
 
 ## Authoring Modes
 
@@ -22,9 +27,9 @@ Both modes must use `comet bundle` commands to maintain state. Do not write inte
 
 ## Candidate Reads
 
-1. Prefer project `.comet/skills.txt`.
-2. Use `find-skill` to resolve real local Skill sources and contents.
-3. If preferences are absent, scan platform Skill directories.
+1. Prefer project `.comet/skill-preferences.yaml`.
+2. If preferences are absent, scan the platform Skill inventory, group reusable capabilities, recommend defaults, and ask whether to save them.
+3. Use `find-skill` to resolve real local Skill sources and contents.
 4. Use `comet bundle candidates --json` to obtain `available`, `missing`, and `ambiguous`.
 5. For every available candidate, read candidate `SKILL.md`.
 6. Pause and ask the user about missing or ambiguous candidates.
@@ -48,12 +53,13 @@ A Bundle must explicitly define:
 - Engine Eval manifest: Engine-enabled generated Skills must also write `comet/eval.yaml` using the `authoring-skill` profile and the `authoring-skill-smoke` quick eval.
 - Portable hooks: `hooks/*.yaml` files are Comet portable hook descriptors and become active only after `comet publish distribute` compiles them into target-platform configuration.
 - real Skill evidence: generated output must include `reference/resolved-skills.json` with resolved Skill sources, descriptions, hashes, references, script summaries, and `sourceSummaries` distilled from `SKILL.md` bodies.
+- project-level preference evidence: generated output must record `preferenceHash`, mode, policies, required Skills, and the preference file source.
 
 Engine is the runtime semantic foundation, but CLI remains the internal deterministic backend and not the user-facing workflow.
 
 ## CLI Lifecycle
 
-`factory-init` expects a stable `plan.json` shape. Recommended minimum form:
+`factory-propose` and `factory-init` expect a stable `plan.json` shape. Recommended minimum form:
 
 ```json
 {
@@ -83,22 +89,32 @@ Engine is the runtime semantic foundation, but CLI remains the internal determin
 Field rules:
 
 - `goal`: the user-readable outcome the Skill should create.
-- `preferredSkills`: explicit preferred order; if omitted, infer from `.comet/skills.txt` and `callChain`.
+- `preferredSkills`: explicit preferred order; if omitted, infer from `.comet/skill-preferences.yaml` and `callChain`.
 - `callChain`: the recommended execution chain. String items are the common case; object items are for explicit `preferenceIndex`.
 - `deviations`: required whenever `callChain` deviates from preferred order so the review summary can explain it directly.
 - `mode=optimize` requires `sourceRoot`.
 - `engineMode=none` implies `engineEnabled=false` by default; other modes default to enabled.
 
-After reading the plan, `factory-init` writes the normalized result to
-`.comet/bundle-factory-plans/<name>/plan.json` and records `planPath` plus `planHash` in Factory
-metadata. Later `/comet-any` review summaries should cite those fields as the plan evidence for the
-current generated output. If the plan changes, run `factory-init` again.
+Run `factory-propose` first as a dry run that does not write Bundle authoring state:
+
+```bash
+comet bundle factory-propose <name> --file <plan.json> --json
+```
+
+It previews the composition proposal, resolved Skills, blockers, warnings, preference mode, and
+`preferenceHash`. After user confirmation, run `factory-init`. After reading the plan,
+`factory-init` writes the normalized result to `.comet/bundle-factory-plans/<name>/plan.json` and
+records `planPath`, `planHash`, and `preferenceHash` in Factory metadata. Later `/comet-any`
+review summaries should cite those fields as the plan and preference evidence for the current
+generated output. If the plan or project-level preferences change, regenerate the composition
+proposal or run `factory-init` again.
 
 Common commands:
 
 ```bash
 comet bundle candidates --json
 comet publish list --json
+comet bundle factory-propose <name> --file <plan.json> --json
 comet bundle factory-init <name> --file <plan.json> --json
 comet bundle factory-resolve <name> --candidate <query> --source <root-or-hash> --json
 comet bundle factory-resolve <name> --candidate <query> --ignore-missing --reason <reason> --json

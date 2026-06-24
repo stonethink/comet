@@ -79,29 +79,6 @@ function isInsideRoot(root: string, target: string): boolean {
   return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
-export async function readSkillPreferenceEntries(
-  projectRoot: string,
-): Promise<SkillPreferenceEntry[] | null> {
-  const preferencesPath = path.resolve(projectRoot, '.comet', 'skills.txt');
-  let source: string;
-  try {
-    source = await fs.readFile(preferencesPath, 'utf8');
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
-    throw error;
-  }
-
-  const seen = new Set<string>();
-  const entries: SkillPreferenceEntry[] = [];
-  for (const line of source.split(/\r?\n/u)) {
-    const query = line.trim();
-    if (!query || query.startsWith('#') || seen.has(query)) continue;
-    seen.add(query);
-    entries.push({ query, preferenceIndex: entries.length });
-  }
-  return entries;
-}
-
 function normalizedPlatformId(platformId: string): string {
   return platformId === 'claude' ? 'claude-code' : platformId;
 }
@@ -316,10 +293,7 @@ export async function findPreferredSkills(
     builtinRoot: path.resolve(options.builtinRoot ?? defaultBuiltinRoot()),
     extraRoots: options.extraRoots ?? [],
   });
-  const preferences =
-    options.preferences === undefined
-      ? await readSkillPreferenceEntries(projectRoot)
-      : options.preferences;
+  const preferences = options.preferences ?? null;
   const entries = preferences ?? (await discoveredPreferenceEntries(roots));
   const scannedMode = preferences === null;
 

@@ -264,6 +264,58 @@ describe('comet bundle CLI end to end', () => {
     });
   });
 
+  it('prints a JSON Factory proposal before draft creation', async () => {
+    await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
+    await fs.mkdir(path.join(projectRoot, '.comet', 'skills', 'factory-alpha'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(projectRoot, '.comet', 'skill-preferences.yaml'),
+      `version: 1
+prefer:
+  - factory-alpha
+`,
+    );
+    await fs.writeFile(
+      path.join(projectRoot, '.comet', 'skills', 'factory-alpha', 'SKILL.md'),
+      '---\nname: factory-alpha\ndescription: Alpha factory step.\n---\n# Alpha\n',
+    );
+    const planFile = path.join(root, 'proposal-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Create a proposal.',
+          callChain: ['factory-alpha'],
+        },
+        null,
+        2,
+      ),
+    );
+
+    const result = runJson(
+      'bundle',
+      'factory-propose',
+      'proposal-factory',
+      '--file',
+      planFile,
+      '--project',
+      projectRoot,
+    );
+
+    expect(result).toMatchObject({
+      name: 'proposal-factory',
+      goal: 'Create a proposal.',
+      preference: {
+        mode: 'advisory',
+        source: path.join(projectRoot, '.comet', 'skill-preferences.yaml'),
+      },
+      callChain: [{ skill: 'factory-alpha', preferenceIndex: 0 }],
+      resolvedSkills: [{ query: 'factory-alpha', status: 'available' }],
+      canGenerate: true,
+    });
+  });
+
   it('runs the factory path from plan to review summary through the CLI', async () => {
     await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
     await fs.mkdir(path.join(projectRoot, '.claude', 'skills', 'factory-alpha'), {
@@ -272,7 +324,13 @@ describe('comet bundle CLI end to end', () => {
     await fs.mkdir(path.join(projectRoot, '.codex', 'skills', 'factory-alpha'), {
       recursive: true,
     });
-    await fs.writeFile(path.join(projectRoot, '.comet', 'skills.txt'), 'factory-alpha\n');
+    await fs.writeFile(
+      path.join(projectRoot, '.comet', 'skill-preferences.yaml'),
+      `version: 1
+prefer:
+  - factory-alpha
+`,
+    );
     await fs.writeFile(
       path.join(projectRoot, '.claude', 'skills', 'factory-alpha', 'SKILL.md'),
       '---\nname: factory-alpha\ndescription: Alpha factory step.\n---\n# Alpha\n',
@@ -464,8 +522,12 @@ describe('comet bundle CLI end to end', () => {
   it('recovers missing Factory candidates through factory-resolve and keeps generated state invalidated', async () => {
     await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
     await fs.writeFile(
-      path.join(projectRoot, '.comet', 'skills.txt'),
-      'factory-alpha\nmissing-skill\n',
+      path.join(projectRoot, '.comet', 'skill-preferences.yaml'),
+      `version: 1
+prefer:
+  - factory-alpha
+  - missing-skill
+`,
     );
     await fs.mkdir(path.join(projectRoot, '.claude', 'skills', 'factory-alpha'), {
       recursive: true,
@@ -569,8 +631,12 @@ describe('comet bundle CLI end to end', () => {
   it('prints readiness blockers and evidence in review-summary text mode', async () => {
     await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
     await fs.writeFile(
-      path.join(projectRoot, '.comet', 'skills.txt'),
-      'factory-alpha\nmissing-skill\n',
+      path.join(projectRoot, '.comet', 'skill-preferences.yaml'),
+      `version: 1
+prefer:
+  - factory-alpha
+  - missing-skill
+`,
     );
     await fs.mkdir(path.join(projectRoot, '.claude', 'skills', 'factory-alpha'), {
       recursive: true,
@@ -648,7 +714,13 @@ describe('comet bundle CLI end to end', () => {
     await fs.mkdir(path.join(projectRoot, '.codex', 'skills', 'factory-alpha'), {
       recursive: true,
     });
-    await fs.writeFile(path.join(projectRoot, '.comet', 'skills.txt'), 'factory-alpha\n');
+    await fs.writeFile(
+      path.join(projectRoot, '.comet', 'skill-preferences.yaml'),
+      `version: 1
+prefer:
+  - factory-alpha
+`,
+    );
     await fs.writeFile(
       path.join(projectRoot, '.claude', 'skills', 'factory-alpha', 'SKILL.md'),
       '---\nname: factory-alpha\ndescription: Alpha factory step.\n---\n# Alpha\n',
@@ -728,7 +800,13 @@ describe('comet bundle CLI end to end', () => {
     await fs.mkdir(path.join(projectRoot, '.codex', 'skills', 'factory-alpha'), {
       recursive: true,
     });
-    await fs.writeFile(path.join(projectRoot, '.comet', 'skills.txt'), 'factory-alpha\n');
+    await fs.writeFile(
+      path.join(projectRoot, '.comet', 'skill-preferences.yaml'),
+      `version: 1
+prefer:
+  - factory-alpha
+`,
+    );
     await fs.writeFile(
       path.join(projectRoot, '.claude', 'skills', 'factory-alpha', 'SKILL.md'),
       '---\nname: factory-alpha\ndescription: Alpha factory step.\n---\n# Alpha\n',
@@ -795,7 +873,13 @@ describe('comet bundle CLI end to end', () => {
     await fs.mkdir(path.join(projectRoot, '.claude', 'skills', 'factory-alpha'), {
       recursive: true,
     });
-    await fs.writeFile(path.join(projectRoot, '.comet', 'skills.txt'), 'factory-alpha\n');
+    await fs.writeFile(
+      path.join(projectRoot, '.comet', 'skill-preferences.yaml'),
+      `version: 1
+prefer:
+  - factory-alpha
+`,
+    );
     await fs.writeFile(
       path.join(projectRoot, '.claude', 'skills', 'factory-alpha', 'SKILL.md'),
       '---\nname: factory-alpha\ndescription: Alpha factory step.\n---\n# Alpha\n',
@@ -844,7 +928,13 @@ describe('comet bundle CLI end to end', () => {
 
   it('points unresolved factory states at factory-resolve as the next action', async () => {
     await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
-    await fs.writeFile(path.join(projectRoot, '.comet', 'skills.txt'), 'missing-skill\n');
+    await fs.writeFile(
+      path.join(projectRoot, '.comet', 'skill-preferences.yaml'),
+      `version: 1
+prefer:
+  - missing-skill
+`,
+    );
     const planFile = path.join(root, 'factory-resolve-action-plan.json');
     await fs.writeFile(
       planFile,

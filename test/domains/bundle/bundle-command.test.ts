@@ -12,6 +12,7 @@ import {
   bundleEvalRecordCommand,
   bundleFactoryInitCommand,
   bundleFactoryGenerateCommand,
+  bundleFactoryProposeCommand,
   bundleFactoryResolveCommand,
   bundleListCommand,
   bundlePublishCommand,
@@ -22,6 +23,7 @@ import {
 import type { BundleEvalResult } from '../../../domains/bundle/eval.js';
 import { createBundleDraft } from '../../../domains/bundle/draft.js';
 import { loadBundle } from '../../../domains/bundle/load.js';
+import { readBundleAuthoringState } from '../../../domains/bundle/state.js';
 
 async function writeBundle(
   root: string,
@@ -173,7 +175,14 @@ describe('bundle commands', () => {
     const skillRoot = path.join(projectRoot, '.claude', 'skills', 'demo');
     await fs.mkdir(skillRoot, { recursive: true });
     await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
-    await fs.writeFile(path.join(projectRoot, '.comet', 'skills.txt'), 'demo\nmissing\n');
+    await fs.writeFile(
+      path.join(projectRoot, '.comet', 'skill-preferences.yaml'),
+      `version: 1
+prefer:
+  - demo
+  - missing
+`,
+    );
     await fs.writeFile(
       path.join(skillRoot, 'SKILL.md'),
       '---\nname: demo\ndescription: Demo skill.\n---\n# Demo\n',
@@ -258,8 +267,12 @@ describe('bundle commands', () => {
     await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
     await fs.mkdir(skillRoot, { recursive: true });
     await fs.writeFile(
-      path.join(projectRoot, '.comet', 'skills.txt'),
-      'brainstorming\nwriting-plans\n',
+      path.join(projectRoot, '.comet', 'skill-preferences.yaml'),
+      `version: 1
+prefer:
+  - brainstorming
+  - writing-plans
+`,
     );
     await fs.writeFile(
       path.join(skillRoot, 'SKILL.md'),
@@ -340,6 +353,146 @@ describe('bundle commands', () => {
         'utf8',
       ),
     ).resolves.toContain('"schemaVersion": 1');
+  });
+
+  it('persists project Skill preference metadata in Factory state', async () => {
+    await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
+    await fs.writeFile(
+      path.join(projectRoot, '.comet', 'skill-preferences.yaml'),
+      `version: 1
+mode: strict
+prefer:
+  - factory-alpha
+require:
+  - factory-beta
+policies:
+  missing: fail
+  ambiguous: ask
+  deviation: fail
+  scripts: disclose
+  hooks: disclose
+`,
+    );
+    await writeFactorySkill(projectRoot, 'factory-alpha');
+    await writeFactorySkill(projectRoot, 'factory-beta');
+    const planFile = path.join(root, 'factory-preference-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Create a preference-backed workflow.',
+          callChain: ['factory-alpha'],
+        },
+        null,
+        2,
+      ),
+    );
+
+    await bundleFactoryInitCommand('preference-backed-factory', {
+      project: projectRoot,
+      file: planFile,
+      json: true,
+    });
+
+    const state = await readBundleAuthoringState(projectRoot, 'preference-backed-factory');
+    expect(state.factory).toMatchObject({
+      preferredSkills: ['factory-alpha', 'factory-beta'],
+      requiredSkills: ['factory-beta'],
+      preferenceMode: 'strict',
+      preferencePolicies: {
+        missing: 'fail',
+        ambiguous: 'ask',
+        deviation: 'fail',
+        scripts: 'disclose',
+        hooks: 'disclose',
+      },
+      preferencePath: path.join(projectRoot, '.comet', 'skill-preferences.yaml'),
+      preferenceHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
+    });
+  });
+
+  it('blocks Factory init when preferences deny generated scripts or hooks', async () => {
+    await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
+    await fs.writeFile(
+      path.join(projectRoot, '.comet', 'skill-preferences.yaml'),
+      `version: 1
+mode: strict
+prefer:
+  - factory-alpha
+policies:
+  scripts: deny
+  hooks: disclose
+`,
+    );
+    await writeFactorySkill(projectRoot, 'factory-alpha');
+    const planFile = path.join(root, 'factory-deny-scripts-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Create a denied workflow.',
+          callChain: ['factory-alpha'],
+        },
+        null,
+        2,
+      ),
+    );
+
+    await expect(
+      bundleFactoryInitCommand('deny-scripts-factory', {
+        project: projectRoot,
+        file: planFile,
+        json: true,
+      }),
+    ).rejects.toThrow(/preference policy denies scripts/iu);
+  });
+
+  it('builds a Factory proposal without writing Bundle authoring state', async () => {
+    await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
+    await fs.writeFile(
+      path.join(projectRoot, '.comet', 'skill-preferences.yaml'),
+      `version: 1
+mode: advisory
+prefer:
+  - factory-alpha
+`,
+    );
+    await writeFactorySkill(projectRoot, 'factory-alpha');
+    const planFile = path.join(root, 'factory-proposal-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Create a proposal first.',
+          callChain: ['factory-alpha'],
+        },
+        null,
+        2,
+      ),
+    );
+
+    const proposal = await captureJson(() =>
+      bundleFactoryProposeCommand('proposal-factory', {
+        project: projectRoot,
+        file: planFile,
+        json: true,
+      }),
+    );
+
+    expect(proposal).toMatchObject({
+      name: 'proposal-factory',
+      goal: 'Create a proposal first.',
+      preference: {
+        mode: 'advisory',
+        source: path.join(projectRoot, '.comet', 'skill-preferences.yaml'),
+      },
+      callChain: [{ skill: 'factory-alpha', preferenceIndex: 0 }],
+      resolvedSkills: [{ query: 'factory-alpha', status: 'available' }],
+      canGenerate: true,
+    });
+    await expect(readBundleAuthoringState(projectRoot, 'proposal-factory')).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
   });
 
   it('stores composed flow metadata and uses it as the factory call chain', async () => {
@@ -616,6 +769,18 @@ describe('bundle commands', () => {
       factory: {
         goal: 'Create a review-oriented Comet-native Skill.',
         preferredSkills: ['brainstorming', 'writing-plans'],
+        requiredSkills: ['verification-before-completion'],
+        preferenceMode: 'strict',
+        preferencePolicies: {
+          missing: 'fail',
+          ambiguous: 'ask',
+          deviation: 'fail',
+          scripts: 'disclose',
+          hooks: 'disclose',
+        },
+        preferencePath: path.join(projectRoot, '.comet', 'skill-preferences.yaml'),
+        preferenceHash: 'c'.repeat(64),
+        preferenceWarnings: [],
         resolvedSkills: [
           {
             query: 'brainstorming',
@@ -822,6 +987,25 @@ describe('bundle commands', () => {
         'utf8',
       ),
     ).resolves.toContain('kind: Skill');
+    const resolvedEvidence = JSON.parse(
+      await fs.readFile(
+        path.join(draftRoot, 'skills', 'factory-bundle', 'reference', 'resolved-skills.json'),
+        'utf8',
+      ),
+    ) as unknown;
+    expect(resolvedEvidence).toMatchObject({
+      preference: {
+        mode: 'strict',
+        requiredSkills: ['verification-before-completion'],
+        sourceHash: 'c'.repeat(64),
+      },
+    });
+    await expect(
+      fs.readFile(
+        path.join(draftRoot, 'skills', 'factory-bundle', 'reference', 'composition-report.md'),
+        'utf8',
+      ),
+    ).resolves.toContain('Preference mode: strict');
   });
 
   it('blocks factory generation when candidates still need user resolution', async () => {
@@ -1304,7 +1488,13 @@ describe('bundle commands', () => {
     const skillRoot = path.join(projectRoot, '.claude', 'skills', 'factory-alpha');
     await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
     await fs.mkdir(skillRoot, { recursive: true });
-    await fs.writeFile(path.join(projectRoot, '.comet', 'skills.txt'), 'factory-alpha\n');
+    await fs.writeFile(
+      path.join(projectRoot, '.comet', 'skill-preferences.yaml'),
+      `version: 1
+prefer:
+  - factory-alpha
+`,
+    );
     await fs.writeFile(
       path.join(skillRoot, 'SKILL.md'),
       '---\nname: factory-alpha\ndescription: Alpha factory step.\n---\n# Alpha\n',
