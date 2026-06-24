@@ -159,7 +159,7 @@ export async function buildBundleFactoryProposal(options: {
   ];
 
   const proposal = {
-    schemaVersion: 1,
+    schemaVersion: 1 as const,
     name: options.name,
     goal: plan.goal,
     preference: {

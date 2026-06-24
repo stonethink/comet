@@ -863,8 +863,9 @@ prefer:
       'Review: missing; run comet bundle review-summary before approval',
     );
     expect(bundleStatus.stdout).toContain('Next action: choose-eval-level');
+    expect(bundleStatus.stdout).toContain('Suggested user command: comet eval run --manifest');
     expect(bundleStatus.stdout).toContain(
-      'Suggested command: comet bundle eval-plan factory-status-text-mode --level quick',
+      'Backend command: comet bundle eval-plan factory-status-text-mode --level quick',
     );
   });
 
@@ -921,7 +922,8 @@ prefer:
     expect(status).toMatchObject({
       nextAction: {
         action: 'choose-eval-level',
-        command: 'comet bundle eval-plan factory-next-action --level quick',
+        backendCommand: 'comet bundle eval-plan factory-next-action --level quick',
+        userCommand: expect.stringContaining('comet eval run --manifest'),
       },
     });
   });
@@ -970,8 +972,9 @@ prefer:
 
     expect(status.status, status.stderr).toBe(0);
     expect(status.stdout).toContain('Next action: resolve-candidates');
+    expect(status.stdout).toContain('Suggested user command: Ask /comet-any to resolve missing-skill');
     expect(status.stdout).toContain(
-      'Suggested command: comet bundle factory-resolve factory-resolve-action --candidate missing-skill',
+      'Backend command: comet bundle factory-resolve factory-resolve-action --candidate missing-skill',
     );
   });
 });

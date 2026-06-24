@@ -2459,7 +2459,7 @@ npx vitest run test/ts/comet-any-skill.test.ts test/ts/readme.test.ts
 
 Expected: pass.
 
-- [ ] **Step 8: Run full required verification**
+- [x] **Step 8: Run full required verification**
 
 Run:
 

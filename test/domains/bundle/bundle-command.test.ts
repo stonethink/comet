@@ -1965,7 +1965,7 @@ prefer:
         scope: 'project',
       }),
     );
-    expect(text).toContain('Executable hooks:');
+    expect(text).toContain('executable protect-write:');
     expect(text).toContain('protect-write');
   });
 });
