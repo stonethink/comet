@@ -31,6 +31,18 @@ async function readCometAnyEn(): Promise<{
 }
 
 describe('Chinese comet-any Skill', () => {
+  it('keeps the Chinese description focused on user triggers instead of backend workflow', async () => {
+    const { skill } = await readCometAnyZh();
+    const description = skill.match(/^description:\s*"([^"]+)"/m)?.[1] ?? '';
+
+    expect(description).toContain('用户想');
+    expect(description).toContain('改一版 /comet');
+    expect(description).toContain('做一个新 Skill');
+    expect(description).toContain('整理已有 Skill');
+    expect(description).toContain('隐藏后端复杂度');
+    expect(description).not.toMatch(/CLI|Bundle|Factory|composition|生成可安装候选|内部使用/u);
+  });
+
   it('defines the Skill Maker workflow and hard gates', async () => {
     const { skill, authoring, evalProvider } = await readCometAnyZh();
     const combined = `${skill}\n${authoring}\n${evalProvider}`;

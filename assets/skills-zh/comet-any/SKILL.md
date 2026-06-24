@@ -1,6 +1,6 @@
 ---
 name: comet-any
-description: "Skill 创建向导：把 /comet-any 收敛为普通用户可理解的 Skill Maker。用 /comet-any 调用，围绕“改一版 /comet / 做一个新 Skill / 整理已有 Skill”和“加 / 换 / 关”生成可直接调用的 Comet-native Skill，并在内部使用 CLI 后端完成验证、生成可安装候选与可选安装。"
+description: "用户想改一版 /comet、做一个新 Skill、整理已有 Skill，或只想用加 / 换 / 关表达工作流调整并隐藏后端复杂度时使用。"
 ---
 
 # Comet Any — Skill Maker
