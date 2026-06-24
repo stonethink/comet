@@ -59,6 +59,64 @@ describe('doctor command', () => {
     expect(await fs.readFile(path.join(changeDir, '.comet.yaml'), 'utf8')).not.toBe(before);
   });
 
+  it('prints the current Comet version in text output', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    let output = '';
+    try {
+      await doctorCommand(tmpDir);
+      output = log.mock.calls.map((call) => call.join(' ')).join('\n');
+    } finally {
+      log.mockRestore();
+    }
+
+    expect(output).toContain('Comet CLI: installed (');
+  });
+
+  it('does not report non-Comet skill directories as missing Comet installs in auto scope', async () => {
+    await fs.mkdir(path.join(tmpDir, '.claude', 'skills', 'using-superpowers'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(tmpDir, '.claude', 'skills', 'using-superpowers', 'SKILL.md'),
+      '# using-superpowers\n',
+    );
+
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    let output = '';
+    try {
+      await doctorCommand(tmpDir);
+      output = log.mock.calls.map((call) => call.join(' ')).join('\n');
+    } finally {
+      log.mockRestore();
+    }
+
+    expect(output).not.toContain('skills: Claude Code (project): missing');
+    expect(output).toContain('Superpowers: detected');
+    expect(output).toContain(
+      'Comet skills: not installed in project or global scope — run: comet init',
+    );
+  });
+
+  it('reports partial Comet installs with an update command instead of a raw missing dump', async () => {
+    await fs.mkdir(path.join(tmpDir, '.claude', 'skills', 'comet'), {
+      recursive: true,
+    });
+    await fs.writeFile(path.join(tmpDir, '.claude', 'skills', 'comet', 'SKILL.md'), '# comet\n');
+
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    let output = '';
+    try {
+      await doctorCommand(tmpDir, { scope: 'project' });
+      output = log.mock.calls.map((call) => call.join(' ')).join('\n');
+    } finally {
+      log.mockRestore();
+    }
+
+    expect(output).toContain('skills: Claude Code (project): partial');
+    expect(output).toContain('run: comet update --scope project');
+    expect(output).not.toContain('missing 31:');
+  });
+
   it('uses the shared schema and leaves invalid state untouched', async () => {
     const invalidChangeDir = path.join(tmpDir, 'openspec', 'changes', 'top-level-invalid');
     state(tmpDir, 'init', 'top-level-invalid', 'full');

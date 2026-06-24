@@ -15,6 +15,7 @@ import {
 import { PLATFORMS, getPlatformSkillsDirs } from '../../platform/install/platforms.js';
 import type { InstallScope } from '../../platform/install/types.js';
 import { inspectClassicChange } from '../../domains/comet-classic/classic-diagnostics.js';
+import { getCurrentVersion } from '../../platform/version/version.js';
 
 interface CheckResult {
   check: string;
@@ -23,6 +24,20 @@ interface CheckResult {
 }
 
 type DoctorScope = InstallScope | 'auto';
+
+const SUPERPOWERS_SENTINELS = [
+  'using-superpowers/SKILL.md',
+  'test-driven-development/SKILL.md',
+  'writing-plans/SKILL.md',
+] as const;
+
+function checkCometCli(): CheckResult {
+  return {
+    check: 'Comet CLI',
+    status: 'pass',
+    message: `installed (${getCurrentVersion()})`,
+  };
+}
 
 async function checkOpenSpecCli(): Promise<CheckResult> {
   if (!isCommandAvailable('openspec')) {
@@ -64,6 +79,37 @@ async function checkWorkingDirs(projectPath: string): Promise<CheckResult> {
   };
 }
 
+async function checkSuperpowers(projectPath: string, scope: DoctorScope): Promise<CheckResult> {
+  const detected: string[] = [];
+  for (const base of getScopeBases(projectPath, scope)) {
+    for (const platform of PLATFORMS) {
+      for (const skillsDir of getPlatformSkillsDirs(platform, base.scope)) {
+        for (const sentinel of SUPERPOWERS_SENTINELS) {
+          if (await fileExists(path.join(base.baseDir, skillsDir, 'skills', sentinel))) {
+            detected.push(`${platform.name} ${base.scope}`);
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  const uniqueDetected = [...new Set(detected)];
+  if (uniqueDetected.length > 0) {
+    return {
+      check: 'Superpowers',
+      status: 'pass',
+      message: `detected (${uniqueDetected.join(', ')}; version not recorded by skills installer)`,
+    };
+  }
+
+  return {
+    check: 'Superpowers',
+    status: 'warn',
+    message: 'not detected — install with: npx skills add obra/superpowers -y --agent <platform>',
+  };
+}
+
 function getScopeBases(
   projectPath: string,
   scope: DoctorScope,
@@ -90,8 +136,9 @@ async function checkSkillCompleteness(
   const results: CheckResult[] = [];
   const manifest = await readManifest();
   const managedSkills = getManagedSkillPaths(manifest);
+  const total = managedSkills.length;
 
-  let anyPlatform = false;
+  let anyCometInstall = false;
   for (const base of getScopeBases(projectPath, scope)) {
     for (const platform of PLATFORMS) {
       const detectedSkillsDir = (
@@ -104,42 +151,44 @@ async function checkSkillCompleteness(
       ).find((candidate) => candidate.exists)?.skillsDir;
       if (!detectedSkillsDir) continue;
 
-      const skillsDir = path.join(base.baseDir, detectedSkillsDir, 'skills');
-      if (!(await fileExists(skillsDir))) continue;
-      anyPlatform = true;
-
+      const present: string[] = [];
       const missing: string[] = [];
       for (const relPath of managedSkills) {
         const fullPath = path.join(base.baseDir, detectedSkillsDir, 'skills', relPath);
-        if (!(await fileExists(fullPath))) {
+        if (await fileExists(fullPath)) {
+          present.push(relPath);
+        } else {
           missing.push(relPath);
         }
       }
+
+      if (present.length === 0) continue;
+      anyCometInstall = true;
 
       results.push(
         missing.length === 0
           ? {
               check: `skills: ${platform.name} (${base.scope})`,
               status: 'pass' as const,
-              message: `complete (${managedSkills.length} files)`,
+              message: `complete (${total} files)`,
             }
           : {
               check: `skills: ${platform.name} (${base.scope})`,
               status: 'warn' as const,
-              message: `missing ${missing.length}: ${missing.join(', ')}`,
+              message: `partial (${present.length}/${total} files; missing ${missing.length}) — run: comet update --scope ${base.scope}`,
             },
       );
     }
   }
 
-  if (!anyPlatform) {
+  if (!anyCometInstall) {
     results.push({
-      check: 'skills',
+      check: 'Comet skills',
       status: 'warn',
       message:
         scope === 'auto'
-          ? 'no platforms detected in project or global scope — run comet init'
-          : `no platforms detected in ${scope} scope — run comet init`,
+          ? 'not installed in project or global scope — run: comet init'
+          : `not installed in ${scope} scope — run: comet init --scope ${scope}`,
     });
   }
 
@@ -257,7 +306,9 @@ async function checkCodegraph(projectPath: string, scope: DoctorScope): Promise<
 
 async function collectResults(projectPath: string, scope: DoctorScope): Promise<CheckResult[]> {
   const results: CheckResult[] = [];
+  results.push(checkCometCli());
   results.push(await checkOpenSpecCli());
+  results.push(await checkSuperpowers(projectPath, scope));
   if (scope !== 'global') {
     results.push(await checkWorkingDirs(projectPath));
   }

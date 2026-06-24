@@ -30,6 +30,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 
 - **Built CLI asset lookup**: Restores packaged commands such as `comet doctor`, `status`, `init`, and `update` after the repo/runtime restructuring by resolving `assets/manifest.json` from the shipped package root instead of `dist/assets`.
 - **Classic diagnostics resilience**: Prevents malformed `.comet.yaml` files from crashing whole scans, keeps `status`/`doctor`/`guard --json` on one evidence path, and surfaces current step, runtime mode, runtime eval evidence, and recovery hints more directly.
+- **Doctor output clarity**: Adds Comet and Superpowers environment status to `comet doctor` and stops treating unrelated platform Skill directories as incomplete Comet installs in auto-scope diagnostics.
 - **`/comet-any` publish gates**: Tightens readiness evaluation so missing candidates, stale evals, missing review approval, unsupported required capabilities, and executable disclosures are surfaced explicitly before publish/distribute decisions.
 - **Skill and eval CLI ergonomics**: Fixes `comet skill resume` option handling, adds actionable text-mode recovery hints, and removes the need to manually assemble most `cd eval && uv run pytest ...` command lines.
 - **Windows and path reliability**: Fixes OpenSpec init/update path quoting for directories with spaces and hardens the eval/task harness for Windows UTF-8, Docker, and report-output workflows.
