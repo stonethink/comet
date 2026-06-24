@@ -267,8 +267,64 @@ describe('publish command facade', () => {
       }),
     );
 
-    expect(text).toContain('Executable hooks:');
-    expect(text).toContain('claude/guard:');
+    expect(text).toContain('Distribution result');
+    expect(text).toContain('claude: installed');
+    expect(text).toContain('executable guard:');
     expect(text).toContain('(read) ->');
+  });
+
+  it('previews publish distribution through the facade without writing files', async () => {
+    const status = await captureJson(() =>
+      publishStatusCommand('publish-facade', { project: projectRoot, json: true }),
+    );
+    const resultFile = path.join(root, 'eval-preview.json');
+    await fs.writeFile(resultFile, JSON.stringify(passingResult(String(status.currentHash))));
+    await bundleEvalRecordCommand('publish-facade', {
+      project: projectRoot,
+      result: resultFile,
+      json: true,
+    });
+    await publishApproveCommand('publish-facade', {
+      project: projectRoot,
+      reviewer: 'alice',
+      json: true,
+    });
+    await publishRunCommand('publish-facade', {
+      project: projectRoot,
+      platform: 'claude',
+      json: true,
+    });
+
+    const preview = await captureJson(() =>
+      publishDistributeCommand('publish-facade', {
+        project: projectRoot,
+        platform: ['claude'],
+        scope: 'project',
+        preview: true,
+        json: true,
+      }),
+    );
+
+    expect(preview).toMatchObject({
+      preview: true,
+      platforms: [
+        expect.objectContaining({
+          status: 'planned',
+          written: [],
+          plannedFiles: expect.arrayContaining([expect.objectContaining({ kind: 'hook' })]),
+        }),
+      ],
+    });
+
+    const text = await captureText(() =>
+      publishDistributeCommand('publish-facade', {
+        project: projectRoot,
+        platform: ['claude'],
+        scope: 'project',
+        preview: true,
+      }),
+    );
+    expect(text).toContain('Distribution preview');
+    expect(text).toContain('No files were written');
   });
 });

@@ -44,6 +44,7 @@ interface BundleCommandOptions {
   overwrite?: boolean;
   skipCapability?: BundleCapability[];
   confirmExecutables?: boolean;
+  preview?: boolean;
   name?: string;
   defaultLocale?: string;
   localeOption?: string[];
@@ -211,22 +212,31 @@ function formatReviewSummaryText(
 }
 
 function formatDistributionText(result: Awaited<ReturnType<typeof distributeBundle>>): string {
-  const summary = result.platforms.map((platform) => `${platform.platform}: ${platform.status}`);
-  const disclosures = result.platforms.flatMap((platform) =>
-    platform.executableDisclosures.map((disclosure) => ({
-      platform: platform.platform,
-      disclosure,
-    })),
-  );
-  if (disclosures.length === 0) return summary.join('\n');
-  return [
-    ...summary,
-    'Executable hooks:',
-    ...disclosures.map(
-      ({ platform, disclosure }) =>
-        `  - ${platform}/${disclosure.id}: ${disclosure.command} (${disclosure.sideEffect}) -> ${disclosure.destination}`,
-    ),
-  ].join('\n');
+  const lines = [
+    result.preview ? 'Distribution preview' : 'Distribution result',
+    `Bundle: ${result.bundle}`,
+    `Hash: ${result.hash}`,
+    ...(result.preview ? ['No files were written'] : []),
+  ];
+  for (const platform of result.platforms) {
+    lines.push(`${platform.platform}: ${platform.status}`);
+    lines.push(...platform.plannedFiles.map((file) => `  plan ${file.kind}: ${file.destination}`));
+    lines.push(...platform.written.map((file) => `  wrote: ${file}`));
+    lines.push(...platform.skipped.map((file) => `  skipped: ${file}`));
+    for (const unsupported of platform.unsupported) {
+      lines.push(
+        `  unsupported ${unsupported.capability}${unsupported.required ? ' (required)' : ''}: ${unsupported.reason}`,
+      );
+    }
+    for (const disclosure of platform.executableDisclosures) {
+      lines.push(
+        `  executable ${disclosure.id}: ${disclosure.command} (${disclosure.sideEffect}) -> ${disclosure.destination}`,
+      );
+    }
+    if (platform.manualAction) lines.push(`  next: ${platform.manualAction}`);
+    if (platform.error) lines.push(`  error: ${platform.error}`);
+  }
+  return lines.join('\n');
 }
 
 async function compileDraft(
@@ -536,6 +546,7 @@ export async function bundleDistributeCommand(
     overwrite: options.overwrite,
     skipCapabilities: options.skipCapability,
     confirmedExecutables: options.confirmExecutables,
+    preview: options.preview,
   });
   emit(result, options.json, formatDistributionText(result));
 }

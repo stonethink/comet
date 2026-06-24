@@ -307,6 +307,7 @@ publish
     [],
   )
   .option('--confirm-executables', 'Confirm executable hook/script disclosures')
+  .option('--preview', 'Preview platform writes without installing files')
   .option('--json', 'Output as JSON')
   .action(async (name, options) => {
     await publishDistributeCommand(name, options);
@@ -504,6 +505,7 @@ bundle
     [],
   )
   .option('--confirm-executables', 'Confirm executable hook/script disclosures')
+  .option('--preview', 'Preview platform writes without installing files')
   .option('--json', 'Output as JSON')
   .action(async (name, options) => {
     await bundleDistributeCommand(name, options);

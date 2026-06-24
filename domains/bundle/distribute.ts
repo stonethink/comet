@@ -14,14 +14,16 @@ import {
 export interface BundleDistributionResult {
   bundle: string;
   hash: string;
+  preview: boolean;
   platforms: Array<{
     platform: string;
-    status: 'installed' | 'skipped' | 'failed' | 'cancelled';
+    status: 'planned' | 'installed' | 'skipped' | 'failed' | 'cancelled';
     written: string[];
     skipped: string[];
     unsupported: PlatformCompileReport['unsupported'];
     executableDisclosures: PlatformCompileReport['executableDisclosures'];
     plannedFiles: Array<{ kind: PlatformInstallFile['kind']; destination: string }>;
+    manualAction?: string;
     error?: string;
   }>;
 }
@@ -60,6 +62,7 @@ export async function distributeBundle(options: {
   overwrite?: boolean;
   skipCapabilities?: BundleCapability[];
   confirmedExecutables?: boolean;
+  preview?: boolean;
 }): Promise<BundleDistributionResult> {
   const state = await reconcileBundleAuthoringState(options.projectRoot, options.name);
   if (state.status !== 'ready' || !state.ready) {
@@ -133,6 +136,34 @@ export async function distributeBundle(options: {
     planned.push({ id: item.id, target: item.target, report });
   }
 
+  if (options.preview === true) {
+    for (const item of planned) {
+      results.push({
+        platform: item.id,
+        status: 'planned',
+        written: [],
+        skipped: [],
+        unsupported: item.report.unsupported,
+        executableDisclosures: item.report.executableDisclosures,
+        plannedFiles: plannedFiles(item.report),
+        manualAction:
+          item.report.executableDisclosures.length > 0
+            ? 'Review executable disclosures and rerun without --preview plus --confirm-executables when acceptable'
+            : 'Rerun without --preview to install',
+      });
+    }
+    const order = new Map(options.platforms.map((id, index) => [id, index]));
+    results.sort(
+      (left, right) => (order.get(left.platform) ?? 0) - (order.get(right.platform) ?? 0),
+    );
+    return {
+      bundle: options.name,
+      hash: currentHash,
+      preview: true,
+      platforms: results,
+    };
+  }
+
   const executableDisclosures = planned.flatMap((item) => item.report.executableDisclosures);
   if (executableDisclosures.length > 0 && options.confirmedExecutables !== true) {
     for (const item of planned) {
@@ -154,6 +185,7 @@ export async function distributeBundle(options: {
     return {
       bundle: options.name,
       hash: currentHash,
+      preview: false,
       platforms: results,
     };
   }
@@ -193,6 +225,7 @@ export async function distributeBundle(options: {
   return {
     bundle: options.name,
     hash: currentHash,
+    preview: false,
     platforms: results,
   };
 }

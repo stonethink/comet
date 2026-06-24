@@ -317,6 +317,40 @@ describe('Bundle distribution', () => {
     ).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
+  it('previews distribution without writing platform files', async () => {
+    await makeReady({ name: 'preview-bundle', requiresHooks: true });
+
+    const result = await distributeBundle({
+      projectRoot,
+      name: 'preview-bundle',
+      platforms: ['claude'],
+      scope: 'project',
+      preview: true,
+    });
+
+    expect(result.preview).toBe(true);
+    expect(result.platforms[0]).toMatchObject({
+      platform: 'claude',
+      status: 'planned',
+      written: [],
+      skipped: [],
+      plannedFiles: expect.arrayContaining([
+        expect.objectContaining({ kind: 'skill' }),
+        expect.objectContaining({ kind: 'hook' }),
+        expect.objectContaining({ kind: 'script' }),
+      ]),
+      executableDisclosures: [
+        expect.objectContaining({
+          id: 'protect-write',
+          sideEffect: 'read',
+        }),
+      ],
+    });
+    await expect(
+      fs.access(path.join(projectRoot, '.claude', 'skills', 'entry', 'SKILL.md')),
+    ).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   it('cancels all planned platforms when any executable disclosure is unconfirmed', async () => {
     await makeReady({ name: 'multi-confirm-bundle', requiresHooks: true });
 
