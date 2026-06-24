@@ -10,6 +10,7 @@ import {
   bundleDraftOptimizeCommand,
   bundleEvalPlanCommand,
   bundleEvalRecordCommand,
+  bundleFactoryGuideCommand,
   bundleFactoryInitCommand,
   bundleFactoryGenerateCommand,
   bundleFactoryProposeCommand,
@@ -202,6 +203,26 @@ prefer:
     const text = await captureText(() => bundleCandidatesCommand({ project: projectRoot }));
     expect(text).toContain('demo: available');
     expect(text).toContain('missing: missing');
+  });
+
+  it('prints the Factory first-use guide for /comet-any', async () => {
+    await writeFactorySkill(projectRoot, 'brainstorming', {
+      description: 'Explore intent before implementation.',
+    });
+
+    const result = await captureJson(() =>
+      bundleFactoryGuideCommand({ project: projectRoot, json: true }),
+    );
+
+    expect(result).toMatchObject({
+      schemaVersion: 1,
+      preference: { state: 'missing' },
+      userMessage: { title: 'Start with /comet-any' },
+    });
+
+    const text = await captureText(() => bundleFactoryGuideCommand({ project: projectRoot }));
+    expect(text).toContain('Preference file: missing');
+    expect(text).toContain('Next step:');
   });
 
   it('creates and optimizes drafts, then reports status', async () => {

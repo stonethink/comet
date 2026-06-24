@@ -30,6 +30,7 @@ import {
   bundleDraftOptimizeCommand,
   bundleEvalPlanCommand,
   bundleEvalRecordCommand,
+  bundleFactoryGuideCommand,
   bundleFactoryGenerateCommand,
   bundleFactoryInitCommand,
   bundleFactoryProposeCommand,
@@ -364,6 +365,15 @@ bundle
   .option('--json', 'Output as JSON')
   .action(async (name, options) => {
     await bundleStatusCommand(name, options);
+  });
+
+bundle
+  .command('factory-guide')
+  .description('Summarize /comet-any first-use, preferences, and resumable Factory flows')
+  .option('--project <dir>', 'Project root', '.')
+  .option('--json', 'Output as JSON')
+  .action(async (options) => {
+    await bundleFactoryGuideCommand(options);
   });
 
 bundle

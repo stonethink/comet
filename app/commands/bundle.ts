@@ -21,6 +21,7 @@ import { planBundleEval, recordBundleEval } from '../../domains/bundle/eval.js';
 import { publishBundle, reviewBundle } from '../../domains/bundle/publish.js';
 import { distributeBundle } from '../../domains/bundle/distribute.js';
 import { buildBundleFactoryProposal } from '../../domains/bundle/factory-proposal.js';
+import { buildBundleFactoryGuide } from '../../domains/bundle/factory-guide.js';
 import {
   buildBundleResumeSummary,
   determineBundleNextAction,
@@ -140,6 +141,35 @@ function formatListText(
       ].join('\n'),
     )
     .join('\n\n');
+}
+
+function formatFactoryGuideText(
+  guide: Awaited<ReturnType<typeof buildBundleFactoryGuide>>,
+): string {
+  return [
+    guide.userMessage.title,
+    guide.userMessage.summary,
+    `Preference file: ${guide.preference.state} (${guide.preference.path})`,
+    `Discovered Skills: ${guide.inventory.total}`,
+    ...formatOptionalSection(
+      'Recommended Skills:',
+      guide.inventory.recommended.map((item) => `${item.name} - ${item.reason}`),
+    ),
+    ...formatOptionalSection(
+      'Ambiguous Skills:',
+      guide.inventory.ambiguous.map(
+        (item) =>
+          `${item.name} (${item.sources.map((source) => source.platform ?? source.origin).join(', ')})`,
+      ),
+    ),
+    ...formatOptionalSection(
+      'Resumable flows:',
+      guide.resumable.map(
+        (item) => `${item.name}: ${item.currentStep}; next ${item.recommendedNextStep.userLabel}`,
+      ),
+    ),
+    `Next step: ${guide.userMessage.nextStep}`,
+  ].join('\n');
 }
 
 function formatReviewSummaryText(
@@ -275,6 +305,11 @@ export async function bundleListCommand(options: BundleCommandOptions = {}): Pro
     }),
   }));
   emit({ bundles: states }, options.json, formatListText(states));
+}
+
+export async function bundleFactoryGuideCommand(options: BundleCommandOptions = {}): Promise<void> {
+  const guide = await buildBundleFactoryGuide({ projectRoot: projectRoot(options) });
+  emit(guide, options.json, formatFactoryGuideText(guide));
 }
 
 export async function bundleFactoryGenerateCommand(
