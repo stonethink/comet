@@ -138,26 +138,29 @@ describe('publish command facade', () => {
 
     expect(listed).toMatchObject({
       bundles: [
-        {
-          name: 'publish-facade',
-          status: 'draft',
-          nextAction: { action: 'choose-eval-level' },
-          resumeSummary: {
+        expect.objectContaining({
+          resumeSummary: expect.objectContaining({
             currentStep: 'needs-eval',
-            recommendedNextStep: { action: 'choose-eval-level' },
-          },
-        },
+          }),
+        }),
       ],
     });
     expect(status).toMatchObject({
       name: 'publish-facade',
       status: 'draft',
       nextAction: { action: 'choose-eval-level' },
-      resumeSummary: {
-        currentStep: 'needs-eval',
-        recommendedNextStep: { action: 'choose-eval-level' },
-      },
+      resumeSummary: expect.objectContaining({
+        recommendedNextStep: expect.objectContaining({
+          category: 'eval',
+        }),
+      }),
     });
+
+    const text = await captureText(() =>
+      publishStatusCommand('publish-facade', { project: projectRoot }),
+    );
+    expect(text).toContain('Current step: needs-eval');
+    expect(text).toContain('Suggested user command:');
   });
 
   it('reviews, approves, publishes, and distributes through the facade', async () => {

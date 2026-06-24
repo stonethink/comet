@@ -114,6 +114,8 @@ function formatStatusText(
     `Reason: ${resumeSummary.recommendedNextStep.reason}`,
     `Suggested user command: ${resumeSummary.recommendedNextStep.userCommand}`,
     `Backend command: ${resumeSummary.recommendedNextStep.backendCommand}`,
+    ...formatOptionalSection('Already done:', resumeSummary.completed),
+    ...formatOptionalSection('Still missing:', resumeSummary.missing),
     ...(resumeSummary.preferenceDrift.changed
       ? ['Preference drift: project Skill preferences changed after this flow started']
       : []),
@@ -138,6 +140,7 @@ function formatListText(
         `Draft: ${state.draftPath}`,
         `Next action: ${state.nextAction.action}`,
         `Current step: ${state.resumeSummary.currentStep}`,
+        `Suggested user command: ${state.resumeSummary.recommendedNextStep.userCommand}`,
         `Reason: ${state.nextAction.reason}`,
       ].join('\n'),
     )

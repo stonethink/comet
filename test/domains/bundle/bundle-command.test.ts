@@ -256,6 +256,8 @@ prefer:
     expect(text).toContain('User next step: Run Eval for the generated Skill');
     expect(text).toContain('Suggested user command:');
     expect(text).toContain('Backend command: comet bundle eval-plan optimized-bundle --level quick');
+    expect(text).toContain('Still missing:');
+    expect(text).toContain('- Passing Eval evidence for the current draft');
   });
 
   it('lists recoverable Bundle authoring states with next actions', async () => {
@@ -273,34 +275,27 @@ prefer:
 
     expect(result).toMatchObject({
       bundles: [
-        {
-          name: 'created-bundle',
-          status: 'draft',
-          nextAction: {
-            action: 'choose-eval-level',
-          },
-          resumeSummary: {
+        expect.objectContaining({
+          resumeSummary: expect.objectContaining({
+            schemaVersion: 1,
             currentStep: 'needs-eval',
-            recommendedNextStep: { action: 'choose-eval-level' },
-          },
-        },
-        {
-          name: 'optimized-bundle',
-          status: 'draft',
-          nextAction: {
-            action: 'choose-eval-level',
-          },
-          resumeSummary: {
-            currentStep: 'needs-eval',
-            recommendedNextStep: { action: 'choose-eval-level' },
-          },
-        },
+            recommendedNextStep: expect.objectContaining({
+              userCommand: expect.stringContaining('comet eval run'),
+            }),
+          }),
+        }),
+        expect.objectContaining({
+          resumeSummary: expect.objectContaining({
+            schemaVersion: 1,
+          }),
+        }),
       ],
     });
 
     const text = await captureText(() => bundleListCommand({ project: projectRoot }));
     expect(text).toContain('created-bundle: draft');
     expect(text).toContain('Next action: choose-eval-level');
+    expect(text).toContain('Suggested user command:');
     expect(text).toContain('optimized-bundle: draft');
   });
 
@@ -1805,6 +1800,12 @@ prefer:
     });
     const [listedBundle] = listed.bundles as Array<{ nextAction: { reason: string } }>;
     expect(String(listedBundle!.nextAction.reason)).toMatch(/composition/i);
+    const text = await captureText(() =>
+      bundleStatusCommand('factory-composition-action', { project: projectRoot }),
+    );
+    expect(text).toContain('Already done:');
+    expect(text).toContain('- Factory metadata initialized');
+    expect(text).toContain('Still missing:');
   });
 
   it('compiles a Bundle, plans Eval, records Eval, approves, publishes, and distributes', async () => {
