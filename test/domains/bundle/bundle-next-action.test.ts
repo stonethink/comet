@@ -59,16 +59,18 @@ describe('Bundle next action', () => {
 
   it('requests review again when the current-hash review was rejected', () => {
     const reviewedState = state({
-      status: 'reviewed',
+      status: 'draft',
       eval: {
         hash: 'a'.repeat(64),
+        level: 'quick',
+        resultPath: '/project/.comet/bundle-drafts/demo-skill/eval-result.json',
         passed: true,
       },
       review: {
         hash: 'a'.repeat(64),
         decision: 'rejected',
         reviewer: 'qa',
-        summary: 'needs changes',
+        at: '2026-06-24T00:00:00.000Z',
       },
     });
 
