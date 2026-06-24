@@ -9,7 +9,7 @@ description: "Skill 创建向导：创建或优化用户可直接调用的 Comet
 本 Skill 会先恢复现有流程、提供首次使用帮助、读取项目级偏好 `.comet/skill-preferences.yaml`、
 用 `find-skill` 查找本地真实 Skill 内容，先展示组合方案确认页并等待用户确认，再生成稳定组合 Skill Bundle，
 再在内部调用 CLI 后端完成校验、Eval、发布和可选分发。CLI 是内部确定性后端，用户只需要调用本 Skill。
-普通用户路径必须收束为 `/comet-any -> comet eval -> comet publish -> distribute`；其中 `comet skill`
+普通用户路径必须收束为 `/comet-any -> comet eval -> comet publish review/approve/run -> comet publish distribute --preview -> comet publish distribute`；其中 `comet skill`
 是底层 Skill 工具（Low-level Skill utilities），`comet bundle` 是高级 Bundle 后端（Advanced Bundle backend）。
 
 <IMPORTANT>
@@ -26,9 +26,9 @@ Bundle 至少包含 `SKILL.md`、`comet/skill.yaml`、`comet/guardrails.yaml`、
 ## 参考资料
 
 - `comet-any/reference/bundle-authoring.md`：Skill Factory 后端、Factory metadata、Bundle/CLI 生命周期。
-- `comet-any/reference/eval-provider.md`：Eval 选择、证据格式、评审摘要与回退门禁。
+- `comet-any/reference/eval-provider.md`：Eval 选择、证据格式、评审摘要与回退检查。
 
-## 硬性门禁
+## 硬性检查
 
 - 用户只需要调用本 Skill；不得把手动运行 `comet bundle` 或 `comet skill` 当作用户主流程。
 - CLI 是内部确定性后端，用户只需要调用本 Skill；不要要求用户记忆 Bundle 子命令。
@@ -159,8 +159,10 @@ comet bundle factory-propose <name> --file <plan.json> --json
 把 proposal 中的组合方案、`preferenceHash`、blockers、warnings、resolved Skill 证据、`userSummary`、`actions`、`proposalHash` 和将生成文件清单展示给用户。用户确认后再运行：
 
 ```bash
-comet bundle factory-init <name> --file <plan.json> --confirmed-proposal <proposalHash> --json
+comet bundle factory-init <name> --file <plan.json> --confirmed-proposal --json
 ```
+
+`proposalHash` 必须由本次 proposal 的 Factory metadata 记录并在后端校验，不由用户作为 CLI 参数传入。
 
 这个命令必须负责两件事：
 

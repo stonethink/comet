@@ -147,10 +147,10 @@ proposal 应给用户展示 `userSummary`、候选动作和 `proposalHash`。确
 用户确认后，`/comet-any` 才会调用：
 
 ```bash
-comet bundle factory-init <name> --file <plan.json> --confirmed-proposal <proposalHash> --json
+comet bundle factory-init <name> --file <plan.json> --confirmed-proposal --json
 ```
 
-`factory-init` 会把规范化 plan 固化到 `.comet/bundle-factory-plans/<name>/plan.json`，并在 Factory metadata 中记录 `planHash`、`preferenceHash`、偏好模式、策略、required Skill、resolved Skill 证据和偏离原因。
+`proposalHash` 会由 Factory metadata 记录并校验，不由用户作为参数传入。`factory-init` 会把规范化 plan 固化到 `.comet/bundle-factory-plans/<name>/plan.json`，并在 Factory metadata 中记录 `planHash`、`preferenceHash`、偏好模式、策略、required Skill、resolved Skill 证据和偏离原因。
 
 ## `/comet-any` 的产出
 

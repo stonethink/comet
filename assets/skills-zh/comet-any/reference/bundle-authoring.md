@@ -5,7 +5,7 @@
 `comet bundle` 是 `/comet-any` 的内部确定性后端。用户不需要直接执行 Bundle CLI。
 本 Skill 必须把 creator 输出适配为 Comet-native Skill Package，再交给 Bundle 后端编译、
 Eval、发布和分发。
-对普通用户，推荐路径始终是 `/comet-any -> comet eval -> comet publish -> distribute`；
+对普通用户，推荐路径始终是 `/comet-any -> comet eval -> comet publish review/approve/run -> comet publish distribute --preview -> comet publish distribute`；
 `comet bundle` 只作为高级 Bundle 后端（Advanced Bundle backend）暴露给需要审计后端状态的人。
 
 `.comet/skill-preferences.yaml` 是项目级偏好文件，支持 `advisory` / `strict`、`prefer`、`require`
@@ -132,8 +132,10 @@ proposal 输出还应直接给前端/Skill 使用这些字段：
 真实初始化必须带 proposal 确认：
 
 ```bash
-comet bundle factory-init <name> --file <plan.json> --confirmed-proposal <proposalHash> --json
+comet bundle factory-init <name> --file <plan.json> --confirmed-proposal --json
 ```
+
+`proposalHash` 会由 Factory metadata 记录，用于确认当前 proposal；用户不需要把它作为 CLI 参数传入。
 
 `status` / `list` 输出应包含 `resumeSummary`，以便 `/comet-any` 和中文文档向用户展示恢复入口，而不是让用户自行阅读内部状态。
 
@@ -143,7 +145,7 @@ comet bundle factory-init <name> --file <plan.json> --confirmed-proposal <propos
 comet bundle candidates --json
 comet publish list --json
 comet bundle factory-propose <name> --file <plan.json> --json
-comet bundle factory-init <name> --file <plan.json> --json
+comet bundle factory-init <name> --file <plan.json> --confirmed-proposal --json
 comet bundle factory-resolve <name> --candidate <query> --source <root-or-hash> --json
 comet bundle factory-resolve <name> --candidate <query> --ignore-missing --reason <reason> --json
 comet bundle draft create <name> --json
@@ -181,7 +183,7 @@ comet skill resume --run-id <run-id> --status succeeded --summary <summary> --js
 comet skill eval --run-id <run-id> --scope completion --json
 ```
 
-## 分发门禁
+## 分发前检查
 
 - required 能力缺口：取消该平台。
 - optional 能力缺口：必须由用户显式选择 skip。

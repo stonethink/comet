@@ -49,6 +49,7 @@ describe('Chinese comet-any Skill', () => {
       'preferenceHash',
       '用户只需要调用本 Skill',
       'CLI 是内部确定性后端',
+      '/comet-any -> comet eval -> comet publish review/approve/run -> comet publish distribute --preview -> comet publish distribute',
       'Comet-native',
       'find-skill',
       '推荐调用顺序',
@@ -95,6 +96,7 @@ describe('Chinese comet-any Skill', () => {
       'revise-proposal',
       'cancel',
       '--confirmed-proposal',
+      'Factory metadata 记录',
       'Publish readiness:',
       'User next steps:',
       'authoring-skill',
@@ -238,7 +240,6 @@ describe('Bilingual comet-any Skill parity', () => {
       { zh: 'scripts/rules/hooks', en: 'scripts/rules/hooks' },
       { zh: 'portable hook descriptor', en: 'portable hook descriptors' },
       { zh: 'comet/checks.yaml', en: 'comet/checks.yaml' },
-      { zh: '/comet-any -> comet eval -> comet publish -> distribute', en: '/comet-any -> comet eval -> comet publish -> distribute' },
       {
         zh: 'Eval 证据缺失时不得发布 ready',
         en: 'Missing Eval evidence blocks ready publish',
