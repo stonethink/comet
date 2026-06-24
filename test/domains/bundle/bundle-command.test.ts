@@ -1864,6 +1864,12 @@ prefer:
         json: true,
       }),
     );
+    const publishedReviewText = await captureText(() =>
+      bundleReviewSummaryCommand('lifecycle-bundle', {
+        project: projectRoot,
+        platform: 'claude',
+      }),
+    );
     const distributed = await captureJson(() =>
       bundleDistributeCommand('lifecycle-bundle', {
         project: projectRoot,
@@ -1878,6 +1884,8 @@ prefer:
     expect(evaluated).toMatchObject({ status: 'eval-passed' });
     expect(reviewed).toMatchObject({ status: 'review-approved' });
     expect(published).toMatchObject({ status: 'ready' });
+    expect(publishedReviewText).toContain('Publish readiness: Already published');
+    expect(publishedReviewText).toContain('User next steps:');
     expect(distributed).toMatchObject({
       platforms: [{ platform: 'claude', status: 'installed' }],
     });

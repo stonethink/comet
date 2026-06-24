@@ -189,11 +189,23 @@ describe('publish command facade', () => {
         json: true,
       }),
     );
+    const publishableReviewText = await captureText(() =>
+      publishReviewCommand('publish-facade', {
+        project: projectRoot,
+        platform: 'claude',
+      }),
+    );
     const published = await captureJson(() =>
       publishRunCommand('publish-facade', {
         project: projectRoot,
         platform: 'claude',
         json: true,
+      }),
+    );
+    const publishedReviewText = await captureText(() =>
+      publishReviewCommand('publish-facade', {
+        project: projectRoot,
+        platform: 'claude',
       }),
     );
     const distributed = await captureJson(() =>
@@ -221,7 +233,11 @@ describe('publish command facade', () => {
     expect(reviewText).toContain('User next steps:');
 
     expect(approved).toMatchObject({ status: 'review-approved' });
+    expect(publishableReviewText).toContain('Publish readiness: Ready to publish');
+    expect(publishableReviewText).toContain('User next steps:');
     expect(published).toMatchObject({ status: 'ready' });
+    expect(publishedReviewText).toContain('Publish readiness: Already published');
+    expect(publishedReviewText).toContain('User next steps:');
     expect(distributed).toMatchObject({
       platforms: [
         {

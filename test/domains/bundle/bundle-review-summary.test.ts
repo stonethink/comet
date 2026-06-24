@@ -4,6 +4,7 @@ import os from 'os';
 import path from 'path';
 import { parse, stringify } from 'yaml';
 import { createBundleDraft } from '../../../domains/bundle/draft.js';
+import { buildReadinessUserSummary } from '../../../domains/bundle/readiness-user-summary.js';
 import { buildBundleReviewSummary } from '../../../domains/bundle/review-summary.js';
 import {
   generateBundleDraftFromFactoryState,
@@ -564,6 +565,43 @@ prefer:
 
     expect(summary.readiness.state).toBe('publishable');
     expect(summary.readiness.blockers).toEqual([]);
+    expect(summary.userSummary.nextSteps).toEqual([
+      {
+        label: 'Publish the approved candidate',
+        command: 'comet publish run factory-ready --platform <reference-platform>',
+      },
+    ]);
+  });
+
+  it('adds fallback next steps for publishable and published states without user-summary items', () => {
+    expect(
+      buildReadinessUserSummary('ready-bundle', {
+        state: 'publishable',
+        blockers: [],
+        warnings: [],
+        evidence: {},
+      }).nextSteps,
+    ).toEqual([
+      {
+        label: 'Publish the approved candidate',
+        command: 'comet publish run ready-bundle --platform <reference-platform>',
+      },
+    ]);
+
+    expect(
+      buildReadinessUserSummary('ready-bundle', {
+        state: 'published',
+        blockers: [],
+        warnings: [],
+        evidence: {},
+      }).nextSteps,
+    ).toEqual([
+      {
+        label: 'Preview distribution before installing into Agent platforms',
+        command:
+          'comet publish distribute ready-bundle --platform <platform> --scope project --preview',
+      },
+    ]);
   });
 
   it('classifies readiness blockers by type and exposes all readiness states', async () => {
@@ -715,6 +753,7 @@ prefer:
       conclusion: 'can-publish',
       title: 'Ready to publish',
     });
+    expect(publishable.userSummary.nextSteps.length).toBeGreaterThan(0);
 
     await writeBundleAuthoringState(projectRoot, {
       ...(await reconcileBundleAuthoringState(projectRoot, 'factory-classified')),
@@ -754,6 +793,7 @@ prefer:
       conclusion: 'published',
       title: 'Already published',
     });
+    expect(published.userSummary.nextSteps.length).toBeGreaterThan(0);
   });
 
   it('surfaces capability and executable-disclosure readiness hints from real platform compile output', async () => {

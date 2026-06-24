@@ -37,6 +37,29 @@ export interface BundleReadinessUserSummary {
   nextSteps: Array<{ label: string; command: string }>;
 }
 
+function fallbackNextSteps(
+  conclusion: BundleReadinessConclusion,
+  bundleName: string,
+): Array<{ label: string; command: string }> {
+  if (conclusion === 'can-publish') {
+    return [
+      {
+        label: 'Publish the approved candidate',
+        command: `comet publish run ${bundleName} --platform <reference-platform>`,
+      },
+    ];
+  }
+  if (conclusion === 'published') {
+    return [
+      {
+        label: 'Preview distribution before installing into Agent platforms',
+        command: `comet publish distribute ${bundleName} --platform <platform> --scope project --preview`,
+      },
+    ];
+  }
+  return [];
+}
+
 function codeOf(message: string): BundleReadinessUserSummaryItem['code'] {
   const match = message.match(/^\[([a-z-]+)\]/u);
   const value = match?.[1] ?? 'unknown';
@@ -186,6 +209,9 @@ export function buildReadinessUserSummary(
             ? 'Eval and review evidence match the current draft.'
             : 'The published Bundle is bound to the current hash.',
     items,
-    nextSteps: items.map((item) => item.nextAction),
+    nextSteps:
+      items.length > 0
+        ? items.map((item) => item.nextAction)
+        : fallbackNextSteps(conclusion, bundleName),
   };
 }
