@@ -23,7 +23,7 @@ function state(overrides: Partial<BundleAuthoringState> = {}): BundleAuthoringSt
 }
 
 describe('Bundle next action', () => {
-  it('prefers user-facing publish commands after Factory generation', () => {
+  it('uses the generated eval manifest path in the user-facing eval command', () => {
     const action = determineBundleNextAction(
       state({
         factory: {
@@ -51,9 +51,38 @@ describe('Bundle next action', () => {
     expect(action).toMatchObject({
       action: 'choose-eval-level',
       category: 'eval',
-      userCommand: 'comet eval run --manifest <generated-skill>/comet/eval.yaml --quick --html',
+      userCommand:
+        'comet eval run --manifest /project/.comet/bundle-drafts/demo-skill/skills/demo-skill/comet/eval.yaml --quick --html',
     });
     expect(action.backendCommand).toBe('comet bundle eval-plan demo-skill --level quick');
+  });
+
+  it('requests review again when the current-hash review was rejected', () => {
+    const reviewedState = state({
+      status: 'reviewed',
+      eval: {
+        hash: 'a'.repeat(64),
+        passed: true,
+      },
+      review: {
+        hash: 'a'.repeat(64),
+        decision: 'rejected',
+        reviewer: 'qa',
+        summary: 'needs changes',
+      },
+    });
+
+    expect(determineBundleNextAction(reviewedState)).toMatchObject({
+      action: 'request-review',
+      category: 'review',
+    });
+
+    expect(buildBundleResumeSummary(reviewedState)).toMatchObject({
+      currentStep: 'needs-review',
+      recommendedNextStep: {
+        action: 'request-review',
+      },
+    });
   });
 
   it('builds a resume summary with completed and missing steps', () => {
@@ -98,5 +127,38 @@ describe('Bundle next action', () => {
     });
     expect(summary.completed).toContain('Factory metadata initialized');
     expect(summary.missing).toContain('Passing Eval evidence for the current draft');
+  });
+
+  it('marks preference drift when the stored hash exists and the current hash is null', () => {
+    const summary = buildBundleResumeSummary(
+      state({
+        factory: {
+          goal: 'Create a resumable Skill',
+          preferredSkills: ['brainstorming'],
+          resolvedSkills: [
+            { query: 'brainstorming', preferenceIndex: 0, status: 'available', sources: [] },
+          ],
+          callChain: [{ skill: 'brainstorming', preferenceIndex: 0 }],
+          deviations: [],
+          engineMode: 'deterministic',
+          runnerMode: 'standalone',
+          preferenceHash: 'old-hash',
+          generatedSkillPackage: {
+            entrySkill: 'demo-skill',
+            internalSkills: [],
+            packageRoot: '/draft/skills/demo-skill',
+            enginePath: null,
+            evalManifestPath: '/draft/skills/demo-skill/comet/eval.yaml',
+          },
+        },
+      }),
+      { currentPreferenceHash: null },
+    );
+
+    expect(summary.preferenceDrift).toEqual({
+      changed: true,
+      storedHash: 'old-hash',
+      currentHash: null,
+    });
   });
 });

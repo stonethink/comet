@@ -107,6 +107,7 @@ export function determineBundleNextAction(state: BundleAuthoringState): BundleNe
   }
 
   if (!state.eval || state.eval.hash !== state.currentHash || !state.eval.passed) {
+    const evalManifest = generatedEvalManifest(state);
     return {
       action: 'choose-eval-level',
       category: 'eval',
@@ -114,14 +115,18 @@ export function determineBundleNextAction(state: BundleAuthoringState): BundleNe
       reason: 'Current draft hash is missing passing Eval evidence',
       backendCommand: `comet bundle eval-plan ${state.name} --level quick`,
       userCommand:
-        generatedEvalManifest(state) !== null
-          ? 'comet eval run --manifest <generated-skill>/comet/eval.yaml --quick --html'
+        evalManifest !== null
+          ? `comet eval run --manifest ${evalManifest} --quick --html`
           : 'comet eval run --skill-path <generated-skill> --quick --html',
       requiresUserConfirmation: true,
     };
   }
 
-  if (!state.review || state.review.hash !== state.currentHash) {
+  if (
+    !state.review ||
+    state.review.hash !== state.currentHash ||
+    state.review.decision !== 'approved'
+  ) {
     return {
       action: 'request-review',
       category: 'review',
@@ -222,7 +227,7 @@ export function buildBundleResumeSummary(
       ...(state.ready?.path ? { publishedBundle: state.ready.path } : {}),
     },
     preferenceDrift: {
-      changed: Boolean(storedHash && currentHash && storedHash !== currentHash),
+      changed: storedHash !== null && currentHash !== storedHash,
       storedHash,
       currentHash,
     },
