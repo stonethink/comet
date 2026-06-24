@@ -54,6 +54,74 @@ derive      基于受保护模板派生新 Skill
 
 生成物不是覆盖 `/comet`，而是新的 entry Skill，例如 `/my-comet`、`/team-comet` 或用户指定名称。
 
+## 用户扩展体验
+
+用户不需要理解 `templateDelta`、`callChain` 或 Bundle 内部状态。`derive` 模式应把扩展动作收敛成三类用户语言：
+
+```text
+加一步：在某个阶段前后插入 Skill
+换一步：替换某个可替换槽位的默认 Skill
+关一步：关闭某个可选槽位
+```
+
+典型对话：
+
+```text
+用户：
+我想保留 comet 原来的流程，但在 verify 前加一个 security-review，
+并且 build 阶段不用默认 subagent，改用我们团队的 team-builder。
+
+/comet-any：
+我会基于 /comet full workflow 派生一个新的 Skill。
+
+保留：
+open -> design -> build -> verify -> archive
+
+新增：
+pre-verify: security-review
+
+替换：
+build-execution: default -> team-builder
+
+关闭：
+无
+
+将生成：
+/team-comet
+
+请选择：确认生成 / 修改方案 / 取消
+```
+
+另一个关闭可选能力的例子：
+
+```text
+用户：
+我想要一个轻量版 comet，不要最终代码审查，但其他阶段都保留。
+
+/comet-any：
+可以关闭 build-review 这个可选槽位。
+不能删除 verify 阶段；verify 是 Comet 的核心闭环。
+
+关闭：
+build-review -> review_mode: off
+```
+
+如果用户要求删除核心阶段，系统应阻塞并给出替代方案：
+
+```text
+用户：
+把 verify 去掉。
+
+/comet-any：
+不能删除 verify。verify 是 /comet 的核心阶段，负责确认实现、测试和归档前状态。
+可选替代：
+1. 降低 verify 强度。
+2. 关闭 build-review。
+3. 新增 post-verify 自动摘要 Skill。
+```
+
+因此，普通用户扩展的是“槽位”，不是 `/comet` 本体。Agent 可以把用户自然语言翻译成 `templateDelta`，但必须在生成前用确认页让用户看到实际差异。
+
 ## 受保护模板
 
 Comet 模板应分成两层：
