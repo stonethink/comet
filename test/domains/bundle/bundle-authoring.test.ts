@@ -3,6 +3,7 @@ import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
 import { createBundleDraft, optimizeBundleDraft } from '../../../domains/bundle/draft.js';
+import { initializeBundleFactoryState } from '../../../domains/bundle/factory.js';
 import {
   readBundleAuthoringState,
   reconcileBundleAuthoringState,
@@ -43,6 +44,15 @@ engine:
   await fs.writeFile(
     path.join(root, 'skills', 'demo', 'SKILL.md'),
     '---\nname: demo\ndescription: Demo entry.\n---\n\n# Demo\n',
+  );
+}
+
+async function writeFactorySkill(projectRoot: string, name: string): Promise<void> {
+  const skillRoot = path.join(projectRoot, '.comet', 'skills', name);
+  await fs.mkdir(skillRoot, { recursive: true });
+  await fs.writeFile(
+    path.join(skillRoot, 'SKILL.md'),
+    `---\nname: ${name}\ndescription: ${name}.\n---\n# ${name}\n`,
   );
 }
 
@@ -332,6 +342,39 @@ describe('Bundle authoring lifecycle', () => {
     await expect(
       fs.readFile(path.join(state.ready!.path, 'skills', 'demo', 'SKILL.md'), 'utf8'),
     ).resolves.toContain('ready changed');
+  });
+
+  it('records user proposal confirmation metadata during Factory initialization', async () => {
+    await writeFactorySkill(projectRoot, 'task3-confirmed-brainstorming');
+    const planFile = path.join(root, 'confirmed-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Create a confirmed Skill',
+          preferredSkills: ['task3-confirmed-brainstorming'],
+          callChain: [{ skill: 'task3-confirmed-brainstorming' }],
+          engineMode: 'deterministic',
+          runnerMode: 'standalone',
+        },
+        null,
+        2,
+      ),
+    );
+
+    const state = await initializeBundleFactoryState({
+      projectRoot,
+      name: 'confirmed-skill',
+      filePath: planFile,
+      confirmedProposal: true,
+    });
+
+    expect(state.factory?.proposalConfirmation).toMatchObject({
+      confirmed: true,
+      proposalHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
+      acceptedCapabilities: ['skills', 'scripts', 'rules', 'hooks', 'references'],
+    });
+    expect(state.factory?.proposalConfirmation?.confirmedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/u);
   });
 
   async function preparedReadyState(name: string): Promise<BundleAuthoringState> {

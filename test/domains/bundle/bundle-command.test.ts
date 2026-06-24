@@ -537,6 +537,73 @@ prefer:
     });
   });
 
+  it('prints a user-decision Factory proposal before initialization', async () => {
+    await writeFactorySkill(projectRoot, 'task3-guided-brainstorming', {
+      description: 'Explore intent before implementation.',
+    });
+    const planFile = path.join(root, 'factory-decision-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Create a guided planning Skill',
+          preferredSkills: ['task3-guided-brainstorming'],
+          callChain: [{ skill: 'task3-guided-brainstorming' }],
+          engineMode: 'deterministic',
+          runnerMode: 'standalone',
+        },
+        null,
+        2,
+      ),
+    );
+
+    const proposal = await captureJson(() =>
+      bundleFactoryProposeCommand('guided-planning', {
+        project: projectRoot,
+        file: planFile,
+        json: true,
+      }),
+    );
+
+    expect(proposal).toMatchObject({
+      schemaVersion: 1,
+      name: 'guided-planning',
+      canGenerate: true,
+      userSummary: {
+        title: 'Create guided-planning as a Comet-native Skill',
+        generatedControlPlane: expect.arrayContaining([
+          'SKILL.md',
+          'scripts/',
+          'rules/',
+          'hooks/',
+          'comet/checks.yaml',
+          'comet/eval.yaml',
+        ]),
+        requiredConfirmations: expect.arrayContaining([
+          expect.objectContaining({ id: 'generate-scripts' }),
+          expect.objectContaining({ id: 'generate-hooks' }),
+        ]),
+      },
+      actions: expect.arrayContaining([
+        expect.objectContaining({ id: 'confirm-generate' }),
+        expect.objectContaining({ id: 'revise-proposal' }),
+        expect.objectContaining({ id: 'cancel' }),
+      ]),
+      proposalHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
+    });
+
+    const text = await captureText(() =>
+      bundleFactoryProposeCommand('guided-planning', {
+        project: projectRoot,
+        file: planFile,
+      }),
+    );
+    expect(text).toContain('Will reuse Skills:');
+    expect(text).toContain('Will generate control plane:');
+    expect(text).toContain('Required confirmations:');
+    expect(text).toContain('Actions:');
+  });
+
   it('stores composed flow metadata and uses it as the factory call chain', async () => {
     await writeFactorySkill(projectRoot, 'task3-review-flow', {
       description: 'Review flow.',

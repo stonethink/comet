@@ -391,6 +391,7 @@ bundle
   .description('Initialize or update Bundle factory metadata from a structured plan file')
   .option('--project <dir>', 'Project root', '.')
   .requiredOption('--file <path>', 'Factory plan JSON file')
+  .option('--confirmed-proposal', 'Record that the user approved the Factory proposal')
   .option('--json', 'Output as JSON')
   .action(async (name, options) => {
     await bundleFactoryInitCommand(name, options);

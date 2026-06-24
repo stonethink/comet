@@ -49,6 +49,7 @@ interface BundleCommandOptions {
   localeOption?: string[];
   engine?: boolean;
   file?: string;
+  confirmedProposal?: boolean;
   candidate?: string;
   source?: string;
   ignoreMissing?: boolean;
@@ -335,6 +336,7 @@ export async function bundleFactoryInitCommand(
     projectRoot: projectRoot(options),
     name,
     filePath: options.file,
+    confirmedProposal: options.confirmedProposal,
   });
   emit(
     updated,
@@ -358,10 +360,30 @@ export async function bundleFactoryProposeCommand(
     options.json,
     [
       `Factory proposal ${proposal.name}`,
+      proposal.userSummary.title,
       `Goal: ${proposal.goal}`,
       `Preference mode: ${proposal.preference.mode}`,
       `Can generate: ${proposal.canGenerate ? 'yes' : 'no'}`,
+      ...formatOptionalSection(
+        'Will reuse Skills:',
+        proposal.userSummary.reusedSkills.map(
+          (item) => `${item.skill}: ${item.status}; ${item.sourceCount} source(s)`,
+        ),
+      ),
+      ...formatOptionalSection(
+        'Will generate control plane:',
+        proposal.userSummary.generatedControlPlane,
+      ),
+      ...formatOptionalSection('Validation plan:', proposal.userSummary.validationPlan),
+      ...formatOptionalSection(
+        'Required confirmations:',
+        proposal.userSummary.requiredConfirmations.map((item) => `${item.label} - ${item.reason}`),
+      ),
       ...formatOptionalSection('Blockers:', proposal.blockers),
+      ...formatOptionalSection(
+        'Actions:',
+        proposal.actions.map((action) => `${action.id}: ${action.command}`),
+      ),
     ].join('\n'),
   );
 }

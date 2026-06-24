@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import path from 'path';
 import { discoverBundleCandidates } from './candidates.js';
 import { composeBundleFactoryPlan } from './factory-compose.js';
@@ -6,6 +7,8 @@ import { readBundleSkillPreferences } from './preferences.js';
 import type {
   BundleFactoryCallChainItem,
   BundleFactoryComposition,
+  BundleFactoryProposalAction,
+  BundleFactoryProposalSummary,
   BundleFactoryResolvedSkill,
 } from './types.js';
 
@@ -25,6 +28,32 @@ export interface BundleFactoryProposal {
   blockers: string[];
   warnings: string[];
   canGenerate: boolean;
+  userSummary: BundleFactoryProposalSummary;
+  actions: BundleFactoryProposalAction[];
+  proposalHash: string;
+}
+
+function proposalHash(value: unknown): string {
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
+function generatedControlPlane(): string[] {
+  return [
+    'SKILL.md',
+    'scripts/',
+    'rules/',
+    'hooks/',
+    'reference/',
+    'comet/skill.yaml',
+    'comet/guardrails.yaml',
+    'comet/checks.yaml',
+    'comet/eval.yaml',
+    'bundle.yaml',
+  ];
+}
+
+function validationPlan(): string[] {
+  return ['quick smoke eval', 'generated Skill manifest eval', 'publish readiness review'];
 }
 
 export async function buildBundleFactoryProposal(options: {
@@ -64,7 +93,72 @@ export async function buildBundleFactoryProposal(options: {
   if (policies?.scripts === 'deny') blockers.push('[policy] preference policy denies scripts');
   if (policies?.hooks === 'deny') blockers.push('[policy] preference policy denies hooks');
 
-  return {
+  const userSummary: BundleFactoryProposalSummary = {
+    title: `Create ${options.name} as a Comet-native Skill`,
+    goal: plan.goal,
+    reusedSkills: resolvedSkills.map((skill) => ({
+      skill: skill.query,
+      status: skill.status,
+      sourceCount: skill.sources.length,
+      preferenceIndex: skill.preferenceIndex,
+      fromProjectPreference: skill.preferenceIndex !== null,
+    })),
+    generatedControlPlane: generatedControlPlane(),
+    validationPlan: validationPlan(),
+    requiredConfirmations: [
+      {
+        id: 'generate-scripts',
+        label: 'Allow Comet to generate scripts as part of the control plane',
+        required: true,
+        reason: 'Scripts let the generated Skill perform deterministic checks and recovery steps.',
+      },
+      {
+        id: 'generate-rules',
+        label: 'Allow Comet to generate orchestration rules',
+        required: true,
+        reason: 'Rules keep the Agent aligned with the generated workflow.',
+      },
+      {
+        id: 'generate-hooks',
+        label: 'Allow Comet to generate portable hook descriptors',
+        required: true,
+        reason:
+          'Hooks guard unsafe progression and are compiled per target platform during distribution.',
+      },
+      {
+        id: 'run-eval',
+        label: 'Run Eval before publish',
+        required: true,
+        reason: 'Eval evidence is required before the candidate can become publishable.',
+      },
+    ],
+    preferenceNotes: [
+      ...plan.deviations.map((item) => `${item.skill}: ${item.reason}`),
+      ...blockers.filter((item) => item.startsWith('[policy]')),
+    ],
+  };
+  const actions: BundleFactoryProposalAction[] = [
+    {
+      id: 'confirm-generate',
+      label: 'Confirm and initialize generation',
+      command: `comet bundle factory-init ${options.name} --file ${path.resolve(options.filePath)} --confirmed-proposal`,
+      writesState: true,
+    },
+    {
+      id: 'revise-proposal',
+      label: 'Revise the plan before generating',
+      command: 'Ask /comet-any to revise the goal, preferences, or candidate choices',
+      writesState: false,
+    },
+    {
+      id: 'cancel',
+      label: 'Cancel without writing Bundle state',
+      command: 'No command',
+      writesState: false,
+    },
+  ];
+
+  const proposal = {
     schemaVersion: 1,
     name: options.name,
     goal: plan.goal,
@@ -80,5 +174,8 @@ export async function buildBundleFactoryProposal(options: {
     blockers,
     warnings: plan.deviations.map((item) => `[deviation] ${item.skill}: ${item.reason}`),
     canGenerate: blockers.length === 0,
+    userSummary,
+    actions,
   };
+  return { ...proposal, proposalHash: proposalHash(proposal) };
 }

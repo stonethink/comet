@@ -9,6 +9,7 @@ import {
   readBundleFactoryPlan,
   writeBundleFactoryPlanArtifact,
 } from './factory-plan.js';
+import { buildBundleFactoryProposal } from './factory-proposal.js';
 import { readBundleSkillPreferences } from './preferences.js';
 import { reconcileBundleAuthoringState, writeBundleAuthoringState } from './state.js';
 import { generateFactorySkillPackage } from '../factory/package.js';
@@ -302,6 +303,7 @@ export async function initializeBundleFactoryState(options: {
   projectRoot: string;
   name: string;
   filePath: string;
+  confirmedProposal?: boolean;
 }): Promise<BundleAuthoringState> {
   const projectRoot = path.resolve(options.projectRoot);
   const projectPreferences = await readBundleSkillPreferences(projectRoot);
@@ -310,6 +312,14 @@ export async function initializeBundleFactoryState(options: {
     plan: await readBundleFactoryPlan(path.resolve(options.filePath)),
     projectPreferredSkills: projectPreferences?.names ?? null,
   });
+  const proposal = await buildBundleFactoryProposal({
+    projectRoot,
+    name: options.name,
+    filePath: options.filePath,
+  });
+  if (options.confirmedProposal && !proposal.canGenerate) {
+    throw new Error(`Cannot confirm blocked Factory proposal: ${proposal.blockers.join('; ')}`);
+  }
   const resolvedSkills = await discoverBundleCandidates({
     projectRoot,
     preferences: plan.preferredSkills.length > 0 ? plan.preferredSkills : null,
@@ -343,6 +353,16 @@ export async function initializeBundleFactoryState(options: {
     runnerMode: plan.runnerMode,
     planPath: planArtifact.planPath,
     planHash: planArtifact.planHash,
+    proposalConfirmation: options.confirmedProposal
+      ? {
+          confirmed: true,
+          confirmedAt: new Date().toISOString(),
+          proposalHash: proposal.proposalHash,
+          preferenceHash: proposal.preference.hash,
+          acceptedCapabilities: ['skills', 'scripts', 'rules', 'hooks', 'references'],
+          warnings: [...proposal.warnings, ...proposal.blockers],
+        }
+      : undefined,
   });
 
   let state: BundleAuthoringState | null = null;

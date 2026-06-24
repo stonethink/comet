@@ -176,6 +176,50 @@ export interface BundleFactoryResolvedSkill {
   sources: BundleCandidateSource[];
 }
 
+export interface BundleFactoryProposalConfirmationItem {
+  id:
+    | 'generate-scripts'
+    | 'generate-rules'
+    | 'generate-hooks'
+    | 'run-eval'
+    | 'accept-preference-deviation';
+  label: string;
+  required: boolean;
+  reason: string;
+}
+
+export interface BundleFactoryProposalAction {
+  id: 'confirm-generate' | 'revise-proposal' | 'cancel';
+  label: string;
+  command: string;
+  writesState: boolean;
+}
+
+export interface BundleFactoryProposalSummary {
+  title: string;
+  goal: string;
+  reusedSkills: Array<{
+    skill: string;
+    status: BundleFactoryResolvedSkill['status'];
+    sourceCount: number;
+    preferenceIndex: number | null;
+    fromProjectPreference: boolean;
+  }>;
+  generatedControlPlane: string[];
+  validationPlan: string[];
+  requiredConfirmations: BundleFactoryProposalConfirmationItem[];
+  preferenceNotes: string[];
+}
+
+export interface BundleFactoryProposalConfirmation {
+  confirmed: boolean;
+  confirmedAt: string;
+  proposalHash: string;
+  preferenceHash: string | null;
+  acceptedCapabilities: Array<'skills' | 'scripts' | 'rules' | 'hooks' | 'references'>;
+  warnings: string[];
+}
+
 export interface BundleControlPlaneOutput {
   checksPath: string | null;
   evalManifestPath: string | null;
@@ -210,6 +254,7 @@ export interface BundleFactoryMetadata {
   runnerMode: 'change' | 'standalone';
   planPath?: string;
   planHash?: string;
+  proposalConfirmation?: BundleFactoryProposalConfirmation;
   generatedSkillPackage?: BundleGeneratedSkillPackage;
 }
 
