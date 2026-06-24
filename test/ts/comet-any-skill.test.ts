@@ -202,7 +202,7 @@ describe('Chinese comet-any Skill', () => {
 });
 
 describe('Bilingual comet-any Skill parity', () => {
-  it.skip('keeps English behavior aligned with the approved Chinese workflow', async () => {
+  it('keeps English behavior aligned with the approved Chinese workflow', async () => {
     const zh = await readCometAnyZh();
     const en = await readCometAnyEn();
     const zhCombined = `${zh.skill}\n${zh.authoring}\n${zh.evalProvider}`;
@@ -211,6 +211,21 @@ describe('Bilingual comet-any Skill parity', () => {
     const parity: Array<{ zh: string; en: string }> = [
       { zh: '用户只需要调用本 Skill', en: 'The user only invokes this Skill' },
       { zh: 'CLI 是内部确定性后端', en: 'internal deterministic backend' },
+      {
+        zh: '普通用户不需要理解 Bundle、Factory、composition',
+        en: 'ordinary users do not need to understand Bundle, Factory, or composition',
+      },
+      { zh: '改一版 /comet', en: 'Customize /comet' },
+      { zh: '做一个新 Skill', en: 'Create a new Skill' },
+      { zh: '整理已有 Skill', en: 'Upgrade an existing Skill' },
+      { zh: '增加 Skill', en: 'add Skill' },
+      { zh: '替换 Skill', en: 'replace Skill' },
+      { zh: '关闭 Skill', en: 'turn off Skill' },
+      { zh: '受保护边界', en: 'protected boundary' },
+      {
+        zh: '允许修改的只有增加 Skill、替换 Skill、关闭 Skill',
+        en: 'allowed changes are add Skill, replace Skill, and turn off Skill',
+      },
       { zh: 'Comet-native Skill', en: 'Comet-native Skill' },
       { zh: '.comet/skill-preferences.yaml', en: '.comet/skill-preferences.yaml' },
       { zh: '项目级偏好', en: 'project-level preferences' },
@@ -235,7 +250,7 @@ describe('Bilingual comet-any Skill parity', () => {
       { zh: 'planHash', en: 'planHash' },
       { zh: 'resolved-skills.json', en: 'resolved-skills.json' },
       { zh: '真实 Skill 证据', en: 'real Skill evidence' },
-      { zh: '组合后的工作方式', en: 'composed workflow' },
+      { zh: '整理后的工作方式', en: 'composed workflow' },
       { zh: 'sourceSummaries', en: 'sourceSummaries' },
       { zh: 'Engine 是运行语义底座', en: 'Engine is the runtime semantic foundation' },
       { zh: '生成 `comet/skill.yaml`', en: 'generate `comet/skill.yaml`' },
@@ -254,10 +269,10 @@ describe('Bilingual comet-any Skill parity', () => {
       { zh: 'Blockers:', en: 'Blockers:' },
       { zh: 'Warnings:', en: 'Warnings:' },
       { zh: 'Evidence:', en: 'Evidence:' },
-      { zh: '展示组合方案确认页', en: 'show the composition confirmation page' },
+      { zh: '展示 Skill Maker 方案确认页', en: 'show the Skill Maker confirmation page' },
       { zh: '--confirmed-proposal', en: '--confirmed-proposal' },
-      { zh: 'Publish readiness:', en: 'Publish readiness:' },
-      { zh: 'User next steps:', en: 'User next steps:' },
+      { zh: 'Validate this Skill', en: 'Validate this Skill' },
+      { zh: 'Install preview', en: 'Install preview' },
       { zh: 'authoring-skill', en: 'authoring-skill' },
       { zh: 'authoring-skill-smoke', en: 'authoring-skill-smoke' },
       { zh: 'comet/eval.yaml', en: 'comet/eval.yaml' },
@@ -269,7 +284,7 @@ describe('Bilingual comet-any Skill parity', () => {
       { zh: 'comet/checks.yaml', en: 'comet/checks.yaml' },
       {
         zh: 'Eval 证据缺失时不得发布 ready',
-        en: 'Missing Eval evidence blocks ready publish',
+        en: 'Missing Eval evidence cannot become ready',
       },
       {
         zh: '轻量单步 Skill 可以不启用 Engine',
@@ -277,12 +292,12 @@ describe('Bilingual comet-any Skill parity', () => {
       },
       { zh: 'token 消耗', en: 'token workload' },
       { zh: '人工批准', en: 'human approval' },
-      { zh: '分发前必须询问用户', en: 'ask the user before distribution' },
+      { zh: '安装前必须询问用户', en: 'ask the user before installation' },
       { zh: '读取候选 `SKILL.md`', en: 'read candidate `SKILL.md`' },
       { zh: '能力缺口', en: 'capability gaps' },
       { zh: '可执行披露', en: 'executable disclosures' },
       { zh: '--preview', en: '--preview' },
-      { zh: 'Distribution preview', en: 'Distribution preview' },
+      { zh: 'Install preview', en: 'Install preview' },
       { zh: 'No files were written', en: 'No files were written' },
     ];
 
@@ -315,5 +330,8 @@ describe('Bilingual comet-any Skill parity', () => {
     expect(enCombined).not.toContain('evals.yaml');
     expect(zhCombined).not.toContain(['.comet/skills', 'txt'].join('.'));
     expect(enCombined).not.toContain(['.comet/skills', 'txt'].join('.'));
+    expect(zhCombined).not.toContain('加 / 换 / 关');
+    expect(enCombined).not.toContain('add / replace / turn off');
+    expect(en.skill).not.toContain('Comet Skill Factory');
   });
 });

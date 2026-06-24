@@ -239,11 +239,11 @@ skill
 
 const publish = program
   .command('publish')
-  .description('Review, publish, and distribute /comet-any Skill publish candidates');
+  .description('Validate, approve, generate, and install /comet-any Skill Maker candidates');
 
 publish
   .command('list')
-  .description('List publish candidates that can be resumed')
+  .description('List Skill Maker candidates that can be resumed')
   .option('--project <dir>', 'Project root', '.')
   .option('--json', 'Output as JSON')
   .action(async (options) => {
@@ -252,7 +252,7 @@ publish
 
 publish
   .command('status <name>')
-  .description('Show publish readiness and next action for one candidate')
+  .description('Show validation readiness and next action for one Skill Maker candidate')
   .option('--project <dir>', 'Project root', '.')
   .option('--json', 'Output as JSON')
   .action(async (name, options) => {
@@ -261,7 +261,7 @@ publish
 
 publish
   .command('review <name>')
-  .description('Build a publish readiness summary before approval')
+  .description('Build a validation summary before approval')
   .option('--project <dir>', 'Project root', '.')
   .requiredOption('--platform <id>', 'Reference platform id')
   .addOption(new Option('--scope <scope>', 'Install scope').choices(['global', 'project']))
@@ -273,7 +273,7 @@ publish
 
 publish
   .command('approve <name>')
-  .description('Approve a publish candidate after review')
+  .description('Approve a Skill Maker candidate after validation')
   .option('--project <dir>', 'Project root', '.')
   .requiredOption('--reviewer <name>', 'Reviewer name')
   .option('--json', 'Output as JSON')
@@ -283,7 +283,7 @@ publish
 
 publish
   .command('run <name>')
-  .description('Publish an approved candidate into .comet/bundles')
+  .description('Generate an install candidate into .comet/bundles')
   .option('--project <dir>', 'Project root', '.')
   .requiredOption('--platform <id>', 'Reference platform id')
   .option('--overwrite', 'Replace an existing published Bundle')
@@ -294,7 +294,7 @@ publish
 
 publish
   .command('distribute <name>')
-  .description('Distribute a published candidate across selected platforms')
+  .description('Preview or install a generated Skill Maker candidate')
   .option('--project <dir>', 'Project root', '.')
   .option('--platform <id>', 'Platform id', collect, [])
   .addOption(new Option('--scope <scope>', 'Install scope').choices(['global', 'project']))
@@ -315,7 +315,7 @@ publish
 
 const bundle = program
   .command('bundle')
-  .description('Advanced Bundle backend for Skill publish candidates');
+  .description('Advanced Bundle backend for /comet-any Skill Maker state and audits');
 
 bundle
   .command('candidates')

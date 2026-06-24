@@ -4,11 +4,13 @@
 
 `comet bundle` is the internal deterministic backend for `/comet-any`. The user does not need to
 run Bundle CLI directly. This Skill must adapt creator output into a Comet-native Skill Package
-before passing it to the Bundle backend for compile, Eval, publish, and distribution.
+before passing it to the Bundle backend for compile, Eval, install-candidate generation, and
+installation.
 
-For ordinary users, the path stays
-`/comet-any -> comet eval -> comet publish review/approve/run -> comet publish distribute --preview -> comet publish distribute`;
-`comet bundle` is exposed only as the Advanced Bundle backend for backend-state auditing.
+For ordinary users, the first layer must be Skill Maker: `Customize /comet`, `Create a new Skill`,
+`Upgrade an existing Skill`, and add Skill / replace Skill / turn off Skill. These ordinary users do not
+need to understand Bundle, Factory, or composition; `comet bundle` is exposed only as the Advanced
+Bundle backend for backend-state auditing.
 
 `.comet/skill-preferences.yaml` is the project-level preferences file. It supports `advisory` /
 `strict`, `prefer`, `require`, and missing/ambiguous/deviation/scripts/hooks policies.
@@ -43,15 +45,18 @@ Important fields:
 Resume-related output should be surfaced as a `resume summary`, prioritizing `resumeSummary`,
 `Current step`, `Suggested user command`, and blocker reason instead of internal state-file paths.
 
-## Authoring modes
+## Authoring starting points
 
-`/comet-any` supports two modes:
+`/comet-any` exposes three starting points to ordinary users:
 
-- `create`: create a new multi-Skill Bundle from the user's goal.
-- `optimize`: read existing candidate Skills and organize them into a publishable Bundle.
+- `Customize /comet`: adjust steps inside the `/comet` protected boundary; only add Skill,
+  replace Skill, or turn off Skill.
+- `Create a new Skill`: create a new Comet-native Skill from the user's target.
+- `Upgrade an existing Skill`: read existing Skills or candidate Skills and upgrade them into a new
+  Comet-native Skill.
 
-Both modes must use `comet bundle` commands to maintain state. Do not write internal JSON state
-directly.
+Both persisted backend modes must use `comet bundle` commands to maintain state. Do not write
+internal JSON state directly.
 
 ## Candidate reads
 
@@ -196,13 +201,12 @@ comet publish distribute <name> --platform <id> --scope project --preview --json
 comet publish distribute <name> --platform <id> --scope project --json
 ```
 
-Before publishing, read the review summary readiness state. If unresolved candidates, missing
+Before ready, read the review summary readiness state. If unresolved candidates, missing
 current-hash Eval evidence, missing current-hash human approval, capability gaps, or executable
-disclosures are unresolved, do not publish ready. Missing Eval evidence blocks ready publish.
+disclosures are unresolved, do not mark ready. Missing Eval evidence cannot become ready.
 Non-JSON output must also explicitly show `Readiness:`, `Blockers:`, `Warnings:`, and `Evidence:`.
-User-facing summaries must also include `Publish readiness:` and `User next steps:`. If
-`Readiness: blocked`, resolve candidate recovery, Eval, or review blockers before continuing to
-publish.
+User-facing summaries must also include `Validate this Skill` and the next action. If
+`Readiness: blocked`, resolve candidate recovery, Eval, or review blockers before continuing.
 
 ## Runner modes
 
@@ -220,13 +224,13 @@ comet skill resume --run-id <run-id> --status succeeded --summary <summary> --js
 comet skill eval --run-id <run-id> --scope completion --json
 ```
 
-## Distribution gates
+## Installation gates
 
 - Required capability gaps: cancel that platform.
 - Optional capability gaps: the user must explicitly choose skip.
-- Hook/script executable disclosures: the user must confirm before distribution.
-- Before real distribution, run
+- Hook/script executable disclosures: the user must confirm before installation.
+- Before real installation, run
   `comet publish distribute <name> --platform <id> --scope project --preview --json`.
-- Preview should explicitly show `Distribution preview`, planned files, unsupported capability,
+- Preview should explicitly show `Install preview`, planned files, unsupported capability,
   executable disclosures, and `No files were written`.
-- Ask the user before distribution; never run it automatically.
+- Ask the user before installation; never run it automatically.

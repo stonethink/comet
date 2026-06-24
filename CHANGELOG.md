@@ -29,6 +29,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Stable composed Skill Bundle wording**: Clarifies the `/comet-any` surface, docs, and CLI help so the stable composed Skill Bundle contract names the `skills/scripts/rules/hooks/references` capability set, keeps `scripts/rules/hooks` as the required control plane, and uses the exact `Low-level Skill utilities` / `Advanced Bundle backend` help text casing users now see in the CLI.
 - **Comet Any preferences**: Replaces the unpublished `.comet/skills.txt` user path with project-level `.comet/skill-preferences.yaml`, inventory-backed preference setup, proposal preview, and preference-aware review readiness so users can create Comet-style Skills without learning internal Bundle files.
 - **Publish readiness**: Review output now includes user-facing readiness conclusions and next steps before raw blocker evidence, making publish blockers actionable for ordinary users.
+- **Comet Any Skill Maker language**: Reframes `/comet-any` around customizing `/comet`, creating a new Skill, and upgrading an existing Skill with add Skill / replace Skill / turn off Skill actions, while keeping Bundle and Factory concepts in the internal audit layer.
 
 ### Fixed
 
@@ -55,6 +56,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **MimoCode platform coverage**: Adds regression coverage for platform detection, slash command generation, OpenSpec mirroring, Superpowers staging, init E2E behavior, CI path checks, and Bundle compatibility.
 - **Comet Any preference guide**: Adds coverage for preference parsing, Skill inventory grouping, Factory proposal previews, strict/advisory policy readiness, generated preference evidence, and bilingual `/comet-any` docs.
 - **Comet Any lifecycle**: Added coverage for Factory guide output, proposal confirmation metadata, blocked proposal actions, confirmation-gated generation/review/publish, invalid preference guidance, resume summaries, readiness user summaries, and publish distribution preview.
+- **Comet Any Skill Maker parity**: Restores bilingual `/comet-any` parity checks for the Skill Maker workflow, protected `/comet` customization boundary, validation wording, and install preview terminology.
 
 ### Removed
 

@@ -1,19 +1,22 @@
 ---
 name: comet-any
-description: "Skill creation guide for creating or optimizing a user-facing Comet-native Skill. Use /comet-any to read project-level preferences in `.comet/skill-preferences.yaml`, resolve real local Skills, show a composition confirmation page, generate Skill Factory output, and internally use CLI backends for validation, Eval, publishing, and optional distribution."
+description: "Use when the user wants to customize /comet, create a new Skill, upgrade an existing Skill, or express workflow changes as add Skill / replace Skill / turn off Skill while hiding backend complexity."
 ---
 
-# Comet Any - Comet Skill Factory
+# Comet Any - Skill Maker
 
 `/comet-any` is the Comet Skill creation guide. The user only invokes this Skill and describes the
-workflow they want to create or optimize. This Skill first resumes existing authoring state,
+workflow they want to create or upgrade. This Skill first resumes existing authoring state,
 provides a first-use guide, reads project-level preferences in `.comet/skill-preferences.yaml`,
-uses `find-skill` to resolve real local Skill contents, shows the composition confirmation page and
+uses `find-skill` to resolve real local Skill contents, shows the Skill Maker confirmation page and
 waits for confirmation, then generates a stable composed Skill Bundle. After that it internally
-calls CLI backends for validation, Eval, publishing, and optional distribution. CLI is the
-internal deterministic backend; the user only invokes this Skill. The ordinary user path must stay
-`/comet-any -> comet eval -> comet publish review/approve/run -> comet publish distribute --preview -> comet publish distribute`;
-`comet skill` is Low-level Skill utilities, and `comet bundle` is the Advanced Bundle backend.
+calls CLI backends for validation, install-candidate generation, and optional installation. CLI is
+the internal deterministic backend; the user only invokes this Skill.
+For ordinary users, the first layer is only three starting points: `Customize /comet`, `Create a new Skill`,
+and `Upgrade an existing Skill`; ordinary users do not need to understand Bundle, Factory, or composition,
+Phase Recipe, or template delta; those concepts only exist in internal implementation and audit evidence.
+When the user chooses `Customize /comet`, treat `/comet` as a protected boundary: `open / design / build / verify / archive`
+and the `.comet.yaml` state machine must not be rewritten; allowed changes are add Skill, replace Skill, and turn off Skill.
 
 <IMPORTANT>
 Engine is the runtime semantic foundation. Generated workflows with multiple steps, recovery needs,
@@ -40,6 +43,11 @@ runtime evals will be unavailable.
 - The user only invokes this Skill; do not make manual `comet bundle` or `comet skill` commands
   the user-facing workflow.
 - CLI is the internal deterministic backend; do not ask the user to memorize Bundle subcommands.
+- The ordinary user first layer must be Skill Maker: `Customize /comet`, `Create a new Skill`,
+  `Upgrade an existing Skill`, and "add Skill / replace Skill / turn off Skill".
+- When the user chooses `Customize /comet`, explicitly preserve the `/comet` protected boundary:
+  `open / design / build / verify / archive`, `.comet.yaml`, decision points,
+  verify-result-transition, and archive-delta-sync cannot be replaced or removed.
 - Use `find-skill` to resolve real local Skills. Do not infer capability from names alone.
 - `.comet/skill-preferences.yaml` is the project-level preferences file and supports `advisory`
   and `strict`; before generation, show the composition proposal with prefer/require sources,
@@ -50,13 +58,14 @@ runtime evals will be unavailable.
 - Use the `comet bundle` CLI to maintain deterministic state. Do not hand-write
   `.comet/bundle-*` state files.
 - Show Eval workload and token workload before asking the user to choose `skip / quick / full Eval`.
-- If Eval is skipped or fails, do not enter ready, publish, or distribute.
+- If Eval is skipped or fails, do not enter ready, generate an install candidate, or install/enable.
+- Missing Eval evidence cannot become ready.
 - In non-JSON output, explicitly show `Readiness:`, `Blockers:`, `Warnings:`, and `Evidence:` so
   the user can directly understand readiness, blockers, warnings, evidence, and recovery clues.
-- Before publish, read the review summary readiness state. If unresolved candidates, missing
+- Before ready, read the review summary readiness state. If unresolved candidates, missing
   current-hash Eval evidence, missing current-hash human approval, capability gaps, or executable
-  disclosures remain, do not publish ready.
-- Human approval is required before publish; ask the user before distribution.
+  disclosures remain, do not mark ready.
+- Human approval is required before ready; ask the user before installation.
 - Prefer native `skill-creator`; must ask the user before fallback to the Comet fallback.
 
 ## Steps
@@ -109,13 +118,15 @@ the first-use guide and explain:
 If this is the user's first `/comet-any` run, explicitly say that CLI is the internal deterministic
 backend and the user only invokes this Skill.
 
-### 3. Choose create/optimize and language
+### 3. Choose starting point and language
 
 Ask the user to choose:
 
-- `create`: create new Skill Factory output from a goal.
-- `optimize`: read existing Skills or candidate Skills and optimize them into a new Comet-native
-  Skill.
+- `Customize /comet`: make incremental changes inside the `/comet` protected boundary; only add Skill,
+  replace Skill, or turn off Skill.
+- `Create a new Skill`: create a new Comet-native Skill from the user's target.
+- `Upgrade an existing Skill`: read existing Skills or candidate Skills and upgrade them into a new
+  Comet-native Skill.
 
 Also confirm the default language and locales. Record at least the default locale; for multilingual
 Skills, explain which files are overridden by locale overlays.
@@ -160,17 +171,18 @@ comet bundle factory-resolve <name> --candidate <query> --ignore-missing --reaso
 Read candidate `SKILL.md`, then read referenced references, rules, scripts, and hooks as needed.
 This step only reads real implementation files; never execute candidate scripts.
 
-### 7. Show the composition confirmation page and wait for confirmation
+### 7. Show the Skill Maker proposal and wait for confirmation
 
-Start from `.comet/skill-preferences.yaml` `prefer`/`require` entries and show a composition
-proposal with each Skill's `preferenceIndex`, source, hash, role, and call order.
+Start from `.comet/skill-preferences.yaml` `prefer`/`require` entries and show the Skill Maker confirmation page with each Skill's `preferenceIndex`, source, hash, role, and call order.
 
 The proposal must identify which Skills came from project-level preferences, which were added by
 target semantics, which are missing or ambiguous, whether the plan deviates from the preferred
 order, and what executable disclosures scripts/hooks introduce. Before confirmation, do not
-generate a Bundle draft. The user may adjust preferences, choose ambiguous sources, remove missing
-Skills, switch `advisory`/`strict`, or cancel. Explicitly say that the current screen is the
-composition confirmation page. In other words, show the composition confirmation page before any
+generate a Bundle draft. If the starting point is `Customize /comet`, express the proposal as
+add Skill / replace Skill / turn off Skill changes to `/comet` instead of exposing Bundle, Factory,
+or composition terms to the user. The user may adjust preferences, choose ambiguous sources, remove
+missing Skills, switch `advisory`/`strict`, or cancel. Explicitly say that the current screen is the
+Skill Maker confirmation page. In other words, show the composition confirmation page before any
 draft write. If the proposal deviates from the preferred order, the review and proposal summaries
 must explain why.
 
@@ -318,7 +330,7 @@ comet bundle eval-record <name> --result <file> --json
 
 If Eval fails or the hash does not match, stop and return to draft repair.
 
-### Show user-facing readiness and wait for explicit approval
+### Show user-facing validation summary and wait for explicit approval
 
 First run:
 
@@ -331,11 +343,11 @@ project-level preference mode, real Skill evidence, recommended call order, devi
 preferred order, capability gaps, executable disclosures, quick/full Eval workload, Eval result,
 and target platforms. If the call chain deviates from the preferred order, explain why.
 
-The user-facing readiness summary must be shown directly and must include at least
-`Publish readiness:`, `User next steps:`, `Readiness:`, `Blockers:`, `Warnings:`, and `Evidence:`.
+The user-facing validation summary must be shown directly and must include at least
+`Validate this Skill`, `Readiness:`, `Blockers:`, `Warnings:`, and `Evidence:`.
 In non-JSON output, read those fields line by line. When `Readiness: blocked`, resolve candidate
-recovery, Eval, or review blockers before continuing to publish. If readiness is not
-`publishable`, or if it says Missing Eval evidence blocks ready publish, stop before publish.
+recovery, Eval, or review blockers before continuing. If readiness is not
+`publishable`, or if missing Eval evidence is reported, stop before ready.
 
 Approve:
 
@@ -349,7 +361,7 @@ Reject:
 comet bundle review <name> --reject --reviewer <reviewer> --json
 ```
 
-### 15. Publish
+### 15. Generate install candidate
 
 Only after the current hash has passed Eval and received human approval, run:
 
@@ -357,25 +369,25 @@ Only after the current hash has passed Eval and received human approval, run:
 comet publish run <name> --platform <reference-platform> --json
 ```
 
-### 16. Preview distribution
+### 16. Install preview
 
-Before real distribution, first run:
+Before real installation, first run:
 
 ```bash
 comet publish distribute <name> --platform <id> --scope project --preview --json
 ```
 
-Show `Distribution preview`, planned files, unsupported capability, executable disclosures, and
+Show `Install preview`, planned files, unsupported capability, executable disclosures, and
 `No files were written` directly to the user. Only after the user confirms the planned files,
 unsupported capability, and executable disclosures in preview may the Skill remove `--preview` and
-execute real distribution.
+execute real installation.
 
-### 17. Ask before executing distribution
+### 17. Ask before executing installation
 
-After publish, ask the user whether to distribute. Never distribute automatically.
+After ready, ask the user whether to install/enable. Never install automatically.
 
 If the user agrees, first show platform capability gaps and executable disclosures. Hooks/scripts
-require confirmation before distribution. Then run:
+require confirmation before installation. Then run:
 
 ```bash
 comet publish distribute <name> --platform <id> --scope project --json

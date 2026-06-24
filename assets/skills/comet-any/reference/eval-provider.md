@@ -13,7 +13,7 @@ Before any provider action, show:
 - `full` estimated runs, covered components, and token workload.
 - the three choices: `skip / quick / full Eval`.
 
-If Eval is skipped or fails, do not enter ready, publish, or distribute.
+If Eval is skipped or fails, do not enter ready, generate an install candidate, or install/enable.
 
 For ordinary users, the Eval path remains single-purpose: daily evaluation goes through
 `comet eval`. `/comet-any` may internally call `comet bundle eval-plan` and
@@ -56,18 +56,19 @@ output to show:
   `comet publish distribute` compiles them for the target platform.
 - Capability gaps and executable disclosures.
 - Eval choice, token workload, and result summary.
-- `Publish readiness:` and `User next steps:` so the user knows why the candidate is publishable
-  or blocked.
+- `Validate this Skill` and the next action so the user knows why the candidate can become ready
+  or is blocked.
 
-Readiness blockers stop publish. If missing current-hash Eval evidence, missing human approval,
+Readiness blockers stop ready/install. If missing current-hash Eval evidence, missing human approval,
 required capability gaps, or unconfirmed executable disclosures remain, the flow must stop in
-review and cannot continue to publish.
+review and cannot continue to ready.
 
-Only after explicit approval may the agent run `comet publish approve` and then publish.
+Only after explicit approval may the agent run `comet publish approve` and then generate the install
+candidate.
 
-## Distribution preview
+## Install preview
 
-Before real distribution, preview is mandatory:
+Before real installation, preview is mandatory:
 
 ```bash
 comet publish distribute <name> --platform <id> --scope project --preview --json
@@ -75,11 +76,11 @@ comet publish distribute <name> --platform <id> --scope project --preview --json
 
 Preview is a required check, not an optional extra. It should show:
 
-- `Distribution preview`
+- `Install preview`
 - planned files
 - unsupported capability
 - executable disclosures
 - `No files were written`
 
 Only after the user confirms the preview result may the Skill remove `--preview` and execute real
-distribution.
+installation.
