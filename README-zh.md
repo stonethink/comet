@@ -299,7 +299,7 @@ comet bundle distribute my-bundle --platform claude --scope project --confirm-ex
 
 ## 支持平台
 
-`comet init` 支持 30 个 AI 编码平台：
+`comet init` 支持 31 个 AI 编码平台：
 
 <details>
 <summary>查看完整平台列表</summary>
@@ -321,12 +321,13 @@ comet bundle distribute my-bundle --platform claude --scope project --confirm-ex
 | Qoder              | `.qoder/`     | Antigravity   | `.agents/`   |
 | Bob Shell          | `.bob/`       | ForgeCode     | `.forge/`    |
 | Trae               | `.trae/`      | ZCode         | `.zcode/`    |
+| MimoCode           | `.mimocode/`  |               |              |
 
 </details>
 
-部分平台的项目级目录和全局目录不同。例如 OpenCode 全局安装使用 `.config/opencode`，Lingma 全局安装使用 `.lingma`
-，Antigravity 全局安装使用 `.gemini/antigravity`。ZCode 基于 OpenCode，从 `.zcode/` 读取 skills；安装时会将
-OpenSpec 的输出从 `.opencode/` 镜像到 `.zcode/`。
+部分平台的项目级目录和全局目录不同。例如 OpenCode 全局安装使用 `.config/opencode`，MimoCode 全局安装使用
+`.config/mimocode`，Lingma 全局安装使用 `.lingma`，Antigravity 全局安装使用 `.gemini/antigravity`。ZCode 和
+MimoCode 基于 OpenCode，从各自目录读取 skills；安装时会将 OpenSpec 的输出从 `.opencode/` 镜像到对应目录。
 
 ## 技能
 

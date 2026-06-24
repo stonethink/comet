@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { execFileSync } from 'child_process';
-import { mkdirSync } from 'fs';
+import { mkdirSync, mkdtempSync, rmSync } from 'fs';
 import path from 'path';
 import os from 'os';
 
@@ -63,9 +63,10 @@ describe('superpowers', () => {
       expect(SKILLS_AGENT_MAP['costrict']).toBe('universal');
       expect(SKILLS_AGENT_MAP['lingma']).toBeNull();
       expect(SKILLS_AGENT_MAP['zcode']).toBeNull();
+      expect(SKILLS_AGENT_MAP['mimocode']).toBeNull();
     });
 
-    it('has entries for all 30 platforms', async () => {
+    it('has entries for all 31 platforms', async () => {
       const { SKILLS_AGENT_MAP } = await import('../../domains/integrations/superpowers.js');
       const platformIds = [
         'claude',
@@ -98,11 +99,12 @@ describe('superpowers', () => {
         'forgecode',
         'trae',
         'zcode',
+        'mimocode',
       ];
       for (const id of platformIds) {
         expect(SKILLS_AGENT_MAP).toHaveProperty(id);
       }
-      expect(Object.keys(SKILLS_AGENT_MAP)).toHaveLength(30);
+      expect(Object.keys(SKILLS_AGENT_MAP)).toHaveLength(31);
     });
   });
 
@@ -170,6 +172,15 @@ describe('superpowers', () => {
       });
     });
 
+    it('builds a staging command for MimoCode so skills can be copied into .mimocode', async () => {
+      const { buildMimoCodeSuperpowersStageCommand } = await import('../../domains/integrations/superpowers.js');
+
+      expect(buildMimoCodeSuperpowersStageCommand()).toEqual({
+        command: process.platform === 'win32' ? 'npx.cmd' : 'npx',
+        args: ['skills', 'add', 'obra/superpowers', '-y', '--agent', 'claude-code'],
+      });
+    });
+
     it('installs ZCode superpowers via the claude-code staging flow', async () => {
       mockedExecFileSync.mockImplementation((command: unknown, args?: unknown, opts?: unknown) => {
         const cmd = String(command);
@@ -196,6 +207,39 @@ describe('superpowers', () => {
         return cmdArgs.includes('claude-code') && cmdArgs.includes('obra/superpowers');
       });
       expect(stagingCall).toBeDefined();
+    });
+
+    it('installs MimoCode superpowers via the claude-code staging flow', async () => {
+      mockedExecFileSync.mockImplementation((command: unknown, args?: unknown, opts?: unknown) => {
+        const cmd = String(command);
+        const cmdArgs = Array.isArray(args) ? args.map((arg) => String(arg)) : [];
+        if (
+          (cmd === 'npx' || cmd === 'npx.cmd') &&
+          cmdArgs[0] === 'skills' &&
+          cmdArgs.includes('claude-code')
+        ) {
+          const cwd = (opts as { cwd?: string } | undefined)?.cwd ?? os.tmpdir();
+          const stagedSkillsDir = path.join(cwd, '.claude', 'skills', 'brainstorming');
+          mkdirSync(stagedSkillsDir, { recursive: true });
+          return Buffer.from('installed');
+        }
+        return Buffer.from('');
+      });
+
+      const projectPath = mkdtempSync(path.join(os.tmpdir(), 'comet-mimocode-superpowers-'));
+      try {
+        const { installSuperpowersForPlatforms } = await import('../../domains/integrations/superpowers.js');
+        const result = await installSuperpowersForPlatforms(projectPath, 'project', ['mimocode']);
+
+        expect(result).toBe('installed');
+        const stagingCall = mockedExecFileSync.mock.calls.find((call) => {
+          const cmdArgs = Array.isArray(call[1]) ? call[1].map((a) => String(a)) : [];
+          return cmdArgs.includes('claude-code') && cmdArgs.includes('obra/superpowers');
+        });
+        expect(stagingCall).toBeDefined();
+      } finally {
+        rmSync(projectPath, { recursive: true, force: true });
+      }
     });
 
     it('passes -g flag for global scope', async () => {

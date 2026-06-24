@@ -37,15 +37,17 @@ const SKILLS_AGENT_MAP: Record<string, string | null> = {
   bob: 'bob',
   forgecode: 'forgecode',
   trae: 'trae',
-  // zcode is not a skills CLI agent; Superpowers are installed via the
-  // claude-code staging flow (see installSuperpowersForZCode).
+  // zcode/mimocode are not skills CLI agents; Superpowers are installed via
+  // the claude-code staging flow and copied into their OpenCode-style dirs.
   zcode: null,
+  mimocode: null,
 };
 
 const VALID_PLATFORM_IDS = new Set(Object.keys(SKILLS_AGENT_MAP));
 const SUPERPOWERS_INSTALL_TIMEOUT_MS = 300_000;
 const LINGMA_PLATFORM_ID = 'lingma';
 const ZCODE_PLATFORM_ID = 'zcode';
+const MIMOCODE_PLATFORM_ID = 'mimocode';
 const STAGE_AGENT = 'claude-code';
 
 function buildSuperpowersInstallCommand(
@@ -86,6 +88,13 @@ function buildLingmaSuperpowersStageCommand(): { command: string; args: string[]
 }
 
 function buildZCodeSuperpowersStageCommand(): { command: string; args: string[] } {
+  return {
+    command: getNpxExecutable(),
+    args: ['skills', 'add', 'obra/superpowers', '-y', '--agent', STAGE_AGENT],
+  };
+}
+
+function buildMimoCodeSuperpowersStageCommand(): { command: string; args: string[] } {
   return {
     command: getNpxExecutable(),
     args: ['skills', 'add', 'obra/superpowers', '-y', '--agent', STAGE_AGENT],
@@ -134,10 +143,23 @@ async function installSuperpowersForZCode(
   );
 }
 
+async function installSuperpowersForMimoCode(
+  projectPath: string,
+  scope: InstallScope,
+): Promise<'installed' | 'failed'> {
+  return stageAndCopySuperpowers(
+    MIMOCODE_PLATFORM_ID,
+    buildMimoCodeSuperpowersStageCommand(),
+    projectPath,
+    scope,
+    'MimoCode',
+  );
+}
+
 /**
  * Shared staging flow for platforms whose agent is not supported by the skills CLI
- * (e.g. Lingma, ZCode). Superpowers are staged into a temp dir via the claude-code
- * agent and then copied into the target platform's skills directory.
+ * (e.g. Lingma, ZCode, MimoCode). Superpowers are staged into a temp dir via
+ * the claude-code agent and then copied into the target platform's skills directory.
  */
 async function stageAndCopySuperpowers(
   platformId: string,
@@ -193,6 +215,7 @@ async function installSuperpowersForPlatforms(
   const skillsCliPlatformIds = platformIds.filter((id) => SKILLS_AGENT_MAP[id]);
   const shouldInstallLingma = platformIds.includes(LINGMA_PLATFORM_ID);
   const shouldInstallZCode = platformIds.includes(ZCODE_PLATFORM_ID);
+  const shouldInstallMimoCode = platformIds.includes(MIMOCODE_PLATFORM_ID);
   let failed = false;
 
   if (skillsCliPlatformIds.length > 0) {
@@ -222,6 +245,11 @@ async function installSuperpowersForPlatforms(
     if (zcodeStatus === 'failed') failed = true;
   }
 
+  if (shouldInstallMimoCode) {
+    const mimocodeStatus = await installSuperpowersForMimoCode(projectPath, scope);
+    if (mimocodeStatus === 'failed') failed = true;
+  }
+
   return failed ? 'failed' : 'installed';
 }
 
@@ -230,5 +258,6 @@ export {
   buildSuperpowersInstallCommand,
   buildLingmaSuperpowersStageCommand,
   buildZCodeSuperpowersStageCommand,
+  buildMimoCodeSuperpowersStageCommand,
   SKILLS_AGENT_MAP,
 };

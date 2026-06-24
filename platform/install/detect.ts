@@ -13,6 +13,7 @@ const SUPERPOWERS_SKILLS = [
   'test-driven-development',
   'subagent-driven-development',
 ];
+const OPENCODE_STYLE_PLATFORM_IDS = new Set(['opencode', 'mimocode']);
 
 async function hasSuperpowersInPluginCache(pluginsCacheDir: string): Promise<boolean> {
   const marketplaceEntries = await readDir(pluginsCacheDir);
@@ -158,7 +159,7 @@ async function hasSkills(
       if (SUPERPOWERS_SKILLS.some((name) => entries.includes(name))) return true;
       break;
     case 'comet':
-      if (platform.id === 'opencode') {
+      if (OPENCODE_STYLE_PLATFORM_IDS.has(platform.id)) {
         for (const dir of skillDirEntries) {
           if (await hasOpenCodeCometCommands(baseDir, dir.skillsDir, dir.entries)) return true;
         }
@@ -188,7 +189,7 @@ async function hasSkills(
         if (SUPERPOWERS_SKILLS.some((name) => globalEntries.includes(name))) return true;
         break;
       case 'comet':
-        if (platform.id === 'opencode') {
+        if (OPENCODE_STYLE_PLATFORM_IDS.has(platform.id)) {
           for (const dir of globalSkillDirEntries) {
             if (await hasOpenCodeCometCommands(os.homedir(), dir.skillsDir, dir.entries)) {
               return true;

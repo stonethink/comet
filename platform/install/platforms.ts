@@ -268,4 +268,15 @@ export const PLATFORMS: Platform[] = [
     rulesDir: 'rules',
     rulesFormat: 'md',
   },
+  {
+    id: 'mimocode',
+    name: 'MimoCode',
+    skillsDir: '.mimocode',
+    globalSkillsDir: '.config/mimocode',
+    // MimoCode is built on OpenCode and reads the same skills/commands shape
+    // from its own config directory.
+    openspecToolId: 'opencode',
+    rulesDir: 'rules',
+    rulesFormat: 'md',
+  },
 ];

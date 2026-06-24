@@ -407,12 +407,14 @@ export async function initCommand(targetPath: string, options: InitOptions = {})
 
   const spPlatformIds = plans.filter((p) => p.spAction !== 'skip').map((p) => p.platform.id);
 
-  // zcode reuses the opencode openspec tool id; pass a flag so installOpenSpec
-  // mirrors the opencode output into .zcode/ as well.
+  // OpenCode-compatible platforms reuse the opencode OpenSpec tool id; mirror
+  // the opencode output into their platform-specific config directories.
   const selectedPlatformIdsForOs = plans
     .filter((p) => p.osAction !== 'skip')
     .map((p) => p.platform.id);
-  const migrateZCode = selectedPlatformIdsForOs.includes('zcode');
+  const mirrorOpenCodePlatformIds = selectedPlatformIdsForOs.filter((id) =>
+    ['zcode', 'mimocode'].includes(id),
+  );
 
   const selectedNpmDeps = await selectNpmDeps(projectPath, spPlatformIds, options, lang);
   const shouldInstallOpenSpecCli = selectedNpmDeps.has('openspec');
@@ -427,7 +429,7 @@ export async function initCommand(targetPath: string, options: InitOptions = {})
       osToolIds,
       scope,
       shouldInstallOpenSpecCli,
-      migrateZCode,
+      mirrorOpenCodePlatformIds,
     );
     if (osGlobalStatus === 'skipped' && !shouldInstallOpenSpecCli) {
       log(`  OpenSpec: ${t(lang, 'osSkippedNoCli')}`);

@@ -12,6 +12,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Bundle authoring recovery list**: Adds `comet bundle list` so `/comet-any` can discover recoverable Skill Factory authoring sessions when users return without remembering the Bundle name.
 - **Shared eval system**: Adds a reusable eval harness for Comet workflows and arbitrary local Skills, including profiles, generated Skill manifests, generic smoke tasks, HTML reports, failure attribution, token/cost reporting, and the new `comet eval run|collect` CLI entry.
 - **Platform expansion**: Adds ZCode support and continues to grow the cross-platform install/distribute layer used by Comet Skills and Bundles.
+- **MimoCode support**: Adds native MimoCode platform support with project installs under `.mimocode/`, global installs under `.config/mimocode/`, OpenCode-style slash commands, and mirrored OpenSpec output.
 - **Stable composed Skill control plane**: Generated `/comet-any` Skill Bundles now include the required scripts, rules, hooks, runtime checks, Eval manifest, and composition evidence needed for resumable and guarded execution.
 - **Factory Skill composition**: Adds creation-time expansion for source Skill `comet/flow.yaml` files, including choice resolution and cycle detection before compiling the final Plan.
 
@@ -47,6 +48,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Comet-any doc/help sync**: Adds assertions for the stable composed Skill Bundle required capability set, portable hook descriptor wording, and the exact CLI help capitalization expected by the public help text.
 - **Stable composed Skill coverage**: Adds tests for checks loading, flow composition, generated control-plane files, runtime scripts, Eval readiness, publish validation, fail-closed distribution, and user-facing docs.
 - **Submodule hook coverage**: Adds regression coverage for stable hook command generation and phase guarding when the hook process runs from a nested submodule directory.
+- **MimoCode platform coverage**: Adds regression coverage for platform detection, slash command generation, OpenSpec mirroring, Superpowers staging, init E2E behavior, CI path checks, and Bundle compatibility.
 
 ### Removed
 

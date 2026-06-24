@@ -206,19 +206,29 @@ function migrateOpenCodeOpenSpecPaths(homeDir: string): void {
 }
 
 /**
- * ZCode shares openspec's opencode tool id (openspec has no zcode entry), so
- * openspec writes its skills/commands into the opencode directory. Copy them
- * into the zcode directory so ZCode actually reads them. Uses copy (not move)
- * so that a simultaneous opencode install keeps its files too.
+ * OpenCode-compatible platforms can reuse openspec's opencode tool id. The
+ * openspec CLI writes into the opencode directory, so mirror those skills and
+ * commands into each platform-specific config directory.
  */
-function migrateZCodeOpenSpecPaths(baseDir: string, scope: InstallScope): void {
-  const zcodePlatform = PLATFORMS.find((p) => p.id === 'zcode');
+function mirrorOpenCodeCompatibleOpenSpecPaths(
+  baseDir: string,
+  scope: InstallScope,
+  platformIds: string[],
+): void {
   const opencodePlatform = PLATFORMS.find((p) => p.id === 'opencode');
-  if (!zcodePlatform || !opencodePlatform) return;
+  if (!opencodePlatform) return;
 
   const srcDir = path.join(baseDir, opencodePlatform.skillsDir);
-  const destDir = path.join(baseDir, getPlatformSkillsDir(zcodePlatform, scope));
-  copyOpenSpecPaths(srcDir, destDir);
+  for (const platformId of [...new Set(platformIds)]) {
+    const platform = PLATFORMS.find((p) => p.id === platformId);
+    if (!platform || platform.id === 'opencode') continue;
+    const destDir = path.join(baseDir, getPlatformSkillsDir(platform, scope));
+    copyOpenSpecPaths(srcDir, destDir);
+  }
+}
+
+function migrateZCodeOpenSpecPaths(baseDir: string, scope: InstallScope): void {
+  mirrorOpenCodeCompatibleOpenSpecPaths(baseDir, scope, ['zcode']);
 }
 
 /**
@@ -303,7 +313,7 @@ async function installOpenSpec(
   toolIds: string[],
   scope: InstallScope,
   shouldInstallCli = true,
-  migrateZCode = false,
+  mirrorOpenCodePlatformIds: string[] = [],
 ): Promise<'installed' | 'failed' | 'skipped'> {
   const cliStatus = await ensureOpenSpecCli(scope, projectPath, shouldInstallCli);
   if (cliStatus === 'failed') {
@@ -374,11 +384,10 @@ async function installOpenSpec(
     const openspecWritesGlobal = scope === 'global';
     const openspecTargetBase = openspecWritesGlobal ? os.homedir() : projectPath;
 
-    // ZCode mirrors the opencode openspec output. Copy first (before the
-    // opencode global migration potentially moves the source away) so both
-    // platforms end up with the files.
-    if (migrateZCode && toolIds.includes('opencode')) {
-      migrateZCodeOpenSpecPaths(openspecTargetBase, scope);
+    // Mirror OpenCode-compatible platforms first, before the opencode global
+    // migration potentially moves the source away.
+    if (mirrorOpenCodePlatformIds.length > 0 && toolIds.includes('opencode')) {
+      mirrorOpenCodeCompatibleOpenSpecPaths(openspecTargetBase, scope, mirrorOpenCodePlatformIds);
     }
 
     if (openspecWritesGlobal && toolIds.includes('opencode')) {
@@ -405,4 +414,5 @@ export {
   getNpmExecutable,
   migrateOpenCodeOpenSpecPaths,
   migrateZCodeOpenSpecPaths,
+  mirrorOpenCodeCompatibleOpenSpecPaths,
 };

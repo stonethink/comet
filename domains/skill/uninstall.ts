@@ -22,6 +22,8 @@ interface RemovalResult {
   failed: number;
 }
 
+const OPENCODE_STYLE_PLATFORM_IDS = new Set(['opencode', 'mimocode']);
+
 async function removeCometSkillsForPlatform(
   baseDir: string,
   platform: Platform,
@@ -48,7 +50,7 @@ async function removeCometSkillsForPlatform(
     }
   }
 
-  if (platform.id === 'opencode') {
+  if (OPENCODE_STYLE_PLATFORM_IDS.has(platform.id)) {
     const commandsDir = path.join(baseDir, skillsDir, 'commands');
     for (const skillRelPath of manifest.skills) {
       const parts = skillRelPath.split('/');

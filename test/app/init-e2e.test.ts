@@ -222,7 +222,7 @@ describe('comet init E2E', () => {
           initCommand(tmpDir, { yes: true, json: true }),
         );
 
-        expect((result.results as unknown[]).length).toBeGreaterThanOrEqual(30);
+        expect((result.results as unknown[]).length).toBeGreaterThanOrEqual(31);
 
         const manifest = await readManifest();
         const platformDirs = [
@@ -256,6 +256,7 @@ describe('comet init E2E', () => {
           '.trae',
           '.github',
           '.zcode',
+          '.mimocode',
         ];
         for (const platform of platformDirs) {
           for (const skillPath of manifest.skills) {
@@ -266,6 +267,9 @@ describe('comet init E2E', () => {
 
         await expect(
           fs.access(path.join(tmpDir, '.opencode', 'commands', 'comet-open.md')),
+        ).resolves.toBeUndefined();
+        await expect(
+          fs.access(path.join(tmpDir, '.mimocode', 'commands', 'comet-open.md')),
         ).resolves.toBeUndefined();
         await expect(
           fs.access(path.join(tmpDir, '.pi', 'extensions', 'comet-commands.ts')),
@@ -336,6 +340,43 @@ describe('comet init E2E', () => {
       ).resolves.toBeUndefined();
       await expect(
         fs.access(path.join(fakeHome, '.opencode', 'skills', 'comet', 'SKILL.md')),
+      ).rejects.toThrow();
+    },
+    INIT_E2E_TIMEOUT_MS,
+  );
+
+  it(
+    'installs MimoCode global Comet skills and commands to the MimoCode config directory',
+    async () => {
+      mockExternalSuccess();
+
+      await fs.mkdir(path.join(tmpDir, '.mimocode'), { recursive: true });
+      const fakeHome = path.join(tmpDir, 'fake-home');
+      await fs.mkdir(fakeHome, { recursive: true });
+
+      vi.spyOn(os, 'homedir').mockReturnValue(fakeHome);
+
+      const { initCommand } = await import('../../app/commands/init.js');
+      const result = await captureJsonOutput(() =>
+        initCommand(tmpDir, { yes: true, scope: 'global', json: true }),
+      );
+
+      expect(result.selectedPlatforms).toEqual(['mimocode']);
+
+      const manifest = await readManifest();
+      for (const skillPath of manifest.skills) {
+        const dest = path.join(fakeHome, '.config', 'mimocode', 'skills', skillPath);
+        await expect(fs.access(dest)).resolves.toBeUndefined();
+      }
+
+      await expect(
+        fs.access(path.join(fakeHome, '.config', 'mimocode', 'commands', 'comet.md')),
+      ).resolves.toBeUndefined();
+      await expect(
+        fs.access(path.join(fakeHome, '.config', 'mimocode', 'commands', 'comet-open.md')),
+      ).resolves.toBeUndefined();
+      await expect(
+        fs.access(path.join(fakeHome, '.mimocode', 'skills', 'comet', 'SKILL.md')),
       ).rejects.toThrow();
     },
     INIT_E2E_TIMEOUT_MS,

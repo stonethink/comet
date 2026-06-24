@@ -68,6 +68,7 @@ description: Run the {skillName} Comet workflow
 `;
 
 const PI_COMMAND_EXTENSION_FILE = 'comet-commands.ts';
+const OPENCODE_STYLE_PLATFORM_IDS = new Set(['opencode', 'mimocode']);
 
 function getAssetsDir(): string {
   const directAssets = path.resolve(__dirname, '..', '..', 'assets');
@@ -124,7 +125,7 @@ async function copyCometSkillsForPlatform(
     }
   }
 
-  if (platform.id === 'opencode') {
+  if (OPENCODE_STYLE_PLATFORM_IDS.has(platform.id)) {
     const result = await createOpenCodeCommands(
       baseDir,
       platform,

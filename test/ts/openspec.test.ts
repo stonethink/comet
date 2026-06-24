@@ -62,6 +62,33 @@ describe('openspec', () => {
       ]);
     });
 
+    it('copies OpenSpec opencode output into MimoCode project paths', async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'comet-mimocode-openspec-'));
+      try {
+        const sourceSkill = path.join(tmpDir, '.opencode', 'skills', 'openspec-core');
+        const sourceCommand = path.join(tmpDir, '.opencode', 'commands', 'openspec.md');
+        fs.mkdirSync(sourceSkill, { recursive: true });
+        fs.mkdirSync(path.dirname(sourceCommand), { recursive: true });
+        fs.writeFileSync(path.join(sourceSkill, 'SKILL.md'), '# OpenSpec\n');
+        fs.writeFileSync(sourceCommand, '# OpenSpec command\n');
+
+        const { mirrorOpenCodeCompatibleOpenSpecPaths } = await import(
+          '../../domains/integrations/openspec.js'
+        );
+        mirrorOpenCodeCompatibleOpenSpecPaths(tmpDir, 'project', ['mimocode']);
+
+        expect(
+          fs.existsSync(path.join(tmpDir, '.mimocode', 'skills', 'openspec-core', 'SKILL.md')),
+        ).toBe(true);
+        expect(fs.existsSync(path.join(tmpDir, '.mimocode', 'commands', 'openspec.md'))).toBe(
+          true,
+        );
+        expect(fs.existsSync(sourceCommand)).toBe(true);
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
     it('installs openspec when CLI is available', async () => {
       // First call: isCommandAvailable succeeds
       mockedExecFileSync.mockReturnValueOnce(Buffer.from('/usr/bin/openspec'));

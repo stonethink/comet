@@ -184,6 +184,31 @@ describe('skills', () => {
         fs.access(path.join(tmpDir, '.opencode', 'commands', 'comet.md')),
       ).rejects.toThrow();
     });
+
+    it('creates MimoCode slash commands in project and global config directories', async () => {
+      const mimocodePlatform: Platform = {
+        id: 'mimocode',
+        name: 'MimoCode',
+        skillsDir: '.mimocode',
+        globalSkillsDir: '.config/mimocode',
+        openspecToolId: 'opencode',
+      };
+
+      await copyCometSkillsForPlatform(tmpDir, mimocodePlatform, false, 'skills', 'project');
+      await expect(
+        fs.access(path.join(tmpDir, '.mimocode', 'commands', 'comet-open.md')),
+      ).resolves.toBeUndefined();
+
+      const globalRoot = path.join(tmpDir, 'global-root');
+      await fs.mkdir(globalRoot, { recursive: true });
+      await copyCometSkillsForPlatform(globalRoot, mimocodePlatform, false, 'skills', 'global');
+      await expect(
+        fs.access(path.join(globalRoot, '.config', 'mimocode', 'commands', 'comet.md')),
+      ).resolves.toBeUndefined();
+      await expect(
+        fs.access(path.join(globalRoot, '.mimocode', 'commands', 'comet.md')),
+      ).rejects.toThrow();
+    });
   });
 
   describe('installCometHooksForPlatform', () => {

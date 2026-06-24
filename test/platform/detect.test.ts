@@ -73,6 +73,17 @@ describe('detect', () => {
       expect(zcode?.rulesDir).toBe('rules');
       expect(zcode?.rulesFormat).toBe('md');
     });
+
+    it('declares MimoCode skills under .mimocode with opencode-compatible paths', () => {
+      const mimocode = PLATFORMS.find((platform) => platform.id === 'mimocode');
+
+      expect(mimocode).toBeDefined();
+      expect(mimocode?.skillsDir).toBe('.mimocode');
+      expect(mimocode?.globalSkillsDir).toBe('.config/mimocode');
+      expect(mimocode?.openspecToolId).toBe('opencode');
+      expect(mimocode?.rulesDir).toBe('rules');
+      expect(mimocode?.rulesFormat).toBe('md');
+    });
   });
 
   describe('detectPlatforms', () => {
@@ -118,6 +129,12 @@ describe('detect', () => {
       await fs.mkdir(path.join(tmpDir, '.agents'));
       const detected = await detectPlatforms(tmpDir);
       expect(detected.has('antigravity')).toBe(true);
+    });
+
+    it('detects MimoCode from the project config directory', async () => {
+      await fs.mkdir(path.join(tmpDir, '.mimocode'));
+      const detected = await detectPlatforms(tmpDir);
+      expect(detected.has('mimocode')).toBe(true);
     });
   });
 
@@ -167,6 +184,23 @@ describe('detect', () => {
       await fs.writeFile(path.join(tmpDir, '.opencode', 'commands', 'comet-open.md'), '');
 
       expect(await hasSkills(tmpDir, opencode, 'comet')).toBe(true);
+    });
+
+    it('requires MimoCode slash commands before treating Comet as installed', async () => {
+      const mimocode = PLATFORMS.find((platform) => platform.id === 'mimocode');
+      expect(mimocode).toBeDefined();
+      if (!mimocode) return;
+
+      await fs.mkdir(path.join(tmpDir, '.mimocode', 'skills', 'comet'), { recursive: true });
+      await fs.mkdir(path.join(tmpDir, '.mimocode', 'skills', 'comet-open'), { recursive: true });
+
+      expect(await hasSkills(tmpDir, mimocode, 'comet')).toBe(false);
+
+      await fs.mkdir(path.join(tmpDir, '.mimocode', 'commands'), { recursive: true });
+      await fs.writeFile(path.join(tmpDir, '.mimocode', 'commands', 'comet.md'), '');
+      await fs.writeFile(path.join(tmpDir, '.mimocode', 'commands', 'comet-open.md'), '');
+
+      expect(await hasSkills(tmpDir, mimocode, 'comet')).toBe(true);
     });
 
     it('detects Antigravity global skills in the Gemini Antigravity directory', async () => {

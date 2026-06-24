@@ -20,8 +20,12 @@ describe('CI workflows', () => {
     expect(workflow).toContain('check_file "$HOME_DIR/$sd/comet/SKILL.md"');
     expect(projectVerify).toContain('.opencode/skills');
     expect(projectVerify).not.toContain('.config/opencode/skills');
+    expect(projectVerify).toContain('.mimocode/skills');
+    expect(projectVerify).not.toContain('.config/mimocode/skills');
     expect(globalVerify).toContain('.config/opencode/skills');
     expect(globalVerify).not.toContain('.opencode/skills');
+    expect(globalVerify).toContain('.config/mimocode/skills');
+    expect(globalVerify).not.toContain('.mimocode/skills');
     expect(workflow).toContain('function extractJsonPayload(raw) {');
     expect(workflow).toContain("throw new Error('No JSON payload found in init output');");
     expect(workflow).toContain('const data = JSON.parse(extractJsonPayload(raw));');
@@ -35,8 +39,8 @@ describe('CI workflows', () => {
     expect(workflow).not.toContain('check_glob "$HOME_DIR/$sd/openspec-*"');
     expect(workflow).not.toContain('check_dir "$HOME_DIR/$sd/brainstorming"');
     expect(workflow).not.toContain('check_dir "$HOME_DIR/$sd/using-superpowers"');
-    expect(workflow).toContain('All 30 platforms project Comet skills: OK');
-    expect(workflow).toContain('All 30 platforms global Comet skills: OK');
+    expect(workflow).toContain('All 31 platforms project Comet skills: OK');
+    expect(workflow).toContain('All 31 platforms global Comet skills: OK');
   });
 
   it('defines PR title linting with Comet-specific semantic scopes', async () => {
