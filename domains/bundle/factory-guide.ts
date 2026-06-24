@@ -6,7 +6,7 @@ import {
   type ProjectSkillPreferences,
 } from '../skill/preferences.js';
 import { buildBundleResumeSummary, type BundleResumeSummary } from './next-action.js';
-import { listBundleAuthoringStates } from './state.js';
+import { listBundleAuthoringStatesReadOnly } from './state.js';
 
 export interface BundleFactoryGuide {
   schemaVersion: 1;
@@ -69,7 +69,7 @@ export async function buildBundleFactoryGuide(options: {
       homeDir: options.homeDir,
       builtinRoot: options.builtinRoot,
     }),
-    listBundleAuthoringStates(projectRoot),
+    listBundleAuthoringStatesReadOnly(projectRoot),
   ]);
   const preferences = preferencesResult.value;
   const resumable = states

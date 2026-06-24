@@ -65,6 +65,16 @@ export async function readBundleAuthoringState(
 export async function listBundleAuthoringStates(
   projectRoot: string,
 ): Promise<BundleAuthoringState[]> {
+  const names = await listBundleAuthoringStateNames(projectRoot);
+
+  const states: BundleAuthoringState[] = [];
+  for (const name of names) {
+    states.push(await reconcileBundleAuthoringState(projectRoot, name));
+  }
+  return states;
+}
+
+async function listBundleAuthoringStateNames(projectRoot: string): Promise<string[]> {
   const root = path.resolve(projectRoot, '.comet', 'bundle-authoring');
   let entries;
   try {
@@ -74,14 +84,19 @@ export async function listBundleAuthoringStates(
     throw error;
   }
 
-  const names = entries
+  return entries
     .filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
     .map((entry) => entry.name.slice(0, -'.json'.length))
     .sort((left, right) => left.localeCompare(right));
+}
 
+export async function listBundleAuthoringStatesReadOnly(
+  projectRoot: string,
+): Promise<BundleAuthoringState[]> {
+  const names = await listBundleAuthoringStateNames(projectRoot);
   const states: BundleAuthoringState[] = [];
   for (const name of names) {
-    states.push(await reconcileBundleAuthoringState(projectRoot, name));
+    states.push(await readBundleAuthoringState(projectRoot, name));
   }
   return states;
 }

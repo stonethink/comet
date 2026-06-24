@@ -3,7 +3,7 @@ import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
 import { buildBundleFactoryGuide } from '../../../domains/bundle/factory-guide.js';
-import { createBundleDraft } from '../../../domains/bundle/draft.js';
+import { createBundleDraft, optimizeBundleDraft } from '../../../domains/bundle/draft.js';
 
 async function writeSkill(root: string, name: string, description: string): Promise<void> {
   await fs.mkdir(root, { recursive: true });
@@ -15,6 +15,42 @@ description: ${description}
 ---
 
 # ${name}
+`,
+  );
+}
+
+async function writeBundle(root: string, name: string): Promise<void> {
+  await fs.mkdir(path.join(root, 'skills', 'entry'), { recursive: true });
+  await fs.writeFile(
+    path.join(root, 'skills', 'entry', 'SKILL.md'),
+    '---\nname: entry\ndescription: entry.\n---\n\n# entry\n',
+  );
+  await fs.writeFile(
+    path.join(root, 'bundle.yaml'),
+    `apiVersion: comet/v1alpha1
+kind: SkillBundle
+metadata:
+  name: ${name}
+  version: 1.0.0
+  description: Command fixture
+  defaultLocale: en
+  locales: [en]
+skills:
+  - id: entry
+    path: skills/entry
+    visibility: entry
+resources:
+  rules: []
+  hooks: []
+  references: []
+  scripts: []
+  assets: []
+platforms:
+  requires: [skills]
+  optional: []
+  overrides: []
+engine:
+  enabled: false
 `,
   );
 }
@@ -108,5 +144,44 @@ describe('Bundle Factory first-use guide', () => {
       }),
     ]);
     expect(guide.userMessage.summary).toContain('unfinished Skill creation flow');
+  });
+
+  it('does not rewrite authoring state when the draft hash drifts', async () => {
+    const sourceRoot = path.join(root, 'source');
+    await writeBundle(sourceRoot, 'read-only-guide');
+    await optimizeBundleDraft({
+      projectRoot,
+      sourceRoot,
+      name: 'read-only-guide',
+      candidates: [],
+      creator: 'native',
+      defaultLocale: 'en',
+      locales: ['en'],
+      engineEnabled: false,
+    });
+
+    const draftBundlePath = path.join(
+      projectRoot,
+      '.comet',
+      'bundle-drafts',
+      'read-only-guide',
+      'bundle.yaml',
+    );
+    const statePath = path.join(
+      projectRoot,
+      '.comet',
+      'bundle-authoring',
+      'read-only-guide.json',
+    );
+    await fs.writeFile(
+      draftBundlePath,
+      (await fs.readFile(draftBundlePath, 'utf8')).replace('description: Command fixture', 'description: Drifted fixture'),
+    );
+
+    const before = await fs.readFile(statePath, 'utf8');
+    await buildBundleFactoryGuide({ projectRoot, homeDir, builtinRoot });
+    const after = await fs.readFile(statePath, 'utf8');
+
+    expect(after).toBe(before);
   });
 });
