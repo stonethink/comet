@@ -526,6 +526,26 @@ describe('skills', () => {
       expect(enOpen).toContain('Must not fall back to hard-coded artifact prose');
     });
 
+    it('routes Chinese tweak build through OpenSpec apply without changing full workflow', async () => {
+      const zhTweak = await fs.readFile(
+        path.resolve('assets', 'skills-zh', 'comet-tweak', 'SKILL.md'),
+        'utf-8',
+      );
+      const zhBuild = await fs.readFile(
+        path.resolve('assets', 'skills-zh', 'comet-build', 'SKILL.md'),
+        'utf-8',
+      );
+
+      expect(zhTweak).toContain('使用 Skill 工具加载 `openspec-apply-change` 技能');
+      expect(zhTweak).toContain('这条 apply 路径只属于 tweak');
+      expect(zhTweak).toContain(
+        '完整 `/comet` 或 `workflow: full` 不得套用 tweak 的 `openspec-apply-change` 构建路径',
+      );
+      expect(zhTweak).toContain('单一 OpenSpec change');
+      expect(zhTweak).not.toContain('不新增 capability');
+      expect(zhBuild).not.toContain('openspec-apply-change');
+    });
+
     it('requires explicit user confirmation at full-workflow decision points', async () => {
       const zhComet = await fs.readFile(
         path.resolve('assets', 'skills-zh', 'comet', 'SKILL.md'),
@@ -638,7 +658,9 @@ describe('skills', () => {
       expect(zhComet).not.toContain(
         '`verify_result: fail` → `node "$COMET_STATE" transition <name> verify-fail` 后 `/comet-build`',
       );
-      expect(zhHotfix).toContain('若 hotfix 创建了 delta spec，则根据 comet-verify 的规模评估规则进入完整验证路径');
+      expect(zhHotfix).toContain(
+        '若 hotfix 创建了 delta spec，则根据 comet-verify 的规模评估规则进入完整验证路径',
+      );
       expect(zhHotfix).not.toContain('停止 hotfix，升级为 `/comet`');
       expect(zhTweak).toContain('带 delta spec 的验证分流');
 
@@ -923,6 +945,14 @@ describe('skills', () => {
       expect(enVerify).toContain(
         'Only after the user completes selection and the corresponding operation finishes, may `branch_status: handled` be written',
       );
+      expect(enTweak).toContain('Use the Skill tool to load the `openspec-apply-change` skill');
+      expect(enTweak).toContain('This apply path belongs only to tweak');
+      expect(enTweak).toContain(
+        "Full `/comet` or `workflow: full` must not use tweak's `openspec-apply-change` build path",
+      );
+      expect(enTweak).toContain('single OpenSpec change');
+      expect(enTweak).not.toContain('No new capability');
+      expect(enBuild).not.toContain('openspec-apply-change');
       expect(enArchive).toContain('### 1. Final Archive Confirmation (Blocking Point)');
       expect(enArchive).toContain(
         'Must not run `node "$COMET_ARCHIVE" "<change-name>"` before user confirmation',

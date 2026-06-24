@@ -1,18 +1,18 @@
 ---
 name: comet-tweak
-description: "Comet preset path: OpenSpec-chained lightweight workflow (tweak). Skip brainstorming and full plan, directly open → build → verify → archive. Delta spec is a first-class normal artifact. Applicable for medium changes, configuration adjustments, documentation or prompt optimization, and spec-driven small changes that don't need architecture design."
+description: "Comet preset path: OpenSpec-chained lightweight workflow (tweak). Skip brainstorming and full plan, directly open → OpenSpec apply → verify → archive. Delta spec is a first-class normal artifact. Applicable for changes that fit a single OpenSpec change and do not need the full design workflow."
 ---
 
 # Comet Preset Path: Tweak
 
-Tweak is a preset workflow of Comet's five-phase capabilities, not an independent parallel process. It chains OpenSpec's core flow, reusing open, build, verify, archive capabilities, only skipping brainstorming and full plan.
+Tweak is a preset workflow of Comet's five-phase capabilities, not an independent parallel process. It chains OpenSpec's core flow, reusing open, build, verify, archive capabilities, only skipping Superpowers brainstorming and full plan.
 
-Applicable for OpenSpec-chained lightweight changes, such as configuration adjustments, documentation or prompt optimization, and spec-driven (including delta spec) medium changes that don't need architecture design. Delta spec is a first-class normal artifact in tweak; needing delta spec alone does not constitute an upgrade reason.
+Applicable for OpenSpec-chained lightweight changes, such as configuration adjustments, documentation or prompt optimization, and spec-driven (including delta spec) medium changes that do not need the full `/comet` deep design workflow. Delta spec is a first-class normal artifact in tweak; needing delta spec alone does not constitute an upgrade reason.
 
 **Applicable conditions** (all must be met):
-1. No new capability
-2. No architecture changes
-3. No interface changes
+1. Can fit a **single OpenSpec change**
+2. Does not need a Superpowers Design Doc and full plan to clarify the approach
+3. Does not involve cross-module or cross-layer architecture coordination
 4. Task scope is estimable (file count and task count are hints only, not hard upgrade conditions; see Upgrade Assessment below)
 
 **Not applicable**: If the change process hits a qualitative-change signal (see "Upgrade Assessment" section), the user decides whether to upgrade to the full `/comet` workflow.
@@ -25,7 +25,7 @@ Applicable for OpenSpec-chained lightweight changes, such as configuration adjus
 
 Streamlined OpenSpec artifacts must use the language of the user request that triggered this workflow.
 
-Execution chain: open → build → verify → archive. Tweak provides default decisions for each phase: streamlined open, direct build, scale- and delta-spec-driven verification weight, and final archive confirmation after verification passes.
+Execution chain: open → OpenSpec apply → verify → archive. Tweak provides default decisions for each phase: streamlined open, direct build through OpenSpec apply, scale- and delta-spec-driven verification weight, and final archive confirmation after verification passes.
 
 Locate Comet scripts before starting:
 
@@ -73,22 +73,30 @@ Run phase guard to transition open → build:
 node "$COMET_GUARD" <change-name> open --apply
 ```
 
-### 2. Lightweight Build (preset build)
+### 2. OpenSpec Apply Build (tweak-only preset build)
 
-Use tweak defaults: `build_mode: direct`. Skip Superpowers `brainstorming` and `writing-plans`.
+Use tweak defaults: `build_mode: direct`. Skip Superpowers `brainstorming` and `writing-plans`, and let OpenSpec's apply action execute the current change's tasks.
+
+<IMPORTANT>
+This apply path belongs only to tweak. Full `/comet` or `workflow: full` must not use tweak's `openspec-apply-change` build path; full must still generate a Design Doc through `/comet-design`, then let `/comet-build` use Superpowers `writing-plans`, execution-method selection, and the corresponding execution skill to build.
+</IMPORTANT>
 
 Before continuing or starting changes, handle uncommitted changes through `comet/reference/dirty-worktree.md`. If attribution shows a qualitative-change signal or file-count tripwire is hit, handle it through this file's "Upgrade Assessment".
 
-**Immediately execute:** Execute tasks one by one according to tasks.md:
+**Immediately execute:** Use the Skill tool to load the `openspec-apply-change` skill. Skipping this step is prohibited.
 
-1. Read `openspec/changes/<name>/tasks.md`, get incomplete task list
-2. For each incomplete task:
-   - Modify target files according to task description
-   - Run project formatter (e.g., `mvn spotless:apply`, `npm run format`)
+After the skill loads, use the current `<change-name>` as input and follow `openspec-apply-change` to execute the OpenSpec apply flow:
+
+1. Run or follow `openspec status --change "<name>" --json` to confirm the schema and task artifact
+2. Run or follow `openspec instructions apply --change "<name>" --json` to read OpenSpec's apply instructions, `contextFiles`, task progress, and dynamic instruction
+3. Read every context file listed by the apply instructions; do not implement from stale conversation context or a handwritten tasks loop alone
+4. Complete unchecked tasks one by one according to the apply instructions, keeping changes minimal and focused
+5. After each completed task:
+   - Run the project formatter (e.g., `mvn spotless:apply`, `npm run format`)
    - Run related tests to confirm pass
-   - Check corresponding `- [ ]` to `- [x]` in tasks.md
+   - Mark the corresponding task complete according to `openspec-apply-change`
    - Commit code, commit message format: `tweak: <brief change description>`
-3. After all tasks complete, explicitly run relevant project tests and build commands
+6. After all tasks complete, explicitly run relevant project tests and build commands
 
 During tweak execution, whenever running programs, tests, builds, or manual verification results in crashes, abnormal behavior, test failures, or build failures, you must use the Skill tool to load the Superpowers `systematic-debugging` skill. Do not propose or implement source code fixes before completing root cause investigation.
 
@@ -96,7 +104,7 @@ For specific investigation, minimal failing test, fix verification, and keeping 
 
 **Upgrade assessment check**: Continuously judge throughout build, and do a consolidated re-check before running the build→verify guard. Assessment uses a three-layer division of labor (see "Upgrade Assessment" section): qualitative-change signals rely on agent semantic recognition, file count is only a hint delegated to the user, and the scale script only governs verification weight. When a qualitative-change signal or file-count tripwire is hit, **do not upgrade on your own or decide to continue on your own** — must pause per `comet/reference/decision-point.md` and delegate the decision to the user: continue the tweak lightweight flow, or upgrade to the full `/comet`.
 
-4. Run phase guard to transition build → verify:
+7. Run phase guard to transition build → verify:
 
 ```bash
 node "$COMET_GUARD" <change-name> build --apply
@@ -159,7 +167,7 @@ Continuously judge the following signals throughout build. When any is hit, **do
 | Qualitative-change signal | Explanation |
 |---------------------------|-------------|
 | Cross-module coordinated change | Requires cross-component, cross-layer coordinated edits |
-| New capability needed | Exceeds local optimization, introduces new capability |
+| Needs split into multiple OpenSpec changes | A single OpenSpec change can no longer carry the work; it needs multiple capabilities or independent delivery units |
 | Database schema change | Structural adjustment |
 | Introduces new public API | Produces a new external interface |
 | Hits deep architecture issues | The fix requires an architecture-level solution, not a local change |

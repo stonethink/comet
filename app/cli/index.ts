@@ -239,7 +239,7 @@ skill
 
 const publish = program
   .command('publish')
-  .description('Validate, approve, generate, and install /comet-any Skill Maker candidates');
+  .description('Skill publish candidates for the /comet-any user-facing release path');
 
 publish
   .command('list')
