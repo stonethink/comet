@@ -142,6 +142,10 @@ describe('publish command facade', () => {
           name: 'publish-facade',
           status: 'draft',
           nextAction: { action: 'choose-eval-level' },
+          resumeSummary: {
+            currentStep: 'needs-eval',
+            recommendedNextStep: { action: 'choose-eval-level' },
+          },
         },
       ],
     });
@@ -149,6 +153,10 @@ describe('publish command facade', () => {
       name: 'publish-facade',
       status: 'draft',
       nextAction: { action: 'choose-eval-level' },
+      resumeSummary: {
+        currentStep: 'needs-eval',
+        recommendedNextStep: { action: 'choose-eval-level' },
+      },
     });
   });
 

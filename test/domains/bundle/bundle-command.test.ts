@@ -220,8 +220,21 @@ prefer:
 
     expect(created).toMatchObject({ name: 'created-bundle', status: 'draft' });
     expect(optimized).toMatchObject({ name: 'optimized-bundle', status: 'draft' });
-    expect(status).toMatchObject({ name: 'optimized-bundle', status: 'draft' });
+    expect(status).toMatchObject({
+      name: 'optimized-bundle',
+      status: 'draft',
+      resumeSummary: {
+        schemaVersion: 1,
+        currentStep: 'needs-eval',
+        recommendedNextStep: { action: 'choose-eval-level' },
+      },
+    });
     expect(status.currentHash).toMatch(/^[a-f0-9]{64}$/u);
+    const text = await captureText(() => bundleStatusCommand('optimized-bundle', { project: projectRoot }));
+    expect(text).toContain('Current step: needs-eval');
+    expect(text).toContain('User next step: Run Eval for the generated Skill');
+    expect(text).toContain('Suggested user command:');
+    expect(text).toContain('Backend command: comet bundle eval-plan optimized-bundle --level quick');
   });
 
   it('lists recoverable Bundle authoring states with next actions', async () => {
@@ -245,12 +258,20 @@ prefer:
           nextAction: {
             action: 'choose-eval-level',
           },
+          resumeSummary: {
+            currentStep: 'needs-eval',
+            recommendedNextStep: { action: 'choose-eval-level' },
+          },
         },
         {
           name: 'optimized-bundle',
           status: 'draft',
           nextAction: {
             action: 'choose-eval-level',
+          },
+          resumeSummary: {
+            currentStep: 'needs-eval',
+            recommendedNextStep: { action: 'choose-eval-level' },
           },
         },
       ],
@@ -1626,17 +1647,25 @@ prefer:
 
     expect(status.nextAction).toMatchObject({
       action: 'fix-composition',
-      command:
+      backendCommand:
         'comet bundle review-summary factory-composition-action --platform <reference-platform>',
     });
     expect(status.nextAction.action).not.toBe('generate-factory-package');
     expect(String(status.nextAction.reason)).toMatch(/composition/i);
+    expect(status.resumeSummary).toMatchObject({
+      currentStep: 'needs-composition-fix',
+      recommendedNextStep: { action: 'fix-composition' },
+    });
     expect(listed).toMatchObject({
       bundles: [
         {
           name: 'factory-composition-action',
           nextAction: {
             action: 'fix-composition',
+          },
+          resumeSummary: {
+            currentStep: 'needs-composition-fix',
+            recommendedNextStep: { action: 'fix-composition' },
           },
         },
       ],

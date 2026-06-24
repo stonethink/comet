@@ -21,6 +21,12 @@ import { planBundleEval, recordBundleEval } from '../../domains/bundle/eval.js';
 import { publishBundle, reviewBundle } from '../../domains/bundle/publish.js';
 import { distributeBundle } from '../../domains/bundle/distribute.js';
 import { buildBundleFactoryProposal } from '../../domains/bundle/factory-proposal.js';
+import {
+  buildBundleResumeSummary,
+  determineBundleNextAction,
+  type BundleNextAction,
+} from '../../domains/bundle/next-action.js';
+import { readProjectSkillPreferences } from '../../domains/skill/preferences.js';
 import type { BundleCapability } from '../../domains/bundle/types.js';
 
 interface BundleCommandOptions {
@@ -46,20 +52,6 @@ interface BundleCommandOptions {
   source?: string;
   ignoreMissing?: boolean;
   reason?: string;
-}
-
-interface BundleNextAction {
-  action:
-    | 'resolve-candidates'
-    | 'fix-composition'
-    | 'generate-factory-package'
-    | 'choose-eval-level'
-    | 'request-review'
-    | 'publish'
-    | 'ask-distribution'
-    | 'done';
-  reason: string;
-  command: string;
 }
 
 function projectRoot(options: BundleCommandOptions): string {
@@ -97,88 +89,14 @@ function formatStateReview(
   return `Review: ${reviewState.decision} by ${reviewState.reviewer} @ ${reviewState.hash}`;
 }
 
-function determineNextAction(
-  state: Awaited<ReturnType<typeof reconcileBundleAuthoringState>>,
-): BundleNextAction {
-  const unresolved =
-    state.factory?.resolvedSkills.filter(
-      (skill) => skill.status === 'missing' || skill.status === 'ambiguous',
-    ) ?? [];
-  if (unresolved.length > 0) {
-    const first = unresolved[0];
-    return {
-      action: 'resolve-candidates',
-      reason: `${unresolved.length} unresolved Factory candidate(s) remain`,
-      command: `comet bundle factory-resolve ${state.name} --candidate ${first.query}`,
-    };
-  }
-
-  const compositionIssues = state.factory?.composition?.issues ?? [];
-  if (compositionIssues.length > 0) {
-    const first = compositionIssues[0];
-    return {
-      action: 'fix-composition',
-      reason: `Factory composition has ${compositionIssues.length} issue(s): ${first.message}`,
-      command: `comet bundle review-summary ${state.name} --platform <reference-platform>`,
-    };
-  }
-
-  if (state.factory && !state.factory.generatedSkillPackage) {
-    return {
-      action: 'generate-factory-package',
-      reason: 'Factory metadata exists but no generated Skill package is recorded yet',
-      command: `comet bundle factory-generate ${state.name}`,
-    };
-  }
-
-  if (!state.eval || state.eval.hash !== state.currentHash || !state.eval.passed) {
-    return {
-      action: 'choose-eval-level',
-      reason: 'Current draft hash is missing passing Eval evidence',
-      command: `comet bundle eval-plan ${state.name} --level quick`,
-    };
-  }
-
-  if (!state.review || state.review.hash !== state.currentHash) {
-    return {
-      action: 'request-review',
-      reason: 'Current draft hash is missing review approval',
-      command: `comet bundle review-summary ${state.name} --platform <reference-platform>`,
-    };
-  }
-
-  if (state.status === 'review-approved' && !state.ready) {
-    return {
-      action: 'publish',
-      reason: 'Eval and review are present; the draft is ready to publish',
-      command: `comet bundle publish ${state.name} --platform <reference-platform>`,
-    };
-  }
-
-  if (state.ready) {
-    return {
-      action: 'ask-distribution',
-      reason: 'Ready Bundle exists; the next step is distribution after user confirmation',
-      command: `comet bundle distribute ${state.name} --platform <platform> --scope project`,
-    };
-  }
-
-  return {
-    action: 'done',
-    reason: 'No further automatic Bundle action is required',
-    command: 'none',
-  };
-}
-
 function formatStatusText(
   state: Awaited<ReturnType<typeof reconcileBundleAuthoringState>>,
+  resumeSummary: ReturnType<typeof buildBundleResumeSummary>,
 ): string {
   const factoryPackage =
     state.factory?.generatedSkillPackage?.packageRoot ??
     state.factory?.planPath ??
     'missing; run comet bundle factory-generate or inspect factory-init plan';
-
-  const nextAction = determineNextAction(state);
 
   return [
     `Bundle: ${state.name}`,
@@ -188,16 +106,25 @@ function formatStatusText(
     `Factory package: ${factoryPackage}`,
     formatStateEval(state.eval),
     formatStateReview(state.review),
-    `Next action: ${nextAction.action}`,
-    `Reason: ${nextAction.reason}`,
-    `Suggested command: ${nextAction.command}`,
+    `Next action: ${resumeSummary.recommendedNextStep.action}`,
+    `Current step: ${resumeSummary.currentStep}`,
+    `User next step: ${resumeSummary.recommendedNextStep.userLabel}`,
+    `Reason: ${resumeSummary.recommendedNextStep.reason}`,
+    `Suggested user command: ${resumeSummary.recommendedNextStep.userCommand}`,
+    `Backend command: ${resumeSummary.recommendedNextStep.backendCommand}`,
+    ...(resumeSummary.preferenceDrift.changed
+      ? ['Preference drift: project Skill preferences changed after this flow started']
+      : []),
     ...(state.ready ? [`Ready: ${state.ready.path}`] : []),
   ].join('\n');
 }
 
 function formatListText(
   states: Array<
-    Awaited<ReturnType<typeof reconcileBundleAuthoringState>> & { nextAction: BundleNextAction }
+    Awaited<ReturnType<typeof reconcileBundleAuthoringState>> & {
+      nextAction: BundleNextAction;
+      resumeSummary: ReturnType<typeof buildBundleResumeSummary>;
+    }
   >,
 ): string {
   if (states.length === 0) return 'No Bundle authoring states found.';
@@ -208,6 +135,7 @@ function formatListText(
         `Hash: ${state.currentHash ?? '(invalid)'}`,
         `Draft: ${state.draftPath}`,
         `Next action: ${state.nextAction.action}`,
+        `Current step: ${state.resumeSummary.currentStep}`,
         `Reason: ${state.nextAction.reason}`,
       ].join('\n'),
     )
@@ -322,15 +250,29 @@ export async function bundleStatusCommand(
   name: string,
   options: BundleCommandOptions = {},
 ): Promise<void> {
-  const state = await reconcileBundleAuthoringState(projectRoot(options), name);
-  const nextAction = determineNextAction(state);
-  emit({ ...state, nextAction }, options.json, formatStatusText(state));
+  const root = projectRoot(options);
+  const state = await reconcileBundleAuthoringState(root, name);
+  const nextAction = determineBundleNextAction(state);
+  const currentPreferences = await readProjectSkillPreferences(root);
+  const resumeSummary = buildBundleResumeSummary(state, {
+    currentPreferenceHash: currentPreferences?.hash ?? null,
+  });
+  emit(
+    { ...state, nextAction, resumeSummary },
+    options.json,
+    formatStatusText(state, resumeSummary),
+  );
 }
 
 export async function bundleListCommand(options: BundleCommandOptions = {}): Promise<void> {
-  const states = (await listBundleAuthoringStates(projectRoot(options))).map((state) => ({
+  const root = projectRoot(options);
+  const currentPreferences = await readProjectSkillPreferences(root);
+  const states = (await listBundleAuthoringStates(root)).map((state) => ({
     ...state,
-    nextAction: determineNextAction(state),
+    nextAction: determineBundleNextAction(state),
+    resumeSummary: buildBundleResumeSummary(state, {
+      currentPreferenceHash: currentPreferences?.hash ?? null,
+    }),
   }));
   emit({ bundles: states }, options.json, formatListText(states));
 }
