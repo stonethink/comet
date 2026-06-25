@@ -10,9 +10,19 @@ import type {
 import {
   compileWorkflowSpec,
   type FactoryWorkflowSpec,
+  type FactoryWorkflowSemanticCheck,
   type FactoryWorkflowSlot,
   type FactoryWorkflowStage,
 } from './protocol.js';
+import { createStaticArtifactAuthor, runFactoryAuthoringLanes } from './authoring.js';
+import {
+  collectProposalArtifacts,
+  workflowProtocolHash,
+  type FactoryArtifactProposal,
+  type FactoryPackageArtifact,
+  type FactoryPackageDraft,
+} from './artifacts.js';
+import { renderSkillReviewMarkdown, reviewFactoryArtifactProposals } from './review.js';
 
 interface ResolvedSkillSourceSummary {
   query: string;
@@ -147,6 +157,16 @@ interface FactoryStagePlan extends FactoryStageName {
   kind: 'stage' | 'slot';
 }
 
+interface FactoryWorkflowRouteItem {
+  kind: 'stage' | 'slot';
+  id: string;
+  stageSkill: string;
+  sourceSkill: string;
+  label: string;
+  parentStage: string | null;
+  nextStage: string | null;
+}
+
 function buildStagePlans(plan: FactorySkillPackagePlan): FactoryStagePlan[] {
   const workflow = compileWorkflowSpec(plan);
   return workflow.stages.flatMap((stage) => {
@@ -180,6 +200,34 @@ function buildStagePlans(plan: FactorySkillPackagePlan): FactoryStagePlan[] {
   });
 }
 
+function workflowRouteItems(workflow: FactoryWorkflowSpec): FactoryWorkflowRouteItem[] {
+  return workflow.stages.flatMap((stage) => {
+    const phaseItem: FactoryWorkflowRouteItem = {
+      kind: 'stage',
+      id: stage.id,
+      stageSkill: stage.stageSkill,
+      sourceSkill: stage.sourceSkill,
+      label: stage.label,
+      parentStage: null,
+      nextStage: stage.slots[0]?.stageSkill ?? stage.nextStage,
+    };
+    const slotItems = stage.slots.map((slot, index) => ({
+      kind: 'slot' as const,
+      id: slot.id,
+      stageSkill: slot.stageSkill,
+      sourceSkill: slot.sourceSkill,
+      label: slot.label,
+      parentStage: stage.stageSkill,
+      nextStage: stage.slots[index + 1]?.stageSkill ?? stage.nextStage,
+    }));
+    return [phaseItem, ...slotItems];
+  });
+}
+
+function workflowRouteStageSkills(workflow: FactoryWorkflowSpec): string[] {
+  return workflowRouteItems(workflow).map((item) => item.stageSkill);
+}
+
 function stageSkillFor(
   stagePlans: FactoryStagePlan[],
   item: FactorySkillPackagePlan['callChain'][number],
@@ -197,7 +245,15 @@ function generatedStageDescription(plan: FactorySkillPackagePlan, stage: Factory
 }
 
 function skillLoadInstruction(skill: string): string {
-  return `**立即执行：** 使用 Skill 工具加载 \`${skill}\` 技能。禁止跳过此步骤。`;
+  return `**立即执行：** 必须使用 Skill 工具加载 \`${skill}\` 技能。禁止跳过此步骤。`;
+}
+
+function generatedSkillLoadInstruction(skill: string): string {
+  return skillLoadInstruction(skill);
+}
+
+function sourceSkillLoadInstruction(skill: string): string {
+  return skillLoadInstruction(skill);
 }
 
 function workflowRouteMarkdown(workflow: FactoryWorkflowSpec): string {
@@ -209,7 +265,7 @@ function workflowRouteMarkdown(workflow: FactoryWorkflowSpec): string {
       const next = stage.nextStage
         ? ` 下一阶段：\`${stage.nextStage}\`。`
         : ' 当前阶段完成后 workflow 结束。';
-      return `${index + 1}. ${skillLoadInstruction(stage.stageSkill)}（${stage.label} 阶段，来源 Skill: \`${stage.sourceSkill}\`。）${next}`;
+      return `${index + 1}. ${generatedSkillLoadInstruction(stage.stageSkill)}（${stage.label} 阶段，来源 Skill: \`${stage.sourceSkill}\`。）${next}`;
     })
     .join('\n');
 }
@@ -391,10 +447,10 @@ function stageRouteLines(workflow: FactoryWorkflowSpec): string {
           : `\n   - 插槽：${stage.slots
               .map(
                 (slot) =>
-                  `\`${slot.id}\` → ${skillLoadInstruction(slot.stageSkill)}（来源 Skill: \`${slot.sourceSkill}\`）`,
+                  `\`${slot.id}\` → ${generatedSkillLoadInstruction(slot.stageSkill)}（来源 Skill: \`${slot.sourceSkill}\`）`,
               )
               .join('\n   - 插槽：')}`;
-      return `${index + 1}. ${skillLoadInstruction(stage.stageSkill)}（${phaseDisplayLabel(stage)}，来源 Skill: \`${stage.sourceSkill}\`。）${next}${slots}`;
+      return `${index + 1}. ${generatedSkillLoadInstruction(stage.stageSkill)}（${phaseDisplayLabel(stage)}，来源 Skill: \`${stage.sourceSkill}\`。）${next}${slots}`;
     })
     .join('\n');
 }
@@ -652,7 +708,7 @@ function skillMarkdown(plan: FactorySkillPackagePlan): string {
       : stagePlans
           .map(
             (stage, index) =>
-              `${index + 1}. ${skillLoadInstruction(stage.name)}（${stage.label ?? stage.phase ?? stage.sourceSkill} 阶段，来源 Skill: \`${stage.sourceSkill}\`。）`,
+              `${index + 1}. ${generatedSkillLoadInstruction(stage.name)}（${stage.label ?? stage.phase ?? stage.sourceSkill} 阶段，来源 Skill: \`${stage.sourceSkill}\`。）`,
           )
           .join('\n');
   const stageSkillSection =
@@ -769,7 +825,7 @@ function customizedCometSkillMarkdown(options: {
       : stagePlans
           .map(
             (stage, index) =>
-              `${index + 1}. ${skillLoadInstruction(stage.name)}（${stage.label ?? stage.phase ?? stage.sourceSkill} 阶段，来源 Skill: \`${stage.sourceSkill}\`。）`,
+              `${index + 1}. ${generatedSkillLoadInstruction(stage.name)}（${stage.label ?? stage.phase ?? stage.sourceSkill} 阶段，来源 Skill: \`${stage.sourceSkill}\`。）`,
           )
           .join('\n');
   const expansion = plan.skillMaker?.templateExpansion;
@@ -829,13 +885,12 @@ ${internalUsage}
 }
 
 function skillDefinition(plan: FactorySkillPackagePlan): Record<string, unknown> {
-  const stagePlans = buildStagePlans(plan);
-  const steps = plan.callChain.map((item, index) => ({
-    id: stepId(index, stageSkillFor(stagePlans, item, index)),
-    action: { type: 'invoke_skill', ref: stageSkillFor(stagePlans, item, index) },
-    ...(index + 1 < plan.callChain.length
-      ? { next: stepId(index + 1, stageSkillFor(stagePlans, plan.callChain[index + 1], index + 1)) }
-      : {}),
+  const workflow = compileWorkflowSpec(plan);
+  const route = workflowRouteItems(workflow);
+  const steps = route.map((item, index) => ({
+    id: stepId(index, item.stageSkill),
+    action: { type: 'invoke_skill', ref: item.stageSkill },
+    ...(index + 1 < route.length ? { next: stepId(index + 1, route[index + 1]!.stageSkill) } : {}),
   }));
 
   return {
@@ -850,7 +905,7 @@ function skillDefinition(plan: FactorySkillPackagePlan): Record<string, unknown>
       statement: plan.goal,
       inputs: [],
       outputs: [{ name: 'result', description: 'Generated workflow result' }],
-      success: ['The generated workflow completes according to its call chain'],
+      success: ['The generated workflow completes according to its compiled workflow protocol'],
     },
     orchestration:
       plan.engineMode === 'adaptive'
@@ -860,8 +915,8 @@ function skillDefinition(plan: FactorySkillPackagePlan): Record<string, unknown>
             entry: steps[0]?.id ?? 'complete',
             steps: steps.length > 0 ? steps : [{ id: 'complete', action: { type: 'checkpoint' } }],
           },
-    skills: plan.callChain.map((item, index) => ({
-      id: stageSkillFor(stagePlans, item, index),
+    skills: route.map((item) => ({
+      id: item.stageSkill,
     })),
     agents: [],
     tools: [],
@@ -869,12 +924,12 @@ function skillDefinition(plan: FactorySkillPackagePlan): Record<string, unknown>
 }
 
 function guardrails(plan: FactorySkillPackagePlan): Record<string, unknown> {
-  const stagePlans = buildStagePlans(plan);
+  const route = workflowRouteStageSkills(compileWorkflowSpec(plan));
   return {
-    allowedSkills: plan.callChain.map((item, index) => stageSkillFor(stagePlans, item, index)),
+    allowedSkills: route,
     allowedAgents: [],
     allowedTools: [],
-    maxIterations: Math.max(plan.callChain.length + 2, 5),
+    maxIterations: Math.max(route.length + 2, 5),
     maxRetriesPerAction: 2,
     confirmationRequiredFor: [],
   };
@@ -896,6 +951,7 @@ function runtimeEvals(): Record<string, unknown> {
 
 function evalManifest(plan: FactorySkillPackagePlan): Record<string, unknown> {
   const workflow = compileWorkflowSpec(plan);
+  const route = workflowRouteStageSkills(workflow);
   return {
     apiVersion: 'comet.eval/v1alpha1',
     kind: 'SkillEvalManifest',
@@ -911,7 +967,7 @@ function evalManifest(plan: FactorySkillPackagePlan): Record<string, unknown> {
     evaluation: {
       recommendedTasks: ['authoring-skill-smoke', 'workflow-route-conformance'],
       requiredSkills: plan.callChain.map((item) => item.skill),
-      generatedStageSkills: workflow.stages.map((stage) => stage.stageSkill),
+      generatedStageSkills: route,
       expectedArtifacts: [
         'reference/resolved-skills.json',
         'reference/workflow-protocol.json',
@@ -920,7 +976,7 @@ function evalManifest(plan: FactorySkillPackagePlan): Record<string, unknown> {
       ],
       routeConformance: {
         task: 'workflow-route-conformance',
-        expectedStageOrder: workflow.stages.map((stage) => stage.stageSkill),
+        expectedStageOrder: route,
       },
     },
     interaction: {
@@ -1063,6 +1119,63 @@ function phaseObjective(stage: FactoryWorkflowStage): string {
   }
 }
 
+function cometPhaseContractMarkdown(stage: FactoryWorkflowStage): string {
+  const stateAuthority =
+    '本组合的 `workflow-state.mjs` 只记录外层阶段断点；原始 Comet change 的事实状态仍以 `.comet.yaml` 和原始阶段脚本检查结果为准。只有原始阶段目标真实通过后，才能记录本组合阶段证据。';
+  switch (stage.phase) {
+    case 'open':
+      return `## Comet 阶段契约
+
+- 保留 \`comet-open\` 的输出语言和需求探索规则，面向用户的澄清、总结和确认使用用户当前语言。
+- 先完成 PRD 拆分预检；如果目标明显需要多个 change，停在这里让用户选择是否拆分，不能直接创建单个 change。
+- 需求澄清没有完成前不得写入阶段完成证据；必须明确目标、范围、非目标、验收方式和未知风险。
+- 创建或继续 change 前读取 \`openspec instructions\`，并让 proposal / design / tasks 与当前需求澄清一致。
+- change 名称必须经用户确认；写入 \`.comet.yaml\` 后再记录本组合阶段证据。
+- ${stateAuthority}`;
+    case 'design':
+      return `## Comet 阶段契约
+
+- 保留 \`comet-design\` 的 brainstorming 和深度设计职责；设计未被用户确认前不得推进到构建。
+- 设计阶段必须维护 \`handoff_context\` 与 \`handoff_hash\`，让跨设备恢复时能重建当前 change、设计结论、未解决问题和下一步。
+- 遵守 \`context_compression\` 选择；需要压缩时先更新 handoff，再继续执行后续步骤。
+- \`brainstorm-summary\` 必须来自真实的设计讨论或等价设计产物，不能用空摘要冒充通过。
+- delta spec 与 Design Doc 需要跟最终方案一致；如果插槽提出修改意见，先回到本阶段更新设计产物。
+- ${stateAuthority}`;
+    case 'build':
+      return `## Comet 阶段契约
+
+- 保留 \`comet-build\` 的计划确认和构建停顿点；\`build_pause: plan-ready\` 没有解决前不得开始实现。
+- 构建前必须确认 \`isolation\`、\`build_mode\`、\`tdd_mode\`、\`subagent_dispatch\` 和必要时的 \`direct_override\`，并把选择同步到 \`.comet.yaml\`。
+- 当 \`tdd_mode\` 要求测试先行时，先写能失败的测试，再实现；不能用事后测试替代。
+- 如果实现、测试或运行中出现异常，必须使用 Skill 工具加载 \`systematic-debugging\` 技能，定位根因后再改代码。
+- 每个实现段前后检查 \`dirty-worktree\` 风险；不要覆盖用户未提交或不属于本阶段的改动。
+- 只有原始构建阶段的计划、实现、任务勾选和必要检查完成后，才能记录本组合阶段证据。
+- ${stateAuthority}`;
+    case 'verify':
+      return `## Comet 阶段契约
+
+- 保留 \`comet-verify\` 的验证协议；先检查 \`dirty-worktree\`，再根据 \`verify_mode\` 选择验证强度。
+- 声称完成前必须使用 Skill 工具加载 \`verification-before-completion\` 技能，并用实际命令输出支撑结论。
+- 必须运行或等价执行 \`openspec-verify-change\` 的语义检查，确认实现、任务、delta spec 和设计结论一致。
+- 根据分支状态使用 \`finishing-a-development-branch\` 处理合并、PR、保留分支或后续交付选择。
+- 验证失败时留在本阶段，记录失败原因、修复动作和复验结果；不能因为外层 workflow 需要推进而跳过失败。
+- ${stateAuthority}`;
+    case 'archive':
+      return `## Comet 阶段契约
+
+- 保留 \`comet-archive\` 的最终用户确认；验证未通过或用户未确认前不得归档。
+- 如果归档检查发现实现或规格需要返工，执行 \`archive-reopen\` 语义，回到对应阶段继续修复。
+- 同步 delta spec 时必须按 OpenSpec 的 \`ADDED/MODIFIED/REMOVED/RENAMED\` 语义合并主 spec，避免把临时说明当成最终规格。
+- 归档产物需要写入 \`archived-with\` 等可追踪元数据，让恢复和审计知道本次是由哪个生成 workflow 完成。
+- 归档完成后再把本组合 workflow 标记为完成；如果 archive 脚本或规格同步失败，继续留在归档阶段。
+- ${stateAuthority}`;
+    default:
+      return `## Comet 阶段契约
+
+- ${stateAuthority}`;
+  }
+}
+
 function phaseDisplayLabel(stage: FactoryWorkflowStage): string {
   switch (stage.phase) {
     case 'open':
@@ -1087,6 +1200,47 @@ function slotEvidencePhrase(slot: FactoryWorkflowSlot): string {
   return `记录 ${slot.label} 结论`;
 }
 
+function semanticChecksMarkdown(checks: FactoryWorkflowSemanticCheck[]): string {
+  if (checks.length === 0) return '- 无额外语义检查。';
+  return checks
+    .map((check) => {
+      if (check.kind === 'evidence-field') {
+        return `- \`${check.id}\`: ${check.label}证据字段 \`${check.field}\` 必须存在。`;
+      }
+      if (check.kind === 'completed-check') {
+        return `- \`${check.id}\`: 完成来源 Skill 对应语义检查；证据字段 \`${check.field ?? 'completedChecks'}\` 必须包含 \`${check.value ?? check.id}\`。详情见 \`reference/workflow-protocol.json\`。`;
+      }
+      if (check.expectedPhase) {
+        return `- \`${check.id}\`: ${check.label}脚本会读取原始 Comet \`.comet.yaml\`。`;
+      }
+      return `- \`${check.id}\`: ${check.label}`;
+    })
+    .join('\n');
+}
+
+function evidenceRecordJson(
+  checks: FactoryWorkflowSemanticCheck[],
+  summary: string,
+  extra: Record<string, string> = {},
+): string {
+  const evidence: Record<string, unknown> = { summary, ...extra };
+  if (
+    checks.some((check) => check.kind === 'evidence-field' && check.field === 'sourceSkillResult')
+  ) {
+    evidence.sourceSkillResult = '记录来源 Skill 的真实产物和结论';
+  }
+  const completedChecks = checks
+    .filter((check) => check.kind === 'completed-check')
+    .map((check) => check.value ?? check.id);
+  if (completedChecks.length > 0) {
+    evidence.completedChecks = completedChecks;
+  }
+  if (checks.some((check) => check.kind === 'comet-state')) {
+    evidence.changeName = '<change-name>';
+  }
+  return JSON.stringify(evidence);
+}
+
 function cometPhaseStageSkillMarkdown(
   plan: FactorySkillPackagePlan,
   stage: FactoryStagePlan,
@@ -1098,7 +1252,7 @@ function cometPhaseStageSkillMarkdown(
       : workflowStage.slots
           .map(
             (slot) =>
-              `- \`${slot.id}\`: ${skillLoadInstruction(slot.stageSkill)}完成后必须${slotEvidencePhrase(slot)}。`,
+              `- \`${slot.id}\`: ${generatedSkillLoadInstruction(slot.stageSkill)}完成后必须${slotEvidencePhrase(slot)}。`,
           )
           .join('\n');
   const exit = workflowStage.exitGate.map((item) => `- ${item}`).join('\n');
@@ -1109,6 +1263,8 @@ function cometPhaseStageSkillMarkdown(
   const nextOutput = workflowStage.nextStage
     ? `NEXT: auto\nSKILL: ${workflowStage.nextStage}`
     : 'NEXT: done';
+  const sourceInstruction = sourceSkillLoadInstruction(workflowStage.sourceSkill);
+  const cometContract = cometPhaseContractMarkdown(workflowStage);
   return `---
 name: ${stage.name}
 description: ${generatedStageDescription(plan, stage)}
@@ -1130,11 +1286,14 @@ node ${plan.name}/scripts/workflow-guard.mjs entry ${stage.name}
 
 ## 执行步骤
 
-1. 按 Comet ${phaseDisplayLabel(workflowStage)} 职责推进当前 change。
-2. 遇到用户决策点时暂停并等待明确选择。
-3. 完成本阶段所有插槽步骤。
-4. 把本阶段真实产物写入证据记录。
-5. 运行退出脚本；失败时留在本阶段继续补齐。
+1. ${sourceInstruction}
+2. 按原始 Comet 阶段 Skill 完成本阶段主体产物、脚本检查和用户阻塞点。
+3. 原始 Comet 阶段 Skill 只提供本阶段主体流程；不要采用原始 Comet 阶段的下一阶段跳转、自动衔接或旧路由说明。
+4. 回到本组合 workflow，完成下方所有插槽步骤。
+5. 把本阶段真实产物写入证据记录。
+6. 运行本组合退出脚本；失败时留在本阶段继续补齐。
+
+${cometContract}
 
 ## 插槽步骤
 
@@ -1143,10 +1302,14 @@ ${slotLines}
 ## 证据记录
 
 \`\`\`bash
-node ${plan.name}/scripts/workflow-state.mjs record ${stage.name} '{"summary":"${evidenceSummary}"}'
+node ${plan.name}/scripts/workflow-state.mjs record ${stage.name} '${evidenceRecordJson(workflowStage.semanticChecks, evidenceSummary)}'
 \`\`\`
 
 证据内容应来自本阶段实际产物；如果阶段需要额外校验，可以把结论、路径和用户决策写入同一个 JSON。
+
+## 语义检查
+
+${semanticChecksMarkdown(workflowStage.semanticChecks)}
 
 ## 退出条件
 
@@ -1192,6 +1355,7 @@ function cometSlotStageSkillMarkdown(
     : `完成 ${slot.label} 插槽目标，并把结论交还给 ${slot.phase} 阶段。`;
   const evidence = slotEvidencePhrase(slot);
   const parentSkill = stage.parentStage?.stageSkill ?? slot.phase;
+  const sourceInstruction = sourceSkillLoadInstruction(slot.sourceSkill);
   return `---
 name: ${stage.name}
 description: ${generatedStageDescription(plan, stage)}
@@ -1214,7 +1378,7 @@ node ${plan.name}/scripts/workflow-guard.mjs entry ${stage.name}
 ## 执行步骤
 
 1. 读取父阶段交接上下文和当前候选方案。
-2. ${skillLoadInstruction(slot.sourceSkill)}
+2. ${sourceInstruction}
 3. 将来源 Skill 的输出转化为本 workflow 可恢复的结论。
 4. 如发现设计仍不充分，回到父阶段继续调整，不得进入下一阶段。
 5. 记录插槽证据并运行退出脚本。
@@ -1222,10 +1386,14 @@ node ${plan.name}/scripts/workflow-guard.mjs entry ${stage.name}
 ## 证据记录
 
 \`\`\`bash
-node ${plan.name}/scripts/workflow-state.mjs record ${stage.name} '{"summary":"${evidence}","parent":"${parentSkill}"}'
+node ${plan.name}/scripts/workflow-state.mjs record ${stage.name} '${evidenceRecordJson(slot.semanticChecks, evidence, { parent: parentSkill })}'
 \`\`\`
 
 证据必须来自来源 Skill 的实际产物。不要复制来源 Skill 正文；只记录本插槽结论、风险、反例和下一步建议。
+
+## 语义检查
+
+${semanticChecksMarkdown(slot.semanticChecks)}
 
 ## 退出条件
 
@@ -1275,6 +1443,7 @@ function workflowKernelStageSkillMarkdown(
   const nextOutput = workflowStage.nextStage
     ? `NEXT: auto\nSKILL: ${workflowStage.nextStage}`
     : 'NEXT: done';
+  const sourceInstruction = sourceSkillLoadInstruction(workflowStage.sourceSkill);
   return `---
 name: ${stage.name}
 description: ${generatedStageDescription(plan, stage)}
@@ -1297,16 +1466,21 @@ node ${plan.name}/scripts/workflow-guard.mjs entry ${stage.name}
 ## 执行步骤
 
 1. 读取 \`reference/workflow-protocol.json\` 中本阶段的目标、证据和下一阶段。
-2. ${skillLoadInstruction(workflowStage.sourceSkill)}
-3. 将来源 Skill 的结果整理为阶段证据。
-4. 写入本阶段证据。
-5. 运行退出脚本检查是否可以推进。
+2. ${sourceInstruction}
+3. 执行来源 Skill 的主体方法；如果来源 Skill 自带下一阶段、旧路由或旧命令，以本 workflow 的阶段路线为准。
+4. 将来源 Skill 的结果整理为阶段证据。
+5. 写入本阶段证据。
+6. 运行退出脚本检查是否可以推进。
 
 ## 证据记录
 
 \`\`\`bash
-node ${plan.name}/scripts/workflow-state.mjs record ${stage.name} '{"summary":"${workflowStage.label} 阶段目标已完成"}'
+node ${plan.name}/scripts/workflow-state.mjs record ${stage.name} '${evidenceRecordJson(workflowStage.semanticChecks, `${workflowStage.label} 阶段目标已完成`)}'
 \`\`\`
+
+## 语义检查
+
+${semanticChecksMarkdown(workflowStage.semanticChecks)}
 
 ## 退出条件
 
@@ -1367,7 +1541,7 @@ function internalStageSkillMarkdown(
   const stageProtocol = workflowStageProtocolMarkdown(stage.workflowStage);
   const sourceInvocation = isCometBuiltinStage(plan, stage)
     ? `本阶段内联执行已适配的 \`${stage.sourceSkill}\` 来源正文；不要重新加载原始 \`${stage.sourceSkill}\`，避免回到未改写的 Comet 路由。`
-    : `${skillLoadInstruction(stage.sourceSkill)}
+    : `${sourceSkillLoadInstruction(stage.sourceSkill)}
 如果当前平台无法加载来源 Skill，则按下方保留的来源 Skill 正文执行同一阶段。`;
   const evidence =
     summaries.length === 0
@@ -1440,11 +1614,10 @@ ${evidence}
 }
 
 function planScript(plan: FactorySkillPackagePlan): string {
-  const stagePlans = buildStagePlans(plan);
   const workflow = compileWorkflowSpec(plan);
   const planSourcePath = plan.engineMode === 'none' ? ['SKILL.md'] : ['comet', 'skill.yaml'];
-  const planSteps = plan.callChain.map((item, index) =>
-    stepId(index, stageSkillFor(stagePlans, item, index)),
+  const planSteps = workflowRouteItems(workflow).map((item, index) =>
+    stepId(index, item.stageSkill),
   );
   return `#!/usr/bin/env node
 import { promises as fs } from 'fs';
@@ -1581,6 +1754,8 @@ function checkScript(plan: FactorySkillPackagePlan): string {
     'reference/workflow-protocol.json',
     'reference/decision-points.md',
     'reference/recovery.md',
+    'reference/authoring-lanes.json',
+    'reference/skill-review.md',
     'reference/composition-report.md',
     'scripts/comet-plan.mjs',
     'scripts/comet-check.mjs',
@@ -1883,6 +2058,7 @@ function flattenRoute(protocol) {
       stageSkill: stage.stageSkill,
       parentStage: null,
       slots: stage.slots ?? [],
+      semanticChecks: stage.semanticChecks ?? [],
     });
     for (const slot of stage.slots ?? []) {
       route.push({
@@ -1891,6 +2067,7 @@ function flattenRoute(protocol) {
         stageSkill: slot.stageSkill,
         parentStage: stage.stageSkill,
         slots: [],
+        semanticChecks: slot.semanticChecks ?? [],
       });
     }
   }
@@ -1958,12 +2135,159 @@ function hasEvidence(state, stageSkill) {
   return Boolean(state.evidence && typeof state.evidence === 'object' && state.evidence[stageSkill]);
 }
 
+function evidenceFor(state, stageSkill) {
+  if (!state.evidence || typeof state.evidence !== 'object') return null;
+  const evidence = state.evidence[stageSkill];
+  return evidence && typeof evidence === 'object' && !Array.isArray(evidence) ? evidence : null;
+}
+
+function hasEvidenceValue(value) {
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === 'string') return value.trim().length > 0;
+  return value !== null && value !== undefined;
+}
+
 function missingEvidence(node, state) {
   const missing = [];
   if (!hasEvidence(state, node.stageSkill)) missing.push(node.stageSkill);
   if (node.kind === 'stage') {
     for (const slot of node.slots) {
       if (!hasEvidence(state, slot.stageSkill)) missing.push(slot.stageSkill);
+    }
+  }
+  return missing;
+}
+
+function parseSimpleYaml(content) {
+  const result = {};
+  for (const rawLine of content.split(/\\r?\\n/u)) {
+    const line = rawLine.replace(/\\s+#.*$/u, '').trim();
+    if (!line || line.startsWith('#')) continue;
+    const match = /^([A-Za-z_][A-Za-z0-9_-]*):\\s*(.*?)\\s*$/u.exec(line);
+    if (!match) continue;
+    const key = match[1];
+    let value = match[2] ?? '';
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    if (value === 'true') result[key] = true;
+    else if (value === 'false') result[key] = false;
+    else if (value === 'null') result[key] = null;
+    else result[key] = value;
+  }
+  return result;
+}
+
+async function fileExists(file) {
+  try {
+    const stats = await fs.stat(file);
+    return stats.isFile();
+  } catch {
+    return false;
+  }
+}
+
+function evidenceChangeNames(state) {
+  const names = new Set();
+  if (process.env.COMET_CHANGE) names.add(process.env.COMET_CHANGE);
+  const values =
+    state.evidence && typeof state.evidence === 'object' ? Object.values(state.evidence) : [];
+  for (const evidence of values) {
+    if (!evidence || typeof evidence !== 'object' || Array.isArray(evidence)) continue;
+    for (const key of ['changeName', 'change', 'cometChange']) {
+      const value = evidence[key];
+      if (typeof value === 'string' && value.trim()) names.add(value.trim());
+    }
+  }
+  return [...names];
+}
+
+async function cometYamlCandidates(state) {
+  const candidates = [];
+  for (const name of evidenceChangeNames(state)) {
+    candidates.push(path.join(runRoot, 'openspec', 'changes', name, '.comet.yaml'));
+  }
+  const changesRoot = path.join(runRoot, 'openspec', 'changes');
+  try {
+    const entries = await fs.readdir(changesRoot, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        candidates.push(path.join(changesRoot, entry.name, '.comet.yaml'));
+      }
+    }
+  } catch {
+    // No active OpenSpec changes in this run root.
+  }
+  return [...new Set(candidates)];
+}
+
+async function checkCometState(check, state) {
+  const candidates = await cometYamlCandidates(state);
+  const readable = [];
+  for (const file of candidates) {
+    if (await fileExists(file)) readable.push(file);
+  }
+  if (readable.length === 0) {
+    return '.comet.yaml not found for original Comet state';
+  }
+  const observed = [];
+  for (const file of readable) {
+    const parsed = parseSimpleYaml(await fs.readFile(file, 'utf8'));
+    observed.push({ file, parsed });
+    if (check.expectedPhase && parsed.phase === check.expectedPhase) return null;
+    if (check.expectedArchived && parsed.archived === true) return null;
+  }
+  const first = observed[0];
+  if (check.expectedPhase) {
+    return (
+      '原始 Comet .comet.yaml phase 必须是 ' +
+      check.expectedPhase +
+      '，当前是 ' +
+      String(first?.parsed?.phase ?? 'unknown') +
+      ': ' +
+      String(first?.file ?? '')
+    );
+  }
+  if (check.expectedArchived) {
+    return (
+      '原始 Comet .comet.yaml 必须包含 archived: true，当前是 ' +
+      String(first?.parsed?.archived ?? 'unknown') +
+      ': ' +
+      String(first?.file ?? '')
+    );
+  }
+  return null;
+}
+
+async function missingSemanticChecks(node, state) {
+  const missing = [];
+  const targets = node.kind === 'stage' ? [node, ...node.slots] : [node];
+  for (const target of targets) {
+    const checks = Array.isArray(target.semanticChecks) ? target.semanticChecks : [];
+    if (checks.length === 0) continue;
+    const evidence = evidenceFor(state, target.stageSkill);
+    if (!evidence) continue;
+    for (const check of checks) {
+      if (check.kind === 'evidence-field') {
+        if (!hasEvidenceValue(evidence[check.field])) {
+          missing.push(target.stageSkill + ': ' + String(check.field ?? check.id));
+        }
+        continue;
+      }
+      if (check.kind === 'completed-check') {
+        const values = Array.isArray(evidence[check.field ?? 'completedChecks'])
+          ? evidence[check.field ?? 'completedChecks']
+          : [];
+        const expected = check.value ?? check.id;
+        if (!values.includes(expected)) {
+          missing.push(target.stageSkill + ': ' + expected);
+        }
+        continue;
+      }
+      if (check.kind === 'comet-state') {
+        const message = await checkCometState(check, state);
+        if (message) missing.push(message);
+      }
     }
   }
   return missing;
@@ -2017,6 +2341,12 @@ async function main() {
         ' record <stage-skill> ' +
         '\\'{"summary":"已完成的真实产物"}\\'',
     );
+    process.exit(1);
+  }
+
+  const semanticMissing = await missingSemanticChecks(node, state);
+  if (semanticMissing.length > 0) {
+    console.error('BLOCKED: 缺少语义证据: ' + semanticMissing.join(', '));
     process.exit(1);
   }
 
@@ -2084,94 +2414,202 @@ main().catch((error) => {
 `;
 }
 
-export async function generateFactorySkillPackage(
-  plan: FactorySkillPackagePlan,
-): Promise<GeneratedFactorySkillPackage> {
-  const packageRoot = path.resolve(plan.root, 'skills', plan.name);
+function artifact(
+  path: string,
+  kind: FactoryPackageArtifact['kind'],
+  content: string,
+  executable = false,
+): FactoryPackageArtifact {
+  return { path, kind, content, ...(executable ? { executable } : {}) };
+}
+
+function jsonArtifact(
+  artifactPath: string,
+  value: unknown,
+  kind: FactoryPackageArtifact['kind'] = 'reference',
+): FactoryPackageArtifact {
+  return artifact(artifactPath, kind, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+function authoringLanesJson(
+  protocolHash: string,
+  proposals: FactoryArtifactProposal[],
+  review: ReturnType<typeof reviewFactoryArtifactProposals>,
+): string {
+  return `${JSON.stringify(
+    {
+      schemaVersion: 1,
+      protocolHash,
+      lanes: proposals.map((proposal) => ({
+        lane: proposal.lane,
+        protocolHash: proposal.protocolHash,
+        artifacts: proposal.artifacts.map((item) => ({
+          path: item.path,
+          kind: item.kind,
+        })),
+        findings: proposal.findings ?? [],
+      })),
+      review: {
+        passed: review.passed,
+        blockingFindings: review.blockingFindings,
+        warnings: review.warnings,
+      },
+    },
+    null,
+    2,
+  )}\n`;
+}
+
+function artifactTarget(packageRoot: string, artifactPath: string): string {
   const skillsRoot = path.dirname(packageRoot);
-  const cometRoot = path.join(packageRoot, 'comet');
-  const referenceRoot = path.join(packageRoot, 'reference');
-  const scriptsRoot = path.join(packageRoot, 'scripts');
+  const target = path.resolve(packageRoot, artifactPath);
+  const relative = path.relative(skillsRoot, target);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error(`Generated artifact escapes skills root: ${artifactPath}`);
+  }
+  return target;
+}
+
+export async function draftFactorySkillArtifacts(
+  plan: FactorySkillPackagePlan,
+): Promise<FactoryPackageDraft> {
   const sourceSummaries = buildSourceSummaries(plan);
   const stagePlans = buildStagePlans(plan);
   const workflow = compileWorkflowSpec(plan);
-  const compositionReportPath = path.join(referenceRoot, 'composition-report.md');
-  const cometRuntimeScripts: string[] = [];
-  const scriptPaths = [
-    path.join(scriptsRoot, 'comet-plan.mjs'),
-    path.join(scriptsRoot, 'comet-check.mjs'),
-    path.join(scriptsRoot, 'comet-hook-guard.mjs'),
-    path.join(scriptsRoot, 'workflow-state.mjs'),
-    path.join(scriptsRoot, 'workflow-guard.mjs'),
-    path.join(scriptsRoot, 'workflow-handoff.mjs'),
+  const protocolHash = workflowProtocolHash(workflow);
+  const input = { workflow, protocolHash };
+  const scriptArtifacts = [
+    artifact('scripts/comet-plan.mjs', 'script', planScript(plan), true),
+    artifact('scripts/comet-check.mjs', 'script', checkScript(plan), true),
+    artifact('scripts/comet-hook-guard.mjs', 'script', hookGuardScript(plan), true),
+    artifact('scripts/workflow-state.mjs', 'script', workflowStateScript(plan), true),
+    artifact('scripts/workflow-guard.mjs', 'script', workflowGuardScript(), true),
+    artifact('scripts/workflow-handoff.mjs', 'script', workflowHandoffScript(), true),
   ];
-
-  await fs.mkdir(packageRoot, { recursive: true });
-  await fs.writeFile(path.join(packageRoot, 'SKILL.md'), skillMarkdown(plan), 'utf8');
-  for (const stage of stagePlans) {
-    const stageRoot = path.join(skillsRoot, stage.name);
-    await fs.mkdir(stageRoot, { recursive: true });
-    await fs.writeFile(
-      path.join(stageRoot, 'SKILL.md'),
-      internalStageSkillMarkdown(plan, stage, sourceSummaries),
-      'utf8',
-    );
-  }
-  await fs.mkdir(referenceRoot, { recursive: true });
-  await fs.writeFile(
-    path.join(referenceRoot, 'resolved-skills.json'),
-    JSON.stringify(
-      {
+  const engineArtifacts =
+    plan.engineMode === 'none'
+      ? []
+      : [
+          artifact('comet/skill.yaml', 'engine', stringify(skillDefinition(plan))),
+          artifact('comet/guardrails.yaml', 'engine', stringify(guardrails(plan))),
+          artifact('comet/checks.yaml', 'engine', stringify(runtimeEvals())),
+          artifact('comet/eval.yaml', 'engine', stringify(evalManifest(plan))),
+        ];
+  const proposals = await runFactoryAuthoringLanes(input, [
+    createStaticArtifactAuthor('skill-core', () => [
+      artifact('SKILL.md', 'skill', skillMarkdown(plan)),
+      ...stagePlans.map((stage) =>
+        artifact(
+          `../${stage.name}/SKILL.md`,
+          'skill',
+          internalStageSkillMarkdown(plan, stage, sourceSummaries),
+        ),
+      ),
+    ]),
+    createStaticArtifactAuthor('script-contract', () => scriptArtifacts),
+    createStaticArtifactAuthor('reference', () => [
+      jsonArtifact('reference/resolved-skills.json', {
         schemaVersion: 1,
         resolvedSkills: plan.resolvedSkills ?? [],
         sourceSummaries,
         stageNames: stagePlans,
         preference: plan.preference ?? null,
-      },
-      null,
-      2,
-    ) + '\n',
-    'utf8',
-  );
-  await fs.writeFile(
-    path.join(referenceRoot, 'workflow-protocol.json'),
-    JSON.stringify(workflow, null, 2) + '\n',
-    'utf8',
-  );
-  await fs.writeFile(
-    path.join(referenceRoot, 'decision-points.md'),
-    workflowDecisionPointsMarkdown(workflow),
-    'utf8',
-  );
-  await fs.writeFile(
-    path.join(referenceRoot, 'recovery.md'),
-    workflowRecoveryMarkdown(workflow),
-    'utf8',
-  );
-  await fs.writeFile(compositionReportPath, compositionReport(plan), 'utf8');
-  await fs.mkdir(scriptsRoot, { recursive: true });
-  await fs.writeFile(scriptPaths[0]!, planScript(plan), 'utf8');
-  await fs.writeFile(scriptPaths[1]!, checkScript(plan), 'utf8');
-  await fs.writeFile(scriptPaths[2]!, hookGuardScript(plan), 'utf8');
-  await fs.writeFile(scriptPaths[3]!, workflowStateScript(plan), 'utf8');
-  await fs.writeFile(scriptPaths[4]!, workflowGuardScript(), 'utf8');
-  await fs.writeFile(scriptPaths[5]!, workflowHandoffScript(), 'utf8');
+      }),
+      jsonArtifact('reference/workflow-protocol.json', workflow),
+      artifact('reference/composition-report.md', 'reference', compositionReport(plan)),
+    ]),
+    createStaticArtifactAuthor('pause-points', () => [
+      artifact(
+        'reference/decision-points.md',
+        'reference',
+        workflowDecisionPointsMarkdown(workflow),
+      ),
+      artifact('reference/recovery.md', 'reference', workflowRecoveryMarkdown(workflow)),
+    ]),
+    createStaticArtifactAuthor('eval', () => engineArtifacts),
+  ]);
 
-  if (plan.engineMode !== 'none') {
-    await fs.mkdir(cometRoot, { recursive: true });
-    await fs.writeFile(
-      path.join(cometRoot, 'skill.yaml'),
-      stringify(skillDefinition(plan)),
-      'utf8',
-    );
-    await fs.writeFile(
-      path.join(cometRoot, 'guardrails.yaml'),
-      stringify(guardrails(plan)),
-      'utf8',
-    );
-    await fs.writeFile(path.join(cometRoot, 'checks.yaml'), stringify(runtimeEvals()), 'utf8');
-    await fs.writeFile(path.join(cometRoot, 'eval.yaml'), stringify(evalManifest(plan)), 'utf8');
+  const preReview = reviewFactoryArtifactProposals({
+    workflow,
+    protocolHash,
+    proposals,
+    requiresEngineArtifacts: plan.engineMode !== 'none',
+  });
+  const reviewArtifacts: FactoryPackageArtifact[] = [
+    artifact('reference/skill-review.md', 'reference', renderSkillReviewMarkdown(preReview)),
+  ];
+  const reviewProposal: FactoryArtifactProposal = {
+    lane: 'skill-review',
+    protocolHash,
+    artifacts: reviewArtifacts,
+  };
+  const allProposals = [...proposals, reviewProposal];
+  reviewArtifacts.push(
+    artifact(
+      'reference/authoring-lanes.json',
+      'reference',
+      authoringLanesJson(protocolHash, allProposals, preReview),
+    ),
+  );
+
+  const finalReview = reviewFactoryArtifactProposals({
+    workflow,
+    protocolHash,
+    proposals: allProposals,
+    requiresEngineArtifacts: plan.engineMode !== 'none',
+  });
+  reviewArtifacts[0] = artifact(
+    'reference/skill-review.md',
+    'reference',
+    renderSkillReviewMarkdown(finalReview),
+  );
+  reviewArtifacts[1] = artifact(
+    'reference/authoring-lanes.json',
+    'reference',
+    authoringLanesJson(protocolHash, allProposals, finalReview),
+  );
+
+  return {
+    workflow,
+    protocolHash,
+    proposals: allProposals,
+    artifacts: collectProposalArtifacts(allProposals),
+    review: finalReview,
+  };
+}
+
+async function writeFactoryArtifacts(
+  packageRoot: string,
+  artifacts: FactoryPackageArtifact[],
+): Promise<void> {
+  for (const item of artifacts) {
+    const target = artifactTarget(packageRoot, item.path);
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.writeFile(target, item.content, 'utf8');
   }
+}
+
+export async function generateFactorySkillPackage(
+  plan: FactorySkillPackagePlan,
+): Promise<GeneratedFactorySkillPackage> {
+  const packageRoot = path.resolve(plan.root, 'skills', plan.name);
+  const cometRoot = path.join(packageRoot, 'comet');
+  const referenceRoot = path.join(packageRoot, 'reference');
+  const stagePlans = buildStagePlans(plan);
+  const draft = await draftFactorySkillArtifacts(plan);
+  const compositionReportPath = path.join(referenceRoot, 'composition-report.md');
+  if (!draft.review.passed) {
+    const findings = draft.review.blockingFindings
+      .map(
+        (finding) =>
+          `${finding.code}${finding.path ? ` (${finding.path})` : ''}: ${finding.message}`,
+      )
+      .join('\n');
+    throw new Error(`Generated Skill package failed authoring review:\n${findings}`);
+  }
+
+  await fs.mkdir(packageRoot, { recursive: true });
+  await writeFactoryArtifacts(packageRoot, draft.artifacts);
 
   return {
     packageRoot,
@@ -2183,10 +2621,9 @@ export async function generateFactorySkillPackage(
       checksPath: plan.engineMode === 'none' ? null : path.join(cometRoot, 'checks.yaml'),
       evalManifestPath: plan.engineMode === 'none' ? null : path.join(cometRoot, 'eval.yaml'),
       compositionReportPath,
-      scripts: [
-        ...scriptPaths,
-        ...cometRuntimeScripts.map((script) => path.join(packageRoot, script)),
-      ],
+      scripts: draft.artifacts
+        .filter((item) => item.kind === 'script')
+        .map((item) => artifactTarget(packageRoot, item.path)),
     },
   };
 }

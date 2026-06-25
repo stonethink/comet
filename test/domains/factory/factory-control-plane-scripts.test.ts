@@ -66,6 +66,43 @@ function twoStagePlan(root: string): FactorySkillPackagePlan {
   };
 }
 
+function cometOverlayPlan(root: string): FactorySkillPackagePlan {
+  return {
+    root,
+    name: 'comet-state-bound',
+    version: '1.0.0',
+    description: 'Comet overlay bound to Classic state.',
+    goal: 'Customize /comet while preserving Classic state checks.',
+    defaultLocale: 'zh',
+    callChain: [{ skill: 'comet-open', preferenceIndex: 0 }],
+    stageNames: [
+      {
+        skill: 'comet-open',
+        name: 'comet-state-bound-open',
+        recommendedName: 'comet-state-bound-open',
+        phase: 'open',
+        step: 'open',
+        label: 'Open',
+        source: 'recommended',
+      },
+    ],
+    skillMaker: {
+      intent: 'customize-comet',
+      baseTemplate: { skill: 'comet', profile: 'full' },
+      templateExpansion: {
+        retained: ['open / design / build / verify / archive'],
+        additions: [],
+        replacements: [],
+        disabled: [],
+        rejected: [],
+      },
+    },
+    resolvedSkills: [],
+    deviations: [],
+    engineMode: 'deterministic',
+  };
+}
+
 function node(
   script: string,
   args: string[],
@@ -235,6 +272,28 @@ describe('generated factory control-plane scripts', () => {
         { COMET_RUN_ROOT: runRoot },
       ).status,
     ).toBe(0);
+    const semanticallyBlocked = node(
+      guardScript,
+      ['exit', 'stable-workflow-brainstorming', '--apply'],
+      runRoot,
+      { COMET_RUN_ROOT: runRoot },
+    );
+    expect(semanticallyBlocked.status).not.toBe(0);
+    expect(semanticallyBlocked.stderr).toContain('缺少语义证据');
+    expect(semanticallyBlocked.stderr).toContain('sourceSkillResult');
+
+    expect(
+      node(
+        stateScript,
+        [
+          'record',
+          'stable-workflow-brainstorming',
+          '{"summary":"可以进入计划","sourceSkillResult":"完成了 brainstorming 主体流程","completedChecks":["source-skill-result"]}',
+        ],
+        runRoot,
+        { COMET_RUN_ROOT: runRoot },
+      ).status,
+    ).toBe(0);
     const advanced = node(
       guardScript,
       ['exit', 'stable-workflow-brainstorming', '--apply'],
@@ -251,6 +310,45 @@ describe('generated factory control-plane scripts', () => {
     };
     expect(state.currentStage).toBe('stable-workflow-writing-plans');
     expect(state.completedStages).toContain('stable-workflow-brainstorming');
+  });
+
+  it('requires customized Comet stages to observe the original .comet.yaml transition', async () => {
+    const output = await generateFactorySkillPackage(cometOverlayPlan(root));
+    const stateScript = path.join(output.packageRoot, 'scripts', 'workflow-state.mjs');
+    const guardScript = path.join(output.packageRoot, 'scripts', 'workflow-guard.mjs');
+    const evidence =
+      '{"summary":"open 完成","sourceSkillResult":"原始 comet-open 已运行","completedChecks":["source-skill-result"]}';
+
+    expect(node(stateScript, ['init'], runRoot, { COMET_RUN_ROOT: runRoot }).status).toBe(0);
+    expect(
+      node(stateScript, ['record', 'comet-state-bound-open', evidence], runRoot, {
+        COMET_RUN_ROOT: runRoot,
+      }).status,
+    ).toBe(0);
+
+    const missingState = node(guardScript, ['exit', 'comet-state-bound-open', '--apply'], runRoot, {
+      COMET_RUN_ROOT: runRoot,
+    });
+    expect(missingState.status).not.toBe(0);
+    expect(missingState.stderr).toContain('.comet.yaml');
+
+    const changeDir = path.join(runRoot, 'openspec', 'changes', 'demo');
+    await fs.mkdir(changeDir, { recursive: true });
+    await fs.writeFile(path.join(changeDir, '.comet.yaml'), 'workflow: full\nphase: open\n');
+    const wrongPhase = node(guardScript, ['exit', 'comet-state-bound-open', '--apply'], runRoot, {
+      COMET_RUN_ROOT: runRoot,
+    });
+    expect(wrongPhase.status).not.toBe(0);
+    expect(wrongPhase.stderr).toContain('phase');
+    expect(wrongPhase.stderr).toContain('design');
+
+    await fs.writeFile(path.join(changeDir, '.comet.yaml'), 'workflow: full\nphase: design\n');
+    const advanced = node(guardScript, ['exit', 'comet-state-bound-open', '--apply'], runRoot, {
+      COMET_RUN_ROOT: runRoot,
+    });
+    expect(advanced.status).toBe(0);
+    expect(advanced.stdout).toContain('ALL CHECKS PASSED');
+    expect(advanced.stdout).toContain('SKILL: comet-state-bound-design');
   });
 
   it('fails status when the current plan hash drifts', async () => {

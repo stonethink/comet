@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
+import { parse } from 'yaml';
 import { loadSkillPackage } from '../../../domains/skill/load.js';
 import { validateSkillPackage } from '../../../domains/skill/validate.js';
 import { generateFactorySkillPackage } from '../../../domains/factory/package.js';
@@ -43,7 +44,7 @@ describe('Factory skill package generation', () => {
               scope: 'project',
               origin: 'project',
               factory: { query: 'brainstorming' },
-              root: path.join(root, '.codex', 'skills', 'brainstorming'),
+              root: path.join(root, '.agents', 'skills', 'brainstorming'),
               description: 'Explore intent before implementation.',
               skillMd: `---
 name: brainstorming
@@ -293,7 +294,7 @@ Deep protocol marker: run the Comet open guard before transitioning phases.
               scope: 'project',
               origin: 'project',
               factory: { query: 'grill-me' },
-              root: path.join(root, '.codex', 'skills', 'grill-me'),
+              root: path.join(root, '.agents', 'skills', 'grill-me'),
               description: 'A relentless interview to sharpen a plan or design.',
               skillMd: '# Grill Me\n\nRun a `/grilling` session.\n',
               hash: 'd'.repeat(64),
@@ -319,7 +320,7 @@ Deep protocol marker: run the Comet open guard before transitioning phases.
     expect(internalSkill).toContain('## 阶段目标');
     expect(internalSkill).toContain('设计压力测试');
     expect(internalSkill).toContain(
-      '**立即执行：** 使用 Skill 工具加载 `grill-me` 技能。禁止跳过此步骤。',
+      '**立即执行：** 必须使用 Skill 工具加载 `grill-me` 技能。禁止跳过此步骤。',
     );
     expect(internalSkill).not.toContain('Run a `/grilling` session.');
     const internalDescription = internalSkill.match(/^description:\s*(.+)$/mu)?.[1] ?? '';
@@ -428,7 +429,7 @@ Deep original Comet marker: detect the active change before routing.
     expect(entrySkill).toContain('design.after-brainstorming');
     expect(entrySkill).toContain('comet-with-grill-design-pressure-test');
     expect(entrySkill).toContain(
-      '**立即执行：** 使用 Skill 工具加载 `comet-with-grill-design-pressure-test` 技能。禁止跳过此步骤。',
+      '**立即执行：** 必须使用 Skill 工具加载 `comet-with-grill-design-pressure-test` 技能。禁止跳过此步骤。',
     );
     expect(entrySkill).not.toContain('# Comet Original');
     expect(entrySkill).not.toContain(
@@ -537,7 +538,7 @@ Deep original Comet marker: detect the active change before routing.
               scope: 'project',
               origin: 'project',
               factory: { query: 'writing-plans' },
-              root: path.join(root, '.codex', 'skills', 'writing-plans'),
+              root: path.join(root, '.agents', 'skills', 'writing-plans'),
               description: 'Use when writing an implementation plan.',
               skillMd: '# Writing Plans\n\nCreate a step-by-step implementation plan.\n',
               hash: '1'.repeat(64),
@@ -579,8 +580,9 @@ Deep original Comet marker: detect the active change before routing.
     expect(entrySkill).toContain('## 脚本守卫');
     expect(entrySkill).toContain('## 用户停顿点');
     expect(entrySkill).toContain(
-      '**立即执行：** 使用 Skill 工具加载 `protocol-workflow-brainstorming` 技能。禁止跳过此步骤。',
+      '**立即执行：** 必须使用 Skill 工具加载 `protocol-workflow-brainstorming` 技能。禁止跳过此步骤。',
     );
+    expect(entrySkill).not.toContain('本组合生成的 `protocol-workflow-brainstorming`');
     expect(entrySkill).not.toContain('## Generated Source Evidence');
     expect(entrySkill).not.toContain('完整结构化证据');
 
@@ -595,8 +597,9 @@ Deep original Comet marker: detect the active change before routing.
     expect(stageSkill).toContain('## 未完成处理');
     expect(stageSkill).toContain('## 恢复');
     expect(stageSkill).toContain(
-      '**立即执行：** 使用 Skill 工具加载 `brainstorming` 技能。禁止跳过此步骤。',
+      '**立即执行：** 必须使用 Skill 工具加载 `brainstorming` 技能。禁止跳过此步骤。',
     );
+    expect(stageSkill).not.toContain('Superpowers `brainstorming`');
     expect(stageSkill).toContain('node protocol-workflow/scripts/workflow-guard.mjs exit');
     expect(stageSkill).toContain('NEXT: auto');
     expect(stageSkill).toContain('SKILL:');
@@ -613,7 +616,12 @@ Deep original Comet marker: detect the active change before routing.
       ),
     ) as {
       kind: string;
-      stages: Array<{ id: string; stageSkill: string; nextStage: string | null }>;
+      stages: Array<{
+        id: string;
+        stageSkill: string;
+        nextStage: string | null;
+        semanticChecks: Array<{ id: string; kind: string; label: string }>;
+      }>;
       evals: Array<{ id: string; expectedStageOrder: string[] }>;
     };
     expect(protocol.kind).toBe('workflow-kernel');
@@ -622,13 +630,37 @@ Deep original Comet marker: detect the active change before routing.
         id: 'brainstorming',
         stageSkill: 'protocol-workflow-brainstorming',
         nextStage: 'protocol-workflow-writing-plans',
+        semanticChecks: expect.arrayContaining([
+          expect.objectContaining({
+            id: 'evidence-summary',
+            kind: 'evidence-field',
+          }),
+          expect.objectContaining({
+            id: 'source-skill-result',
+            kind: 'evidence-field',
+          }),
+          expect.objectContaining({
+            id: 'source-check-1',
+            label: expect.stringContaining('Ask questions before changing behavior'),
+          }),
+        ]),
       }),
       expect.objectContaining({
         id: 'writing-plans',
         stageSkill: 'protocol-workflow-writing-plans',
         nextStage: null,
+        semanticChecks: expect.arrayContaining([
+          expect.objectContaining({
+            id: 'source-check-1',
+            label: expect.stringContaining('Create a step-by-step implementation plan'),
+          }),
+        ]),
       }),
     ]);
+    expect(stageSkill).toContain('## 语义检查');
+    expect(stageSkill).toContain('source-check-1');
+    expect(stageSkill).toContain('sourceSkillResult');
+    expect(stageSkill).toContain('completedChecks');
     expect(protocol.evals).toEqual([
       expect.objectContaining({
         id: 'workflow-route-conformance',
@@ -640,6 +672,52 @@ Deep original Comet marker: detect the active change before routing.
     expect(manifest).toContain('workflow-route-conformance');
     expect(manifest).toContain('protocol-workflow-brainstorming');
     expect(manifest).toContain('protocol-workflow-writing-plans');
+  });
+
+  it('uses bare Skill names even for known Superpowers Skills', async () => {
+    const output = await generateFactorySkillPackage({
+      root,
+      name: 'debug-workflow',
+      version: '1.0.0',
+      description: 'Workflow with debugging guidance.',
+      goal: 'Run a debugging-focused workflow.',
+      defaultLocale: 'zh',
+      callChain: [{ skill: 'systematic-debugging', preferenceIndex: 0 }],
+      resolvedSkills: [
+        {
+          query: 'systematic-debugging',
+          preferenceIndex: 0,
+          status: 'available',
+          sources: [
+            {
+              name: 'systematic-debugging',
+              preferenceIndex: 0,
+              platform: 'codex',
+              scope: 'project',
+              origin: 'project',
+              factory: { query: 'systematic-debugging' },
+              root: path.join(root, '.codex', 'skills', 'systematic-debugging'),
+              description: 'Debug methodically before changing code.',
+              skillMd: '# Systematic Debugging\n\nFind the root cause before fixing.\n',
+              hash: '2'.repeat(64),
+            },
+          ],
+        },
+      ],
+      deviations: [],
+      engineMode: 'deterministic',
+    });
+
+    const stageSkill = await fs.readFile(
+      path.join(root, 'skills', 'debug-workflow-systematic-debugging', 'SKILL.md'),
+      'utf8',
+    );
+    expect(stageSkill).toContain(
+      '**立即执行：** 必须使用 Skill 工具加载 `systematic-debugging` 技能。禁止跳过此步骤。',
+    );
+    expect(stageSkill).not.toContain('Superpowers `systematic-debugging`');
+    expect(stageSkill).not.toContain('Find the root cause before fixing.');
+    expect(output.internalSkills).toEqual(['debug-workflow-systematic-debugging']);
   });
 
   it('turns grill-me into a guarded design pressure-test slot for customized Comet', async () => {
@@ -757,7 +835,7 @@ After design guard passes, call \`/comet-build\`.
               scope: 'project',
               origin: 'project',
               factory: { query: 'grill-me' },
-              root: path.join(root, '.codex', 'skills', 'grill-me'),
+              root: path.join(root, '.agents', 'skills', 'grill-me'),
               description: 'A relentless interview to sharpen a plan or design.',
               skillMd: '# Grill Me\n\nRun a `/grilling` session.\n',
               hash: '4'.repeat(64),
@@ -798,9 +876,13 @@ After design guard passes, call \`/comet-build\`.
       path.join(root, 'skills', 'comet-protocol-grill-design', 'SKILL.md'),
       'utf8',
     );
-    expect(designSkill).not.toContain(
-      '**立即执行：** 使用 Skill 工具加载 `comet-design` 技能。禁止跳过此步骤。',
+    expect(designSkill).toContain(
+      '**立即执行：** 必须使用 Skill 工具加载 `comet-design` 技能。禁止跳过此步骤。',
     );
+    expect(designSkill).not.toContain('Comet `comet-design`');
+    expect(designSkill).toContain('原始 Comet 阶段 Skill 只提供本阶段主体流程');
+    expect(designSkill).toContain('不要采用原始 Comet 阶段的下一阶段跳转');
+    expect(designSkill).not.toContain('按 Comet 设计阶段 职责推进当前 change。');
     expect(designSkill).toContain('## 插槽步骤');
     expect(designSkill).toContain('design.after-brainstorming');
     expect(designSkill).toContain('comet-protocol-grill-design-pressure-test');
@@ -814,8 +896,9 @@ After design guard passes, call \`/comet-build\`.
     expect(slotSkill).toContain('## 阶段目标');
     expect(slotSkill).toContain('设计压力测试');
     expect(slotSkill).toContain(
-      '**立即执行：** 使用 Skill 工具加载 `grill-me` 技能。禁止跳过此步骤。',
+      '**立即执行：** 必须使用 Skill 工具加载 `grill-me` 技能。禁止跳过此步骤。',
     );
+    expect(slotSkill).not.toContain('Superpowers `grill-me`');
     expect(slotSkill).toContain('## 退出条件');
     expect(slotSkill).toContain('记录压力测试结论');
     expect(slotSkill).not.toContain('Run a `/grilling` session.');
@@ -853,6 +936,229 @@ After design guard passes, call \`/comet-build\`.
         ],
       }),
     );
+
+    const expectedRoute = [
+      'comet-protocol-grill-open',
+      'comet-protocol-grill-design',
+      'comet-protocol-grill-design-pressure-test',
+      'comet-protocol-grill-build',
+      'comet-protocol-grill-verify',
+      'comet-protocol-grill-archive',
+    ];
+    const engineSkill = parse(
+      await fs.readFile(path.join(output.packageRoot, 'comet', 'skill.yaml'), 'utf8'),
+    ) as { orchestration: { steps: Array<{ action: { ref: string } }> } };
+    expect(engineSkill.orchestration.steps.map((step) => step.action.ref)).toEqual(expectedRoute);
+    const guardrail = parse(
+      await fs.readFile(path.join(output.packageRoot, 'comet', 'guardrails.yaml'), 'utf8'),
+    ) as { allowedSkills: string[] };
+    expect(guardrail.allowedSkills).toEqual(expectedRoute);
+  });
+
+  it('keeps customized Comet Engine files on the compiled stage and slot route', async () => {
+    const output = await generateFactorySkillPackage({
+      root,
+      name: 'comet-route-align',
+      version: '1.0.0',
+      description: 'Comet route alignment.',
+      goal: 'Customize /comet with design and build slots.',
+      defaultLocale: 'zh',
+      callChain: [
+        { skill: 'comet-open', preferenceIndex: 0 },
+        { skill: 'comet-design', preferenceIndex: 1 },
+        { skill: 'grill-me', preferenceIndex: 2 },
+        { skill: 'comet-build', preferenceIndex: 3 },
+        { skill: 'writing-plans', preferenceIndex: 4 },
+        { skill: 'requesting-code-review', preferenceIndex: 5 },
+        { skill: 'comet-verify', preferenceIndex: 6 },
+        { skill: 'comet-archive', preferenceIndex: 7 },
+      ],
+      stageNames: [
+        {
+          skill: 'comet-open',
+          name: 'comet-route-align-open',
+          recommendedName: 'comet-route-align-open',
+          phase: 'open',
+          step: 'open',
+          label: 'Open',
+          source: 'recommended',
+        },
+        {
+          skill: 'comet-design',
+          name: 'comet-route-align-design',
+          recommendedName: 'comet-route-align-design',
+          phase: 'design',
+          step: 'brainstorming',
+          label: 'Design',
+          source: 'recommended',
+        },
+        {
+          skill: 'grill-me',
+          name: 'comet-route-align-design-pressure-test',
+          recommendedName: 'comet-route-align-design-grill',
+          phase: 'design',
+          step: 'after-brainstorming',
+          label: 'Design pressure test',
+          source: 'custom',
+        },
+        {
+          skill: 'comet-build',
+          name: 'comet-route-align-build',
+          recommendedName: 'comet-route-align-build',
+          phase: 'build',
+          step: 'build-execution',
+          label: 'Build',
+          source: 'recommended',
+        },
+        {
+          skill: 'writing-plans',
+          name: 'comet-route-align-build-plan',
+          recommendedName: 'comet-route-align-build-plan',
+          phase: 'build',
+          step: 'writing-plans',
+          label: 'Build plan',
+          source: 'custom',
+        },
+        {
+          skill: 'requesting-code-review',
+          name: 'comet-route-align-build-review',
+          recommendedName: 'comet-route-align-build-review',
+          phase: 'build',
+          step: 'build-review',
+          label: 'Build review',
+          source: 'custom',
+        },
+        {
+          skill: 'comet-verify',
+          name: 'comet-route-align-verify',
+          recommendedName: 'comet-route-align-verify',
+          phase: 'verify',
+          step: 'verify',
+          label: 'Verify',
+          source: 'recommended',
+        },
+        {
+          skill: 'comet-archive',
+          name: 'comet-route-align-archive',
+          recommendedName: 'comet-route-align-archive',
+          phase: 'archive',
+          step: 'archive',
+          label: 'Archive',
+          source: 'recommended',
+        },
+      ],
+      skillMaker: {
+        intent: 'customize-comet',
+        baseTemplate: { skill: 'comet', profile: 'full' },
+        templateExpansion: {
+          retained: ['open / design / build / verify / archive'],
+          additions: ['design after: grill-me', 'build writing-plans: writing-plans'],
+          replacements: [],
+          disabled: [],
+          rejected: [],
+        },
+      },
+      resolvedSkills: [],
+      deviations: [],
+      engineMode: 'deterministic',
+    });
+
+    const expectedRoute = [
+      'comet-route-align-open',
+      'comet-route-align-design',
+      'comet-route-align-design-pressure-test',
+      'comet-route-align-build',
+      'comet-route-align-build-plan',
+      'comet-route-align-build-review',
+      'comet-route-align-verify',
+      'comet-route-align-archive',
+    ];
+    const protocol = JSON.parse(
+      await fs.readFile(
+        path.join(output.packageRoot, 'reference', 'workflow-protocol.json'),
+        'utf8',
+      ),
+    ) as { recovery: { resumeOrder: string[] } };
+    expect(protocol.recovery.resumeOrder).toEqual(expectedRoute);
+
+    const engineSkill = parse(
+      await fs.readFile(path.join(output.packageRoot, 'comet', 'skill.yaml'), 'utf8'),
+    ) as {
+      orchestration: { steps: Array<{ action: { ref: string } }> };
+      skills: Array<{ id: string }>;
+    };
+    expect(engineSkill.orchestration.steps.map((step) => step.action.ref)).toEqual(expectedRoute);
+    expect(engineSkill.skills.map((skill) => skill.id)).toEqual(expectedRoute);
+    expect(engineSkill.orchestration.steps.map((step) => step.action.ref)).not.toContain(
+      'comet-build',
+    );
+    expect(engineSkill.orchestration.steps.map((step) => step.action.ref)).not.toContain(
+      'writing-plans',
+    );
+
+    const guardrail = parse(
+      await fs.readFile(path.join(output.packageRoot, 'comet', 'guardrails.yaml'), 'utf8'),
+    ) as { allowedSkills: string[] };
+    expect(guardrail.allowedSkills).toEqual(expectedRoute);
+
+    const evalYaml = parse(
+      await fs.readFile(path.join(output.packageRoot, 'comet', 'eval.yaml'), 'utf8'),
+    ) as {
+      evaluation: {
+        generatedStageSkills: string[];
+        routeConformance: { expectedStageOrder: string[] };
+      };
+    };
+    expect(evalYaml.evaluation.generatedStageSkills).toEqual(expectedRoute);
+    expect(evalYaml.evaluation.routeConformance.expectedStageOrder).toEqual(expectedRoute);
+
+    const openSkill = await fs.readFile(
+      path.join(root, 'skills', 'comet-route-align-open', 'SKILL.md'),
+      'utf8',
+    );
+    expect(openSkill).toContain('PRD 拆分');
+    expect(openSkill).toContain('需求澄清');
+    expect(openSkill).toContain('openspec instructions');
+    expect(openSkill).toContain('.comet.yaml');
+
+    const designSkill = await fs.readFile(
+      path.join(root, 'skills', 'comet-route-align-design', 'SKILL.md'),
+      'utf8',
+    );
+    expect(designSkill).toContain('handoff_context');
+    expect(designSkill).toContain('handoff_hash');
+    expect(designSkill).toContain('context_compression');
+    expect(designSkill).toContain('brainstorm-summary');
+
+    const buildSkill = await fs.readFile(
+      path.join(root, 'skills', 'comet-route-align-build', 'SKILL.md'),
+      'utf8',
+    );
+    expect(buildSkill).toContain('build_pause');
+    expect(buildSkill).toContain('isolation');
+    expect(buildSkill).toContain('build_mode');
+    expect(buildSkill).toContain('tdd_mode');
+    expect(buildSkill).toContain('subagent_dispatch');
+    expect(buildSkill).toContain('systematic-debugging');
+    expect(buildSkill).toContain('dirty-worktree');
+
+    const verifySkill = await fs.readFile(
+      path.join(root, 'skills', 'comet-route-align-verify', 'SKILL.md'),
+      'utf8',
+    );
+    expect(verifySkill).toContain('verify_mode');
+    expect(verifySkill).toContain('verification-before-completion');
+    expect(verifySkill).toContain('openspec-verify-change');
+    expect(verifySkill).toContain('finishing-a-development-branch');
+    expect(verifySkill).toContain('dirty-worktree');
+
+    const archiveSkill = await fs.readFile(
+      path.join(root, 'skills', 'comet-route-align-archive', 'SKILL.md'),
+      'utf8',
+    );
+    expect(archiveSkill).toContain('archive-reopen');
+    expect(archiveSkill).toContain('ADDED/MODIFIED/REMOVED/RENAMED');
+    expect(archiveSkill).toContain('archived-with');
   });
 
   it('replaces copied Comet runtime assumptions with the generated workflow engine', async () => {
@@ -982,7 +1288,7 @@ Must follow \`comet/reference/decision-point.md\`, then call \`/comet-build\`.
               scope: 'project',
               origin: 'project',
               factory: { query: 'grill-me' },
-              root: path.join(root, '.codex', 'skills', 'grill-me'),
+              root: path.join(root, '.agents', 'skills', 'grill-me'),
               description: 'A relentless interview to sharpen a plan or design.',
               skillMd: '# Grill Me\n\nRun a `/grilling` session.\n',
               hash: '9'.repeat(64),
@@ -1018,6 +1324,11 @@ Must follow \`comet/reference/decision-point.md\`, then call \`/comet-build\`.
       'utf8',
     );
     expect(designSkill).toContain('scripts/workflow-guard.mjs');
+    expect(designSkill).toContain(
+      '**立即执行：** 必须使用 Skill 工具加载 `comet-design` 技能。禁止跳过此步骤。',
+    );
+    expect(designSkill).not.toContain('Comet `comet-design`');
+    expect(designSkill).toContain('不要采用原始 Comet 阶段的下一阶段跳转');
     expect(designSkill).toContain('design.after-brainstorming');
     expect(designSkill).toContain('comet-runtime-grill-design-pressure-test');
     expect(designSkill).toContain(

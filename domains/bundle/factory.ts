@@ -122,6 +122,8 @@ function bundleManifest(
         `skills/${skillId}/reference/workflow-protocol.json`,
         `skills/${skillId}/reference/decision-points.md`,
         `skills/${skillId}/reference/recovery.md`,
+        `skills/${skillId}/reference/authoring-lanes.json`,
+        `skills/${skillId}/reference/skill-review.md`,
         `skills/${skillId}/reference/composition-report.md`,
       ],
       scripts: [

@@ -35,6 +35,7 @@ function matchesOverride(
   hint?: BundleFactoryStageNameHint,
 ): boolean {
   if (override.skill !== skill) return false;
+  if (!hint) return true;
   if (override.phase && override.phase !== hint?.phase) return false;
   if (override.step && override.step !== hint?.step) return false;
   return true;
@@ -55,15 +56,18 @@ export function resolveFactoryStageNames(options: {
 
   const usedNames = new Set<string>();
   const result: BundleFactoryStageName[] = [];
+  const availableOverrides = [...(options.overrides ?? [])];
   for (const item of options.callChain) {
     const queue = hintQueues.get(item.skill) ?? [];
     const hint = queue.shift();
     const recommendedName = hint
       ? scopedRecommendedName(options.bundleName, hint)
       : defaultStageName(options.bundleName, item.skill);
-    const override = (options.overrides ?? []).find((candidate) =>
+    const overrideIndex = availableOverrides.findIndex((candidate) =>
       matchesOverride(candidate, item.skill, hint),
     );
+    const override =
+      overrideIndex >= 0 ? availableOverrides.splice(overrideIndex, 1)[0] : undefined;
     const name = override?.name ?? recommendedName;
     if (name === slug(options.bundleName)) {
       throw new Error(`Stage name must not match entry Skill name: ${name}`);
@@ -83,7 +87,7 @@ export function resolveFactoryStageNames(options: {
     });
   }
 
-  const unresolvedOverrides = (options.overrides ?? []).filter(
+  const unresolvedOverrides = availableOverrides.filter(
     (override) =>
       !result.some(
         (stage) =>

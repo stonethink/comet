@@ -9,6 +9,18 @@ export interface FactoryWorkflowDecision {
   options: string[];
 }
 
+export type FactoryWorkflowSemanticCheckKind = 'evidence-field' | 'completed-check' | 'comet-state';
+
+export interface FactoryWorkflowSemanticCheck {
+  id: string;
+  kind: FactoryWorkflowSemanticCheckKind;
+  label: string;
+  field?: string;
+  value?: string;
+  expectedPhase?: string;
+  expectedArchived?: boolean;
+}
+
 export interface FactoryWorkflowArtifact {
   path: string;
   purpose: string;
@@ -36,6 +48,7 @@ export interface FactoryWorkflowSlot {
   nameSource: 'recommended' | 'custom';
   entryGate: string[];
   exitGate: string[];
+  semanticChecks: FactoryWorkflowSemanticCheck[];
   incompleteBehavior: string;
   resumeProbe: string[];
   evidence: string[];
@@ -53,6 +66,7 @@ export interface FactoryWorkflowStage {
   nameSource: 'recommended' | 'custom';
   entryGate: string[];
   exitGate: string[];
+  semanticChecks: FactoryWorkflowSemanticCheck[];
   incompleteBehavior: string;
   resumeProbe: string[];
   evidence: string[];
@@ -181,6 +195,108 @@ function stageEvidence(stageSkill: string, nextStage: string | null): string[] {
   ];
 }
 
+function stripFrontmatter(markdown: string): string {
+  return markdown.replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/u, '');
+}
+
+function primarySkillMarkdown(plan: FactorySkillPackagePlan, skill: string): string {
+  const resolved = (plan.resolvedSkills ?? []).find(
+    (item) => item.query === skill && item.status === 'available',
+  );
+  return resolved?.sources[0]?.skillMd ?? '';
+}
+
+function sourceObligations(plan: FactorySkillPackagePlan, skill: string): string[] {
+  const markdown = stripFrontmatter(primarySkillMarkdown(plan, skill));
+  const obligations: string[] = [];
+  let inFence = false;
+  for (const rawLine of markdown.split(/\r?\n/u)) {
+    const line = rawLine.trim();
+    if (line.startsWith('```')) {
+      inFence = !inFence;
+      continue;
+    }
+    if (
+      inFence ||
+      line.length < 12 ||
+      line.startsWith('#') ||
+      /^[-*_]{3,}$/u.test(line) ||
+      /^<\/?[A-Z-]+>/u.test(line)
+    ) {
+      continue;
+    }
+    const cleaned = line
+      .replace(/^[-*]\s+/u, '')
+      .replace(/\s+/gu, ' ')
+      .trim();
+    if (
+      /必须|不得|禁止|需要|确认|检查|记录|运行|创建|询问|ask|must|required|requires|verify|check|record|create|write|run|plan/iu.test(
+        cleaned,
+      )
+    ) {
+      obligations.push(cleaned.length > 160 ? `${cleaned.slice(0, 157).trimEnd()}...` : cleaned);
+    }
+    if (obligations.length >= 3) break;
+  }
+  return obligations;
+}
+
+function sourceSemanticChecks(
+  plan: FactorySkillPackagePlan,
+  skill: string,
+): FactoryWorkflowSemanticCheck[] {
+  return [
+    {
+      id: 'evidence-summary',
+      kind: 'evidence-field',
+      field: 'summary',
+      label: '记录阶段结果摘要。',
+    },
+    {
+      id: 'source-skill-result',
+      kind: 'evidence-field',
+      field: 'sourceSkillResult',
+      label: `记录 \`${skill}\` 的实际执行结果。`,
+    },
+    ...sourceObligations(plan, skill).map((label, index) => ({
+      id: `source-check-${index + 1}`,
+      kind: 'completed-check' as const,
+      field: 'completedChecks',
+      value: `source-check-${index + 1}`,
+      label,
+    })),
+  ];
+}
+
+function cometExpectedExitPhase(phase: CometPhase): string | null {
+  const index = COMET_PHASES.indexOf(phase);
+  return COMET_PHASES[index + 1] ?? null;
+}
+
+function cometStageSemanticChecks(
+  plan: FactorySkillPackagePlan,
+  phase: CometPhase,
+  sourceSkill: string,
+): FactoryWorkflowSemanticCheck[] {
+  const expectedPhase = cometExpectedExitPhase(phase);
+  return [
+    ...sourceSemanticChecks(plan, sourceSkill),
+    expectedPhase
+      ? {
+          id: `comet-state-${phase}-exit`,
+          kind: 'comet-state' as const,
+          expectedPhase,
+          label: `原始 Comet .comet.yaml 的 phase 已推进到 ${expectedPhase}。`,
+        }
+      : {
+          id: 'comet-state-archive-exit',
+          kind: 'comet-state' as const,
+          expectedArchived: true,
+          label: '原始 Comet .comet.yaml 已记录 archived: true。',
+        },
+  ];
+}
+
 function workflowRecovery(
   plan: FactorySkillPackagePlan,
   resumeOrder: string[],
@@ -269,6 +385,7 @@ function compileCometOverlay(plan: FactorySkillPackagePlan): FactoryWorkflowSpec
       nameSource: stage.source,
       entryGate: [`父阶段 ${phase} 正在执行。`, `插槽 ${slotId} 尚未记录完成证据。`],
       exitGate: [`${label}插槽目标已完成。`, `${stage.name} 的必要证据已经记录。`],
+      semanticChecks: sourceSemanticChecks(plan, stage.skill),
       incompleteBehavior: '如果插槽目标尚未完成，留在父阶段继续补齐插槽工作，不得进入下一阶段。',
       resumeProbe: [`.comet/runs/${plan.name}/state.json`, `${slotId} 已有证据`],
       evidence: [`${stage.name} 结果摘要`, `${stage.name} 插槽证据`],
@@ -306,6 +423,7 @@ function compileCometOverlay(plan: FactorySkillPackagePlan): FactoryWorkflowSpec
         ...slots.map((slot) => `插槽 ${slot.id} 已记录完成证据。`),
         '没有未解决的用户阻塞决策。',
       ],
+      semanticChecks: cometStageSemanticChecks(plan, phase, sourceSkill),
       incompleteBehavior: '如果阶段目标或插槽证据缺失，留在当前阶段继续补齐，不得进入下一阶段。',
       resumeProbe: [
         `.comet/runs/${plan.name}/state.json`,
@@ -376,6 +494,7 @@ function compileWorkflowKernel(plan: FactorySkillPackagePlan): FactoryWorkflowSp
         `${stage.stageSkill} 的必要证据已经记录。`,
         '没有未解决的用户阻塞决策。',
       ],
+      semanticChecks: sourceSemanticChecks(plan, stage.sourceSkill),
       incompleteBehavior:
         '如果任一退出检查未通过，留在当前阶段，报告缺失条件并继续完成阶段目标，不得进入下一阶段。',
       resumeProbe: [

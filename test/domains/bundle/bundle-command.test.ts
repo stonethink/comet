@@ -769,6 +769,75 @@ prefer:
     ).rejects.toThrow(/entry Skill name/iu);
   });
 
+  it('accepts structured stage names for arbitrary non-Comet workflows', async () => {
+    await writeFactorySkill(projectRoot, 'brainstorming', {
+      description: 'Explore intent before implementation.',
+    });
+    await writeFactorySkill(projectRoot, 'writing-plans', {
+      description: 'Create an implementation plan.',
+    });
+    const planFile = path.join(root, 'factory-arbitrary-structured-stage-names-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Create a non-Comet workflow with named stages.',
+          preferredSkills: ['brainstorming', 'writing-plans'],
+          callChain: ['brainstorming', 'writing-plans'],
+          stageNames: [
+            {
+              skill: 'brainstorming',
+              phase: 'discovery',
+              step: 'clarify',
+              name: 'quality-discovery',
+              label: 'Discovery',
+            },
+            {
+              skill: 'writing-plans',
+              phase: 'planning',
+              step: 'implementation-plan',
+              name: 'quality-plan',
+              label: 'Implementation plan',
+            },
+          ],
+          engineMode: 'deterministic',
+          runnerMode: 'standalone',
+        },
+        null,
+        2,
+      ),
+    );
+
+    const proposal = await captureJson(() =>
+      bundleFactoryProposeCommand('quality-flow', {
+        project: projectRoot,
+        file: planFile,
+        json: true,
+      }),
+    );
+
+    expect(proposal).toMatchObject({
+      skillMakerSummary: {
+        stageNames: expect.arrayContaining([
+          expect.objectContaining({
+            skill: 'brainstorming',
+            phase: 'discovery',
+            step: 'clarify',
+            name: 'quality-discovery',
+            source: 'custom',
+          }),
+          expect.objectContaining({
+            skill: 'writing-plans',
+            phase: 'planning',
+            step: 'implementation-plan',
+            name: 'quality-plan',
+            source: 'custom',
+          }),
+        ]),
+      },
+    });
+  });
+
   it('prefers real local Comet stage Skills over built-in placeholders', async () => {
     await fs.mkdir(path.join(projectRoot, '.codex', 'skills', 'comet-open'), {
       recursive: true,
@@ -1698,6 +1767,8 @@ prefer:
       'skills/factory-bundle/reference/workflow-protocol.json',
       'skills/factory-bundle/reference/decision-points.md',
       'skills/factory-bundle/reference/recovery.md',
+      'skills/factory-bundle/reference/authoring-lanes.json',
+      'skills/factory-bundle/reference/skill-review.md',
       'skills/factory-bundle/reference/composition-report.md',
     ]);
     expect(bundle.manifest.resources.scripts).toEqual([
@@ -1752,6 +1823,17 @@ prefer:
         path.join(draftRoot, 'skills', 'factory-bundle', 'reference', 'composition-report.md'),
       ),
     ).resolves.toBeUndefined();
+    await expect(
+      fs.access(
+        path.join(draftRoot, 'skills', 'factory-bundle', 'reference', 'authoring-lanes.json'),
+      ),
+    ).resolves.toBeUndefined();
+    await expect(
+      fs.readFile(
+        path.join(draftRoot, 'skills', 'factory-bundle', 'reference', 'skill-review.md'),
+        'utf8',
+      ),
+    ).resolves.toContain('Review passed');
     await expect(
       fs.access(path.join(draftRoot, 'skills', 'factory-bundle', 'scripts', 'comet-plan.mjs')),
     ).resolves.toBeUndefined();
