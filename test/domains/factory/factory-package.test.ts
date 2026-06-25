@@ -18,6 +18,22 @@ describe('Factory skill package generation', () => {
     await fs.rm(root, { recursive: true, force: true });
   });
 
+  it('does not retain unreachable legacy audit-section renderers', async () => {
+    const factoryDir = path.resolve('domains', 'factory');
+    const packageSources = await Promise.all(
+      (await fs.readdir(factoryDir))
+        .filter((file) => file.startsWith('package') && file.endsWith('.ts'))
+        .map((file) => fs.readFile(path.join(factoryDir, file), 'utf8')),
+    );
+    const source = packageSources.join('\n');
+
+    expect(source).not.toContain('function customizedCometSkillMarkdown');
+    expect(source).not.toContain('## Generated Variant Routing');
+    expect(source).not.toContain('## Generated Source Evidence');
+    expect(source).not.toContain('真实 Skill 证据');
+    expect(source).not.toContain('偏离偏好顺序');
+  });
+
   it('generates a valid deterministic Comet-native Skill package', async () => {
     const output = await generateFactorySkillPackage({
       root,
