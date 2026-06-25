@@ -243,6 +243,41 @@ Ask clarifying questions one at a time before presenting a design.
       ],
       resolvedSkills: [
         {
+          query: 'comet-open',
+          preferenceIndex: 0,
+          status: 'available',
+          sources: [
+            {
+              name: 'comet-open',
+              preferenceIndex: 0,
+              platform: 'codex',
+              scope: 'project',
+              origin: 'project',
+              factory: { query: 'comet-open' },
+              root: path.join(root, '.codex', 'skills', 'comet-open'),
+              description: 'Open a Comet change.',
+              skillMd: `---
+name: comet-open
+description: Open a Comet change.
+---
+
+# Comet Open
+
+Start from the active change detector.
+
+Use the user's request language.
+
+Preserve .comet.yaml as the state source.
+
+## Decision Core
+
+Deep protocol marker: run the Comet open guard before transitioning phases.
+`,
+              hash: 'c'.repeat(64),
+            },
+          ],
+        },
+        {
           query: 'grill-me',
           preferenceIndex: 1,
           status: 'available',
@@ -277,15 +312,123 @@ Ask clarifying questions one at a time before presenting a design.
       path.join(root, 'skills', 'comet-grill-flow-design-pressure-test', 'SKILL.md'),
       'utf8',
     );
-    expect(internalSkill).toContain('Internal stage Skill');
     expect(internalSkill).toContain('Source Skill: `grill-me`');
+    expect(internalSkill).toContain(
+      '**立即执行：** 使用 Skill 工具加载 `grill-me` 技能。禁止跳过此步骤。',
+    );
     expect(internalSkill).toContain('Run a `/grilling` session.');
+    const internalDescription = internalSkill.match(/^description:\s*(.+)$/mu)?.[1] ?? '';
+    expect(internalDescription).toMatch(/^[\x20-\x7E]+$/u);
+    expect(internalDescription).not.toContain(':');
+    const openStageSkill = await fs.readFile(
+      path.join(root, 'skills', 'comet-grill-flow-open', 'SKILL.md'),
+      'utf8',
+    );
+    expect(openStageSkill).toContain('## Decision Core');
+    expect(openStageSkill).toContain(
+      'Deep protocol marker: run the Comet open guard before transitioning phases.',
+    );
     const engineSkill = await fs.readFile(
       path.join(output.packageRoot, 'comet', 'skill.yaml'),
       'utf8',
     );
     expect(engineSkill).toContain('ref: comet-grill-flow-open');
     expect(engineSkill).toContain('ref: comet-grill-flow-design-pressure-test');
+  });
+
+  it('uses the original Comet Skill body as the entry body for customize-comet packages', async () => {
+    const output = await generateFactorySkillPackage({
+      root,
+      name: 'comet-with-grill',
+      version: '1.0.0',
+      description: 'Comet with a grill stage.',
+      goal: 'Customize /comet with a grill stage.',
+      defaultLocale: 'zh',
+      callChain: [
+        { skill: 'comet-open', preferenceIndex: 0 },
+        { skill: 'grill-me', preferenceIndex: 1 },
+      ],
+      stageNames: [
+        {
+          skill: 'comet-open',
+          name: 'comet-with-grill-open',
+          recommendedName: 'comet-with-grill-open',
+          phase: 'open',
+          step: 'open',
+          label: 'Open',
+          source: 'recommended',
+        },
+        {
+          skill: 'grill-me',
+          name: 'comet-with-grill-design-pressure-test',
+          recommendedName: 'comet-with-grill-design-grill',
+          phase: 'design',
+          label: 'Design pressure test',
+          source: 'custom',
+        },
+      ],
+      skillMaker: {
+        intent: 'customize-comet',
+        baseTemplate: { skill: 'comet', profile: 'full' },
+        templateExpansion: {
+          retained: ['open / design / build / verify / archive'],
+          additions: ['design after: grill-me'],
+          replacements: [],
+          disabled: [],
+          rejected: [],
+        },
+      },
+      resolvedSkills: [
+        {
+          query: 'comet',
+          preferenceIndex: 2,
+          status: 'available',
+          sources: [
+            {
+              name: 'comet',
+              preferenceIndex: 2,
+              platform: 'codex',
+              scope: 'project',
+              origin: 'project',
+              factory: { query: 'comet' },
+              root: path.join(root, '.codex', 'skills', 'comet'),
+              description: 'Original Comet workflow.',
+              skillMd: `---
+name: comet
+description: Original Comet workflow.
+---
+
+# Comet Original
+
+OpenSpec and Superpowers orbit the same goal.
+
+## Decision Core
+
+Deep original Comet marker: detect the active change before routing.
+`,
+              hash: 'e'.repeat(64),
+            },
+          ],
+        },
+      ],
+      deviations: [],
+      engineMode: 'deterministic',
+    });
+
+    const entrySkill = await fs.readFile(path.join(output.packageRoot, 'SKILL.md'), 'utf8');
+    expect(entrySkill).toContain('# Comet Original');
+    expect(entrySkill).toContain('## Decision Core');
+    expect(entrySkill).toContain(
+      'Deep original Comet marker: detect the active change before routing.',
+    );
+    expect(entrySkill).toContain('## Generated Variant Routing');
+    expect(entrySkill).toContain('comet-with-grill-design-pressure-test');
+    expect(entrySkill).toContain(
+      '**立即执行：** 使用 Skill 工具加载 `comet-with-grill-design-pressure-test` 技能。禁止跳过此步骤。',
+    );
+    const entryDescription = entrySkill.match(/^description:\s*(.+)$/mu)?.[1] ?? '';
+    expect(entryDescription).toMatch(/^[\x20-\x7E]+$/u);
+    expect(entryDescription).not.toContain(':');
   });
 
   it('writes an authoring-skill eval manifest for Engine-enabled generated packages', async () => {

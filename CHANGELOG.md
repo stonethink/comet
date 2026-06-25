@@ -30,6 +30,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Malformed workflow states**: Prevents malformed `.comet.yaml` files from crashing scans and reports recovery hints through `status`, `doctor`, and guard output.
 - **Publish readiness blockers**: Makes `/comet-any` publish blockers explicit, including missing candidates, stale evals, missing review approval, unsupported required capabilities, and executable hook disclosures.
 - **Proposal confirmation**: Blocks `/comet-any` generation, review, and publish until the Factory proposal is confirmed, while preserving recovery for missing or ambiguous candidates.
+- **Comet Skill Maker fidelity**: Preserves the original Comet Skill body when generating customized `/comet` variants, keeps generated frontmatter descriptions in English, emits Comet-style nested Skill invocation wording, and preserves full source Skill bodies for internal stage Skills so generated Skills read and behave like adapted source Skills instead of summary-only wrappers.
 - **Windows path handling**: Fixes OpenSpec init/update path quoting for directories with spaces and hardens eval/task handling for Windows UTF-8, Docker, and report output.
 - **Submodule hooks**: Installs Comet hook commands with an absolute script path and explicit project root so agents working inside Git submodules still use the parent workspace's Comet phase state.
 - **Init/update clarity**: Prevents unrelated platform Skill directories from being reported as incomplete Comet installs and keeps existing install health checks focused on Comet-managed assets.
@@ -38,7 +39,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 
 - **CLI smoke coverage**: Adds built-CLI checks for `doctor`, `status`, help output, packaged asset lookup, and init/update behavior so tests cover the shipped entry point, not only source imports.
 - **Skill Factory coverage**: Adds command-level and end-to-end coverage for Factory proposal confirmation, generated `comet/eval.yaml`, readiness aggregation, publish gates, distribution preview, and `/comet-any` bilingual Skill Maker wording.
-- **Stage Skill coverage**: Adds regression coverage for Skill Maker stage-name recommendations, custom stage names, generated internal stage Skills, Engine references, and preserving real local Comet stage Skill sources over built-in placeholders.
+- **Stage Skill coverage**: Adds regression coverage for Skill Maker stage-name recommendations, custom stage names, generated internal stage Skills, Engine references, preserving real local Comet stage Skill sources over built-in placeholders, and keeping full source Skill bodies in generated Comet variants.
 - **Eval harness coverage**: Adds tests for manifest generation, profiles, task validation, attribution, HTML/report outputs, pass@k metrics, and generic Skill smoke runs.
 - **Classic runtime coverage**: Adds regression coverage for Classic state, guard, handoff, archive, hook guard, migration, resolver, diagnostics, runtime evals, generated runtime parity, and the frozen 0.3.9 fixture.
 - **Platform coverage**: Adds regression coverage for ZCode and MimoCode platform detection, slash command generation, OpenSpec mirroring, Superpowers staging, init E2E behavior, and install/update path checks.

@@ -901,6 +901,9 @@ prefer:
   });
 
   it('keeps derive metadata when the proposal is confirmed through factory-init', async () => {
+    await writeFactorySkill(projectRoot, 'comet', {
+      description: 'Original Comet workflow.',
+    });
     await writeFactorySkill(projectRoot, 'security-review', {
       description: 'Add a security review before verification.',
     });

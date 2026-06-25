@@ -237,6 +237,7 @@ export function normalizeBundleFactoryPlan(options: {
     ...rawCallChain
       .map((item) => (typeof item === 'string' ? item : item.skill))
       .filter((skill) => skill.length > 0),
+    ...(plan.baseTemplate ? [plan.baseTemplate.skill] : []),
   ]);
   const callChain = normalizeCallChain(rawCallChain, preferredSkills);
   const stageNameOverrides = normalizeStageNameOverrides(plan.stageNames);

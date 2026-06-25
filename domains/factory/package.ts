@@ -28,6 +28,8 @@ interface ResolvedSkillSourceSummary {
   summary: string;
 }
 
+type ResolvedSkillSource = FactoryResolvedSkill['sources'][number];
+
 function slug(value: string): string {
   return value
     .toLowerCase()
@@ -41,6 +43,38 @@ function stepId(index: number, skill: string): string {
 
 function stripFrontmatter(markdown: string): string {
   return markdown.replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/u, '');
+}
+
+function sourceSkillBody(markdown: string): string {
+  return stripFrontmatter(markdown).trim();
+}
+
+function insertAfterFirstHeading(markdown: string, insertion: string): string {
+  const lines = markdown.split(/\r?\n/u);
+  const headingIndex = lines.findIndex((line) => /^#\s+/u.test(line));
+  if (headingIndex === -1) {
+    return `${insertion.trim()}\n\n${markdown}`.trim();
+  }
+  return [
+    ...lines.slice(0, headingIndex + 1),
+    '',
+    insertion.trim(),
+    '',
+    ...lines.slice(headingIndex + 1),
+  ]
+    .join('\n')
+    .trim();
+}
+
+function insertSectionIntoSkillBody(
+  markdown: string,
+  fallbackTitle: string,
+  insertion: string,
+): string {
+  if (/^#\s+/mu.test(markdown)) {
+    return insertAfterFirstHeading(markdown, insertion);
+  }
+  return `# ${fallbackTitle}\n\n${insertion.trim()}\n\n${markdown}`.trim();
 }
 
 function summarizeSkillMarkdown(markdown: string): string {
@@ -89,6 +123,16 @@ function buildSourceSummaries(plan: FactorySkillPackagePlan): ResolvedSkillSourc
   );
 }
 
+function primaryResolvedSource(
+  plan: FactorySkillPackagePlan,
+  query: string,
+): ResolvedSkillSource | null {
+  const resolved = (plan.resolvedSkills ?? []).find(
+    (skill) => skill.query === query && skill.status === 'available',
+  );
+  return resolved?.sources[0] ?? null;
+}
+
 interface FactoryStagePlan extends FactoryStageName {
   sourceSkill: string;
 }
@@ -116,6 +160,18 @@ function stageSkillFor(
   index: number,
 ): string {
   return stagePlans[index]?.sourceSkill === item.skill ? stagePlans[index]!.name : item.skill;
+}
+
+function generatedEntryDescription(plan: FactorySkillPackagePlan): string {
+  return `Use when running the generated ${plan.name} workflow`;
+}
+
+function generatedStageDescription(plan: FactorySkillPackagePlan, stage: FactoryStagePlan): string {
+  return `Use when running the generated ${stage.name} stage for ${plan.name}`;
+}
+
+function skillLoadInstruction(skill: string): string {
+  return `**立即执行：** 使用 Skill 工具加载 \`${skill}\` 技能。禁止跳过此步骤。`;
 }
 
 function skillMarkdown(plan: FactorySkillPackagePlan): string {
@@ -187,7 +243,7 @@ function skillMarkdown(plan: FactorySkillPackagePlan): string {
       : stagePlans
           .map(
             (stage, index) =>
-              `${index + 1}. 调用 \`${stage.name}\` 处理 ${stage.label ?? stage.phase ?? stage.sourceSkill} 阶段（来源 Skill: \`${stage.sourceSkill}\`）。`,
+              `${index + 1}. ${skillLoadInstruction(stage.name)}（${stage.label ?? stage.phase ?? stage.sourceSkill} 阶段，来源 Skill: \`${stage.sourceSkill}\`。）`,
           )
           .join('\n');
   const stageSkillSection =
@@ -200,10 +256,29 @@ function skillMarkdown(plan: FactorySkillPackagePlan): string {
             return `- \`${stage.name}\`: ${stage.label ?? stage.phase ?? stage.sourceSkill}，来源 \`${stage.sourceSkill}\`，${source}。`;
           })
           .join('\n');
+  const baseTemplateSkill =
+    plan.skillMaker?.intent === 'customize-comet' ? plan.skillMaker.baseTemplate?.skill : undefined;
+  const baseTemplateSource = baseTemplateSkill
+    ? primaryResolvedSource(plan, baseTemplateSkill)
+    : null;
+  const baseTemplateBody = baseTemplateSource ? sourceSkillBody(baseTemplateSource.skillMd) : '';
+  if (baseTemplateSource && baseTemplateBody.length > 0) {
+    return customizedCometSkillMarkdown({
+      plan,
+      baseSource: baseTemplateSource,
+      baseBody: baseTemplateBody,
+      stagePlans,
+      stageSkillSection,
+      evidence,
+      deviations,
+      stopPoints,
+      internalUsage,
+    });
+  }
 
   return `---
 name: ${plan.name}
-description: ${plan.description}
+description: ${generatedEntryDescription(plan)}
 ---
 
 # ${plan.name}
@@ -254,6 +329,88 @@ ${internalUsage}
 `;
 }
 
+function customizedCometSkillMarkdown(options: {
+  plan: FactorySkillPackagePlan;
+  baseSource: ResolvedSkillSource;
+  baseBody: string;
+  stagePlans: FactoryStagePlan[];
+  stageSkillSection: string;
+  evidence: string;
+  deviations: string;
+  stopPoints: string;
+  internalUsage: string;
+}): string {
+  const {
+    plan,
+    baseSource,
+    baseBody,
+    stagePlans,
+    stageSkillSection,
+    evidence,
+    deviations,
+    stopPoints,
+    internalUsage,
+  } = options;
+  const mappings =
+    stagePlans.length === 0
+      ? '- 未生成内部阶段 Skill；按原始 Skill 协议执行。'
+      : stagePlans
+          .map(
+            (stage, index) =>
+              `${index + 1}. ${skillLoadInstruction(stage.name)}（${stage.label ?? stage.phase ?? stage.sourceSkill} 阶段，来源 Skill: \`${stage.sourceSkill}\`。）`,
+          )
+          .join('\n');
+  const expansion = plan.skillMaker?.templateExpansion;
+  const delta = [
+    `- Retained: ${(expansion?.retained ?? []).join(', ') || 'none'}`,
+    `- Additions: ${(expansion?.additions ?? []).join(', ') || 'none'}`,
+    `- Replacements: ${(expansion?.replacements ?? []).join(', ') || 'none'}`,
+    `- Disabled: ${(expansion?.disabled ?? []).join(', ') || 'none'}`,
+  ].join('\n');
+  const overlay = `## Generated Variant Routing
+
+本 Skill 由 Skill Factory 基于原始 \`${baseSource.name}\` Skill 生成。下面保留原始 Skill 正文；当原文的路由、子 Skill 名称或阶段顺序与本节冲突时，以本节的生成映射为准。
+
+### Stage Mapping
+
+${mappings}
+
+### Template Delta
+
+${delta}`;
+  const body = insertSectionIntoSkillBody(baseBody, plan.name, overlay);
+
+  return `---
+name: ${plan.name}
+description: ${generatedEntryDescription(plan)}
+---
+
+${body}
+
+## Generated Stage Skills
+
+${stageSkillSection}
+
+## Generated Preference Deviations
+
+${deviations}
+
+## Generated Source Evidence
+
+${evidence}
+
+完整结构化证据位于 \`reference/resolved-skills.json\`。
+
+## Generated Stop Points
+
+${stopPoints}
+
+## Generated Internal Skill Usage
+
+${internalUsage}
+`;
+}
+
 function skillDefinition(plan: FactorySkillPackagePlan): Record<string, unknown> {
   const stagePlans = buildStagePlans(plan);
   const steps = plan.callChain.map((item, index) => ({
@@ -270,7 +427,7 @@ function skillDefinition(plan: FactorySkillPackagePlan): Record<string, unknown>
     metadata: {
       name: plan.name,
       version: plan.version,
-      description: plan.description,
+      description: generatedEntryDescription(plan),
     },
     goal: {
       statement: plan.goal,
@@ -326,7 +483,7 @@ function evalManifest(plan: FactorySkillPackagePlan): Record<string, unknown> {
     kind: 'SkillEvalManifest',
     metadata: {
       name: plan.name,
-      description: plan.description,
+      description: generatedEntryDescription(plan),
     },
     skill: {
       name: plan.name,
@@ -455,6 +612,8 @@ function internalStageSkillMarkdown(
 ): string {
   const summaries = sourceSummaries.filter((summary) => summary.query === stage.sourceSkill);
   const primary = summaries[0];
+  const primarySource = primaryResolvedSource(plan, stage.sourceSkill);
+  const sourceBody = primarySource ? sourceSkillBody(primarySource.skillMd) : '';
   const sourceSummary =
     primary?.summary || primary?.source.description || '按来源 Skill 的真实说明执行该阶段。';
   const evidence =
@@ -466,7 +625,31 @@ function internalStageSkillMarkdown(
               `- ${summary.source.name}@${summary.source.platform} ${summary.source.hash.slice(0, 12)}: ${summary.summary || summary.source.description || 'No summary.'}`,
           )
           .join('\n');
-  const description = `Internal stage Skill for ${plan.name}: ${stage.label ?? stage.phase ?? stage.sourceSkill}.`;
+  const description = generatedStageDescription(plan, stage);
+  if (sourceBody.length > 0) {
+    const adapter = `## Generated Stage Adapter
+
+- Parent workflow: \`${plan.name}\`
+- Stage Skill: \`${stage.name}\`
+- Source Skill: \`${stage.sourceSkill}\`
+- Stage label: ${stage.label ?? stage.phase ?? stage.sourceSkill}
+- Outcome: follow the source Skill protocol, then return a concise outcome for the parent workflow before moving to the next stage.
+
+${skillLoadInstruction(stage.sourceSkill)}
+如果当前平台无法加载来源 Skill，则按下方保留的来源 Skill 正文执行同一阶段。`;
+    const body = insertSectionIntoSkillBody(sourceBody, stage.label ?? stage.name, adapter);
+    return `---
+name: ${stage.name}
+description: ${description}
+---
+
+${body}
+
+## Generated Source Evidence
+
+${evidence}
+`;
+  }
 
   return `---
 name: ${stage.name}
@@ -480,6 +663,8 @@ Internal stage Skill for \`${plan.name}\`.
 ## Source Skill
 
 Source Skill: \`${stage.sourceSkill}\`
+
+${skillLoadInstruction(stage.sourceSkill)}
 
 ## Stage Role
 
