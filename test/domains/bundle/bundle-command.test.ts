@@ -1621,6 +1621,36 @@ prefer:
                 'scripts',
                 'comet-hook-guard.mjs',
               ),
+              path.join(
+                projectRoot,
+                '.comet',
+                'bundle-drafts',
+                'factory-bundle',
+                'skills',
+                'factory-bundle',
+                'scripts',
+                'workflow-state.mjs',
+              ),
+              path.join(
+                projectRoot,
+                '.comet',
+                'bundle-drafts',
+                'factory-bundle',
+                'skills',
+                'factory-bundle',
+                'scripts',
+                'workflow-guard.mjs',
+              ),
+              path.join(
+                projectRoot,
+                '.comet',
+                'bundle-drafts',
+                'factory-bundle',
+                'skills',
+                'factory-bundle',
+                'scripts',
+                'workflow-handoff.mjs',
+              ),
             ],
           },
         },
@@ -1665,6 +1695,9 @@ prefer:
     ]);
     expect(bundle.manifest.resources.references).toEqual([
       'skills/factory-bundle/reference/resolved-skills.json',
+      'skills/factory-bundle/reference/workflow-protocol.json',
+      'skills/factory-bundle/reference/decision-points.md',
+      'skills/factory-bundle/reference/recovery.md',
       'skills/factory-bundle/reference/composition-report.md',
     ]);
     expect(bundle.manifest.resources.scripts).toEqual([
@@ -1683,6 +1716,24 @@ prefer:
       {
         id: 'comet-hook-guard',
         path: 'skills/factory-bundle/scripts/comet-hook-guard.mjs',
+        sideEffect: 'read',
+        runtime: 'node',
+      },
+      {
+        id: 'workflow-state',
+        path: 'skills/factory-bundle/scripts/workflow-state.mjs',
+        sideEffect: 'write',
+        runtime: 'node',
+      },
+      {
+        id: 'workflow-guard',
+        path: 'skills/factory-bundle/scripts/workflow-guard.mjs',
+        sideEffect: 'read',
+        runtime: 'node',
+      },
+      {
+        id: 'workflow-handoff',
+        path: 'skills/factory-bundle/scripts/workflow-handoff.mjs',
         sideEffect: 'read',
         runtime: 'node',
       },

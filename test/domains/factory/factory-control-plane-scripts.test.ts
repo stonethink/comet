@@ -35,7 +35,43 @@ function basePlan(root: string): FactorySkillPackagePlan {
   };
 }
 
-function node(script: string, args: string[], cwd: string, env?: Record<string, string | undefined>) {
+function twoStagePlan(root: string): FactorySkillPackagePlan {
+  const plan = basePlan(root);
+  return {
+    ...plan,
+    callChain: [
+      { skill: 'brainstorming', preferenceIndex: 0 },
+      { skill: 'writing-plans', preferenceIndex: 1 },
+    ],
+    composition: {
+      schemaVersion: 1,
+      entrySkills: ['stable-workflow'],
+      steps: [
+        {
+          id: 'step-1-brainstorming',
+          skill: 'brainstorming',
+          source: 'atomic',
+          preferenceIndex: 0,
+        },
+        {
+          id: 'step-2-writing-plans',
+          skill: 'writing-plans',
+          source: 'atomic',
+          preferenceIndex: 1,
+        },
+      ],
+      choices: [],
+      issues: [],
+    },
+  };
+}
+
+function node(
+  script: string,
+  args: string[],
+  cwd: string,
+  env?: Record<string, string | undefined>,
+) {
   const childEnv = { ...process.env };
   for (const [key, value] of Object.entries(env ?? {})) {
     if (value === undefined) {
@@ -79,9 +115,14 @@ describe('generated factory control-plane scripts', () => {
     const output = await generateFactorySkillPackage(basePlan(root));
     await fs.rm(path.join(output.packageRoot, 'comet', 'skill.yaml'));
 
-    const result = node(path.join(output.packageRoot, 'scripts', 'comet-check.mjs'), ['verify'], runRoot, {
-      COMET_RUN_ROOT: runRoot,
-    });
+    const result = node(
+      path.join(output.packageRoot, 'scripts', 'comet-check.mjs'),
+      ['verify'],
+      runRoot,
+      {
+        COMET_RUN_ROOT: runRoot,
+      },
+    );
 
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain('comet/skill.yaml');
@@ -97,7 +138,7 @@ describe('generated factory control-plane scripts', () => {
     expect(initialized).toMatchObject({
       schemaVersion: 1,
       status: 'running',
-      currentStep: 'step-1-brainstorming',
+      currentStep: 'step-1-stable-workflow-brainstorming',
       completedSteps: [],
       outcomes: {},
       planHash: expect.any(String),
@@ -107,7 +148,7 @@ describe('generated factory control-plane scripts', () => {
     expect(status.stdout).toContain('"status": "running"');
     const complete = node(
       script,
-      ['complete-step', 'step-1-brainstorming', '{"accepted":true}'],
+      ['complete-step', 'step-1-stable-workflow-brainstorming', '{"accepted":true}'],
       runRoot,
       {
         COMET_RUN_ROOT: runRoot,
@@ -118,13 +159,13 @@ describe('generated factory control-plane scripts', () => {
     const state = JSON.parse(await fs.readFile(statePath, 'utf8')) as unknown;
 
     expect(completed.status).toBe(0);
-    expect(completed.stdout).toContain('step-1-brainstorming');
+    expect(completed.stdout).toContain('step-1-stable-workflow-brainstorming');
     expect(state).toMatchObject({
       schemaVersion: 1,
       status: 'completed',
       currentStep: null,
-      completedSteps: ['step-1-brainstorming'],
-      outcomes: { 'step-1-brainstorming': { accepted: true } },
+      completedSteps: ['step-1-stable-workflow-brainstorming'],
+      outcomes: { 'step-1-stable-workflow-brainstorming': { accepted: true } },
       planHash: expect.any(String),
     });
   });
@@ -140,6 +181,76 @@ describe('generated factory control-plane scripts', () => {
 
     expect(result.status).not.toBe(0);
     expect(result.stderr).toMatch(/currentStep|not-current/u);
+  });
+
+  it('records workflow evidence and reports the next generated stage from workflow-state.mjs', async () => {
+    const output = await generateFactorySkillPackage(twoStagePlan(root));
+    const script = path.join(output.packageRoot, 'scripts', 'workflow-state.mjs');
+    const statePath = path.join(runRoot, '.comet', 'runs', 'stable-workflow', 'state.json');
+
+    expect(node(script, ['init'], runRoot, { COMET_RUN_ROOT: runRoot }).status).toBe(0);
+    const next = node(script, ['next'], runRoot, { COMET_RUN_ROOT: runRoot });
+    expect(next.status).toBe(0);
+    expect(next.stdout).toContain('NEXT: auto');
+    expect(next.stdout).toContain('SKILL: stable-workflow-brainstorming');
+
+    const record = node(
+      script,
+      ['record', 'stable-workflow-brainstorming', '{"summary":"设计追问完成"}'],
+      runRoot,
+      { COMET_RUN_ROOT: runRoot },
+    );
+    expect(record.status).toBe(0);
+    expect(record.stdout).toContain('EVIDENCE: stable-workflow-brainstorming');
+    const state = JSON.parse(await fs.readFile(statePath, 'utf8')) as {
+      evidence: Record<string, { summary?: string }>;
+    };
+    expect(state.evidence['stable-workflow-brainstorming']).toMatchObject({
+      summary: '设计追问完成',
+    });
+  });
+
+  it('blocks workflow exit without evidence and prints the next generated stage after apply', async () => {
+    const output = await generateFactorySkillPackage(twoStagePlan(root));
+    const stateScript = path.join(output.packageRoot, 'scripts', 'workflow-state.mjs');
+    const guardScript = path.join(output.packageRoot, 'scripts', 'workflow-guard.mjs');
+    const statePath = path.join(runRoot, '.comet', 'runs', 'stable-workflow', 'state.json');
+
+    expect(node(stateScript, ['init'], runRoot, { COMET_RUN_ROOT: runRoot }).status).toBe(0);
+    const blocked = node(
+      guardScript,
+      ['exit', 'stable-workflow-brainstorming', '--apply'],
+      runRoot,
+      { COMET_RUN_ROOT: runRoot },
+    );
+    expect(blocked.status).not.toBe(0);
+    expect(blocked.stderr).toContain('缺少阶段证据');
+    expect(blocked.stderr).toContain('stable-workflow-brainstorming');
+
+    expect(
+      node(
+        stateScript,
+        ['record', 'stable-workflow-brainstorming', '{"summary":"可以进入计划"}'],
+        runRoot,
+        { COMET_RUN_ROOT: runRoot },
+      ).status,
+    ).toBe(0);
+    const advanced = node(
+      guardScript,
+      ['exit', 'stable-workflow-brainstorming', '--apply'],
+      runRoot,
+      { COMET_RUN_ROOT: runRoot },
+    );
+    expect(advanced.status).toBe(0);
+    expect(advanced.stdout).toContain('ALL CHECKS PASSED');
+    expect(advanced.stdout).toContain('NEXT: auto');
+    expect(advanced.stdout).toContain('SKILL: stable-workflow-writing-plans');
+    const state = JSON.parse(await fs.readFile(statePath, 'utf8')) as {
+      currentStage: string | null;
+      completedStages: string[];
+    };
+    expect(state.currentStage).toBe('stable-workflow-writing-plans');
+    expect(state.completedStages).toContain('stable-workflow-brainstorming');
   });
 
   it('fails status when the current plan hash drifts', async () => {
@@ -235,7 +346,7 @@ describe('generated factory control-plane scripts', () => {
     const hookScript = path.join(output.packageRoot, 'scripts', 'comet-hook-guard.mjs');
     expect(node(planScript, ['init'], runRoot, { COMET_RUN_ROOT: runRoot }).status).toBe(0);
     expect(
-      node(planScript, ['complete-step', 'step-1-brainstorming'], runRoot, {
+      node(planScript, ['complete-step', 'step-1-stable-workflow-brainstorming'], runRoot, {
         COMET_RUN_ROOT: runRoot,
       }).status,
     ).toBe(0);
