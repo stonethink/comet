@@ -13,6 +13,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Publish and distribution flow**: Adds `comet publish` as the user-facing path for `/comet-any` outputs, including readiness status, review/approval, publish execution, and distribution preview before writing files to target platforms.
 - **Shared eval harness**: Adds `comet eval collect|run` for Comet workflows and arbitrary local Skills, including generated manifests, task profiles, HTML reports, token/cost attribution, failure attribution, and reusable regression checks.
 - **Platform support**: Adds ZCode and MimoCode support, including project/global Skill installs, OpenCode-style command generation where appropriate, OpenSpec mirroring, and coverage in init/update and distribution paths.
+- **Comet dashboard**: Adds `comet dashboard` as a local read-only browser dashboard with active and archived changes, phase progress, artifact checklists, task summaries, verify status, next-action guidance, Git snapshot, and a `--json` snapshot mode for scripts.
 
 ### Changed
 
@@ -25,6 +26,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Comet Any authoring lanes**: Splits generated Skill creation into reviewed authoring lanes for Skill core prose, script contracts, references, pause points, eval metadata, and Skill review reports so `/comet-any` outputs are assembled from auditable artifacts instead of one opaque renderer.
 - **Comet Any authoring subagent contract**: Deepens authoring lanes into a subagent-ready adapter contract with author metadata, semantic claims, and a shared assembler, while keeping deterministic local authors as the default generation path until an external agent executor is provided.
 - **Factory package generator architecture**: Removes unreachable legacy audit-section renderers and separates workflow routing, Skill markdown rendering, script templates, and package assembly so `/comet-any` generation stays easier to maintain without changing emitted workflow behavior.
+- **Dashboard command validation**: Makes `comet dashboard --port` reject non-numeric values up front instead of accepting parsed numeric prefixes.
 - **Skill preferences**: Replaces the unpublished `.comet/skills.txt` path with `.comet/skill-preferences.yaml`, inventory-backed setup, proposal previews, and readiness feedback so users can guide Skill creation without learning internal Bundle files.
 - **Tweak workflow path**: Reframes `/comet-tweak` as a tweak-only OpenSpec action chain that runs `openspec-apply-change` during build, allows single-change delta-spec work, and explicitly keeps full `/comet` on the Superpowers design/plan/build path.
 
@@ -46,6 +48,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Windows path handling**: Fixes OpenSpec init/update path quoting for directories with spaces and hardens eval/task handling for Windows UTF-8, Docker, and report output.
 - **Submodule hooks**: Installs Comet hook commands with an absolute script path and explicit project root so agents working inside Git submodules still use the parent workspace's Comet phase state.
 - **Init/update clarity**: Prevents unrelated platform Skill directories from being reported as incomplete Comet installs and keeps existing install health checks focused on Comet-managed assets.
+- **Dashboard collector resilience**: Keeps dashboard collection read-only and best-effort by isolating malformed change state, guarding verification report paths, and rendering partial Git snapshots defensively.
 
 ### Tests
 
@@ -59,6 +62,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Authoring lane coverage**: Adds regression coverage for lane proposal assembly, protocol hash checks, review reports, generated review resources, and blocking findings for unusable generated Skill prose.
 - **Authoring subagent contract coverage**: Adds regression coverage for subagent executor adapters, lane author metadata, semantic claims, mandatory Skill review artifacts, and generated authoring-lane metadata persistence.
 - **Factory generator cleanup coverage**: Adds regression coverage that scans Factory package sources for removed legacy audit-section renderers so generated source-evidence and variant-routing prose cannot return as unreachable code.
+- **Dashboard coverage**: Adds tests for the dashboard command, snapshot collector, task and verify parsers, Git snapshot, and local HTTP server including static serving and port fallback.
 - **Eval harness coverage**: Adds tests for manifest generation, profiles, task validation, attribution, HTML/report outputs, pass@k metrics, and generic Skill smoke runs.
 - **Classic runtime coverage**: Adds regression coverage for Classic state, guard, handoff, archive, hook guard, migration, resolver, diagnostics, runtime evals, generated runtime parity, and the frozen 0.3.9 fixture.
 - **Platform coverage**: Adds regression coverage for ZCode and MimoCode platform detection, slash command generation, OpenSpec mirroring, Superpowers staging, init E2E behavior, and install/update path checks.
@@ -71,7 +75,33 @@ All notable changes to @rpamis/comet will be documented in this file.
 
 ### Security
 
+- **Dashboard path traversal guard**: Rejects absolute and parent-directory `verification_report` paths before dashboard collection reads verify reports from a change directory.
 - **Dependabot dependency alerts**: Pins the development test toolchain to patched Vite and esbuild versions across npm and pnpm lockfiles, clearing the open Vite path traversal, launch-editor, and esbuild dev-server advisories without changing Comet runtime dependencies.
+
+## What's Changed [0.3.11] - 2026-06-24
+
+### Added
+
+- **`comet dashboard` command**: New command that boots a local read-only HTTP server (default port 4321 with automatic fallback) and opens a single-page dashboard in the user's browser. The page surfaces every active and archived change in the current project's `openspec/changes/` tree, including phase progress (Open → Design → Build → Verify → Archive), artifact checklist, task breakdown, verify status, next-action recommendation, project-level Git snapshot, and rule-driven risk list — so users can `cd` into a repo and inspect Comet workflow health at a glance instead of grepping `tasks.md` or `.comet.yaml` by hand.
+- **Dashboard JSON API**: `GET /api/dashboard` returns the same `DashboardSnapshot` the frontend renders, so scripts and other tooling can consume the same shape. `comet dashboard --json` prints one snapshot to stdout and exits without starting the server, useful for CI and one-off inspection.
+- **`--port` and `--no-open` flags on `comet dashboard`**: Pin the server to a fixed port (helpful when running multiple repos side by side) or skip the auto-open call (useful for SSH / containers / CI where opening a browser would fail).
+
+### Changed
+
+- **Stricter `--port` validation**: `comet dashboard --port` now rejects values that are not entirely numeric (for example `4321abc`) instead of silently accepting the parsed prefix. Invalid ports fail fast with a clear error message.
+
+### Fixed
+
+- **Per-change failure isolation in the dashboard collector**: A single malformed `.comet.yaml` or unreadable change directory no longer aborts the whole dashboard snapshot. The offending change is logged and skipped, and the rest of the sweep continues so the dashboard always renders.
+- **Defensive defaults in the Git snapshot frontend card**: A partial or stale `/api/dashboard` response (missing `recentCommits` / `dirtyFileList` / `dirtyFiles`) now renders an empty card instead of throwing a TypeError.
+
+### Security
+
+- **Path traversal guard for `verification_report`**: The `verification_report` field in `.comet.yaml` is now resolved with a containment check against the change directory. Absolute paths and `..` escapes are rejected and the parser falls back to the default `.comet/verify-result.md` location, preventing a malicious repository from coaxing the dashboard into reading arbitrary local files into its API response and UI.
+
+### Tests
+
+- **Dashboard module coverage**: Added unit tests for the tasks parser, verify parser (including absolute-path and `..`-traversal regressions), Git collector, snapshot collector (including per-change failure isolation), HTTP server (snapshot endpoint, static serving, path traversal guard, port fallback), and the `dashboard --json` command.
 
 ## What's Changed [0.3.9] - 2026-06-17
 

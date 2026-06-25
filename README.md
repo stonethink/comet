@@ -38,7 +38,7 @@ publishing in one loop, so you can start a change, resume it later, diagnose dri
 toolchain.
 
 > [!IMPORTANT]
-> **0.4.0-beta.1** — This is the main product jump beyond master (`0.3.9`): Comet is now a Node-only runtime instead of a Bash/WSL-dependent workflow layer, adds stable `comet skill` and `comet eval` user paths, and turns `/comet-any` into a real Skill Factory with next-action guidance, readiness gates, generated `comet/eval.yaml`, and a clearer publish evidence chain.
+> **0.4.0-beta.1** — This is the main product jump beyond master (`0.3.11`): Comet is now a Node-only runtime instead of a Bash/WSL-dependent workflow layer, keeps the local `comet dashboard` path, adds stable `comet skill` and `comet eval` user paths, and turns `/comet-any` into a real Skill Factory with next-action guidance, readiness gates, generated `comet/eval.yaml`, and a clearer publish evidence chain.
 >
 > **0.3.9** — Review mode (`off|standard|thorough`) controls Build/Verify code review with project defaults; init/update now use optional dependency prompts, broader CLI i18n, stronger phase guards, and macOS executable bits.
 >
@@ -149,6 +149,24 @@ and diagnostic recovery hints when a change is malformed or missing required evi
 | Option   | Description                                                               |
 | -------- | ------------------------------------------------------------------------- |
 | `--json` | Output active changes with `nextCommand`, `currentStep`, and runtime data |
+
+</details>
+
+<details>
+<summary><code>comet dashboard [path]</code> — Launch local read-only dashboard server</summary>
+
+Starts a local HTTP server that displays a visual dashboard with active changes, phase status, task progress, and archive history. Auto-opens in your browser by default.
+
+<p align="center">
+  <img src="https://github.com/rpamis/comet/blob/master/img/dashboard.png" alt="Comet Dashboard" width="800">
+</p>
+<p align="center">Active change overview with phase indicators, task progress, and archive history</p>
+
+| Option      | Description                                                                 |
+| ----------- | --------------------------------------------------------------------------- |
+| `--port`    | Server port (default: auto-selects available port)                          |
+| `--no-open` | Don't auto-open the dashboard in browser                                    |
+| `--json`    | Collect single snapshot and print JSON to stdout (for scripting/inspection) |
 
 </details>
 

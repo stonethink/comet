@@ -1,6 +1,7 @@
 import { Command, Option } from 'commander';
 import { initCommand } from '../commands/init.js';
 import { statusCommand } from '../commands/status.js';
+import { dashboardCommand } from '../commands/dashboard.js';
 import { doctorCommand } from '../commands/doctor.js';
 import { evalCollectCommand, evalRunCommand } from '../commands/eval.js';
 import { updateCommand } from '../commands/update.js';
@@ -77,6 +78,21 @@ program
   .option('--json', 'Output as JSON')
   .action(async (targetPath = '.', options) => {
     await statusCommand(targetPath, options);
+  });
+
+program
+  .command('dashboard [path]')
+  .description('Launch the local Comet dashboard in your browser')
+  .option('--port <port>', 'HTTP port to bind (default 4321, auto-bumps if busy)', (value) => {
+    if (!/^\d+$/u.test(value)) {
+      throw new Error(`Invalid --port value: "${value}". Use an integer between 0 and 65535.`);
+    }
+    return Number.parseInt(value, 10);
+  })
+  .option('--no-open', "Don't open the dashboard URL in the browser automatically")
+  .option('--json', 'Print a single dashboard snapshot to stdout and exit')
+  .action(async (targetPath = '.', options) => {
+    await dashboardCommand(targetPath, options);
   });
 
 program

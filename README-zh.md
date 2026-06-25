@@ -37,7 +37,7 @@
 让你可以用一个工具链开启变更、中断后恢复、诊断漂移，并把可复用 Skill 发布出去。
 
 > [!IMPORTANT]
-> **0.4.0-beta.1** — 这是相对 master（0.3.9）的一次产品面升级：Comet 现在是纯 Node runtime，不再把 Bash/WSL 当成工作流前提；新增 `comet skill` 与 `comet eval` 两条稳定 CLI 主路径；`/comet-any` 被收敛成真正的 Skill Factory，具备 next action、readiness、generated `comet/eval.yaml` 与更清晰的发布前证据链。
+> **0.4.0-beta.1** — 这是相对 master（0.3.11）的一次产品面升级：Comet 现在是纯 Node runtime，不再把 Bash/WSL 当成工作流前提；保留本地 `comet dashboard` 路径；新增 `comet skill` 与 `comet eval` 两条稳定 CLI 主路径；`/comet-any` 被收敛成真正的 Skill Factory，具备 next action、readiness、generated `comet/eval.yaml` 与更清晰的发布前证据链。
 >
 > **0.3.9** — `review_mode: off|standard|thorough` 控制 Build/Verify 自动代码审查并支持项目级默认；init/update 改为可选依赖安装，补齐 CLI 国际化、阶段守护加固和 macOS 可执行权限。
 >
@@ -141,6 +141,24 @@ npx skills add rpamis/comet
 | 选项     | 描述                                                           |
 | -------- | -------------------------------------------------------------- |
 | `--json` | 输出活跃更改，并包含 `nextCommand`、`currentStep` 和运行时数据 |
+
+</details>
+
+<details>
+<summary><code>comet dashboard [path]</code> — 启动本地只读仪表盘服务</summary>
+
+启动本地 HTTP 服务器，展示包含活跃更改、阶段状态、任务进度和归档历史的可视化仪表盘。默认自动在浏览器中打开。
+
+<p align="center">
+  <img src="https://github.com/rpamis/comet/blob/master/img/dashboard.png" alt="Comet 仪表盘" width="800">
+</p>
+<p align="center">活跃更改概览，包含阶段指示器、任务进度和归档历史</p>
+
+| 选项        | 描述                                                          |
+| ----------- | ------------------------------------------------------------- |
+| `--port`    | 服务器端口（默认：自动选择可用端口）                          |
+| `--no-open` | 不自动在浏览器中打开仪表盘                                    |
+| `--json`    | 收集单次快照并以 JSON 格式输出到标准输出（用于脚本编写/检查） |
 
 </details>
 
