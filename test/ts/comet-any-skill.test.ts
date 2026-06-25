@@ -5,15 +5,32 @@ import path from 'path';
 async function readCometAnyZh(): Promise<{
   skill: string;
   authoring: string;
+  authoringSubagents: string;
+  authoringSubagentBriefs: Record<string, string>;
   evalProvider: string;
 }> {
   const root = path.resolve('assets', 'skills-zh', 'comet-any');
-  const [skill, authoring, evalProvider] = await Promise.all([
+  const [skill, authoring, authoringSubagents, evalProvider] = await Promise.all([
     fs.readFile(path.join(root, 'SKILL.md'), 'utf8'),
     fs.readFile(path.join(root, 'reference', 'bundle-authoring.md'), 'utf8'),
+    fs.readFile(path.join(root, 'reference', 'authoring-subagents.md'), 'utf8'),
     fs.readFile(path.join(root, 'reference', 'eval-provider.md'), 'utf8'),
   ]);
-  return { skill, authoring, evalProvider };
+  const authoringSubagentBriefs = Object.fromEntries(
+    await Promise.all(
+      [
+        'script-author',
+        'reference-author',
+        'skill-core-author',
+        'pause-points-author',
+        'skill-reviewer',
+      ].map(async (name) => [
+        name,
+        await fs.readFile(path.join(root, 'reference', 'subagents', `${name}.md`), 'utf8'),
+      ]),
+    ),
+  );
+  return { skill, authoring, authoringSubagents, authoringSubagentBriefs, evalProvider };
 }
 
 async function readCometAnyEn(): Promise<{
@@ -47,8 +64,8 @@ describe('Chinese comet-any Skill', () => {
   });
 
   it('defines the Skill Maker workflow and hard gates', async () => {
-    const { skill, authoring, evalProvider } = await readCometAnyZh();
-    const combined = `${skill}\n${authoring}\n${evalProvider}`;
+    const { skill, authoring, authoringSubagents, evalProvider } = await readCometAnyZh();
+    const combined = `${skill}\n${authoring}\n${authoringSubagents}\n${evalProvider}`;
 
     for (const expected of [
       'comet bundle factory-guide',
@@ -149,6 +166,131 @@ describe('Chinese comet-any Skill', () => {
     expect(combined).not.toContain('允许修改的只有加、换、关');
   });
 
+  it('requires platform subagents to draft authoring artifacts before assembly', async () => {
+    const { skill, authoring, authoringSubagents, authoringSubagentBriefs } =
+      await readCometAnyZh();
+    const subagentBriefs = Object.values(authoringSubagentBriefs).join('\n');
+    const combined = `${skill}\n${authoring}\n${authoringSubagents}\n${subagentBriefs}`;
+
+    for (const expected of [
+      'comet-any/reference/authoring-subagents.md',
+      'comet-any/reference/subagents/script-author.md',
+      'comet-any/reference/subagents/reference-author.md',
+      'comet-any/reference/subagents/skill-core-author.md',
+      'comet-any/reference/subagents/pause-points-author.md',
+      'comet-any/reference/subagents/skill-reviewer.md',
+      '先读取本总览，再只把对应角色 brief 交给对应 subagent',
+      '平台原生 subagent',
+      'Claude Code',
+      'Codex',
+      '脚本作者 subagent',
+      'reference 作者 subagent',
+      'Skill 核心作者 subagent',
+      '停顿点作者 subagent',
+      'Skill 审查 subagent',
+      '平台支持 subagent 时必须调度',
+      '只返回 Markdown 成果和结构化审查结论',
+      '不得直接写入 Bundle state',
+      '不得执行候选 Skill 的脚本',
+      '没有平台 subagent 能力时',
+      'reference/authoring-lanes.json',
+      'reference/skill-review.md',
+      'workflow-state.mjs',
+      'workflow-guard.mjs',
+      'workflow-handoff.mjs',
+      'script:workflow-state',
+      'script:workflow-guard',
+      'script:workflow-handoff',
+      'workflow-protocol.json',
+      'resolved-skills.json',
+      'composition-report.md',
+      'reference:workflow-protocol',
+      'reference:resolved-skills',
+      'reference:composition-report',
+      'reference:authoring-lanes',
+      'entry Skill',
+      'internal stage Skill',
+      'workflow-entry',
+      'stage-skill:<skill-name>',
+      '不复制粘贴原 Skill 全文',
+      '不写 provider 前缀',
+      'decision-points.md',
+      'recovery.md',
+      'pause:decision-points',
+      'pause:recovery',
+      'skill-review.md',
+      'Review passed',
+      'blocking findings',
+      'provider 前缀',
+      '中文 Skill 混入英文流程句',
+    ]) {
+      expect(combined).toContain(expected);
+    }
+
+    expect(authoringSubagents).toContain('reference/subagents/script-author.md');
+    expect(authoringSubagents).toContain('reference/subagents/reference-author.md');
+    expect(authoringSubagents).toContain('reference/subagents/skill-core-author.md');
+    expect(authoringSubagents).toContain('reference/subagents/pause-points-author.md');
+    expect(authoringSubagents).toContain('reference/subagents/skill-reviewer.md');
+
+    expect(skill.indexOf('comet-any/reference/authoring-subagents.md')).toBeLessThan(
+      skill.indexOf('生成 Comet-native Skill 源码'),
+    );
+  });
+
+  it('uses Superpowers-style dispatch contracts for each authoring subagent brief', async () => {
+    const { authoringSubagents, authoringSubagentBriefs } = await readCometAnyZh();
+    const authorBriefs = [
+      authoringSubagentBriefs['script-author'],
+      authoringSubagentBriefs['reference-author'],
+      authoringSubagentBriefs['skill-core-author'],
+      authoringSubagentBriefs['pause-points-author'],
+    ];
+    const reviewerBrief = authoringSubagentBriefs['skill-reviewer'];
+    const combinedAuthorBriefs = authorBriefs.join('\n');
+
+    for (const expected of [
+      '每次派发必须创建新的 subagent',
+      '不得继承主会话历史',
+      '必须显式指定 model',
+      '文件交接',
+      '主会话提供路径，不粘贴大段全文',
+      '开始前先提出问题',
+      '不要猜测或自行补全',
+      '状态必须是 `DONE`、`DONE_WITH_CONCERNS`、`NEEDS_CONTEXT`、`BLOCKED`',
+      '报告文件路径',
+      '只返回 15 行以内状态摘要',
+      '如果状态是 `BLOCKED` 或 `NEEDS_CONTEXT`',
+      '主会话必须补上下文、拆小任务、换更强模型或询问用户',
+      '不得继续组装',
+    ]) {
+      expect(`${authoringSubagents}\n${combinedAuthorBriefs}`).toContain(expected);
+    }
+
+    for (const brief of authorBriefs) {
+      expect(brief).toContain('## 派发模板');
+      expect(brief).toContain('## 状态返回');
+      expect(brief).toContain('## 自检');
+    }
+
+    for (const expected of [
+      '审查不信任作者报告',
+      '两个 verdict',
+      'Skill 契约符合度',
+      '可用性质量',
+      'Critical',
+      'Important',
+      'Minor',
+      '不要告诉审查者不要标记某问题',
+      '不得修改工作树、索引、HEAD 或分支状态',
+      '证据必须引用 artifact 路径和 claim',
+      'Review passed',
+      'blocking findings',
+    ]) {
+      expect(reviewerBrief).toContain(expected);
+    }
+  });
+
   it('preserves the required order of the Chinese workflow', async () => {
     const { skill } = await readCometAnyZh();
     const ordered = [
@@ -177,8 +319,8 @@ describe('Chinese comet-any Skill', () => {
   });
 
   it('documents deterministic Bundle CLI commands used by the Skill', async () => {
-    const { skill, authoring, evalProvider } = await readCometAnyZh();
-    const combined = `${skill}\n${authoring}\n${evalProvider}`;
+    const { skill, authoring, authoringSubagents, evalProvider } = await readCometAnyZh();
+    const combined = `${skill}\n${authoring}\n${authoringSubagents}\n${evalProvider}`;
 
     for (const command of [
       'comet bundle candidates',

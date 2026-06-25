@@ -137,6 +137,44 @@ Ask clarifying questions one at a time before presenting a design.
     expect(compositionReport).toContain('Preference mode: strict');
     expect(compositionReport).toContain('Required Skills');
     expect(compositionReport).toContain('verification-before-completion');
+    const authoringLanes = JSON.parse(
+      await fs.readFile(path.join(output.packageRoot, 'reference', 'authoring-lanes.json'), 'utf8'),
+    ) as {
+      lanes: Array<{
+        lane: string;
+        author: { kind: string; id: string } | null;
+        claims: Array<{ id: string; paths: string[] }>;
+      }>;
+      review: { passed: boolean };
+    };
+    expect(authoringLanes.review.passed).toBe(true);
+    expect(authoringLanes.lanes.map((lane) => lane.lane)).toEqual(
+      expect.arrayContaining([
+        'skill-core',
+        'script-contract',
+        'reference',
+        'pause-points',
+        'eval',
+        'skill-review',
+      ]),
+    );
+    expect(
+      authoringLanes.lanes.every((lane) => lane.author?.kind === 'deterministic-adapter'),
+    ).toBe(true);
+    expect(authoringLanes.lanes.flatMap((lane) => lane.claims.map((claim) => claim.id))).toEqual(
+      expect.arrayContaining([
+        'workflow-entry',
+        'script:workflow-state',
+        'script:workflow-guard',
+        'script:workflow-handoff',
+        'reference:workflow-protocol',
+        'pause:decision-points',
+        'pause:recovery',
+        'eval:manifest',
+        'review:skill-review',
+        'reference:authoring-lanes',
+      ]),
+    );
   });
 
   it('records deviation reasons in the generated Skill guidance', async () => {

@@ -1,4 +1,6 @@
 import type {
+  FactoryArtifactClaim,
+  FactoryArtifactAuthorMetadata,
   FactoryArtifactAuthor,
   FactoryArtifactProposal,
   FactoryAuthoringInput,
@@ -6,20 +8,46 @@ import type {
   FactoryPackageArtifact,
 } from './artifacts.js';
 
+export function createDeterministicArtifactAuthor(
+  lane: FactoryAuthoringLane,
+  label: string,
+  buildArtifacts: (input: FactoryAuthoringInput) => FactoryPackageArtifact[],
+  buildClaims: (
+    input: FactoryAuthoringInput,
+    artifacts: FactoryPackageArtifact[],
+  ) => FactoryArtifactClaim[],
+): FactoryArtifactAuthor {
+  const author: FactoryArtifactAuthorMetadata = {
+    id: lane,
+    kind: 'deterministic-adapter',
+    label,
+  };
+  return {
+    lane,
+    author,
+    draft(input) {
+      const artifacts = buildArtifacts(input);
+      return {
+        lane,
+        protocolHash: input.protocolHash,
+        author,
+        artifacts,
+        claims: buildClaims(input, artifacts),
+      };
+    },
+  };
+}
+
 export function createStaticArtifactAuthor(
   lane: FactoryAuthoringLane,
   buildArtifacts: (input: FactoryAuthoringInput) => FactoryPackageArtifact[],
 ): FactoryArtifactAuthor {
-  return {
+  return createDeterministicArtifactAuthor(
     lane,
-    draft(input) {
-      return {
-        lane,
-        protocolHash: input.protocolHash,
-        artifacts: buildArtifacts(input),
-      };
-    },
-  };
+    `${lane} deterministic author`,
+    buildArtifacts,
+    () => [],
+  );
 }
 
 export async function runFactoryAuthoringLanes(
@@ -39,7 +67,11 @@ export async function runFactoryAuthoringLanes(
         `Factory authoring protocol hash drift in ${proposal.lane}: expected ${input.protocolHash}, got ${proposal.protocolHash}.`,
       );
     }
-    proposals.push(proposal);
+    proposals.push({
+      ...proposal,
+      author: proposal.author ?? author.author,
+      claims: proposal.claims ?? [],
+    });
   }
   return proposals;
 }

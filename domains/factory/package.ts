@@ -4,7 +4,6 @@ import { stringify } from 'yaml';
 import type {
   FactoryResolvedSkill,
   FactorySkillPackagePlan,
-  FactoryStageName,
   GeneratedFactorySkillPackage,
 } from './types.js';
 import {
@@ -14,35 +13,21 @@ import {
   type FactoryWorkflowSlot,
   type FactoryWorkflowStage,
 } from './protocol.js';
-import { createStaticArtifactAuthor, runFactoryAuthoringLanes } from './authoring.js';
+import { createDeterministicArtifactAuthor } from './authoring.js';
+import { assembleFactoryPackageDraft } from './package-assembly.js';
 import {
-  collectProposalArtifacts,
   workflowProtocolHash,
+  type FactoryArtifactClaim,
+  type FactoryArtifactAuthorMetadata,
   type FactoryArtifactProposal,
   type FactoryPackageArtifact,
   type FactoryPackageDraft,
+  type FactoryResolvedSkillSourceSummary,
+  type FactoryStagePlan,
 } from './artifacts.js';
 import { renderSkillReviewMarkdown, reviewFactoryArtifactProposals } from './review.js';
 
-interface ResolvedSkillSourceSummary {
-  query: string;
-  preferenceIndex: number | null;
-  status: FactoryResolvedSkill['status'];
-  source: {
-    name: string;
-    platform: string;
-    scope: string;
-    root: string;
-    hash: string;
-    description: string;
-    references: Array<{ path: string; contentHash: string }>;
-    scripts: Array<{
-      path: string;
-      sideEffect: 'unknown' | 'none' | 'read' | 'write' | 'external';
-    }>;
-  };
-  summary: string;
-}
+type ResolvedSkillSourceSummary = FactoryResolvedSkillSourceSummary;
 
 type ResolvedSkillSource = FactoryResolvedSkill['sources'][number];
 
@@ -147,14 +132,6 @@ function primaryResolvedSource(
     (skill) => skill.query === query && skill.status === 'available',
   );
   return resolved?.sources[0] ?? null;
-}
-
-interface FactoryStagePlan extends FactoryStageName {
-  sourceSkill: string;
-  workflowStage: FactoryWorkflowStage;
-  workflowSlot?: FactoryWorkflowSlot;
-  parentStage?: FactoryWorkflowStage;
-  kind: 'stage' | 'slot';
 }
 
 interface FactoryWorkflowRouteItem {
@@ -2431,6 +2408,142 @@ function jsonArtifact(
   return artifact(artifactPath, kind, `${JSON.stringify(value, null, 2)}\n`);
 }
 
+function claim(
+  kind: FactoryArtifactClaim['kind'],
+  id: string,
+  paths: string[],
+  summary: string,
+  stageSkill?: string,
+): FactoryArtifactClaim {
+  return {
+    kind,
+    id,
+    paths,
+    summary,
+    ...(stageSkill ? { stageSkill } : {}),
+  };
+}
+
+function skillCoreClaims(stagePlans: FactoryStagePlan[]): FactoryArtifactClaim[] {
+  return [
+    claim(
+      'workflow-entry',
+      'workflow-entry',
+      ['SKILL.md'],
+      'Entry Skill routes the generated workflow.',
+    ),
+    ...stagePlans.map((stage) =>
+      claim(
+        'stage-skill',
+        `stage-skill:${stage.name}`,
+        [`../${stage.name}/SKILL.md`],
+        `Internal stage Skill ${stage.name} handles ${stage.label ?? stage.sourceSkill}.`,
+        stage.name,
+      ),
+    ),
+  ];
+}
+
+function scriptClaims(): FactoryArtifactClaim[] {
+  return [
+    claim(
+      'script',
+      'script:workflow-state',
+      ['scripts/workflow-state.mjs'],
+      'Workflow state script records stage evidence and emits the next generated Skill.',
+    ),
+    claim(
+      'script',
+      'script:workflow-guard',
+      ['scripts/workflow-guard.mjs'],
+      'Workflow guard script blocks stage exit until protocol checks pass.',
+    ),
+    claim(
+      'script',
+      'script:workflow-handoff',
+      ['scripts/workflow-handoff.mjs'],
+      'Workflow handoff script records resumable context across sessions.',
+    ),
+  ];
+}
+
+function referenceClaims(): FactoryArtifactClaim[] {
+  return [
+    claim(
+      'reference',
+      'reference:workflow-protocol',
+      ['reference/workflow-protocol.json'],
+      'Workflow protocol is the route authority for generated Skills and scripts.',
+    ),
+    claim(
+      'reference',
+      'reference:resolved-skills',
+      ['reference/resolved-skills.json'],
+      'Resolved source Skill evidence is preserved outside user-facing Skill prose.',
+    ),
+    claim(
+      'reference',
+      'reference:composition-report',
+      ['reference/composition-report.md'],
+      'Composition report explains preference and source-skill decisions for audits.',
+    ),
+  ];
+}
+
+function pausePointClaims(): FactoryArtifactClaim[] {
+  return [
+    claim(
+      'pause-point',
+      'pause:decision-points',
+      ['reference/decision-points.md'],
+      'Decision point reference describes user pauses before risky workflow transitions.',
+    ),
+    claim(
+      'pause-point',
+      'pause:recovery',
+      ['reference/recovery.md'],
+      'Recovery reference describes cross-session workflow resume behavior.',
+    ),
+  ];
+}
+
+function evalClaims(engineArtifacts: FactoryPackageArtifact[]): FactoryArtifactClaim[] {
+  if (!engineArtifacts.some((item) => item.path === 'comet/eval.yaml')) return [];
+  return [
+    claim(
+      'eval',
+      'eval:manifest',
+      ['comet/eval.yaml'],
+      'Eval manifest covers generated workflow route conformance.',
+    ),
+  ];
+}
+
+function reviewAuthor(): FactoryArtifactAuthorMetadata {
+  return {
+    id: 'skill-review',
+    kind: 'deterministic-adapter',
+    label: 'Skill review author',
+  };
+}
+
+function reviewClaims(): FactoryArtifactClaim[] {
+  return [
+    claim(
+      'review',
+      'review:skill-review',
+      ['reference/skill-review.md'],
+      'Skill review report records the final authoring gate result.',
+    ),
+    claim(
+      'reference',
+      'reference:authoring-lanes',
+      ['reference/authoring-lanes.json'],
+      'Authoring lane manifest records lane authors, claims, artifacts, and review findings.',
+    ),
+  ];
+}
+
 function authoringLanesJson(
   protocolHash: string,
   proposals: FactoryArtifactProposal[],
@@ -2443,6 +2556,8 @@ function authoringLanesJson(
       lanes: proposals.map((proposal) => ({
         lane: proposal.lane,
         protocolHash: proposal.protocolHash,
+        author: proposal.author ?? null,
+        claims: proposal.claims ?? [],
         artifacts: proposal.artifacts.map((item) => ({
           path: item.path,
           kind: item.kind,
@@ -2477,7 +2592,7 @@ export async function draftFactorySkillArtifacts(
   const stagePlans = buildStagePlans(plan);
   const workflow = compileWorkflowSpec(plan);
   const protocolHash = workflowProtocolHash(workflow);
-  const input = { workflow, protocolHash };
+  const input = { plan, workflow, protocolHash, sourceSummaries, stagePlans };
   const scriptArtifacts = [
     artifact('scripts/comet-plan.mjs', 'script', planScript(plan), true),
     artifact('scripts/comet-check.mjs', 'script', checkScript(plan), true),
@@ -2495,87 +2610,89 @@ export async function draftFactorySkillArtifacts(
           artifact('comet/checks.yaml', 'engine', stringify(runtimeEvals())),
           artifact('comet/eval.yaml', 'engine', stringify(evalManifest(plan))),
         ];
-  const proposals = await runFactoryAuthoringLanes(input, [
-    createStaticArtifactAuthor('skill-core', () => [
-      artifact('SKILL.md', 'skill', skillMarkdown(plan)),
-      ...stagePlans.map((stage) =>
-        artifact(
-          `../${stage.name}/SKILL.md`,
-          'skill',
-          internalStageSkillMarkdown(plan, stage, sourceSummaries),
+  const authors = [
+    createDeterministicArtifactAuthor(
+      'skill-core',
+      'Skill core author',
+      () => [
+        artifact('SKILL.md', 'skill', skillMarkdown(plan)),
+        ...stagePlans.map((stage) =>
+          artifact(
+            `../${stage.name}/SKILL.md`,
+            'skill',
+            internalStageSkillMarkdown(plan, stage, sourceSummaries),
+          ),
         ),
-      ),
-    ]),
-    createStaticArtifactAuthor('script-contract', () => scriptArtifacts),
-    createStaticArtifactAuthor('reference', () => [
-      jsonArtifact('reference/resolved-skills.json', {
-        schemaVersion: 1,
-        resolvedSkills: plan.resolvedSkills ?? [],
-        sourceSummaries,
-        stageNames: stagePlans,
-        preference: plan.preference ?? null,
-      }),
-      jsonArtifact('reference/workflow-protocol.json', workflow),
-      artifact('reference/composition-report.md', 'reference', compositionReport(plan)),
-    ]),
-    createStaticArtifactAuthor('pause-points', () => [
-      artifact(
-        'reference/decision-points.md',
-        'reference',
-        workflowDecisionPointsMarkdown(workflow),
-      ),
-      artifact('reference/recovery.md', 'reference', workflowRecoveryMarkdown(workflow)),
-    ]),
-    createStaticArtifactAuthor('eval', () => engineArtifacts),
-  ]);
-
-  const preReview = reviewFactoryArtifactProposals({
-    workflow,
-    protocolHash,
-    proposals,
-    requiresEngineArtifacts: plan.engineMode !== 'none',
-  });
-  const reviewArtifacts: FactoryPackageArtifact[] = [
-    artifact('reference/skill-review.md', 'reference', renderSkillReviewMarkdown(preReview)),
-  ];
-  const reviewProposal: FactoryArtifactProposal = {
-    lane: 'skill-review',
-    protocolHash,
-    artifacts: reviewArtifacts,
-  };
-  const allProposals = [...proposals, reviewProposal];
-  reviewArtifacts.push(
-    artifact(
-      'reference/authoring-lanes.json',
-      'reference',
-      authoringLanesJson(protocolHash, allProposals, preReview),
+      ],
+      () => skillCoreClaims(stagePlans),
     ),
-  );
+    createDeterministicArtifactAuthor(
+      'script-contract',
+      'Workflow script contract author',
+      () => scriptArtifacts,
+      () => scriptClaims(),
+    ),
+    createDeterministicArtifactAuthor(
+      'reference',
+      'Reference author',
+      () => [
+        jsonArtifact('reference/resolved-skills.json', {
+          schemaVersion: 1,
+          resolvedSkills: plan.resolvedSkills ?? [],
+          sourceSummaries,
+          stageNames: stagePlans,
+          preference: plan.preference ?? null,
+        }),
+        jsonArtifact('reference/workflow-protocol.json', workflow),
+        artifact('reference/composition-report.md', 'reference', compositionReport(plan)),
+      ],
+      () => referenceClaims(),
+    ),
+    createDeterministicArtifactAuthor(
+      'pause-points',
+      'User pause point author',
+      () => [
+        artifact(
+          'reference/decision-points.md',
+          'reference',
+          workflowDecisionPointsMarkdown(workflow),
+        ),
+        artifact('reference/recovery.md', 'reference', workflowRecoveryMarkdown(workflow)),
+      ],
+      () => pausePointClaims(),
+    ),
+    createDeterministicArtifactAuthor(
+      'eval',
+      'Workflow eval author',
+      () => engineArtifacts,
+      () => evalClaims(engineArtifacts),
+    ),
+  ];
 
-  const finalReview = reviewFactoryArtifactProposals({
-    workflow,
-    protocolHash,
-    proposals: allProposals,
+  return assembleFactoryPackageDraft({
+    input,
+    authors,
     requiresEngineArtifacts: plan.engineMode !== 'none',
+    createReviewProposal({ review, proposals }) {
+      const reviewProposal: FactoryArtifactProposal = {
+        lane: 'skill-review',
+        protocolHash,
+        author: reviewAuthor(),
+        artifacts: [],
+        claims: reviewClaims(),
+      };
+      const allProposals = [...proposals, reviewProposal];
+      reviewProposal.artifacts = [
+        artifact('reference/skill-review.md', 'reference', renderSkillReviewMarkdown(review)),
+        artifact(
+          'reference/authoring-lanes.json',
+          'reference',
+          authoringLanesJson(protocolHash, allProposals, review),
+        ),
+      ];
+      return reviewProposal;
+    },
   });
-  reviewArtifacts[0] = artifact(
-    'reference/skill-review.md',
-    'reference',
-    renderSkillReviewMarkdown(finalReview),
-  );
-  reviewArtifacts[1] = artifact(
-    'reference/authoring-lanes.json',
-    'reference',
-    authoringLanesJson(protocolHash, allProposals, finalReview),
-  );
-
-  return {
-    workflow,
-    protocolHash,
-    proposals: allProposals,
-    artifacts: collectProposalArtifacts(allProposals),
-    review: finalReview,
-  };
 }
 
 async function writeFactoryArtifacts(

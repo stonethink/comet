@@ -76,6 +76,25 @@ Bundle 必须明确：
 
 Engine 是运行语义底座，但 CLI 仍是内部确定性后端，用户主流程不需要直接操作 CLI。
 
+## Authoring subagents
+
+`comet bundle` 不负责启动平台 subagent；它只维护确定性状态、编译、Eval、review 和 publish。
+`/comet-any` Skill 自身负责在创作层使用平台原生 subagent。Claude Code、Codex、Gemini、Copilot 等平台的调用机制不同，
+因此 subagent 总览固定写在 `comet-any/reference/authoring-subagents.md`，角色 brief 拆在
+`comet-any/reference/subagents/*.md`，由当前平台按自己的方式执行。
+
+平台支持 subagent 时必须调度以下作者：
+
+- 脚本作者 subagent
+- reference 作者 subagent
+- Skill 核心作者 subagent
+- 停顿点作者 subagent
+- Skill 审查 subagent
+
+这些 subagent 只返回 Markdown 成果和结构化审查结论，不得直接写入 Bundle state，不得执行候选 Skill 的脚本。
+主会话把 subagent 成果整理为 `reference/authoring-lanes.json`、`reference/skill-review.md` 和后续 Bundle draft，
+再调用 `comet bundle` / `comet publish` 命令维护状态。
+
 ## CLI 生命周期
 
 `factory-propose` 和 `factory-init` 使用的 `plan.json` 应采用稳定结构。推荐最小形状：

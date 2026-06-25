@@ -28,6 +28,7 @@ Bundle 至少包含 `SKILL.md`、`comet/skill.yaml`、`comet/guardrails.yaml`、
 ## 参考资料
 
 - `comet-any/reference/bundle-authoring.md`：Skill Factory 后端、Factory metadata、Bundle/CLI 生命周期。
+- `comet-any/reference/authoring-subagents.md`：平台原生 subagent 总览、派发顺序和角色 brief 索引。
 - `comet-any/reference/eval-provider.md`：Eval 选择、证据格式、评审摘要与回退检查。
 
 ## 硬性检查
@@ -50,6 +51,8 @@ Bundle 至少包含 `SKILL.md`、`comet/skill.yaml`、`comet/guardrails.yaml`、
   缺失当前 hash 的人工 approval、capability gap 或 executable disclosure 未确认时，不得发布 ready。
 - 进入 ready 前必须人工批准；安装前必须询问用户。
 - 原生 `skill-creator` 优先；回退前必须询问用户是否允许 Comet fallback。
+- 平台支持 subagent 时必须调度平台原生 subagent（Claude Code、Codex 等）分别产出脚本、reference、Skill 核心、停顿点和 Skill 审查成果；必须先读取 `comet-any/reference/authoring-subagents.md`，再按角色读取 `comet-any/reference/subagents/*.md`。
+- subagent 只返回 Markdown 成果和结构化审查结论，不得直接写入 Bundle state，不得执行候选 Skill 的脚本。
 
 ## 步骤
 
@@ -190,6 +193,32 @@ comet bundle draft create <name> --json
 comet bundle draft optimize <bundle> --json
 comet bundle status <name> --json
 ```
+
+### 9a. 使用平台 subagent 产出创作成果
+
+生成 Comet-native Skill 源码前，必须读取 `comet-any/reference/authoring-subagents.md` 总览，
+再按索引读取对应角色 brief：
+
+- `comet-any/reference/subagents/script-author.md`
+- `comet-any/reference/subagents/reference-author.md`
+- `comet-any/reference/subagents/skill-core-author.md`
+- `comet-any/reference/subagents/pause-points-author.md`
+- `comet-any/reference/subagents/skill-reviewer.md`
+
+如果当前平台支持 subagent，必须使用平台原生 subagent 机制派发：
+
+- 脚本作者 subagent
+- reference 作者 subagent
+- Skill 核心作者 subagent
+- 停顿点作者 subagent
+- Skill 审查 subagent
+
+这些 subagent 的成果必须先汇总为可审查草稿，并最终写入 `reference/authoring-lanes.json`
+和 `reference/skill-review.md`。如果平台没有 subagent 能力，允许主会话按同一份 brief 内联执行，
+但必须在用户摘要和审查记录中标记为 fallback。
+
+subagent 不得直接运行 `comet bundle`、`comet publish`、`comet skill` 或候选 Skill 的脚本；
+这些命令只能由主会话在确认点之后调用。
 
 ### 10. 生成 Comet-native Skill 源码
 

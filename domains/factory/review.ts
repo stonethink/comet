@@ -1,5 +1,6 @@
 import type { FactoryWorkflowSpec } from './protocol.js';
 import type {
+  FactoryArtifactClaim,
   FactoryArtifactProposal,
   FactoryAuthoringLane,
   FactoryGeneratedPackageReview,
@@ -12,6 +13,7 @@ export interface FactoryArtifactReviewInput {
   protocolHash: string;
   proposals: FactoryArtifactProposal[];
   requiresEngineArtifacts?: boolean;
+  requiresReviewArtifacts?: boolean;
 }
 
 const BASE_REQUIRED_LANES: FactoryAuthoringLane[] = [
@@ -19,6 +21,7 @@ const BASE_REQUIRED_LANES: FactoryAuthoringLane[] = [
   'script-contract',
   'reference',
   'pause-points',
+  'skill-review',
 ];
 
 const REQUIRED_ARTIFACTS = [
@@ -37,6 +40,8 @@ const REQUIRED_ENGINE_ARTIFACTS = [
   'comet/checks.yaml',
   'comet/eval.yaml',
 ];
+
+const REQUIRED_REVIEW_ARTIFACTS = ['reference/skill-review.md', 'reference/authoring-lanes.json'];
 
 function finding(
   code: string,
@@ -67,6 +72,70 @@ function scriptArtifactNames(artifacts: FactoryPackageArtifact[]): Set<string> {
     names.add(slash >= 0 ? normalized.slice(slash + 1) : normalized);
   }
   return names;
+}
+
+function claimsById(claims: FactoryArtifactClaim[]): Map<string, FactoryArtifactClaim> {
+  return new Map(claims.map((claim) => [claim.id, claim]));
+}
+
+function workflowStageSkills(workflow: FactoryWorkflowSpec): string[] {
+  return workflow.stages.flatMap((stage) => [
+    stage.stageSkill,
+    ...stage.slots.map((slot) => slot.stageSkill),
+  ]);
+}
+
+function requiredClaimIds(
+  workflow: FactoryWorkflowSpec,
+  options: { requiresEngineArtifacts: boolean; requiresReviewArtifacts: boolean },
+): string[] {
+  const ids = [
+    'workflow-entry',
+    'script:workflow-state',
+    'script:workflow-guard',
+    'script:workflow-handoff',
+    'reference:workflow-protocol',
+    'pause:decision-points',
+    'pause:recovery',
+    ...workflowStageSkills(workflow).map((stageSkill) => `stage-skill:${stageSkill}`),
+  ];
+  if (options.requiresEngineArtifacts) ids.push('eval:manifest');
+  if (options.requiresReviewArtifacts) {
+    ids.push('review:skill-review', 'reference:authoring-lanes');
+  }
+  return ids;
+}
+
+function reviewClaims(
+  input: FactoryArtifactReviewInput,
+  artifacts: FactoryPackageArtifact[],
+  options: { requiresEngineArtifacts: boolean; requiresReviewArtifacts: boolean },
+): FactoryReviewFinding[] {
+  const findings: FactoryReviewFinding[] = [];
+  const artifactPaths = new Set(artifacts.map((artifact) => artifact.path.replace(/\\/gu, '/')));
+  const claims = input.proposals.flatMap((proposal) =>
+    (proposal.claims ?? []).map((claim) => ({ ...claim, lane: proposal.lane })),
+  );
+  const byId = claimsById(claims);
+  for (const claimId of requiredClaimIds(input.workflow, options)) {
+    const claim = byId.get(claimId);
+    if (!claim) {
+      findings.push(finding('missing-claim', `Missing authoring claim: ${claimId}.`));
+      continue;
+    }
+    for (const claimPath of claim.paths) {
+      if (!artifactPaths.has(claimPath.replace(/\\/gu, '/'))) {
+        findings.push(
+          finding(
+            'claim-missing-artifact',
+            `Authoring claim ${claim.id} references missing artifact ${claimPath}.`,
+            claimPath,
+          ),
+        );
+      }
+    }
+  }
+  return findings;
 }
 
 function referencedScripts(content: string): string[] {
@@ -156,10 +225,15 @@ export function reviewFactoryArtifactProposals(
 ): FactoryGeneratedPackageReview {
   const blockingFindings: FactoryReviewFinding[] = [];
   const warnings: FactoryReviewFinding[] = [];
+  const requiresReviewArtifacts = input.requiresReviewArtifacts !== false;
+  const requiresEngineArtifacts = input.requiresEngineArtifacts === true;
   const lanes = new Set(input.proposals.map((proposal) => proposal.lane));
-  const requiredLanes = input.requiresEngineArtifacts
-    ? [...BASE_REQUIRED_LANES, 'eval' as const]
-    : BASE_REQUIRED_LANES;
+  const baseRequiredLanes = requiresReviewArtifacts
+    ? BASE_REQUIRED_LANES
+    : BASE_REQUIRED_LANES.filter((lane) => lane !== 'skill-review');
+  const requiredLanes = requiresEngineArtifacts
+    ? [...baseRequiredLanes, 'eval' as const]
+    : baseRequiredLanes;
 
   for (const lane of requiredLanes) {
     if (!lanes.has(lane)) {
@@ -188,9 +262,11 @@ export function reviewFactoryArtifactProposals(
 
   const artifacts = input.proposals.flatMap((proposal) => proposal.artifacts);
   const byPath = artifactsByPath(artifacts);
-  const requiredArtifacts = input.requiresEngineArtifacts
-    ? [...REQUIRED_ARTIFACTS, ...REQUIRED_ENGINE_ARTIFACTS]
-    : REQUIRED_ARTIFACTS;
+  const requiredArtifacts = [
+    ...REQUIRED_ARTIFACTS,
+    ...(requiresEngineArtifacts ? REQUIRED_ENGINE_ARTIFACTS : []),
+    ...(requiresReviewArtifacts ? REQUIRED_REVIEW_ARTIFACTS : []),
+  ];
   for (const artifactPath of requiredArtifacts) {
     if (!byPath.has(artifactPath)) {
       blockingFindings.push(
@@ -205,6 +281,12 @@ export function reviewFactoryArtifactProposals(
       blockingFindings.push(...reviewSkillArtifact(artifact, scripts));
     }
   }
+  blockingFindings.push(
+    ...reviewClaims(input, artifacts, {
+      requiresEngineArtifacts,
+      requiresReviewArtifacts,
+    }),
+  );
   blockingFindings.push(...reviewProtocol(input.workflow));
 
   return {

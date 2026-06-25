@@ -1,5 +1,6 @@
 import { createHash } from 'crypto';
-import type { FactoryWorkflowSpec } from './protocol.js';
+import type { FactoryWorkflowSlot, FactoryWorkflowSpec, FactoryWorkflowStage } from './protocol.js';
+import type { FactoryResolvedSkill, FactorySkillPackagePlan, FactoryStageName } from './types.js';
 
 export type FactoryAuthoringLane =
   | 'skill-core'
@@ -11,11 +12,36 @@ export type FactoryAuthoringLane =
 
 export type FactoryPackageArtifactKind = 'skill' | 'script' | 'reference' | 'engine';
 
+export type FactoryArtifactAuthorKind = 'deterministic-adapter' | 'subagent';
+
+export type FactoryArtifactClaimKind =
+  | 'workflow-entry'
+  | 'stage-skill'
+  | 'script'
+  | 'reference'
+  | 'pause-point'
+  | 'eval'
+  | 'review';
+
 export interface FactoryPackageArtifact {
   path: string;
   kind: FactoryPackageArtifactKind;
   content: string;
   executable?: boolean;
+}
+
+export interface FactoryArtifactAuthorMetadata {
+  id: string;
+  kind: FactoryArtifactAuthorKind;
+  label: string;
+}
+
+export interface FactoryArtifactClaim {
+  kind: FactoryArtifactClaimKind;
+  id: string;
+  paths: string[];
+  summary: string;
+  stageSkill?: string;
 }
 
 export interface FactoryReviewFinding {
@@ -29,7 +55,9 @@ export interface FactoryReviewFinding {
 export interface FactoryArtifactProposal {
   lane: FactoryAuthoringLane;
   protocolHash: string;
+  author?: FactoryArtifactAuthorMetadata;
   artifacts: FactoryPackageArtifact[];
+  claims?: FactoryArtifactClaim[];
   findings?: FactoryReviewFinding[];
 }
 
@@ -47,13 +75,45 @@ export interface FactoryPackageDraft {
   review: FactoryGeneratedPackageReview;
 }
 
+export interface FactoryResolvedSkillSourceSummary {
+  query: string;
+  preferenceIndex: number | null;
+  status: FactoryResolvedSkill['status'];
+  source: {
+    name: string;
+    platform: string;
+    scope: string;
+    root: string;
+    hash: string;
+    description: string;
+    references: Array<{ path: string; contentHash: string }>;
+    scripts: Array<{
+      path: string;
+      sideEffect: 'unknown' | 'none' | 'read' | 'write' | 'external';
+    }>;
+  };
+  summary: string;
+}
+
+export interface FactoryStagePlan extends FactoryStageName {
+  sourceSkill: string;
+  workflowStage: FactoryWorkflowStage;
+  workflowSlot?: FactoryWorkflowSlot;
+  parentStage?: FactoryWorkflowStage;
+  kind: 'stage' | 'slot';
+}
+
 export interface FactoryAuthoringInput {
+  plan: FactorySkillPackagePlan;
   workflow: FactoryWorkflowSpec;
   protocolHash: string;
+  sourceSummaries: FactoryResolvedSkillSourceSummary[];
+  stagePlans: FactoryStagePlan[];
 }
 
 export interface FactoryArtifactAuthor {
   lane: FactoryAuthoringLane;
+  author: FactoryArtifactAuthorMetadata;
   draft(input: FactoryAuthoringInput): FactoryArtifactProposal | Promise<FactoryArtifactProposal>;
 }
 
