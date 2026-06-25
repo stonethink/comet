@@ -47,6 +47,10 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Bash-first runtime dependency**: Removes the old requirement that bundled Classic workflow scripts execute through Bash-compatible shell scripts; Node launchers and cross-platform runtime checks are now the default contract.
 - **Deprecated shell test path**: Removes the old shell-script test runner and replaces it with Vitest coverage around the generated Classic runtime and compatibility fixtures.
 
+### Security
+
+- **Dependabot dependency alerts**: Pins the development test toolchain to patched Vite and esbuild versions across npm and pnpm lockfiles, clearing the open Vite path traversal, launch-editor, and esbuild dev-server advisories without changing Comet runtime dependencies.
+
 ## What's Changed [0.3.9] - 2026-06-17
 
 ### Added

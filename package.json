@@ -51,6 +51,14 @@
     "platform/**/*.{ts,tsx,js,mjs,cjs,json,md,yaml,yml}": "prettier --write"
   },
   "packageManager": "pnpm@10.18.3",
+  "overrides": {
+    "esbuild": "0.28.1"
+  },
+  "pnpm": {
+    "overrides": {
+      "esbuild": "0.28.1"
+    }
+  },
   "engines": {
     "node": ">=20"
   },
@@ -58,13 +66,14 @@
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.2.0",
     "@vitest/coverage-v8": "^4.1.6",
-    "esbuild": "^0.28.1",
+    "esbuild": "0.28.1",
     "eslint": "^10.4.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.7",
     "prettier": "^3.8.3",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.59.3",
+    "vite": "7.3.6",
     "vitest": "^4.1.6"
   },
   "dependencies": {
