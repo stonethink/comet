@@ -38,10 +38,7 @@ describe('bundle factory plan normalization', () => {
     const plan: BundleFactoryPlanFile = {
       goal: 'Optimize an existing Bundle.',
       preferredSkills: ['brainstorming', 'writing-plans'],
-      callChain: [
-        { skill: 'writing-plans', preferenceIndex: 5 },
-        { skill: 'brainstorming' },
-      ],
+      callChain: [{ skill: 'writing-plans', preferenceIndex: 5 }, { skill: 'brainstorming' }],
       deviations: [
         {
           skill: 'writing-plans',
@@ -87,6 +84,57 @@ describe('bundle factory plan normalization', () => {
       locales: ['zh', 'en'],
       engineEnabled: false,
     });
+  });
+
+  it('normalizes user-provided stage names for generated internal Skills', () => {
+    const normalized = normalizeBundleFactoryPlan({
+      plan: {
+        goal: 'Customize /comet with a named grill stage.',
+        callChain: ['comet-design', 'grill-me', 'comet-build'],
+        stageNames: [
+          {
+            skill: 'grill-me',
+            name: 'comet-grill-flow-design-pressure-test',
+            phase: 'design',
+            label: 'Design pressure test',
+          },
+        ],
+      },
+    });
+
+    expect(normalized.stageNameOverrides).toEqual([
+      {
+        skill: 'grill-me',
+        name: 'comet-grill-flow-design-pressure-test',
+        phase: 'design',
+        label: 'Design pressure test',
+      },
+    ]);
+  });
+
+  it('rejects invalid or duplicate custom stage names before proposal generation', () => {
+    expect(() =>
+      normalizeBundleFactoryPlan({
+        plan: {
+          goal: 'Customize /comet with duplicate stage names.',
+          callChain: ['comet-design', 'grill-me'],
+          stageNames: [
+            { skill: 'comet-design', name: 'duplicate-stage' },
+            { skill: 'grill-me', name: 'duplicate-stage' },
+          ],
+        },
+      }),
+    ).toThrow(/duplicate stage name/iu);
+
+    expect(() =>
+      normalizeBundleFactoryPlan({
+        plan: {
+          goal: 'Customize /comet with invalid stage names.',
+          callChain: ['comet-design'],
+          stageNames: [{ skill: 'comet-design', name: 'Bad Stage Name' }],
+        },
+      }),
+    ).toThrow(/invalid stage name/iu);
   });
 
   it('rejects optimize mode without sourceRoot', () => {

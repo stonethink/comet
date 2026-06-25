@@ -4,6 +4,7 @@ import { stringify } from 'yaml';
 import type {
   FactoryResolvedSkill,
   FactorySkillPackagePlan,
+  FactoryStageName,
   GeneratedFactorySkillPackage,
 } from './types.js';
 
@@ -88,8 +89,38 @@ function buildSourceSummaries(plan: FactorySkillPackagePlan): ResolvedSkillSourc
   );
 }
 
+interface FactoryStagePlan extends FactoryStageName {
+  sourceSkill: string;
+}
+
+function buildStagePlans(plan: FactorySkillPackagePlan): FactoryStagePlan[] {
+  if (!plan.stageNames || plan.stageNames.length === 0) return [];
+  const queues = new Map<string, FactoryStageName[]>();
+  for (const stage of plan.stageNames) {
+    const entries = queues.get(stage.skill) ?? [];
+    entries.push(stage);
+    queues.set(stage.skill, entries);
+  }
+  return plan.callChain.flatMap((item, index) => {
+    const aligned = plan.stageNames?.[index];
+    const stage =
+      aligned?.skill === item.skill ? aligned : (queues.get(item.skill)?.shift() ?? null);
+    if (!stage) return [];
+    return [{ ...stage, sourceSkill: item.skill }];
+  });
+}
+
+function stageSkillFor(
+  stagePlans: FactoryStagePlan[],
+  item: FactorySkillPackagePlan['callChain'][number],
+  index: number,
+): string {
+  return stagePlans[index]?.sourceSkill === item.skill ? stagePlans[index]!.name : item.skill;
+}
+
 function skillMarkdown(plan: FactorySkillPackagePlan): string {
   const sourceSummaries = buildSourceSummaries(plan);
+  const stagePlans = buildStagePlans(plan);
   const summaryBySkill = new Map<string, ResolvedSkillSourceSummary[]>();
   for (const summary of sourceSummaries) {
     const entries = summaryBySkill.get(summary.query) ?? [];
@@ -99,7 +130,12 @@ function skillMarkdown(plan: FactorySkillPackagePlan): string {
   const callChain =
     plan.callChain.length === 0
       ? '1. checkpoint'
-      : plan.callChain.map((item, index) => `${index + 1}. ${item.skill}`).join('\n');
+      : plan.callChain
+          .map((item, index) => {
+            const stageSkill = stageSkillFor(stagePlans, item, index);
+            return `${index + 1}. ${stageSkill === item.skill ? item.skill : `${stageSkill} (${item.skill})`}`;
+          })
+          .join('\n');
   const workflow =
     plan.callChain.length === 0
       ? '1. checkpoint: 完成一次显式检查点。'
@@ -110,7 +146,8 @@ function skillMarkdown(plan: FactorySkillPackagePlan): string {
             const detail = primary?.summary
               ? ` ${primary.summary}`
               : (primary?.source.description ?? '按该 Skill 的真实说明执行。');
-            return `${index + 1}. \`${item.skill}\`: ${detail}`;
+            const stageSkill = stageSkillFor(stagePlans, item, index);
+            return `${index + 1}. \`${stageSkill}\`: ${detail}`;
           })
           .join('\n');
   const evidence =
@@ -145,10 +182,23 @@ function skillMarkdown(plan: FactorySkillPackagePlan): string {
     '- 偏离 `.comet/skill-preferences.yaml` 顺序会降低用户偏好可预测性，必须在 review summary 中解释。',
   ].join('\n');
   const internalUsage =
-    plan.callChain.length === 0
+    stagePlans.length === 0
       ? '无内部 Skill。'
-      : plan.callChain
-          .map((item, index) => `${index + 1}. 调用 \`${item.skill}\` 处理该步骤的专门协议。`)
+      : stagePlans
+          .map(
+            (stage, index) =>
+              `${index + 1}. 调用 \`${stage.name}\` 处理 ${stage.label ?? stage.phase ?? stage.sourceSkill} 阶段（来源 Skill: \`${stage.sourceSkill}\`）。`,
+          )
+          .join('\n');
+  const stageSkillSection =
+    stagePlans.length === 0
+      ? '无内部阶段 Skill。'
+      : stagePlans
+          .map((stage) => {
+            const source =
+              stage.source === 'custom' ? `自定义，推荐名 \`${stage.recommendedName}\`` : '推荐名';
+            return `- \`${stage.name}\`: ${stage.label ?? stage.phase ?? stage.sourceSkill}，来源 \`${stage.sourceSkill}\`，${source}。`;
+          })
           .join('\n');
 
   return `---
@@ -182,6 +232,10 @@ ${evidence}
 
 完整结构化证据位于 \`reference/resolved-skills.json\`。
 
+## 阶段 Skill
+
+${stageSkillSection}
+
 ## 停止点
 
 ${stopPoints}
@@ -201,11 +255,12 @@ ${internalUsage}
 }
 
 function skillDefinition(plan: FactorySkillPackagePlan): Record<string, unknown> {
+  const stagePlans = buildStagePlans(plan);
   const steps = plan.callChain.map((item, index) => ({
-    id: stepId(index, item.skill),
-    action: { type: 'invoke_skill', ref: item.skill },
+    id: stepId(index, stageSkillFor(stagePlans, item, index)),
+    action: { type: 'invoke_skill', ref: stageSkillFor(stagePlans, item, index) },
     ...(index + 1 < plan.callChain.length
-      ? { next: stepId(index + 1, plan.callChain[index + 1].skill) }
+      ? { next: stepId(index + 1, stageSkillFor(stagePlans, plan.callChain[index + 1], index + 1)) }
       : {}),
   }));
 
@@ -231,15 +286,18 @@ function skillDefinition(plan: FactorySkillPackagePlan): Record<string, unknown>
             entry: steps[0]?.id ?? 'complete',
             steps: steps.length > 0 ? steps : [{ id: 'complete', action: { type: 'checkpoint' } }],
           },
-    skills: plan.callChain.map((item) => ({ id: item.skill })),
+    skills: plan.callChain.map((item, index) => ({
+      id: stageSkillFor(stagePlans, item, index),
+    })),
     agents: [],
     tools: [],
   };
 }
 
 function guardrails(plan: FactorySkillPackagePlan): Record<string, unknown> {
+  const stagePlans = buildStagePlans(plan);
   return {
-    allowedSkills: plan.callChain.map((item) => item.skill),
+    allowedSkills: plan.callChain.map((item, index) => stageSkillFor(stagePlans, item, index)),
     allowedAgents: [],
     allowedTools: [],
     maxIterations: Math.max(plan.callChain.length + 2, 5),
@@ -288,6 +346,7 @@ function evalManifest(plan: FactorySkillPackagePlan): Record<string, unknown> {
 }
 
 function compositionReport(plan: FactorySkillPackagePlan): string {
+  const stagePlans = buildStagePlans(plan);
   const preference = `## Project Skill Preference
 
 - Preference mode: ${plan.preference?.mode ?? 'advisory'}
@@ -307,6 +366,15 @@ function compositionReport(plan: FactorySkillPackagePlan): string {
 - Rejected: ${(plan.skillMaker.templateExpansion?.rejected ?? []).join(', ') || 'none'}
 `
     : '';
+  const stageNames =
+    stagePlans.length === 0
+      ? 'No generated stage Skills.'
+      : stagePlans
+          .map(
+            (stage) =>
+              `- ${stage.name}: ${stage.sourceSkill}; recommended=${stage.recommendedName}; source=${stage.source}`,
+          )
+          .join('\n');
   const composition = plan.composition;
   if (!composition) {
     return `# Composition Report
@@ -314,6 +382,10 @@ function compositionReport(plan: FactorySkillPackagePlan): string {
 ${preference}
 
 ${skillMaker}
+
+## Stage Skills
+
+${stageNames}
 
 No composition metadata was recorded.
 `;
@@ -354,6 +426,10 @@ ${preference}
 
 ${skillMaker}
 
+## Stage Skills
+
+${stageNames}
+
 ## Entry Skills
 
 ${entrySkills}
@@ -372,9 +448,61 @@ ${issues}
 `;
 }
 
+function internalStageSkillMarkdown(
+  plan: FactorySkillPackagePlan,
+  stage: FactoryStagePlan,
+  sourceSummaries: ResolvedSkillSourceSummary[],
+): string {
+  const summaries = sourceSummaries.filter((summary) => summary.query === stage.sourceSkill);
+  const primary = summaries[0];
+  const sourceSummary =
+    primary?.summary || primary?.source.description || '按来源 Skill 的真实说明执行该阶段。';
+  const evidence =
+    summaries.length === 0
+      ? '- No resolved source evidence was recorded for this stage.'
+      : summaries
+          .map(
+            (summary) =>
+              `- ${summary.source.name}@${summary.source.platform} ${summary.source.hash.slice(0, 12)}: ${summary.summary || summary.source.description || 'No summary.'}`,
+          )
+          .join('\n');
+  const description = `Internal stage Skill for ${plan.name}: ${stage.label ?? stage.phase ?? stage.sourceSkill}.`;
+
+  return `---
+name: ${stage.name}
+description: ${description}
+---
+
+# ${stage.label ?? stage.name}
+
+Internal stage Skill for \`${plan.name}\`.
+
+## Source Skill
+
+Source Skill: \`${stage.sourceSkill}\`
+
+## Stage Role
+
+${sourceSummary}
+
+## Execution
+
+1. Treat this as the \`${stage.name}\` stage of \`${plan.name}\`.
+2. Follow the source Skill protocol below as the stage-specific behavior.
+3. Return a concise outcome for the parent workflow before moving to the next stage.
+
+## Source Evidence
+
+${evidence}
+`;
+}
+
 function planScript(plan: FactorySkillPackagePlan): string {
+  const stagePlans = buildStagePlans(plan);
   const planSourcePath = plan.engineMode === 'none' ? ['SKILL.md'] : ['comet', 'skill.yaml'];
-  const planSteps = plan.callChain.map((item, index) => stepId(index, item.skill));
+  const planSteps = plan.callChain.map((item, index) =>
+    stepId(index, stageSkillFor(stagePlans, item, index)),
+  );
   return `#!/usr/bin/env node
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -485,8 +613,10 @@ main().catch((error) => {
 }
 
 function checkScript(plan: FactorySkillPackagePlan): string {
+  const stagePlans = buildStagePlans(plan);
   const required = [
     'SKILL.md',
+    ...stagePlans.map((stage) => `../${stage.name}/SKILL.md`),
     ...(plan.engineMode === 'none'
       ? []
       : ['comet/skill.yaml', 'comet/guardrails.yaml', 'comet/checks.yaml', 'comet/eval.yaml']),
@@ -598,9 +728,12 @@ export async function generateFactorySkillPackage(
   plan: FactorySkillPackagePlan,
 ): Promise<GeneratedFactorySkillPackage> {
   const packageRoot = path.resolve(plan.root, 'skills', plan.name);
+  const skillsRoot = path.dirname(packageRoot);
   const cometRoot = path.join(packageRoot, 'comet');
   const referenceRoot = path.join(packageRoot, 'reference');
   const scriptsRoot = path.join(packageRoot, 'scripts');
+  const sourceSummaries = buildSourceSummaries(plan);
+  const stagePlans = buildStagePlans(plan);
   const compositionReportPath = path.join(referenceRoot, 'composition-report.md');
   const scriptPaths = [
     path.join(scriptsRoot, 'comet-plan.mjs'),
@@ -610,6 +743,15 @@ export async function generateFactorySkillPackage(
 
   await fs.mkdir(packageRoot, { recursive: true });
   await fs.writeFile(path.join(packageRoot, 'SKILL.md'), skillMarkdown(plan), 'utf8');
+  for (const stage of stagePlans) {
+    const stageRoot = path.join(skillsRoot, stage.name);
+    await fs.mkdir(stageRoot, { recursive: true });
+    await fs.writeFile(
+      path.join(stageRoot, 'SKILL.md'),
+      internalStageSkillMarkdown(plan, stage, sourceSummaries),
+      'utf8',
+    );
+  }
   await fs.mkdir(referenceRoot, { recursive: true });
   await fs.writeFile(
     path.join(referenceRoot, 'resolved-skills.json'),
@@ -617,7 +759,8 @@ export async function generateFactorySkillPackage(
       {
         schemaVersion: 1,
         resolvedSkills: plan.resolvedSkills ?? [],
-        sourceSummaries: buildSourceSummaries(plan),
+        sourceSummaries,
+        stageNames: stagePlans,
         preference: plan.preference ?? null,
       },
       null,
@@ -650,6 +793,7 @@ export async function generateFactorySkillPackage(
   return {
     packageRoot,
     skillPath: path.join(packageRoot, 'SKILL.md'),
+    internalSkills: stagePlans.map((stage) => stage.name),
     enginePath: plan.engineMode === 'none' ? null : cometRoot,
     evalManifestPath: plan.engineMode === 'none' ? null : path.join(cometRoot, 'eval.yaml'),
     controlPlane: {

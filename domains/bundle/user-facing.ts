@@ -10,6 +10,14 @@ export interface SkillMakerPlanSummary {
   replacements: string[];
   disabled: string[];
   rejected: string[];
+  stageNames?: Array<{
+    skill: string;
+    name: string;
+    recommendedName: string;
+    source: 'recommended' | 'custom';
+    phase?: string;
+    label?: string;
+  }>;
   generated: string[];
   validation: string[];
   install: string[];
@@ -59,6 +67,21 @@ function section(title: string, values: string[]): string[] {
   return [`${title}:`, ...values.map((value) => `- ${value}`)];
 }
 
+function stageNameSection(summary: SkillMakerPlanSummary): string[] {
+  const stageNames = summary.stageNames ?? [];
+  if (stageNames.length === 0) {
+    return ['Stage names: None'];
+  }
+  return [
+    'Stage names:',
+    ...stageNames.map((stage) => {
+      const phase = stage.phase ? `; phase: ${stage.phase}` : '';
+      const label = stage.label ? `; label: ${stage.label}` : '';
+      return `- ${stage.skill}: ${stage.name} (recommended: ${stage.recommendedName}; ${stage.source}${phase}${label})`;
+    }),
+  ];
+}
+
 export function formatSkillMakerPlanSummary(summary: SkillMakerPlanSummary): string {
   return [
     `You are making: ${summary.intentLabel}`,
@@ -69,6 +92,7 @@ export function formatSkillMakerPlanSummary(summary: SkillMakerPlanSummary): str
     ...section('Replace', summary.replacements),
     ...section('Turn off', summary.disabled),
     ...section('Cannot do', summary.rejected),
+    ...stageNameSection(summary),
     ...section('Will generate', summary.generated),
     ...section('Validate', summary.validation),
     ...section('Install/enable', summary.install),

@@ -8,6 +8,7 @@ import type {
   BundleFactoryCallChainItem,
   BundleFactoryMetadata,
   BundleFactoryOrderDeviation,
+  BundleFactoryStageNameOverride,
   BundleTemplateDelta,
   BundleTemplateExpansion,
 } from './types.js';
@@ -21,6 +22,7 @@ export interface BundleFactoryPlanFile {
   callChain?: Array<string | { skill: string; preferenceIndex?: number | null }>;
   baseTemplate?: BundleBaseTemplate;
   templateDelta?: BundleTemplateDelta;
+  stageNames?: BundleFactoryStageNameOverride[];
   deviations?: BundleFactoryOrderDeviation[];
   engineMode?: BundleFactoryMetadata['engineMode'];
   runnerMode?: BundleFactoryMetadata['runnerMode'];
@@ -40,6 +42,7 @@ export interface NormalizedBundleFactoryPlan {
   baseTemplate?: BundleBaseTemplate;
   templateDelta?: BundleTemplateDelta;
   templateExpansion?: BundleTemplateExpansion;
+  stageNameOverrides?: BundleFactoryStageNameOverride[];
   deviations: BundleFactoryOrderDeviation[];
   engineMode: BundleFactoryMetadata['engineMode'];
   runnerMode: BundleFactoryMetadata['runnerMode'];
@@ -123,6 +126,46 @@ function normalizeCallChain(
   });
 }
 
+function assertValidStageName(name: string): void {
+  if (!/^[a-z0-9][a-z0-9._-]*$/u.test(name)) {
+    throw new Error(`Invalid stage name: ${name}`);
+  }
+}
+
+function normalizeStageNameOverrides(
+  value: BundleFactoryPlanFile['stageNames'],
+): BundleFactoryStageNameOverride[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) {
+    throw new Error('factory plan stageNames must be an array when provided');
+  }
+  const names = new Set<string>();
+  return value.map((item, index) => {
+    if (
+      !item ||
+      typeof item !== 'object' ||
+      typeof item.skill !== 'string' ||
+      item.skill.length === 0 ||
+      typeof item.name !== 'string' ||
+      item.name.length === 0
+    ) {
+      throw new Error(`factory plan stageNames[${index}] must include skill and name`);
+    }
+    assertValidStageName(item.name);
+    if (names.has(item.name)) {
+      throw new Error(`Duplicate stage name: ${item.name}`);
+    }
+    names.add(item.name);
+    return {
+      skill: item.skill,
+      name: item.name,
+      ...(item.phase ? { phase: item.phase } : {}),
+      ...(item.step ? { step: item.step } : {}),
+      ...(item.label ? { label: item.label } : {}),
+    };
+  });
+}
+
 export async function readBundleFactoryPlan(filePath: string): Promise<BundleFactoryPlanFile> {
   const absolutePath = path.resolve(filePath);
   const value = JSON.parse(await fs.readFile(absolutePath, 'utf8')) as unknown;
@@ -170,6 +213,9 @@ export async function readBundleFactoryPlan(filePath: string): Promise<BundleFac
   ) {
     throw new Error(`Invalid factory plan: ${absolutePath} deviations must be structured objects`);
   }
+  if (plan.stageNames !== undefined) {
+    normalizeStageNameOverrides(plan.stageNames);
+  }
   return plan as BundleFactoryPlanFile;
 }
 
@@ -193,6 +239,7 @@ export function normalizeBundleFactoryPlan(options: {
       .filter((skill) => skill.length > 0),
   ]);
   const callChain = normalizeCallChain(rawCallChain, preferredSkills);
+  const stageNameOverrides = normalizeStageNameOverrides(plan.stageNames);
   const defaultLocale = plan.defaultLocale ?? 'en';
   const locales = dedupe(plan.locales ?? [defaultLocale]);
   const engineMode = plan.engineMode ?? 'deterministic';
@@ -217,6 +264,7 @@ export function normalizeBundleFactoryPlan(options: {
     ...(plan.baseTemplate ? { baseTemplate: plan.baseTemplate } : {}),
     ...(plan.templateDelta ? { templateDelta: plan.templateDelta } : {}),
     ...(derived ? { templateExpansion: derived } : {}),
+    ...(stageNameOverrides.length > 0 ? { stageNameOverrides } : {}),
     deviations: structuredClone(plan.deviations ?? []),
     engineMode,
     runnerMode: plan.runnerMode ?? 'standalone',

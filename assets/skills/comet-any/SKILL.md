@@ -24,9 +24,10 @@ guardrails, runtime evals, or script side effects must generate a stable compose
 only a `SKILL.md` file. The stable composed Skill Bundle required capability set is
 `skills/scripts/rules/hooks/references`, and `scripts/rules/hooks` remain the required control
 plane instead of optional extras. A Bundle must include `SKILL.md`, `comet/skill.yaml`,
-`comet/guardrails.yaml`, `comet/checks.yaml`, `comet/eval.yaml`, `scripts`, `rules`, `hooks`,
-`reference`, and `bundle.yaml`. `hooks/*.yaml` are Comet portable hook descriptors and only become
-active after `comet publish distribute` compiles them into target platform configuration.
+`comet/guardrails.yaml`, `comet/checks.yaml`, `comet/eval.yaml`, entry Skills, internal stage
+Skills, `scripts`, `rules`, `hooks`, `reference`, and `bundle.yaml`. `hooks/*.yaml` are Comet
+portable hook descriptors and only become active after `comet publish distribute` compiles them into
+target platform configuration.
 In short, lightweight single-step Skills can skip Engine only when the user is told that Run recovery and
 runtime evals will be unavailable.
 </IMPORTANT>
@@ -53,6 +54,8 @@ runtime evals will be unavailable.
   and `strict`; before generation, show the composition proposal with prefer/require sources,
   missing or ambiguous Skills, deviation reasons, scripts/hooks disclosures, and record
   `preferenceHash` after confirmation.
+- The confirmation page must show recommended stage names and editable name fields; users can set
+  multiple internal stage Skill names with `stageNames`.
 - Missing or ambiguous candidates must pause for user input. Never ignore them or choose for the
   user.
 - Use the `comet bundle` CLI to maintain deterministic state. Do not hand-write
@@ -180,9 +183,11 @@ target semantics, which are missing or ambiguous, whether the plan deviates from
 order, and what executable disclosures scripts/hooks introduce. Before confirmation, do not
 generate a Bundle draft. If the starting point is `Customize /comet`, express the proposal as
 add Skill / replace Skill / turn off Skill changes to `/comet` instead of exposing Bundle, Factory,
-or composition terms to the user. The user may adjust preferences, choose ambiguous sources, remove
-missing Skills, switch `advisory`/`strict`, or cancel. Explicitly say that the current screen is the
-Skill Maker confirmation page. In other words, show the composition confirmation page before any
+or composition terms to the user. The proposal must list each stage's recommended stage names,
+editable name fields, final internal stage Skill name, and source Skill. The user can accept the
+recommendation or provide custom names through `stageNames`. The user may adjust preferences,
+choose ambiguous sources, remove missing Skills, switch `advisory`/`strict`, or cancel. Explicitly
+say that the current screen is the Skill Maker confirmation page. In other words, show the composition confirmation page before any
 draft write. If the proposal deviates from the preferred order, the review and proposal summaries
 must explain why.
 
@@ -261,6 +266,9 @@ the Comet fallback.
 
 Generate entry Skill surfaces, internal Skills, references, scripts, rules, and hooks. The user
 does not need to run `comet bundle` or `comet skill` manually; those are internal backend steps.
+Multi-step workflows must not generate only one `SKILL.md`: the entry Skill owns the main entry
+point and recovery guidance, every stage must generate an internal stage Skill, and
+`comet/skill.yaml` must invoke those internal Skills.
 
 Generated output must include real Skill evidence plus a composed workflow section, and write
 structured evidence to `reference/resolved-skills.json`. The summary should cite resolved Skill

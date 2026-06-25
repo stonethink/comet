@@ -123,6 +123,32 @@ export interface BundleFactoryCallChainItem {
   preferenceIndex: number | null;
 }
 
+export interface BundleFactoryStageNameOverride {
+  skill: string;
+  name: string;
+  phase?: string;
+  step?: string;
+  label?: string;
+}
+
+export interface BundleFactoryStageNameHint {
+  skill: string;
+  phase?: string;
+  step?: string;
+  recommendedName: string;
+  label?: string;
+}
+
+export interface BundleFactoryStageName {
+  skill: string;
+  name: string;
+  recommendedName: string;
+  source: 'recommended' | 'custom';
+  phase?: string;
+  step?: string;
+  label?: string;
+}
+
 export interface BundleFactoryCompositionStep {
   id: string;
   skill: string;
@@ -240,6 +266,7 @@ export interface BundleTemplateExpansion {
   replacements: string[];
   disabled: string[];
   rejected: string[];
+  stageNameHints?: BundleFactoryStageNameHint[];
 }
 
 export interface BundleControlPlaneOutput {
@@ -266,6 +293,8 @@ export interface BundleFactoryMetadata {
   baseTemplate?: BundleBaseTemplate;
   templateDelta?: BundleTemplateDelta;
   templateExpansion?: BundleTemplateExpansion;
+  stageNameOverrides?: BundleFactoryStageNameOverride[];
+  stageNames?: BundleFactoryStageName[];
   preferenceMode?: NormalizedSkillPreferences['mode'];
   preferencePolicies?: SkillPreferencePolicies;
   preferencePath?: string;

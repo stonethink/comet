@@ -1,6 +1,7 @@
 import type {
   BundleBaseTemplate,
   BundleFactoryCallChainItem,
+  BundleFactoryStageNameHint,
   BundleTemplateDelta,
   BundleTemplateExpansion,
 } from '../types.js';
@@ -12,6 +13,8 @@ interface TemplateStep {
   step: string;
   skill: string;
   type: StepType;
+  recommendedName: string;
+  label: string;
 }
 
 export interface CometTemplateExpansionInput {
@@ -34,24 +37,75 @@ const builtInSkillIds = new Set([
 ]);
 
 const fullTemplate: TemplateStep[] = [
-  { phase: 'open', step: 'open', skill: 'comet-open', type: 'protected' },
-  { phase: 'design', step: 'brainstorming', skill: 'comet-design', type: 'mutable' },
-  { phase: 'build', step: 'writing-plans', skill: 'writing-plans', type: 'mutable' },
-  { phase: 'build', step: 'build-execution', skill: 'comet-build', type: 'mutable' },
+  {
+    phase: 'open',
+    step: 'open',
+    skill: 'comet-open',
+    type: 'protected',
+    recommendedName: 'open',
+    label: 'Open',
+  },
+  {
+    phase: 'design',
+    step: 'brainstorming',
+    skill: 'comet-design',
+    type: 'mutable',
+    recommendedName: 'design',
+    label: 'Design',
+  },
+  {
+    phase: 'build',
+    step: 'writing-plans',
+    skill: 'writing-plans',
+    type: 'mutable',
+    recommendedName: 'build-plan',
+    label: 'Build plan',
+  },
+  {
+    phase: 'build',
+    step: 'build-execution',
+    skill: 'comet-build',
+    type: 'mutable',
+    recommendedName: 'build',
+    label: 'Build',
+  },
   {
     phase: 'build',
     step: 'build-review',
     skill: 'requesting-code-review',
     type: 'optional',
+    recommendedName: 'build-review',
+    label: 'Build review',
   },
   {
     phase: 'verify',
     step: 'verify-result-transition',
     skill: 'comet-verify',
     type: 'protected',
+    recommendedName: 'verify',
+    label: 'Verify',
   },
-  { phase: 'archive', step: 'archive-delta-sync', skill: 'comet-archive', type: 'protected' },
+  {
+    phase: 'archive',
+    step: 'archive-delta-sync',
+    skill: 'comet-archive',
+    type: 'protected',
+    recommendedName: 'archive',
+    label: 'Archive',
+  },
 ];
+
+function slug(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/gu, '-')
+    .replace(/^-+|-+$/gu, '');
+}
+
+function insertedRecommendedName(phase: string, skill: string): string {
+  const skillSlug = slug(skill).replace(/-me$/u, '');
+  return `${phase}-${skillSlug || 'stage'}`;
+}
 
 function templateFor(baseTemplate: BundleBaseTemplate): TemplateStep[] {
   if (baseTemplate.profile === 'full') {
@@ -78,6 +132,7 @@ export function expandCometSkillMakerTemplate(
   const disabledKeys = new Set<string>();
   const before = new Map<string, string[]>();
   const after = new Map<string, string[]>();
+  const insertedHints = new Map<string, BundleFactoryStageNameHint[]>();
   const replacementByKey = new Map<string, string>();
 
   for (const operation of input.templateDelta.add) {
@@ -91,6 +146,16 @@ export function expandCometSkillMakerTemplate(
     const key = `${anchor.phase}:${anchor.step}`;
     const target = operation.position === 'before' ? before : after;
     target.set(key, [...(target.get(key) ?? []), operation.skill]);
+    insertedHints.set(key, [
+      ...(insertedHints.get(key) ?? []),
+      {
+        skill: operation.skill,
+        phase: operation.phase,
+        step: `${operation.position}-${anchor.step}`,
+        recommendedName: insertedRecommendedName(operation.phase, operation.skill),
+        label: `${operation.phase} ${operation.position}: ${operation.skill}`,
+      },
+    ]);
     additions.push(`${operation.phase} ${operation.position}: ${operation.skill}`);
   }
 
@@ -125,13 +190,28 @@ export function expandCometSkillMakerTemplate(
   }
 
   const callChainSkills: string[] = [];
+  const stageNameHints: BundleFactoryStageNameHint[] = [];
   for (const step of steps) {
     const key = `${step.phase}:${step.step}`;
     callChainSkills.push(...(before.get(key) ?? []));
+    if (before.has(key)) {
+      stageNameHints.push(...(insertedHints.get(key) ?? []));
+    }
     if (!disabledKeys.has(key)) {
-      callChainSkills.push(replacementByKey.get(key) ?? step.skill);
+      const skill = replacementByKey.get(key) ?? step.skill;
+      callChainSkills.push(skill);
+      stageNameHints.push({
+        skill,
+        phase: step.phase,
+        step: step.step,
+        recommendedName: step.recommendedName,
+        label: step.label,
+      });
     }
     callChainSkills.push(...(after.get(key) ?? []));
+    if (after.has(key)) {
+      stageNameHints.push(...(insertedHints.get(key) ?? []));
+    }
   }
 
   return {
@@ -140,6 +220,7 @@ export function expandCometSkillMakerTemplate(
     replacements,
     disabled,
     rejected,
+    stageNameHints,
     callChain: [...new Set(callChainSkills)].map((skill) => ({
       skill,
       preferenceIndex: null,

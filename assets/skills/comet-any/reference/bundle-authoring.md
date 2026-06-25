@@ -79,6 +79,10 @@ A Bundle must explicitly define:
 
 - multiple entry Skills: user-callable entry points.
 - internal Skill components: shared workflow pieces referenced by entries.
+- internal stage Skills: every stage in a multi-step workflow should generate one internal Skill;
+  the entry Skill only owns the entry point, recovery, and orchestration guidance.
+- `stageNames`: records user-confirmed stage names. The proposal must show recommended stage names
+  and editable name fields so users can customize multiple internal stage Skill names.
 - references/rules/hooks/scripts/assets: the shared resource graph, with `scripts/rules/hooks`
   kept as the required control plane.
 - The stable composed Skill Bundle required capability set is
@@ -111,6 +115,18 @@ not the user-facing workflow.
     "brainstorming",
     { "skill": "writing-plans", "preferenceIndex": 1 }
   ],
+  "stageNames": [
+    {
+      "skill": "brainstorming",
+      "name": "review-workflow-discovery",
+      "label": "Discovery"
+    },
+    {
+      "skill": "writing-plans",
+      "name": "review-workflow-plan",
+      "label": "Plan"
+    }
+  ],
   "deviations": [
     {
       "skill": "writing-plans",
@@ -135,6 +151,9 @@ Field rules:
   `.comet/skill-preferences.yaml` and `callChain`.
 - `callChain`: the recommended execution chain. String items are the common case; object items are
   for explicit `preferenceIndex`.
+- `stageNames`: optional. Each item specifies source `skill`, final internal stage Skill `name`,
+  and optional `phase` / `step` / `label`. If omitted, the backend generates recommended stage
+  names; custom names must be unique kebab-case values.
 - `deviations`: required whenever `callChain` deviates from preferred order so the review summary
   can explain it directly.
 - `mode=optimize` requires `sourceRoot`.
@@ -150,6 +169,8 @@ It previews the composition proposal, resolved Skills, blockers, warnings, prefe
 `preferenceHash`. Proposal output should also provide these user-facing fields directly:
 
 - `userSummary`: composition summary shown to the user.
+- `skillMakerSummary.stageNames`: recommended stage names, user-provided names, source Skills, and
+  stage labels for rendering editable name fields.
 - `actions`: at least `confirm-generate`, `revise-proposal`, and `cancel`.
 - `proposalHash`: the hash of the current proposal.
 

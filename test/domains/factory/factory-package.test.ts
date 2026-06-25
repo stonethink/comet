@@ -210,6 +210,84 @@ Ask clarifying questions one at a time before presenting a design.
     expect(skill).toContain('brainstorming');
   });
 
+  it('generates sibling internal stage Skills when stage names are provided', async () => {
+    const output = await generateFactorySkillPackage({
+      root,
+      name: 'comet-grill-flow',
+      version: '1.0.0',
+      description: 'Comet flow with a design grill stage.',
+      goal: 'Customize /comet with a design grill stage.',
+      defaultLocale: 'zh',
+      callChain: [
+        { skill: 'comet-open', preferenceIndex: 0 },
+        { skill: 'grill-me', preferenceIndex: 1 },
+      ],
+      stageNames: [
+        {
+          skill: 'comet-open',
+          name: 'comet-grill-flow-open',
+          recommendedName: 'comet-grill-flow-open',
+          phase: 'open',
+          step: 'open',
+          label: 'Open',
+          source: 'recommended',
+        },
+        {
+          skill: 'grill-me',
+          name: 'comet-grill-flow-design-pressure-test',
+          recommendedName: 'comet-grill-flow-design-grill',
+          phase: 'design',
+          label: 'Design pressure test',
+          source: 'custom',
+        },
+      ],
+      resolvedSkills: [
+        {
+          query: 'grill-me',
+          preferenceIndex: 1,
+          status: 'available',
+          sources: [
+            {
+              name: 'grill-me',
+              preferenceIndex: 1,
+              platform: 'codex',
+              scope: 'project',
+              origin: 'project',
+              factory: { query: 'grill-me' },
+              root: path.join(root, '.codex', 'skills', 'grill-me'),
+              description: 'A relentless interview to sharpen a plan or design.',
+              skillMd: '# Grill Me\n\nRun a `/grilling` session.\n',
+              hash: 'd'.repeat(64),
+            },
+          ],
+        },
+      ],
+      deviations: [],
+      engineMode: 'deterministic',
+    });
+
+    expect(output.internalSkills).toEqual([
+      'comet-grill-flow-open',
+      'comet-grill-flow-design-pressure-test',
+    ]);
+    const entrySkill = await fs.readFile(path.join(output.packageRoot, 'SKILL.md'), 'utf8');
+    expect(entrySkill).toContain('## 阶段 Skill');
+    expect(entrySkill).toContain('comet-grill-flow-design-pressure-test');
+    const internalSkill = await fs.readFile(
+      path.join(root, 'skills', 'comet-grill-flow-design-pressure-test', 'SKILL.md'),
+      'utf8',
+    );
+    expect(internalSkill).toContain('Internal stage Skill');
+    expect(internalSkill).toContain('Source Skill: `grill-me`');
+    expect(internalSkill).toContain('Run a `/grilling` session.');
+    const engineSkill = await fs.readFile(
+      path.join(output.packageRoot, 'comet', 'skill.yaml'),
+      'utf8',
+    );
+    expect(engineSkill).toContain('ref: comet-grill-flow-open');
+    expect(engineSkill).toContain('ref: comet-grill-flow-design-pressure-test');
+  });
+
   it('writes an authoring-skill eval manifest for Engine-enabled generated packages', async () => {
     const output = await generateFactorySkillPackage({
       root,
@@ -317,14 +395,14 @@ Ask clarifying questions one at a time before presenting a design.
     expect(planScript).toContain("import { fileURLToPath } from 'url';");
     expect(planScript).toContain("const packageRoot = path.resolve(__dirname, '..');");
     expect(planScript).toContain(
-      "const runRoot = process.env.COMET_RUN_ROOT ? path.resolve(process.env.COMET_RUN_ROOT) : process.cwd();",
+      'const runRoot = process.env.COMET_RUN_ROOT ? path.resolve(process.env.COMET_RUN_ROOT) : process.cwd();',
     );
     expect(planScript).toContain("path.join(packageRoot, 'comet', 'skill.yaml')");
     expect(checkScript).toContain("import { fileURLToPath } from 'url';");
     expect(checkScript).toContain("const packageRoot = path.resolve(__dirname, '..');");
     expect(checkScript).toContain('comet/skill.yaml');
     expect(hookGuardScript).toContain(
-      "const runRoot = process.env.COMET_RUN_ROOT ? path.resolve(process.env.COMET_RUN_ROOT) : process.cwd();",
+      'const runRoot = process.env.COMET_RUN_ROOT ? path.resolve(process.env.COMET_RUN_ROOT) : process.cwd();',
     );
   });
 

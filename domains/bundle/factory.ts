@@ -12,6 +12,7 @@ import {
   writeBundleFactoryPlanArtifact,
 } from './factory-plan.js';
 import { buildBundleFactoryProposal } from './factory-proposal.js';
+import { resolveFactoryStageNames } from './factory-stage-names.js';
 import { readBundleSkillPreferences } from './preferences.js';
 import { reconcileBundleAuthoringState, writeBundleAuthoringState } from './state.js';
 import { generateFactorySkillPackage } from '../factory/package.js';
@@ -47,6 +48,8 @@ function confirmationHash(factory: BundleFactoryMetadata): string {
         resolvedSkills: factory.resolvedSkills,
         callChain: factory.callChain,
         composition: factory.composition ?? null,
+        stageNameOverrides: factory.stageNameOverrides ?? [],
+        stageNames: factory.stageNames ?? [],
         planHash: factory.planHash ?? null,
       }),
     )
@@ -68,7 +71,11 @@ function proposalConfirmation(options: {
   };
 }
 
-function bundleManifest(state: BundleAuthoringState, skillId: string): BundleManifest {
+function bundleManifest(
+  state: BundleAuthoringState,
+  skillId: string,
+  internalSkillIds: string[] = [],
+): BundleManifest {
   return {
     apiVersion: 'comet/v1alpha1',
     kind: 'SkillBundle',
@@ -85,6 +92,11 @@ function bundleManifest(state: BundleAuthoringState, skillId: string): BundleMan
         path: `skills/${skillId}`,
         visibility: 'entry',
       },
+      ...internalSkillIds.map((id) => ({
+        id,
+        path: `skills/${id}`,
+        visibility: 'internal' as const,
+      })),
     ],
     resources: {
       rules: [
@@ -231,7 +243,7 @@ function applyBuiltInCandidates(
   candidates: BundleCandidate[],
 ): BundleCandidate[] {
   return candidates.map((candidate) => {
-    if (!isCometSkillMakerBuiltin(candidate.name)) {
+    if (!isCometSkillMakerBuiltin(candidate.name) || candidate.status !== 'missing') {
       return candidate;
     }
     return {
@@ -261,6 +273,7 @@ function applyBuiltInCandidates(
 }
 
 export async function composeFactoryMetadata(
+  name: string,
   factory: BundleFactoryMetadata,
 ): Promise<BundleFactoryMetadata> {
   const compositionEntrySkills =
@@ -272,11 +285,19 @@ export async function composeFactoryMetadata(
     preferredSkills: factory.preferredSkills,
     resolvedSkills: factory.resolvedSkills,
   });
+  const callChain = composed.callChain.length > 0 ? composed.callChain : factory.callChain;
+  const stageNames = resolveFactoryStageNames({
+    bundleName: name,
+    callChain,
+    hints: factory.templateExpansion?.stageNameHints,
+    overrides: factory.stageNameOverrides,
+  });
   return {
     ...factory,
     compositionEntrySkills: [...compositionEntrySkills],
-    callChain: composed.callChain.length > 0 ? composed.callChain : factory.callChain,
+    callChain,
     composition: composed.composition,
+    stageNames,
   };
 }
 
@@ -291,7 +312,7 @@ export async function generateBundleDraftFromFactoryState(options: {
   assertFactoryCandidatesResolved(state);
   const factory = state.factory.composition
     ? state.factory
-    : await composeFactoryMetadata(state.factory);
+    : await composeFactoryMetadata(state.name, state.factory);
   assertFactoryCompositionReady(state.name, factory);
   assertFactoryProposalConfirmed(state);
 
@@ -299,7 +320,7 @@ export async function generateBundleDraftFromFactoryState(options: {
   await clearDirectory(state.draftPath);
   await fs.writeFile(
     path.join(state.draftPath, 'bundle.yaml'),
-    stringify(bundleManifest(state, skillId)),
+    stringify(bundleManifest(state, skillId, factory.stageNames?.map((stage) => stage.name) ?? [])),
     'utf8',
   );
 
@@ -323,6 +344,7 @@ export async function generateBundleDraftFromFactoryState(options: {
     },
     deviations: factory.deviations,
     engineMode: factory.engineMode,
+    stageNames: factory.stageNames,
     skillMaker: factory.skillMakerIntent
       ? {
           intent: factory.skillMakerIntent,
@@ -359,7 +381,7 @@ export async function generateBundleDraftFromFactoryState(options: {
       ...factory,
       generatedSkillPackage: {
         entrySkill: skillId,
-        internalSkills: [],
+        internalSkills: generated.internalSkills,
         packageRoot: generated.packageRoot,
         enginePath: generated.enginePath,
         evalManifestPath: generated.evalManifestPath,
@@ -409,7 +431,7 @@ export async function initializeBundleFactoryState(options: {
     }
     const factory = state.factory.composition
       ? state.factory
-      : await composeFactoryMetadata(state.factory);
+      : await composeFactoryMetadata(state.name, state.factory);
     assertFactoryCandidatesResolved({ ...state, factory });
     assertFactoryCompositionReady(state.name, factory);
     const updated: BundleAuthoringState = {
@@ -447,7 +469,7 @@ export async function initializeBundleFactoryState(options: {
     plan,
   });
   const flattenedCandidates = resolvedSkills.flatMap((candidate) => candidate.sources);
-  const factory: BundleFactoryMetadata = await composeFactoryMetadata({
+  const factory: BundleFactoryMetadata = await composeFactoryMetadata(options.name, {
     goal: plan.goal,
     preferredSkills: plan.preferredSkills,
     requiredSkills: projectPreferences?.preferences.require ?? [],
@@ -461,8 +483,10 @@ export async function initializeBundleFactoryState(options: {
           replacements: plan.templateExpansion.replacements,
           disabled: plan.templateExpansion.disabled,
           rejected: plan.templateExpansion.rejected,
+          stageNameHints: plan.templateExpansion.stageNameHints,
         }
       : undefined,
+    stageNameOverrides: plan.stageNameOverrides,
     preferenceMode: projectPreferences?.preferences.mode,
     preferencePolicies: projectPreferences?.preferences.policies,
     preferencePath: projectPreferences?.path,

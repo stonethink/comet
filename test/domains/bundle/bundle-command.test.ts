@@ -254,11 +254,15 @@ prefer:
       },
     });
     expect(status.currentHash).toMatch(/^[a-f0-9]{64}$/u);
-    const text = await captureText(() => bundleStatusCommand('optimized-bundle', { project: projectRoot }));
+    const text = await captureText(() =>
+      bundleStatusCommand('optimized-bundle', { project: projectRoot }),
+    );
     expect(text).toContain('Current step: needs-eval');
     expect(text).toContain('User next step: Run Eval for the generated Skill');
     expect(text).toContain('Suggested user command:');
-    expect(text).toContain('Backend command: comet bundle eval-plan optimized-bundle --level quick');
+    expect(text).toContain(
+      'Backend command: comet bundle eval-plan optimized-bundle --level quick',
+    );
     expect(text).toContain('Still missing:');
     expect(text).toContain('- Passing Eval evidence for the current draft');
   });
@@ -670,6 +674,148 @@ prefer:
     expect(text).toContain('Validate:');
     expect(text).toContain('Install/enable:');
     expect(text).toContain('Actions:');
+  });
+
+  it('shows recommended and user-provided stage names in Factory proposals', async () => {
+    await writeFactorySkill(projectRoot, 'grill-me', {
+      description: 'Stress-test a design before building.',
+    });
+    const planFile = path.join(root, 'factory-stage-names-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Customize /comet with a grill stage.',
+          mode: 'derive',
+          baseTemplate: { skill: 'comet', profile: 'full' },
+          templateDelta: {
+            add: [{ phase: 'design', position: 'after', skill: 'grill-me' }],
+            replace: [],
+            disable: [],
+          },
+          stageNames: [
+            {
+              skill: 'grill-me',
+              phase: 'design',
+              name: 'custom-design-pressure-test',
+              label: 'Design pressure test',
+            },
+          ],
+          engineMode: 'deterministic',
+          runnerMode: 'change',
+        },
+        null,
+        2,
+      ),
+    );
+
+    const proposal = await captureJson(() =>
+      bundleFactoryProposeCommand('grill-comet', {
+        project: projectRoot,
+        file: planFile,
+        json: true,
+      }),
+    );
+
+    expect(proposal).toMatchObject({
+      skillMakerSummary: {
+        stageNames: expect.arrayContaining([
+          expect.objectContaining({
+            skill: 'grill-me',
+            name: 'custom-design-pressure-test',
+            recommendedName: 'grill-comet-design-grill',
+            source: 'custom',
+          }),
+        ]),
+      },
+    });
+
+    const text = await captureText(() =>
+      bundleFactoryProposeCommand('grill-comet', {
+        project: projectRoot,
+        file: planFile,
+      }),
+    );
+    expect(text).toContain('Stage names:');
+    expect(text).toContain('custom-design-pressure-test');
+    expect(text).toContain('recommended: grill-comet-design-grill');
+  });
+
+  it('rejects stage names that collide with the generated entry Skill name', async () => {
+    await writeFactorySkill(projectRoot, 'grill-me', {
+      description: 'Stress-test a design before building.',
+    });
+    const planFile = path.join(root, 'factory-stage-name-collision-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Customize /comet with a colliding stage name.',
+          preferredSkills: ['grill-me'],
+          callChain: ['grill-me'],
+          stageNames: [{ skill: 'grill-me', name: 'grill-comet' }],
+        },
+        null,
+        2,
+      ),
+    );
+
+    await expect(
+      bundleFactoryProposeCommand('grill-comet', {
+        project: projectRoot,
+        file: planFile,
+        json: true,
+      }),
+    ).rejects.toThrow(/entry Skill name/iu);
+  });
+
+  it('prefers real local Comet stage Skills over built-in placeholders', async () => {
+    await fs.mkdir(path.join(projectRoot, '.codex', 'skills', 'comet-open'), {
+      recursive: true,
+    });
+    await fs.writeFile(
+      path.join(projectRoot, '.codex', 'skills', 'comet-open', 'SKILL.md'),
+      '---\nname: comet-open\ndescription: Real project Comet open stage.\n---\n# Real Comet Open\n',
+    );
+    const planFile = path.join(root, 'factory-real-comet-plan.json');
+    await fs.writeFile(
+      planFile,
+      JSON.stringify(
+        {
+          goal: 'Customize /comet without losing real Comet stage guidance.',
+          mode: 'derive',
+          baseTemplate: { skill: 'comet', profile: 'tweak' },
+          templateDelta: { add: [], replace: [], disable: [] },
+          engineMode: 'deterministic',
+          runnerMode: 'change',
+        },
+        null,
+        2,
+      ),
+    );
+
+    const proposal = await captureJson(() =>
+      bundleFactoryProposeCommand('real-comet', {
+        project: projectRoot,
+        file: planFile,
+        json: true,
+      }),
+    );
+
+    expect(proposal.resolvedSkills).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          query: 'comet-open',
+          status: 'available',
+          sources: [
+            expect.objectContaining({
+              origin: 'project',
+              description: 'Real project Comet open stage.',
+            }),
+          ],
+        }),
+      ]),
+    );
   });
 
   it('does not offer confirm-generate on blocked Factory proposals', async () => {
@@ -1409,7 +1555,7 @@ prefer:
       factory: {
         generatedSkillPackage: {
           entrySkill: 'factory-bundle',
-          internalSkills: [],
+          internalSkills: ['factory-bundle-brainstorming'],
           controlPlane: {
             checksPath: path.join(
               projectRoot,
@@ -1556,16 +1702,7 @@ prefer:
       fs.access(path.join(draftRoot, 'skills', 'factory-bundle', 'scripts', 'comet-plan.mjs')),
     ).resolves.toBeUndefined();
     await expect(
-      fs.readFile(
-        path.join(
-          draftRoot,
-          'skills',
-          'factory-bundle',
-          'comet',
-          'skill.yaml',
-        ),
-        'utf8',
-      ),
+      fs.readFile(path.join(draftRoot, 'skills', 'factory-bundle', 'comet', 'skill.yaml'), 'utf8'),
     ).resolves.toContain('kind: Skill');
     const resolvedEvidence = JSON.parse(
       await fs.readFile(

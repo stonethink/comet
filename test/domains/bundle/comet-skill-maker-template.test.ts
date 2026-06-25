@@ -25,6 +25,51 @@ describe('Comet Skill Maker template expansion', () => {
     expect(expanded.replacements).toContain('build writing-plans: writing-plans -> team-planning');
     expect(expanded.disabled).toContain('build build-review');
     expect(expanded.rejected).toEqual([]);
+    expect(expanded.stageNameHints).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          skill: 'comet-open',
+          phase: 'open',
+          step: 'open',
+          recommendedName: 'open',
+        }),
+        expect.objectContaining({
+          skill: 'team-planning',
+          phase: 'build',
+          step: 'writing-plans',
+          recommendedName: 'build-plan',
+        }),
+        expect.objectContaining({
+          skill: 'security-review',
+          phase: 'verify',
+          recommendedName: 'verify-security-review',
+        }),
+      ]),
+    );
+    expect(expanded.stageNameHints.map((hint) => hint.skill)).not.toContain(
+      'requesting-code-review',
+    );
+  });
+
+  it('recommends user-editable stage names for inserted design grill steps', () => {
+    const expanded = expandCometSkillMakerTemplate({
+      baseTemplate: { skill: 'comet', profile: 'full' },
+      templateDelta: {
+        add: [{ phase: 'design', position: 'after', skill: 'grill-me' }],
+        replace: [],
+        disable: [],
+      },
+    });
+
+    expect(expanded.stageNameHints).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          skill: 'grill-me',
+          phase: 'design',
+          recommendedName: 'design-grill',
+        }),
+      ]),
+    );
   });
 
   it('rejects replacing protected closure steps', () => {

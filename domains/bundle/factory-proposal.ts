@@ -7,6 +7,7 @@ import { normalizeBundleFactoryPlan, readBundleFactoryPlan } from './factory-pla
 import { readBundleSkillPreferences } from './preferences.js';
 import { buildSkillMakerPlanSummary, type SkillMakerPlanSummary } from './user-facing.js';
 import { isCometSkillMakerBuiltin } from './templates/comet-skill-maker-template.js';
+import { resolveFactoryStageNames } from './factory-stage-names.js';
 import type {
   BundleFactoryCallChainItem,
   BundleFactoryComposition,
@@ -94,7 +95,7 @@ function applyBuiltInCandidates(
   candidates: BundleCandidate[],
 ): BundleCandidate[] {
   return candidates.map((candidate) => {
-    if (!isCometSkillMakerBuiltin(candidate.name)) {
+    if (!isCometSkillMakerBuiltin(candidate.name) || candidate.status !== 'missing') {
       return candidate;
     }
     return builtInCandidate(projectRoot, candidate.name, candidate.preferenceIndex);
@@ -129,6 +130,13 @@ export async function buildBundleFactoryProposal(options: {
     entrySkills: plan.callChain.map((item) => item.skill),
     preferredSkills: plan.preferredSkills,
     resolvedSkills,
+  });
+  const callChain = composed.callChain.length > 0 ? composed.callChain : plan.callChain;
+  const stageNames = resolveFactoryStageNames({
+    bundleName: options.name,
+    callChain,
+    hints: plan.templateExpansion?.stageNameHints,
+    overrides: plan.stageNameOverrides,
   });
 
   const blockers = [
@@ -194,6 +202,7 @@ export async function buildBundleFactoryProposal(options: {
     replacements: plan.templateExpansion?.replacements ?? [],
     disabled: plan.templateExpansion?.disabled ?? [],
     rejected: [...(plan.templateExpansion?.rejected ?? []), ...blockers],
+    stageNames,
     generated: generatedControlPlane(),
     validation: validationPlan(),
     install: ['Install/enable into the current Agent after validation and preview.'],
@@ -238,7 +247,7 @@ export async function buildBundleFactoryProposal(options: {
       hash: projectPreferences?.hash ?? null,
       warnings: projectPreferences?.warnings ?? [],
     },
-    callChain: composed.callChain.length > 0 ? composed.callChain : plan.callChain,
+    callChain,
     resolvedSkills,
     composition: composed.composition,
     blockers,

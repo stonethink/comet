@@ -3,6 +3,16 @@ export interface FactoryCallChainItem {
   preferenceIndex: number | null;
 }
 
+export interface FactoryStageName {
+  skill: string;
+  name: string;
+  recommendedName: string;
+  source: 'recommended' | 'custom';
+  phase?: string;
+  step?: string;
+  label?: string;
+}
+
 export interface FactoryCompositionStep {
   id: string;
   skill: string;
@@ -81,6 +91,7 @@ export interface FactorySkillPackagePlan {
   goal: string;
   defaultLocale: string;
   callChain: FactoryCallChainItem[];
+  stageNames?: FactoryStageName[];
   skillMaker?: {
     intent: 'customize-comet' | 'new-skill' | 'upgrade-existing';
     baseTemplate?: { skill: 'comet'; profile: 'full' | 'hotfix' | 'tweak' };
@@ -122,6 +133,7 @@ export interface FactoryControlPlaneOutput {
 export interface GeneratedFactorySkillPackage {
   packageRoot: string;
   skillPath: string;
+  internalSkills: string[];
   enginePath: string | null;
   evalManifestPath: string | null;
   controlPlane: FactoryControlPlaneOutput;
