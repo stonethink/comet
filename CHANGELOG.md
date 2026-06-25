@@ -27,6 +27,8 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Comet Any authoring subagent contract**: Deepens authoring lanes into a subagent-ready adapter contract with author metadata, semantic claims, and a shared assembler, while keeping deterministic local authors as the default generation path until an external agent executor is provided.
 - **Factory package generator architecture**: Removes unreachable legacy audit-section renderers and separates workflow routing, Skill markdown rendering, script templates, and package assembly so `/comet-any` generation stays easier to maintain without changing emitted workflow behavior.
 - **Dashboard demo polish**: Keeps the Comet brand anchored in the sidebar, updates the demo version label, hides unfinished Skill composition/evaluation navigation entries, removes extra shadow from the right action/Git column, adds artifact-focused demo visualizations for Skill composition and Skill evaluation, aligns dashboard sections on the same left edge, standardizes typography on Inter, improves the task-progress panel density with synchronized ring/count animation, and reshapes Skill composition/evaluation demo pages into compact Chinese-first workbench layouts with viewport-adaptive panel heights.
+- **Dashboard refresh UX**: Adds automatic dashboard status refresh with a visible interval hint so the read-only monitor stays current without relying on repeated manual refreshes.
+- **Dashboard React frontend**: Rebuilds the dashboard frontend as a React application styled with Tailwind CSS while preserving the current Comet Dashboard colors, layout density, and read-only TypeScript backend API.
 - **Dashboard command validation**: Makes `comet dashboard --port` reject non-numeric values up front instead of accepting parsed numeric prefixes.
 - **Skill preferences**: Replaces the unpublished `.comet/skills.txt` path with `.comet/skill-preferences.yaml`, inventory-backed setup, proposal previews, and readiness feedback so users can guide Skill creation without learning internal Bundle files.
 - **Tweak workflow path**: Reframes `/comet-tweak` as a tweak-only OpenSpec action chain that runs `openspec-apply-change` during build, allows single-change delta-spec work, and explicitly keeps full `/comet` on the Superpowers design/plan/build path.
@@ -50,6 +52,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Submodule hooks**: Installs Comet hook commands with an absolute script path and explicit project root so agents working inside Git submodules still use the parent workspace's Comet phase state.
 - **Init/update clarity**: Prevents unrelated platform Skill directories from being reported as incomplete Comet installs and keeps existing install health checks focused on Comet-managed assets.
 - **Dashboard collector resilience**: Keeps dashboard collection read-only and best-effort by isolating malformed change state, guarding verification report paths, and rendering partial Git snapshots defensively.
+- **Dashboard progress polish**: Makes dashboard summary and task-progress counters count up from zero when shown, replaces the compact search glyph with a balanced SVG icon, and renames the Git dirty-file label to a clearer uncommitted-file label.
 
 ### Tests
 
@@ -64,6 +67,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Authoring subagent contract coverage**: Adds regression coverage for subagent executor adapters, lane author metadata, semantic claims, mandatory Skill review artifacts, and generated authoring-lane metadata persistence.
 - **Factory generator cleanup coverage**: Adds regression coverage that scans Factory package sources for removed legacy audit-section renderers so generated source-evidence and variant-routing prose cannot return as unreachable code.
 - **Dashboard coverage**: Adds tests for the dashboard command, snapshot collector, task and verify parsers, Git snapshot, and local HTTP server including static serving and port fallback.
+- **Dashboard frontend build coverage**: Runs the React/Tailwind dashboard build through the main `pnpm build` path so packaged dashboard assets are produced with the rest of Comet.
 - **Eval harness coverage**: Adds tests for manifest generation, profiles, task validation, attribution, HTML/report outputs, pass@k metrics, and generic Skill smoke runs.
 - **Classic runtime coverage**: Adds regression coverage for Classic state, guard, handoff, archive, hook guard, migration, resolver, diagnostics, runtime evals, generated runtime parity, and the frozen 0.3.9 fixture.
 - **Platform coverage**: Adds regression coverage for ZCode and MimoCode platform detection, slash command generation, OpenSpec mirroring, Superpowers staging, init E2E behavior, and install/update path checks.

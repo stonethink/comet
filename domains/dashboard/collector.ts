@@ -9,6 +9,7 @@ import { readCometYaml, type CometYaml } from './yaml.js';
 import { resolveVerify } from './verify-parser.js';
 import type {
   ArchiveInfo,
+  ArtifactPreview,
   ArtifactsSummary,
   ChangeDashboardItem,
   ChangePhase,
@@ -29,6 +30,7 @@ const VALID_PHASES: ReadonlySet<ChangePhase> = new Set([
 const CHANGES_DIR = path.join('openspec', 'changes');
 const ARCHIVE_SEGMENT = 'archive';
 const ARCHIVE_NAME_PATTERN = /^(\d{4}-\d{2}-\d{2})-(.+)$/u;
+const ARTIFACT_PREVIEW_LIMIT_BYTES = 256 * 1024;
 
 /**
  * Build a full dashboard snapshot for the project rooted at `projectPath`.
@@ -171,6 +173,14 @@ async function buildChangeItem(input: BuildChangeInput): Promise<ChangeDashboard
     verifyReport: verify.reportExists,
     cometYaml: await fileExists(yamlPath),
   };
+  const artifactPreviews = await readArtifactPreviews([
+    ['proposal', 'proposal.md', proposalPath],
+    ['design', 'design.md', designPath],
+    ['tasks', 'tasks.md', tasksPath],
+    ['plan', 'plan.md', planPath],
+    ['verifyReport', 'verify-result.md', path.join(input.dir, '.comet', 'verify-result.md')],
+    ['cometYaml', '.comet.yaml', yamlPath],
+  ]);
 
   const phase = parsePhase(yaml.phase);
   const archive = input.status === 'archived' ? buildArchiveInfo(input) : undefined;
@@ -204,6 +214,7 @@ async function buildChangeItem(input: BuildChangeInput): Promise<ChangeDashboard
     archive,
     tasks,
     artifacts,
+    artifactPreviews,
     verify,
     risks,
   };
@@ -213,6 +224,41 @@ async function buildChangeItem(input: BuildChangeInput): Promise<ChangeDashboard
   }
 
   return item;
+}
+
+async function readArtifactPreviews(
+  files: Array<[keyof ArtifactsSummary, string, string]>,
+): Promise<ArtifactPreview[]> {
+  return Promise.all(
+    files.map(async ([key, label, filePath]) => {
+      const preview: ArtifactPreview = {
+        key,
+        label,
+        path: filePath,
+        exists: false,
+      };
+
+      try {
+        const stat = await fs.stat(filePath);
+        if (!stat.isFile()) return preview;
+        preview.exists = true;
+        const bytesToRead = Math.min(stat.size, ARTIFACT_PREVIEW_LIMIT_BYTES);
+        const handle = await fs.open(filePath, 'r');
+        try {
+          const buffer = Buffer.alloc(bytesToRead);
+          const { bytesRead } = await handle.read(buffer, 0, bytesToRead, 0);
+          preview.content = buffer.subarray(0, bytesRead).toString('utf-8');
+          preview.truncated = stat.size > ARTIFACT_PREVIEW_LIMIT_BYTES;
+        } finally {
+          await handle.close();
+        }
+      } catch {
+        // Missing or unreadable artifacts are represented as absent previews.
+      }
+
+      return preview;
+    }),
+  );
 }
 
 async function readTasks(tasksPath: string): Promise<TasksSummary> {

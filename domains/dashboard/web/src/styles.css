@@ -1,0 +1,140 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-bg: #ffffff;
+  --color-surface: #f5f5f7;
+  --color-surface-warm: #fbfbfd;
+  --color-fg: #1d1d1f;
+  --color-fg-2: #424245;
+  --color-muted: #6e6e73;
+  --color-meta: #6e6e73;
+  --color-border: #d2d2d7;
+  --color-border-soft: #e8e8ed;
+  --color-accent: #0063f8;
+  --color-accent-active: #0052e0;
+  --color-accent-soft: color-mix(in oklab, #0063f8 10%, #ffffff);
+  --color-accent-softer: color-mix(in oklab, #0063f8 6%, #ffffff);
+  --color-success: #16a34a;
+  --color-warn: #c47a06;
+  --color-danger: #dc2626;
+  --color-info: #0063f8;
+  --color-ok-soft: color-mix(in oklab, #16a34a 12%, #ffffff);
+  --color-warn-soft: color-mix(in oklab, #c47a06 12%, #ffffff);
+  --color-danger-soft: color-mix(in oklab, #dc2626 10%, #ffffff);
+  --color-info-soft: color-mix(in oklab, #0063f8 10%, #ffffff);
+  --shadow-raised: 0 12px 32px rgba(0, 0, 0, 0.08);
+  --shadow-card: none;
+  --spacing-dashboard: 1620px;
+}
+
+:root {
+  --rail-w: 248px;
+  font-family: Inter, 'Inter var', sans-serif;
+  color: var(--color-fg);
+  background: var(--color-surface);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.max-w-dashboard {
+  max-width: var(--spacing-dashboard);
+}
+
+.artifact-markdown {
+  color: var(--color-fg-2);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.artifact-markdown h1,
+.artifact-markdown h2,
+.artifact-markdown h3,
+.artifact-markdown h4 {
+  color: var(--color-fg);
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 1.25rem 0 0.5rem;
+}
+
+.artifact-markdown h1 {
+  font-size: 1.75rem;
+}
+
+.artifact-markdown h2 {
+  font-size: 1.35rem;
+}
+
+.artifact-markdown h3,
+.artifact-markdown h4 {
+  font-size: 1rem;
+}
+
+.artifact-markdown p {
+  margin: 0.65rem 0;
+}
+
+.artifact-markdown ul {
+  margin: 0.65rem 0;
+  padding-left: 1.25rem;
+  list-style: disc;
+}
+
+.artifact-markdown li {
+  margin: 0.35rem 0;
+}
+
+.artifact-markdown code {
+  border-radius: 6px;
+  background: var(--color-surface);
+  padding: 0.12rem 0.35rem;
+  font-family: Inter, 'Inter var', sans-serif;
+  font-size: 0.92em;
+}
+
+.artifact-markdown pre {
+  margin: 0.9rem 0;
+  overflow: auto;
+  border-radius: 12px;
+  background: #1d1d1f;
+  padding: 1rem;
+  color: #f5f5f7;
+}
+
+.artifact-markdown pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  z-index: 100;
+  transform: translate(-50%, 20px);
+  opacity: 0;
+  pointer-events: none;
+  border-radius: 999px;
+  background: #1d1d1f;
+  color: #fff;
+  padding: 11px 20px;
+  font-size: 14px;
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}

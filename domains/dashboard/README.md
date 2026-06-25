@@ -1,7 +1,8 @@
 # Comet Dashboard
 
 本目录包含 `comet dashboard` 的只读本地仪表盘：后端采集当前仓库的
-`openspec/changes`、Git 与验证状态，前端位于 `web/`。
+`openspec/changes`、Git 与验证状态，前端是位于 `web/` 的 React + Tailwind CSS
+应用。
 
 ## 启动
 
@@ -44,6 +45,12 @@ node .\bin\comet.js dashboard . --json
 
 ## 开发提示
 
-Dashboard 前端是原生 HTML/CSS/JavaScript 模块，没有独立前端构建步骤。
+Dashboard 后端仍然是 `domains/dashboard/*.ts`，前端通过 Vite 构建：
+
+```powershell
+pnpm build:dashboard
+```
+
 修改 `domains/dashboard/web/` 后，如果通过 `bin/comet.js` 启动，需要先运行
-`pnpm build`，因为 CLI 入口读取的是 `dist/` 下的构建产物。
+`pnpm build`，因为 CLI 入口读取的是 `dist/` 下的构建产物；完整构建会同时编译
+后端 TypeScript、Classic runtime 与 React/Tailwind 前端。

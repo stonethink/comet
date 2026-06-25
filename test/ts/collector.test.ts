@@ -92,6 +92,21 @@ describe('collectDashboardSnapshot', () => {
       verifyReport: false,
       cometYaml: true,
     });
+    expect(snap.changes.active[0].artifactPreviews).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'proposal',
+          label: 'proposal.md',
+          exists: true,
+          content: '# Proposal\n',
+        }),
+        expect.objectContaining({
+          key: 'verifyReport',
+          label: 'verify-result.md',
+          exists: false,
+        }),
+      ]),
+    );
   });
 
   it('parses archived changes including date and original name', async () => {

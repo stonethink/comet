@@ -47,6 +47,15 @@ export interface ArtifactsSummary {
   cometYaml: boolean;
 }
 
+export interface ArtifactPreview {
+  key: keyof ArtifactsSummary;
+  label: string;
+  path: string;
+  exists: boolean;
+  content?: string;
+  truncated?: boolean;
+}
+
 export interface VerifySummary {
   result: VerifyResult;
   reportExists: boolean;
@@ -78,6 +87,7 @@ export interface ChangeDashboardItem {
   archive?: ArchiveInfo;
   tasks: TasksSummary;
   artifacts: ArtifactsSummary;
+  artifactPreviews: ArtifactPreview[];
   verify: VerifySummary;
   next?: NextAction;
   risks: DashboardRisk[];

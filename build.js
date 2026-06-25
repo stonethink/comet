@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync } from 'child_process';
-import { cpSync, existsSync, rmSync } from 'fs';
+import { existsSync, rmSync } from 'fs';
 import path from 'path';
 import { createRequire } from 'module';
 
@@ -18,6 +18,17 @@ const buildClassicRuntime = () => {
   });
 };
 
+const buildDashboardFrontend = () => {
+  const vitePath = path.join(path.dirname(require.resolve('vite/package.json')), 'bin', 'vite.js');
+  execFileSync(
+    process.execPath,
+    [vitePath, 'build', '--config', 'domains/dashboard/web/vite.config.mjs'],
+    {
+      stdio: 'inherit',
+    },
+  );
+};
+
 console.log('Building Comet...\n');
 
 if (existsSync('dist')) {
@@ -32,13 +43,8 @@ try {
   runTsc(['--version']);
   runTsc();
 
-  // Mirror non-TS dashboard frontend assets (HTML/CSS/JS) into dist so the
-  // packaged tarball can serve them. TypeScript itself ignores these files.
-  const webSrc = path.join('domains', 'dashboard', 'web');
-  if (existsSync(webSrc)) {
-    const webDest = path.join('dist', 'domains', 'dashboard', 'web');
-    cpSync(webSrc, webDest, { recursive: true });
-  }
+  console.log('Building Dashboard frontend...');
+  buildDashboardFrontend();
 
   console.log('\nBuild completed successfully!');
 } catch (error) {
