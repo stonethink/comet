@@ -35,7 +35,7 @@ describe('internal Skill assets', () => {
       'comet-classic/SKILL.md',
       'comet-classic/comet/skill.yaml',
       'comet-classic/comet/guardrails.yaml',
-      'comet-classic/comet/evals.yaml',
+      'comet-classic/comet/checks.yaml',
     ]);
     expect(getUserFacingSkillNames(shipped)).not.toContain('comet-classic');
     expect(await getManifestSkills()).toEqual(getManagedSkillPaths(shipped));

@@ -33,7 +33,7 @@
     "comet-classic/SKILL.md",
     "comet-classic/comet/skill.yaml",
     "comet-classic/comet/guardrails.yaml",
-    "comet-classic/comet/evals.yaml"
+    "comet-classic/comet/checks.yaml"
   ],
   "rules": [
     "comet/rules/comet-phase-guard.md"

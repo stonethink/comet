@@ -36,7 +36,7 @@ tools: []
 `,
   );
   await fs.writeFile(
-    path.join(root, 'comet', 'evals.yaml'),
+    path.join(root, 'comet', 'checks.yaml'),
     `runtime:
   - id: report
     scope: completion
@@ -113,7 +113,7 @@ describe('comet skill CLI end to end', () => {
     expect(resumed.status, resumed.stderr).toBe(0);
     expect(JSON.parse(resumed.stdout)).toMatchObject({
       state: { status: 'completed' },
-      evals: [{ evalId: 'report', passed: true }],
+      checks: [{ checkId: 'report', passed: true }],
     });
 
     const skillRoot = path.join(projectRoot, '.comet', 'skills', 'demo');
@@ -137,7 +137,7 @@ describe('comet skill CLI end to end', () => {
 
     const evaluated = runCli(
       'skill',
-      'eval',
+      'check',
       '--change',
       changeDir,
       '--scope',
@@ -147,7 +147,7 @@ describe('comet skill CLI end to end', () => {
     expect(evaluated.status, evaluated.stderr).toBe(0);
     expect(JSON.parse(evaluated.stdout)).toMatchObject({
       scope: 'completion',
-      evals: [{ evalId: 'report', passed: true }],
+      checks: [{ checkId: 'report', passed: true }],
     });
   });
 
@@ -186,12 +186,12 @@ describe('comet skill CLI end to end', () => {
     expect(resumed.status, resumed.stderr).toBe(0);
     expect(JSON.parse(resumed.stdout)).toMatchObject({
       state: { status: 'completed', runId: 'standalone-demo' },
-      evals: [{ evalId: 'report', passed: true }],
+      checks: [{ checkId: 'report', passed: true }],
     });
 
     const evaluated = runCli(
       'skill',
-      'eval',
+      'check',
       '--project',
       projectRoot,
       '--run-id',
@@ -203,10 +203,12 @@ describe('comet skill CLI end to end', () => {
     expect(evaluated.status, evaluated.stderr).toBe(0);
     expect(JSON.parse(evaluated.stdout)).toMatchObject({
       scope: 'completion',
-      evals: [{ evalId: 'report', passed: true }],
+      checks: [{ checkId: 'report', passed: true }],
     });
     await expect(
-      fs.access(path.join(projectRoot, '.comet', 'runs', 'standalone-demo', '.comet', 'run-state.json')),
+      fs.access(
+        path.join(projectRoot, '.comet', 'runs', 'standalone-demo', '.comet', 'run-state.json'),
+      ),
     ).resolves.toBeUndefined();
   });
 });

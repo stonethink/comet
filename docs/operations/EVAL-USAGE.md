@@ -208,14 +208,14 @@ use the real experiment id under:
 eval/local/logs/experiments/
 ```
 
-## `comet eval` and `comet skill eval` are different
+## `comet eval` and `comet skill check` are different
 
-The commands look similar but serve different roles.
+The commands serve different roles.
 
 `comet eval` is the shared eval-harness entry point for evaluating a Skill package or
 `comet/eval.yaml`.
 
-`comet skill eval` is the local Engine Run completion check used to decide whether a run or change
+`comet skill check` is the local Engine Run completion check used to decide whether a run or change
 meets the runtime checks in `comet/checks.yaml`.
 
 If your question is "Can this Skill pass product evaluation?", use:
@@ -227,7 +227,7 @@ comet eval run --manifest ./generated-skill/comet/eval.yaml --html
 If your question is "Is this deterministic Skill Run missing artifacts or status?", then use:
 
 ```bash
-comet skill eval --change ./changes/demo --scope completion
+comet skill check --change ./changes/demo --scope completion
 ```
 
 ## What the user needs to remember

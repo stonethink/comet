@@ -220,7 +220,7 @@ trajectory、artifacts、snapshot 和 Eval 证据。
 comet skill run <skill> --run-id <run-id> --json
 comet skill resume --run-id <run-id> --json
 comet skill resume --run-id <run-id> --status succeeded --summary <summary> --json
-comet skill eval --run-id <run-id> --scope completion --json
+comet skill check --run-id <run-id> --scope completion --json
 ```
 
 ## 分发前检查

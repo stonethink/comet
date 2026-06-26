@@ -65,7 +65,7 @@ describe('loadSkillPackage', () => {
     expect(pkg.evals).toEqual([]);
   });
 
-  it('loads explicit guardrails and runtime evals', async () => {
+  it('loads explicit guardrails and runtime checks', async () => {
     await fs.writeFile(
       path.join(skillRoot, 'comet', 'guardrails.yaml'),
       `allowedSkills:
@@ -78,7 +78,7 @@ confirmationRequiredFor: []
 `,
     );
     await fs.writeFile(
-      path.join(skillRoot, 'comet', 'evals.yaml'),
+      path.join(skillRoot, 'comet', 'checks.yaml'),
       `runtime:
   - id: report
     scope: completion
@@ -132,7 +132,7 @@ confirmationRequiredFor: []
     ]);
   });
 
-  it('keeps loading legacy comet/evals.yaml during migration', async () => {
+  it('rejects legacy comet/evals.yaml instead of loading runtime checks from it', async () => {
     await fs.writeFile(
       path.join(skillRoot, 'comet', 'evals.yaml'),
       `runtime:
@@ -144,16 +144,18 @@ confirmationRequiredFor: []
 `,
     );
 
-    const pkg = await loadSkillPackage(skillRoot);
-
-    expect(pkg.evals.map((entry) => entry.id)).toEqual(['legacy-completed']);
+    await expect(loadSkillPackage(skillRoot)).rejects.toThrow(
+      /evals\.yaml is no longer supported.*checks\.yaml/,
+    );
   });
 
-  it('rejects packages that define both checks.yaml and evals.yaml', async () => {
+  it('rejects packages that still include evals.yaml even when checks.yaml exists', async () => {
     await fs.writeFile(path.join(skillRoot, 'comet', 'checks.yaml'), 'runtime: []\n');
     await fs.writeFile(path.join(skillRoot, 'comet', 'evals.yaml'), 'runtime: []\n');
 
-    await expect(loadSkillPackage(skillRoot)).rejects.toThrow(/checks.yaml.*evals.yaml/);
+    await expect(loadSkillPackage(skillRoot)).rejects.toThrow(
+      /evals\.yaml is no longer supported.*checks\.yaml/,
+    );
   });
 
   it.each([
@@ -191,18 +193,16 @@ confirmationRequiredFor: []
       name: 'a non-array runtime',
       yaml: `runtime:\n  id: report\n`,
     },
-  ])('rejects evals.yaml with $name', async ({ yaml }) => {
-    await fs.writeFile(path.join(skillRoot, 'comet', 'evals.yaml'), yaml);
+  ])('rejects checks.yaml with $name', async ({ yaml }) => {
+    await fs.writeFile(path.join(skillRoot, 'comet', 'checks.yaml'), yaml);
 
-    await expect(loadSkillPackage(skillRoot)).rejects.toThrow(/comet[\\/]evals\.yaml/);
+    await expect(loadSkillPackage(skillRoot)).rejects.toThrow(/comet[\\/]checks\.yaml/);
   });
 
   it('rejects checks.yaml with its file path and field path', async () => {
     await fs.writeFile(path.join(skillRoot, 'comet', 'checks.yaml'), `runtime:\n  id: report\n`);
 
-    await expect(loadSkillPackage(skillRoot)).rejects.toThrow(
-      /comet[\\/]checks\.yaml.*runtime/,
-    );
+    await expect(loadSkillPackage(skillRoot)).rejects.toThrow(/comet[\\/]checks\.yaml.*runtime/);
   });
 
   it('loads a structurally complete nested skill definition', async () => {
@@ -416,11 +416,11 @@ tools:
       yaml: `runtime:\n  - id: report\n    scope: completion\n    type: script\n`,
       field: 'runtime\\[0\\]\\.type',
     },
-  ])('rejects evals.yaml with $name and reports its field path', async ({ yaml, field }) => {
-    await fs.writeFile(path.join(skillRoot, 'comet', 'evals.yaml'), yaml);
+  ])('rejects checks.yaml with $name and reports its field path', async ({ yaml, field }) => {
+    await fs.writeFile(path.join(skillRoot, 'comet', 'checks.yaml'), yaml);
 
     await expect(loadSkillPackage(skillRoot)).rejects.toThrow(
-      new RegExp(`comet[\\\\/]evals\\.yaml.*${field}`),
+      new RegExp(`comet[\\\\/]checks\\.yaml.*${field}`),
     );
   });
 });

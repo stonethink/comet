@@ -31,11 +31,19 @@ describe('CLI help text', () => {
     expect(skillHelp.stdout).toContain('Low-level Skill utilities');
   });
 
-  it('clarifies that skill eval is the Engine Run runtime path', () => {
-    const help = runCli('skill', 'eval', '--help');
+  it('clarifies that skill check is the Engine Run runtime checks path', () => {
+    const help = runCli('skill', 'check', '--help');
 
     expect(help.status, help.stderr).toBe(0);
-    expect(help.stdout).toContain('Evaluate deterministic Engine Run runtime checks.');
+    expect(help.stdout).toContain('Check deterministic Engine Run runtime checks.');
     expect(help.stdout).toContain('comet eval run');
+  });
+
+  it('does not expose the old skill eval command', () => {
+    const help = runCli('skill', '--help');
+
+    expect(help.status, help.stderr).toBe(0);
+    expect(help.stdout).toContain('check [options]');
+    expect(help.stdout).not.toContain('eval [options]');
   });
 });

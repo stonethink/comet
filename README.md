@@ -100,7 +100,7 @@ comet init
 - **Create or optimize a reusable Skill** — `/comet-any` is the main user path. It now generates a stable composed Skill Bundle rather than only a `SKILL.md`, and the ordinary path is `/comet-any -> comet eval -> comet publish review/approve/run -> comet publish distribute --preview -> comet publish distribute`. Use `comet publish status` or `comet publish review` for normal release readiness, run `comet publish distribute --preview` before any real platform writes, and reach for the `comet bundle` Advanced Bundle backend only when you are debugging the backend state directly. Detailed examples live in [docs/operations/SKILL-CREATION.md](docs/operations/SKILL-CREATION.md).
 - **Evaluate a local or generated Skill** — `comet eval collect --manifest ./comet/eval.yaml` for discovery, then `comet eval run --manifest ./comet/eval.yaml --html` for a real run with a browsable summary.
 - **Diagnose a stuck workflow** — `comet status` for the current phase and next command, then `comet doctor` when state, runtime evidence, or install health looks wrong.
-- **Resume a deterministic Skill Run** — `comet skill run`, follow the printed `Pending action`, then `comet skill resume` or `comet skill eval` using the `Next:` hint.
+- **Resume a deterministic Skill Run** — `comet skill run`, follow the printed `Pending action`, then `comet skill resume` or `comet skill check` using the `Next:` hint.
 
 ## Support for OpenClaw and Hermes, and other AI platforms
 
@@ -232,7 +232,7 @@ comet skill run my-skill --run-id demo-run --project .
 comet skill resume --change ./changes/demo
 comet skill resume --run-id demo-run --project .
 comet skill resume --change ./changes/demo --status succeeded --summary "Done" --artifact report=report.md
-comet skill eval --change ./changes/demo --scope completion
+comet skill check --change ./changes/demo --scope completion
 comet skill resume --change ./changes/demo --upgrade my-skill --project .
 ```
 

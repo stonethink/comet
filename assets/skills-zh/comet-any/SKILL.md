@@ -15,14 +15,14 @@ Phase Recipe 或 template delta 这些后端概念；这些概念只存在于内
 状态机不能被改写，允许修改的只有增加 Skill、替换 Skill、关闭 Skill。
 
 <IMPORTANT>
-Engine 是运行语义底座。多步骤、需要恢复、需要 guardrails、需要 runtime evals
+Engine 是运行语义底座。多步骤、需要恢复、需要 guardrails、需要 runtime checks
 或包含脚本副作用的生成物，必须生成稳定组合 Skill Bundle，而不是只产出一个 `SKILL.md`。
 稳定组合 Skill Bundle 的 required capability set（必需能力集合）是 `skills/scripts/rules/hooks/references`，
 其中 `scripts/rules/hooks` 是 required control plane，不能当作可随意删除的附属文件；`hooks/*.yaml`
 是 Comet portable hook descriptor，只有通过 `comet publish distribute` 编译到目标平台配置后才会生效。
 Bundle 至少包含 `SKILL.md`、`comet/skill.yaml`、`comet/guardrails.yaml`、`comet/checks.yaml`、
 `comet/eval.yaml`、entry Skill、internal stage Skill、`scripts`、`rules`、`hooks`、`reference` 和 `bundle.yaml`。
-轻量单步 Skill 可以不启用 Engine，但必须向用户说明会失去 Run 恢复和 runtime eval。
+轻量单步 Skill 可以不启用 Engine，但必须向用户说明会失去 Run 恢复和 runtime checks。
 </IMPORTANT>
 
 ## 参考资料
@@ -235,7 +235,7 @@ subagent 不得直接运行 `comet bundle`、`comet publish`、`comet skill` 或
 ### 11. 生成 Engine Package
 
 为多步骤或高风险生成物生成 `comet/skill.yaml`、`comet/guardrails.yaml`、`comet/checks.yaml`
-和 `comet/eval.yaml`。Engine Package 必须与调用链、guardrails、runtime checks、runtime evals、
+和 `comet/eval.yaml`。Engine Package 必须与调用链、guardrails、runtime checks、
 scripts/rules/hooks control plane 和脚本副作用声明一致。
 Engine-enabled 生成物还必须写入 `comet/eval.yaml`，默认使用 `authoring-skill`
 profile 和 `authoring-skill-smoke` quick eval。
@@ -253,7 +253,7 @@ comet eval run --manifest <path-to-comet/eval.yaml> --html
 ```bash
 comet skill run <skill> --run-id <run-id> --json
 comet skill resume --run-id <run-id> --status succeeded --summary <summary> --json
-comet skill eval --run-id <run-id> --scope completion --json
+comet skill check --run-id <run-id> --scope completion --json
 ```
 
 ### 12. 编译并校验

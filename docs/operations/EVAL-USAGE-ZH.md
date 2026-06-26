@@ -179,13 +179,13 @@ generic-skill-smoke
 eval/local/logs/experiments/
 ```
 
-## `comet eval` 和 `comet skill eval` 不一样
+## `comet eval` 和 `comet skill check` 不一样
 
-这两个命令名字接近，但用途不同。
+这两个命令用途不同。
 
 `comet eval` 是共享 eval harness 的用户入口，用来评估一个 Skill 包或 `comet/eval.yaml`。
 
-`comet skill eval` 是本地 Engine Run 的完成度检查，用来判断某个 run / change 是否满足 `comet/checks.yaml` 里的 runtime checks。
+`comet skill check` 是本地 Engine Run 的完成度检查，用来判断某个 run / change 是否满足 `comet/checks.yaml` 里的 runtime checks。
 
 如果你的问题是“这个 Skill 作为产品能力能不能通过评估”，用：
 
@@ -196,7 +196,7 @@ comet eval run --manifest ./generated-skill/comet/eval.yaml --html
 如果你的问题是“这个正在运行的 deterministic Skill Run 是否缺 artifact 或状态”，才用：
 
 ```bash
-comet skill eval --change ./changes/demo --scope completion
+comet skill check --change ./changes/demo --scope completion
 ```
 
 ## 用户最少需要记什么

@@ -242,7 +242,7 @@ Common internal commands:
 comet skill run <skill> --run-id <run-id> --json
 comet skill resume --run-id <run-id> --json
 comet skill resume --run-id <run-id> --status succeeded --summary <summary> --json
-comet skill eval --run-id <run-id> --scope completion --json
+comet skill check --run-id <run-id> --scope completion --json
 ```
 
 ## Installation gates

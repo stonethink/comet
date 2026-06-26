@@ -3,7 +3,7 @@ import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
 import {
-  skillEvalCommand,
+  skillCheckCommand,
   skillInspectCommand,
   skillInstallCommand,
   skillResumeCommand,
@@ -100,7 +100,7 @@ describe('skill validate and inspect commands', () => {
   it('runs, resumes, and evaluates a deterministic Skill as JSON', async () => {
     const changeDir = path.join(root, 'change');
     await fs.writeFile(
-      path.join(skillRoot, 'comet', 'evals.yaml'),
+      path.join(skillRoot, 'comet', 'checks.yaml'),
       `runtime:
   - id: report
     scope: completion
@@ -119,7 +119,7 @@ describe('skill validate and inspect commands', () => {
     expect(started).toMatchObject({
       state: { skill: 'demo', status: 'waiting' },
       action: { type: 'checkpoint', stepId: 'finish' },
-      evals: [],
+      checks: [],
     });
 
     const completed = await captureJson(() =>
@@ -135,22 +135,22 @@ describe('skill validate and inspect commands', () => {
     expect(completed).toMatchObject({
       state: { status: 'completed' },
       action: null,
-      evals: [{ evalId: 'report', passed: true }],
+      checks: [{ checkId: 'report', passed: true }],
     });
 
     const evaluated = await captureJson(() =>
-      skillEvalCommand({ change: changeDir, scope: 'completion', json: true }),
+      skillCheckCommand({ change: changeDir, scope: 'completion', json: true }),
     );
     expect(evaluated).toMatchObject({
       scope: 'completion',
-      evals: [{ evalId: 'report', passed: true }],
+      checks: [{ checkId: 'report', passed: true }],
     });
   });
 
-  it('prints actionable next steps in text mode for pending and failed eval states', async () => {
+  it('prints actionable next steps in text mode for pending and failed check states', async () => {
     const changeDir = path.join(root, 'text-change');
     await fs.writeFile(
-      path.join(skillRoot, 'comet', 'evals.yaml'),
+      path.join(skillRoot, 'comet', 'checks.yaml'),
       `runtime:
   - id: report
     scope: completion
@@ -175,19 +175,21 @@ describe('skill validate and inspect commands', () => {
         status: 'succeeded',
         summary: 'Finished without artifact',
       });
-      await skillEvalCommand({ change: changeDir, scope: 'completion' });
+      await skillCheckCommand({ change: changeDir, scope: 'completion' });
       const evalOutput = log.mock.calls.map((call) => call.join(' ')).join('\n');
       expect(evalOutput).toContain('FAIL report: artifact report not found');
-      expect(evalOutput).toContain('Next: record the missing artifact/state and rerun comet skill eval');
+      expect(evalOutput).toContain(
+        'Next: record the missing artifact/state and rerun comet skill check',
+      );
     } finally {
       log.mockRestore();
     }
   });
 
-  it('covers waiting run, succeeded resume, failed eval, and passed eval text states', async () => {
+  it('covers waiting run, succeeded resume, failed check, and passed check text states', async () => {
     const changeDir = path.join(root, 'state-coverage-change');
     await fs.writeFile(
-      path.join(skillRoot, 'comet', 'evals.yaml'),
+      path.join(skillRoot, 'comet', 'checks.yaml'),
       `runtime:
   - id: report
     scope: completion
@@ -205,6 +207,7 @@ describe('skill validate and inspect commands', () => {
       const waitingOutput = log.mock.calls.map((call) => call.join(' ')).join('\n');
       expect(waitingOutput).toContain('Status: waiting');
       expect(waitingOutput).toContain('Pending action:');
+      expect(waitingOutput).toContain('Runtime checks: 0');
 
       log.mockClear();
       await skillResumeCommand({
@@ -218,7 +221,7 @@ describe('skill validate and inspect commands', () => {
       expect(resumedOutput).toContain('Next: none');
 
       log.mockClear();
-      await skillEvalCommand({ change: changeDir, scope: 'completion' });
+      await skillCheckCommand({ change: changeDir, scope: 'completion' });
       const passedEvalOutput = log.mock.calls.map((call) => call.join(' ')).join('\n');
       expect(passedEvalOutput).toContain('PASS report: artifact report -> report.md');
 
@@ -234,11 +237,11 @@ describe('skill validate and inspect commands', () => {
         status: 'succeeded',
         summary: 'Finished without artifact',
       });
-      await skillEvalCommand({ change: failedChangeDir, scope: 'completion' });
+      await skillCheckCommand({ change: failedChangeDir, scope: 'completion' });
       const failedEvalOutput = log.mock.calls.map((call) => call.join(' ')).join('\n');
       expect(failedEvalOutput).toContain('FAIL report: artifact report not found');
       expect(failedEvalOutput).toContain(
-        'Next: record the missing artifact/state and rerun comet skill eval',
+        'Next: record the missing artifact/state and rerun comet skill check',
       );
     } finally {
       log.mockRestore();
@@ -292,7 +295,7 @@ describe('skill validate and inspect commands', () => {
       skills: [],
       agents: [],
       tools: [],
-      evals: [],
+      checks: [],
     });
     expect(await fs.readFile(path.join(skillRoot, 'comet', 'skill.yaml'), 'utf8')).toBe(before);
   });

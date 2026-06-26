@@ -8,7 +8,7 @@ import { updateCommand } from '../commands/update.js';
 import { uninstallCommand } from '../commands/uninstall.js';
 import { getCurrentVersion } from '../../platform/version/version.js';
 import {
-  skillEvalCommand,
+  skillCheckCommand,
   skillInspectCommand,
   skillInstallCommand,
   skillResumeCommand,
@@ -236,9 +236,9 @@ skill
   });
 
 skill
-  .command('eval')
+  .command('check')
   .description(
-    'Evaluate deterministic Engine Run runtime checks. Use comet eval run for general Skill evals',
+    'Check deterministic Engine Run runtime checks. Use comet eval run for general Skill evals',
   )
   .option('--change <dir>', 'Change directory that owns the Run')
   .option('--run-id <id>', 'Standalone Run id stored under .comet/runs/<id>')
@@ -250,7 +250,7 @@ skill
   )
   .option('--json', 'Output as JSON')
   .action(async (options) => {
-    await skillEvalCommand(options);
+    await skillCheckCommand(options);
   });
 
 const publish = program

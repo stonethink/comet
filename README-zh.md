@@ -95,7 +95,7 @@ comet init
 - **创建或优化可复用 Skill** — `/comet-any` 是普通用户主路径。它现在生成稳定组合 Skill Bundle，而不只是一个 `SKILL.md`；普通用户链路按 `/comet-any -> comet eval -> comet publish review/approve/run -> comet publish distribute --preview -> comet publish distribute` 推进。发布准备优先走 `comet publish status` 或 `comet publish review`，真正写入平台前先运行 `comet publish distribute --preview`，只有排障时再直接查看 `comet bundle` 高级 Bundle 后端（Advanced Bundle backend）。完整用法见 [docs/operations/SKILL-CREATION-ZH.md](docs/operations/SKILL-CREATION-ZH.md)。
 - **评估本地或生成出的 Skill** — 先用 `comet eval collect --manifest ./comet/eval.yaml` 做发现，再用 `comet eval run --manifest ./comet/eval.yaml --html` 跑真实 eval 并拿到可浏览摘要。完整用法见 [docs/operations/EVAL-USAGE-ZH.md](docs/operations/EVAL-USAGE-ZH.md)。
 - **诊断为什么流程卡住** — 先看 `comet status` 的当前阶段和下一步命令，状态、运行时证据或安装健康有问题时再跑 `comet doctor`。
-- **恢复 deterministic Skill Run** — 先用 `comet skill run`，按输出里的 `Pending action` 执行，再根据 `Next:` 提示运行 `comet skill resume` 或 `comet skill eval`。
+- **恢复 deterministic Skill Run** — 先用 `comet skill run`，按输出里的 `Pending action` 执行，再根据 `Next:` 提示运行 `comet skill resume` 或 `comet skill check`。
 
 ## 对OpenClaw和Hermes、或其他AI平台的支持
 
@@ -222,7 +222,7 @@ comet skill run my-skill --run-id demo-run --project .
 comet skill resume --change ./changes/demo
 comet skill resume --run-id demo-run --project .
 comet skill resume --change ./changes/demo --status succeeded --summary "完成" --artifact report=report.md
-comet skill eval --change ./changes/demo --scope completion
+comet skill check --change ./changes/demo --scope completion
 comet skill resume --change ./changes/demo --upgrade my-skill --project .
 ```
 

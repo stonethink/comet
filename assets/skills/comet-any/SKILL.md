@@ -20,7 +20,7 @@ and the `.comet.yaml` state machine must not be rewritten; allowed changes are a
 
 <IMPORTANT>
 Engine is the runtime semantic foundation. Generated workflows with multiple steps, recovery needs,
-guardrails, runtime evals, or script side effects must generate a stable composed Skill Bundle, not
+guardrails, runtime checks, or script side effects must generate a stable composed Skill Bundle, not
 only a `SKILL.md` file. The stable composed Skill Bundle required capability set is
 `skills/scripts/rules/hooks/references`, and `scripts/rules/hooks` remain the required control
 plane instead of optional extras. A Bundle must include `SKILL.md`, `comet/skill.yaml`,
@@ -29,7 +29,7 @@ Skills, `scripts`, `rules`, `hooks`, `reference`, and `bundle.yaml`. `hooks/*.ya
 portable hook descriptors and only become active after `comet publish distribute` compiles them into
 target platform configuration.
 In short, lightweight single-step Skills can skip Engine only when the user is told that Run recovery and
-runtime evals will be unavailable.
+runtime checks will be unavailable.
 </IMPORTANT>
 
 ## References
@@ -214,7 +214,7 @@ Confirm with the user:
 - Which pieces are entry Skill surfaces and which are internal Skill components.
 - Shared resources, security boundaries, and Hook/script side effects.
 - Target platforms, required/optional capabilities, and capability-gap strategy.
-- Whether Engine, runner recovery, and runtime evals are required.
+- Whether Engine, runner recovery, and runtime checks are required.
 
 ### 9. Initialize the draft and Factory metadata through CLI
 
@@ -281,7 +281,7 @@ instead of name-only guesses.
 For multi-step or higher-risk output, generate `comet/skill.yaml`, `comet/guardrails.yaml`,
 `comet/checks.yaml`, and `comet/eval.yaml`.
 
-The Engine Package must match the call chain, guardrails, runtime checks, runtime evals, the
+The Engine Package must match the call chain, guardrails, runtime checks, the
 scripts/rules/hooks control plane, and script side-effect declarations. Engine-enabled generated
 Skills must also write `comet/eval.yaml` using the `authoring-skill` profile and the
 `authoring-skill-smoke` quick eval.
@@ -300,7 +300,7 @@ under `.comet/runs/<run-id>`. When persistent execution is needed, the internal 
 ```bash
 comet skill run <skill> --run-id <run-id> --json
 comet skill resume --run-id <run-id> --status succeeded --summary <summary> --json
-comet skill eval --run-id <run-id> --scope completion --json
+comet skill check --run-id <run-id> --scope completion --json
 ```
 
 ### 12. Compile and validate

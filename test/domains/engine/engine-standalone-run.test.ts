@@ -40,7 +40,7 @@ tools: []
 `,
   );
   await fs.writeFile(
-    path.join(root, 'comet', 'evals.yaml'),
+    path.join(root, 'comet', 'checks.yaml'),
     `runtime:
   - id: report
     scope: completion
@@ -90,11 +90,15 @@ describe('standalone Skill runs', () => {
     expect(await readArtifacts(runDir, completed.state.artifactsRef)).toEqual({
       report: 'report.md',
     });
-    expect(evaluated.evals).toEqual([{ evalId: 'report', passed: true, evidence: 'artifact report -> report.md' }]);
+    expect(evaluated.evals).toEqual([
+      { evalId: 'report', passed: true, evidence: 'artifact report -> report.md' },
+    ]);
   });
 
   it('rejects unsafe standalone run ids before resolving a path', () => {
     expect(() => standaloneRunDir(projectRoot, '../escape')).toThrow(/Invalid standalone Run id/u);
-    expect(() => standaloneRunDir(projectRoot, 'nested/path')).toThrow(/Invalid standalone Run id/u);
+    expect(() => standaloneRunDir(projectRoot, 'nested/path')).toThrow(
+      /Invalid standalone Run id/u,
+    );
   });
 });

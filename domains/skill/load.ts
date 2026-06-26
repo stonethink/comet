@@ -296,17 +296,12 @@ async function readRuntimeChecks(cometRoot: string): Promise<{
     yamlFileExists(evalsPath),
   ]);
 
-  if (hasChecks && hasEvals) {
-    throw new Error(`${checksPath}: checks.yaml and evals.yaml cannot both be present`);
+  if (hasEvals) {
+    throw new Error(`${evalsPath}: evals.yaml is no longer supported; use checks.yaml`);
   }
   if (hasChecks) {
     return {
       document: narrowEvalDocument(await readYaml(checksPath), checksPath),
-    };
-  }
-  if (hasEvals) {
-    return {
-      document: narrowEvalDocument(await readYaml(evalsPath), evalsPath),
     };
   }
   return { document: null };

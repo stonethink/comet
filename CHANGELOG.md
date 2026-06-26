@@ -7,7 +7,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 ### Added
 
 - **Node-only Comet runtime**: Replaces the Bash-first Classic workflow scripts with thin `.mjs` launchers backed by a shared TypeScript runtime, so normal `/comet` workflows run on Windows, macOS, and Linux without Git Bash, WSL, or shell-script compatibility surprises.
-- **Skill platform commands**: Adds `comet skill install|validate|inspect|run|resume|eval` for local Skill packages, with immutable run snapshots, resumable pending actions, project Skill discovery, and runtime checks that make Skill execution auditable instead of purely conversational.
+- **Skill platform commands**: Adds `comet skill install|validate|inspect|run|resume|check` for local Skill packages, with immutable run snapshots, resumable pending actions, project Skill discovery, and runtime checks that make Skill execution auditable instead of purely conversational.
 - **`/comet-any` Skill Factory**: Turns `/comet-any` into the main path for creating or upgrading reusable Skills. It now guides users through candidate discovery, confirmable proposals, generated Skill bundles, readiness checks, eval planning, review approval, and publish/distribution steps.
 - **Skill Maker stage naming**: Adds recommended stage names and editable `stageNames` fields to `/comet-any` proposals, then generates internal stage Skills so customized multi-step workflows behave like real composed Skills instead of a single thin wrapper.
 - **Publish and distribution flow**: Adds `comet publish` as the user-facing path for `/comet-any` outputs, including readiness status, review/approval, publish execution, and distribution preview before writing files to target platforms.
@@ -31,6 +31,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Dashboard React frontend**: Rebuilds the dashboard frontend as a React application styled with Tailwind CSS while preserving the current Comet Dashboard colors, layout density, and read-only TypeScript backend API.
 - **Dashboard command validation**: Makes `comet dashboard --port` reject non-numeric values up front instead of accepting parsed numeric prefixes.
 - **Skill preferences**: Replaces the unpublished `.comet/skills.txt` path with `.comet/skill-preferences.yaml`, inventory-backed setup, proposal previews, and readiness feedback so users can guide Skill creation without learning internal Bundle files.
+- **Runtime checks naming**: Renames deterministic Engine Run checks from `comet skill eval` and `comet/evals.yaml` to `comet skill check` and `comet/checks.yaml`, keeping `comet eval` reserved for the shared eval harness.
 - **Tweak workflow path**: Reframes `/comet-tweak` as a tweak-only OpenSpec action chain that runs `openspec-apply-change` during build, allows single-change delta-spec work, and explicitly keeps full `/comet` on the Superpowers design/plan/build path.
 
 ### Fixed
@@ -69,7 +70,8 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Dashboard coverage**: Adds tests for the dashboard command, snapshot collector, task and verify parsers, Git snapshot, and local HTTP server including static serving and port fallback.
 - **Dashboard frontend build coverage**: Runs the React/Tailwind dashboard build through the main `pnpm build` path so packaged dashboard assets are produced with the rest of Comet.
 - **Eval harness coverage**: Adds tests for manifest generation, profiles, task validation, attribution, HTML/report outputs, pass@k metrics, and generic Skill smoke runs.
-- **Classic runtime coverage**: Adds regression coverage for Classic state, guard, handoff, archive, hook guard, migration, resolver, diagnostics, runtime evals, generated runtime parity, and the frozen 0.3.9 fixture.
+- **Classic runtime coverage**: Adds regression coverage for Classic state, guard, handoff, archive, hook guard, migration, resolver, diagnostics, runtime checks, generated runtime parity, and the frozen 0.3.9 fixture.
+- **Runtime check naming coverage**: Adds regression coverage that rejects legacy `comet/evals.yaml`, validates `comet/checks.yaml`, and exposes `comet skill check` instead of the old runtime eval command.
 - **Platform coverage**: Adds regression coverage for ZCode and MimoCode platform detection, slash command generation, OpenSpec mirroring, Superpowers staging, init E2E behavior, and install/update path checks.
 - **Workflow contract coverage**: Adds bilingual Skill contract checks for phase decisions, output language, subagent dispatch, `/comet-tweak` OpenSpec apply routing, and full `/comet-build` staying on the Superpowers execution path.
 
@@ -77,6 +79,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 
 - **Bash-first runtime dependency**: Removes the old requirement that bundled Classic workflow scripts execute through Bash-compatible shell scripts; Node launchers and cross-platform runtime checks are now the default contract.
 - **Deprecated shell test path**: Removes the old shell-script test runner and replaces it with Vitest coverage around the generated Classic runtime and compatibility fixtures.
+- **Legacy runtime eval aliases**: Removes the `comet/evals.yaml` compatibility fallback and the `comet skill eval` command so runtime checks no longer compete with the shared `comet eval` harness naming.
 
 ### Security
 

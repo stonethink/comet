@@ -64,6 +64,32 @@ function hasValues(values: string[] | undefined): boolean {
   return Boolean(values && values.length > 0);
 }
 
+function runtimeChecks(
+  evals: Array<{ evalId: string; passed: boolean; evidence?: string }>,
+): Array<{ checkId: string; passed: boolean; evidence?: string }> {
+  return evals.map((evaluation) => ({
+    checkId: evaluation.evalId,
+    passed: evaluation.passed,
+    ...(evaluation.evidence === undefined ? {} : { evidence: evaluation.evidence }),
+  }));
+}
+
+function runCommandResult<
+  T extends {
+    evals: Array<{ evalId: string; passed: boolean; evidence?: string }>;
+  },
+>(
+  result: T,
+): Omit<T, 'evals'> & {
+  checks: Array<{ checkId: string; passed: boolean; evidence?: string }>;
+} {
+  const { evals, ...rest } = result;
+  return {
+    ...rest,
+    checks: runtimeChecks(evals),
+  };
+}
+
 function runText(result: {
   state: { runId: string; status: string; currentStep: string | null };
   action: { id: string; type: string; stepId: string | null } | null;
@@ -73,7 +99,7 @@ function runText(result: {
   const next = result.action
     ? 'Next: complete the pending action, then run comet skill resume'
     : result.evals.some((evaluation) => !evaluation.passed)
-      ? 'Next: record the missing artifact/state and rerun comet skill eval'
+      ? 'Next: record the missing artifact/state and rerun comet skill check'
       : 'Next: none';
   return [
     `Run: ${result.state.runId}`,
@@ -82,7 +108,7 @@ function runText(result: {
     result.action
       ? `Pending action: ${result.action.id} (${result.action.type}, step ${result.action.stepId ?? 'adaptive'})`
       : 'Pending action: none',
-    `Runtime evals: ${result.evals.length}`,
+    `Runtime checks: ${result.evals.length}`,
     next,
     ...(result.reason ? [`Reason: ${result.reason}`] : []),
   ].join('\n');
@@ -127,7 +153,10 @@ export async function skillInspectCommand(
     agents: definition.agents,
     tools: definition.tools,
     guardrails,
-    evals,
+    checks: evals.map(({ id, ...evaluation }) => ({
+      checkId: id,
+      ...evaluation,
+    })),
   };
   emit(
     result,
@@ -142,7 +171,7 @@ export async function skillInspectCommand(
       `Skills: ${result.skills.length}`,
       `Agents: ${result.agents.length}`,
       `Tools: ${result.tools.length}`,
-      `Runtime evals: ${result.evals.length}`,
+      `Runtime checks: ${result.checks.length}`,
     ].join('\n'),
   );
 }
@@ -174,7 +203,7 @@ export async function skillRunCommand(
         confirmations: options.confirm ?? [],
       })
     : await startManualRun(resolved.package, changeDir(options), options.confirm ?? []);
-  emit(result, options.json, runText(result));
+  emit(runCommandResult(result), options.json, runText(result));
 }
 
 export async function skillResumeCommand(options: SkillCommandOptions = {}): Promise<void> {
@@ -228,17 +257,17 @@ export async function skillResumeCommand(options: SkillCommandOptions = {}): Pro
   const result = options.runId
     ? await resumeStandaloneRun(root, options.runId, resumeOptions)
     : await resumeManualRun(target!, resumeOptions);
-  emit(result, options.json, runText(result));
+  emit(runCommandResult(result), options.json, runText(result));
 }
 
-export async function skillEvalCommand(options: SkillCommandOptions = {}): Promise<void> {
+export async function skillCheckCommand(options: SkillCommandOptions = {}): Promise<void> {
   assertSingleRunTarget(options);
   const result = options.runId
     ? await evaluateStandaloneRun(projectRoot(options), options.runId, options.scope ?? 'progress')
     : await evaluateManualRun(changeDir(options), options.scope ?? 'progress');
   const failed = result.evals.filter((evaluation) => !evaluation.passed);
   emit(
-    result,
+    runCommandResult(result),
     options.json,
     [
       `Run: ${result.state.runId}`,
@@ -248,7 +277,7 @@ export async function skillEvalCommand(options: SkillCommandOptions = {}): Promi
           `${evaluation.passed ? 'PASS' : 'FAIL'} ${evaluation.evalId}: ${evaluation.evidence}`,
       ),
       ...(failed.length > 0
-        ? ['Next: record the missing artifact/state and rerun comet skill eval']
+        ? ['Next: record the missing artifact/state and rerun comet skill check']
         : []),
     ].join('\n'),
   );

@@ -66,7 +66,7 @@ tools:
 ${options.requireConfirmation ? '    requiresConfirmation: true\n' : ''}`,
   );
   await fs.writeFile(
-    path.join(root, 'comet', 'evals.yaml'),
+    path.join(root, 'comet', 'checks.yaml'),
     `runtime:
   - id: draft-artifact
     scope: step

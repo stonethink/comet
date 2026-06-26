@@ -56,14 +56,14 @@ comet-env.sh    ─┘                   comet-env.mjs    ─┘
 
 0.3.x 的 Skill 是 Markdown 文档 + 配套脚本，agent 按文档自由发挥，没有确定性的执行/恢复/校验机制。0.4.0 新增完整 Skill Engine 基础层：
 
-| 能力 | 作用 |
-|------|------|
-| Skill Package 加载 | 结构与语义校验、稳定内容哈希、不可变快照 |
-| Run state | `.comet/run-state.json` 记录运行态（当前步骤、迭代、待处理动作） |
-| Trajectory / Context / Artifacts / Checkpoints | 持久化执行轨迹、上下文、产物、检查点 |
-| action Guardrails | 动作授权，限制 agent 可执行范围 |
-| 确定性 Runtime Evals | 不依赖 LLM/网络的基准测试（七场景：迁移/重试路由/handoff 恢复/归档恢复/畸形状态拒绝/幂等/契约保持） |
-| Runtime Adapter 契约 | 引擎与平台运行时的对接约定 |
+| 能力                                           | 作用                                                                                                |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Skill Package 加载                             | 结构与语义校验、稳定内容哈希、不可变快照                                                            |
+| Run state                                      | `.comet/run-state.json` 记录运行态（当前步骤、迭代、待处理动作）                                    |
+| Trajectory / Context / Artifacts / Checkpoints | 持久化执行轨迹、上下文、产物、检查点                                                                |
+| action Guardrails                              | 动作授权，限制 agent 可执行范围                                                                     |
+| 确定性 Runtime Evals                           | 不依赖 LLM/网络的基准测试（七场景：迁移/重试路由/handoff 恢复/归档恢复/畸形状态拒绝/幂等/契约保持） |
+| Runtime Adapter 契约                           | 引擎与平台运行时的对接约定                                                                          |
 
 ### 用户感知
 
@@ -83,7 +83,7 @@ comet skill validate  # 校验结构
 comet skill inspect   # 检查内容
 comet skill run       # 驱动执行
 comet skill resume    # 从检查点恢复
-comet skill eval      # 运行 Eval 基准
+comet skill check     # 运行 Engine Run runtime checks
 ```
 
 配套 Project Skill pool（`.comet/skills/<name>`）：拒绝 symlink、发现优先级确定、无效覆盖 fail-closed（而非静默降级）。
