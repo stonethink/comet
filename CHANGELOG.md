@@ -32,6 +32,9 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Dashboard command validation**: Makes `comet dashboard --port` reject non-numeric values up front instead of accepting parsed numeric prefixes.
 - **Skill preferences**: Replaces the unpublished `.comet/skills.txt` path with `.comet/skill-preferences.yaml`, inventory-backed setup, proposal previews, and readiness feedback so users can guide Skill creation without learning internal Bundle files.
 - **Runtime checks naming**: Renames deterministic Engine Run checks from `comet skill eval` and `comet/evals.yaml` to `comet skill check` and `comet/checks.yaml`, keeping `comet eval` reserved for the shared eval harness.
+- **Repository architecture guardrails**: Documents the active `app/`, `domains/`, `platform/`, scripts, assets, and test ownership layout for agents and adds an architecture linter so top-level drift, module drift, root-level code, and legacy roots such as `src/` and `test/ts/` cannot return unnoticed.
+- **Repository architecture CI**: Runs the architecture linter as an explicit CI step and updates PR guidance so layout drift is visible independently from the broader ESLint check.
+- **Chinese preset terminology**: Translates user-facing Chinese Skill and architecture wording from "preset" to "预设" while preserving machine identifiers such as `preset-escalate`.
 - **Tweak workflow path**: Reframes `/comet-tweak` as a tweak-only OpenSpec action chain that runs `openspec-apply-change` during build, allows single-change delta-spec work, and explicitly keeps full `/comet` on the Superpowers design/plan/build path.
 
 ### Fixed
@@ -72,6 +75,8 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Eval harness coverage**: Adds tests for manifest generation, profiles, task validation, attribution, HTML/report outputs, pass@k metrics, and generic Skill smoke runs.
 - **Classic runtime coverage**: Adds regression coverage for Classic state, guard, handoff, archive, hook guard, migration, resolver, diagnostics, runtime checks, generated runtime parity, and the frozen 0.3.9 fixture.
 - **Runtime check naming coverage**: Adds regression coverage that rejects legacy `comet/evals.yaml`, validates `comet/checks.yaml`, and exposes `comet skill check` instead of the old runtime eval command.
+- **Repository layout coverage**: Moves legacy `test/ts` coverage into ownership-aligned `test/app`, `test/domains`, `test/platform`, `test/repository`, and `test/scripts` locations, with architecture lint coverage for the new structure.
+- **CI layout coverage**: Adds repository tests that assert CI runs the architecture linter and no longer references the removed `test/ts` Classic script test path.
 - **Platform coverage**: Adds regression coverage for ZCode and MimoCode platform detection, slash command generation, OpenSpec mirroring, Superpowers staging, init E2E behavior, and install/update path checks.
 - **Workflow contract coverage**: Adds bilingual Skill contract checks for phase decisions, output language, subagent dispatch, `/comet-tweak` OpenSpec apply routing, and full `/comet-build` staying on the Superpowers execution path.
 

@@ -1,0 +1,50 @@
+import path from 'path';
+import { describe, expect, it } from 'vitest';
+
+import {
+  readRepositoryLayout,
+  resolveRepositoryPath,
+} from '../../platform/paths/repository-layout.js';
+
+describe('repository layout registry', () => {
+  it('resolves the manifest and classic runtime output paths', () => {
+    const layout = readRepositoryLayout();
+
+    expect(layout.assetsRoot).toBe('assets');
+    expect(layout.manifestPath).toBe('assets/manifest.json');
+    expect(layout.classicRuntime.output).toBe('assets/skills/comet/scripts/comet-runtime.mjs');
+    expect(resolveRepositoryPath(layout.classicRuntime.output)).toBe(
+      path.resolve('assets', 'skills', 'comet', 'scripts', 'comet-runtime.mjs'),
+    );
+  });
+
+  it('tracks active source roots', () => {
+    const layout = readRepositoryLayout();
+
+    expect(layout.sourceRoots).toEqual(['app', 'domains', 'platform']);
+    expect(layout.appModules).toEqual(['cli', 'commands']);
+    expect(layout.domainModules).toEqual([
+      'bundle',
+      'comet-classic',
+      'dashboard',
+      'engine',
+      'eval',
+      'factory',
+      'integrations',
+      'skill',
+    ]);
+    expect(layout.platformModules).toEqual(['fs', 'install', 'paths', 'process', 'version']);
+    expect(layout.scriptModules).toEqual([
+      'benchmark',
+      'build',
+      'install',
+      'lib',
+      'lint',
+      'release',
+    ]);
+    expect(layout.allowedTopLevelEntries).toContain('app');
+    expect(layout.allowedTopLevelEntries).toContain('domains');
+    expect(layout.allowedTopLevelEntries).toContain('platform');
+    expect(layout.allowedTopLevelEntries).not.toContain('src');
+  });
+});

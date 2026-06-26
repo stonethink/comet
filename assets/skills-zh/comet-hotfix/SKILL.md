@@ -16,7 +16,7 @@ description: "Comet 预设路径：Bug fix / 热修复。跳过 brainstorming，
 
 ---
 
-## 流程（preset workflow，6 步）
+## 流程（预设流程，6 步）
 
 ### 0. 输出语言约束
 
@@ -40,7 +40,7 @@ COMET_ARCHIVE="$COMET_SCRIPTS_DIR/comet-archive.mjs"
 COMET_RUNTIME="$COMET_SCRIPTS_DIR/comet-runtime.mjs"
 ```
 
-### 1. 快速开启（preset open）
+### 1. 快速开启（预设 open）
 
 复用 Comet open 能力创建 change，但使用 hotfix 默认值：不执行 `openspec-explore` 长探索，直接进入精简 change 创建。
 
@@ -79,7 +79,7 @@ node "$COMET_STATE" next <name>
 - `NEXT: auto` → 继续 Step 2
 - `NEXT: manual` → 暂停，按 `HINT` 提示用户手动运行 `/<SKILL>`
 
-### 2. 直接构建（preset build）
+### 2. 直接构建（预设 build）
 
 使用 hotfix 默认值：`build_mode: direct`，`review_mode: off`（hotfix/tweak 跳过 review_mode 选择——guard 不要求预设工作流选择此项）。跳过 Superpowers `brainstorming` 和 `writing-plans`（除非任务 > 3 个；若超过 3 个任务，转入 `/comet-build` 的计划与执行方式选择——注意这不触发 full workflow 升级，仅切换执行方式）。
 
@@ -124,7 +124,7 @@ node "$COMET_GUARD" <change-name> build --apply
 
 状态文件自动更新为 `phase: verify`、`verify_result: pending`，然后进入验证。
 
-### 4. 验证（preset verify）
+### 4. 验证（预设 verify）
 
 复用 `/comet-verify`，由 comet-verify 的规模评估决定轻量或完整验证。
 
@@ -134,7 +134,7 @@ node "$COMET_GUARD" <change-name> build --apply
 
 验证通过后，按 `/comet-verify` 的规则将 `.comet.yaml` 的 `verify_result` 记录为 `pass`，归档前不得跳过该状态。验证通过后仍必须进入 `/comet-archive` 的归档前最终确认，不得自动运行归档脚本。
 
-### 5. 归档（preset archive）
+### 5. 归档（预设 archive）
 
 复用 `/comet-archive`。归档前必须满足 `.comet.yaml` 中 `verify_result: pass`，并等待 `/comet-archive` 的归档前最终确认。
 
@@ -192,7 +192,7 @@ build 全程持续判断以下信号。命中任一时，**不得自行升级或
 
 命中质变信号或文件数 tripwire 时，**必须按 `comet/reference/decision-point.md` 的协议暂停并等待用户明确选择**。不得直接进入 `/comet-design`，不得自动补充 Design Doc。
 
-用户选择升级（选项 B）后，使用状态机合法的升级通道，单条命令完成 preset → full 转换并回退到 design 阶段：
+用户选择升级（选项 B）后，使用状态机合法的升级通道，单条命令完成预设流程 → full 转换并回退到 design 阶段：
 
 ```bash
 node "$COMET_STATE" transition <name> preset-escalate

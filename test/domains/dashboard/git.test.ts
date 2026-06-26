@@ -3,7 +3,7 @@ import { execFileSync } from 'child_process';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
-import { collectGitSnapshot } from '../../domains/dashboard/git.js';
+import { collectGitSnapshot } from '../../../domains/dashboard/git.js';
 
 const RUN_OPTS = { stdio: 'pipe' as const, timeout: 10_000 };
 

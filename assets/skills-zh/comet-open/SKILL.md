@@ -208,7 +208,7 @@ node "$COMET_STATE" check <name> open
 node "$COMET_GUARD" <change-name> open --apply
 ```
 
-完整流程会自动更新为 `phase: design`；hotfix/tweak preset 会自动更新为 `phase: build`。
+完整流程会自动更新为 `phase: design`；hotfix/tweak 预设会自动更新为 `phase: build`。
 
 ## 自动衔接下一阶段
 
@@ -222,4 +222,4 @@ node "$COMET_STATE" next <change-name>
 - `NEXT: manual` → 不要调用下一 skill，按 `HINT` 提示用户手动运行 `/<SKILL>`
 - `NEXT: done` → 流程已完成，无需继续
 
-hotfix/tweak preset 由对应 preset skill 控制后续流转（phase 直接进入 build），其 `next` 会返回对应 preset skill。
+hotfix/tweak 预设由对应预设 Skill 控制后续流转（phase 直接进入 build），其 `next` 会返回对应预设 Skill。

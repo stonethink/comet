@@ -9,8 +9,8 @@ import {
   createWorkingDirs,
   copyCometSkillsForPlatform,
   installCometHooksForPlatform,
-} from '../../domains/skill/platform-install.js';
-import type { Platform } from '../../platform/install/platforms.js';
+} from '../../../domains/skill/platform-install.js';
+import type { Platform } from '../../../platform/install/platforms.js';
 
 describe('skills', () => {
   let tmpDir: string;

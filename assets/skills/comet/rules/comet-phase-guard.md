@@ -32,7 +32,7 @@
 
 预设例外：`workflow: hotfix/tweak` 本就跳过 design，`design_doc` 为空属正常，不算非法。
 
-升级态说明：preset（hotfix/tweak）命中升级信号并经用户确认升级后，通过 `comet-state transition <name> preset-escalate` 合法地变为 `workflow: full` + `phase: design` + `design_doc: null`。此时 `phase: design` + `design_doc` 为空**属正常升级前置态**，不是非法空跳——agent 应进入 `/comet-design` 补 Design Doc。该终态不命中上表「绕过 design 空跳」行（该行仅检测 `phase: build`）。
+升级态说明：预设（hotfix/tweak）命中升级信号并经用户确认升级后，通过 `comet-state transition <name> preset-escalate` 合法地变为 `workflow: full` + `phase: design` + `design_doc: null`。此时 `phase: design` + `design_doc` 为空**属正常升级前置态**，不是非法空跳——agent 应进入 `/comet-design` 补 Design Doc。该终态不命中上表「绕过 design 空跳」行（该行仅检测 `phase: build`）。
 
 ### Skill 调用（不可用普通对话替代）
 
@@ -51,7 +51,7 @@
 - **阶段退出**: `comet-guard <name> <phase> --apply`（必须看到 ALL CHECKS PASSED）
 - **压缩恢复**: `comet-state check <name> <phase> --recover`
 - **状态更新**: 关键操作后通过 `comet-state set` 更新字段，禁止手工编辑 .comet.yaml
-- **阶段推进只能经 guard/transition**: 禁止用 `comet-state set <name> phase <值>` 手动跳阶段（会绕过证据校验，脚本已硬拦截）；确需修复畸形状态时才用 `COMET_FORCE_PHASE=1` 逃生阀。preset（hotfix/tweak）升级到 full 必须用 `comet-state transition <name> preset-escalate`——这是唯一能合法回退 phase 到 design 并同步 workflow/classic_profile 的通道，直接 `set phase design` 和 `set classic_profile` 都会被硬拦截
+- **阶段推进只能经 guard/transition**: 禁止用 `comet-state set <name> phase <值>` 手动跳阶段（会绕过证据校验，脚本已硬拦截）；确需修复畸形状态时才用 `COMET_FORCE_PHASE=1` 逃生阀。预设（hotfix/tweak）升级到 full 必须用 `comet-state transition <name> preset-escalate`——这是唯一能合法回退 phase 到 design 并同步 workflow/classic_profile 的通道，直接 `set phase design` 和 `set classic_profile` 都会被硬拦截
 - **handoff 生成**: `comet-handoff <name> design --write`（禁止手写摘要）
 
 ### 用户确认（不可自动跳过）
@@ -60,7 +60,7 @@
 
 - **open**: 需求澄清完成确认、artifact 评审确认
 - **design**: brainstorming 方案确认（确认前不得创建 Design Doc）
-- **build**: plan-ready 暂停、isolation/build_mode/tdd_mode 选择、spec 大规模变更确认、preset（hotfix/tweak）升级判定二选一（命中质变信号或文件数 tripwire 时，交用户决定继续 preset 还是升级 full）
+- **build**: plan-ready 暂停、isolation/build_mode/tdd_mode 选择、spec 大规模变更确认、预设（hotfix/tweak）升级判定二选一（命中质变信号或文件数 tripwire 时，交用户决定继续预设流程还是升级 full）
 - **verify**: 验证失败处理策略、branch handling 选择
 - **archive**: 归档前最终确认
 

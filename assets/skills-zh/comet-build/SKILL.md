@@ -160,7 +160,7 @@ node "$COMET_STATE" set <name> isolation <branch|worktree>
 | 选项 | 含义 | 适用场景 |
 |------|------|---------|
 | `tdd` | 每个任务先写失败测试再写实现 | 推荐。变更涉及业务逻辑、新功能、API |
-| `direct` | 直接实现，不强制 TDD 流程 | 变更不需要测试覆盖，或用户选择跳过测试直接写代码。hotfix/tweak preset 默认使用 `direct` |
+| `direct` | 直接实现，不强制 TDD 流程 | 变更不需要测试覆盖，或用户选择跳过测试直接写代码。hotfix/tweak 预设默认使用 `direct` |
 
 运行 `node "$COMET_STATE" set <name> tdd_mode <tdd|direct>`
 
@@ -182,7 +182,7 @@ node "$COMET_STATE" set <name> isolation <branch|worktree>
 
 `review_mode` 是脚本级硬约束。新建 full workflow 离开 build 阶段前 `review_mode` 必须已选择为 `off`、`standard` 或 `thorough`，否则 `comet-guard.mjs build --apply` 和 `comet-state transition build-complete` 都会失败。旧状态文件若没有该字段，按兼容路径继续，但恢复时应补写该字段。
 
-`build_mode` 默认仅 hotfix/tweak preset 使用 `direct`。full workflow 不得默认使用 `direct`。只有用户明确要求跳过计划执行技能，且你已记录显式 override 时，才允许：
+`build_mode` 默认仅 hotfix/tweak 预设使用 `direct`。full workflow 不得默认使用 `direct`。只有用户明确要求跳过计划执行技能，且你已记录显式 override 时，才允许：
 
 ```bash
 node "$COMET_STATE" set <name> direct_override true

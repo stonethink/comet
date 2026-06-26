@@ -4,7 +4,7 @@ import { promises as fs } from 'fs';
 import net from 'net';
 import os from 'os';
 import path from 'path';
-import { startDashboardServer } from '../../domains/dashboard/server.js';
+import { startDashboardServer } from '../../../domains/dashboard/server.js';
 
 interface HttpResult {
   status: number;

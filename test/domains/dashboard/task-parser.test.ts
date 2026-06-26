@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseTasksMarkdown } from '../../domains/dashboard/task-parser.js';
+import { parseTasksMarkdown } from '../../../domains/dashboard/task-parser.js';
 
 describe('parseTasksMarkdown', () => {
   it('returns empty summary for missing or blank content', () => {

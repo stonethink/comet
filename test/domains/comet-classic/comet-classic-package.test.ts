@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { loadSkillPackage } from '../../domains/skill/load.js';
-import { validateSkillPackage } from '../../domains/skill/validate.js';
+import { loadSkillPackage } from '../../../domains/skill/load.js';
+import { validateSkillPackage } from '../../../domains/skill/validate.js';
 
 const chinesePackageRoot = path.resolve('assets', 'skills-zh', 'comet-classic');
 const englishPackageRoot = path.resolve('assets', 'skills', 'comet-classic');

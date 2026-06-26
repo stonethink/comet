@@ -12,7 +12,12 @@ export interface RepositoryLayout {
     entry: string;
     output: string;
   };
+  allowedTopLevelEntries: string[];
   sourceRoots: string[];
+  appModules: string[];
+  domainModules: string[];
+  platformModules: string[];
+  scriptModules: string[];
   testRoots: string[];
 }
 

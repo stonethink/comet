@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
-import { collectDashboardSnapshot } from '../../domains/dashboard/collector.js';
+import { collectDashboardSnapshot } from '../../../domains/dashboard/collector.js';
 
 interface ChangeFixture {
   name: string;

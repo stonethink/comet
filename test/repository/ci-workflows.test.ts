@@ -3,7 +3,10 @@ import { promises as fs } from 'fs';
 
 describe('CI workflows', () => {
   it('validates init e2e through owned files and installer status', async () => {
-    const workflow = (await fs.readFile('.github/workflows/ci.yml', 'utf-8')).replace(/\r\n/g, '\n');
+    const workflow = (await fs.readFile('.github/workflows/ci.yml', 'utf-8')).replace(
+      /\r\n/g,
+      '\n',
+    );
     const projectVerify = workflow.slice(
       workflow.indexOf('- name: Verify Comet skills installed (project)'),
       workflow.indexOf('- name: Verify external installer status (project)'),
@@ -15,6 +18,9 @@ describe('CI workflows', () => {
 
     expect(workflow).toContain('comet-init-project.json');
     expect(workflow).toContain('comet-init-global.json');
+    expect(workflow).toContain('pnpm run lint:architecture');
+    expect(workflow).toContain('pnpm test -- test/domains/comet-classic/comet-scripts.test.ts');
+    expect(workflow).not.toContain('test/ts/comet-scripts.test.ts');
     expect(workflow).toContain('export USERPROFILE="$RUNNER_TEMP/comet-e2e-global"');
     expect(workflow).toContain('check_file "$PROJ/$sd/comet/SKILL.md"');
     expect(workflow).toContain('check_file "$HOME_DIR/$sd/comet/SKILL.md"');
@@ -44,7 +50,10 @@ describe('CI workflows', () => {
   });
 
   it('defines PR title linting with Comet-specific semantic scopes', async () => {
-    const workflow = (await fs.readFile('.github/workflows/pr-title-lint.yml', 'utf-8')).replace(/\r\n/g, '\n');
+    const workflow = (await fs.readFile('.github/workflows/pr-title-lint.yml', 'utf-8')).replace(
+      /\r\n/g,
+      '\n',
+    );
 
     expect(workflow).toContain('name: PR Title Lint');
     expect(workflow).toContain('pull-requests: read');
@@ -75,7 +84,10 @@ describe('CI workflows', () => {
   });
 
   it('defines stale PR auto-closing with a manual dry-run mode', async () => {
-    const workflow = (await fs.readFile('.github/workflows/stale-prs.yml', 'utf-8')).replace(/\r\n/g, '\n');
+    const workflow = (await fs.readFile('.github/workflows/stale-prs.yml', 'utf-8')).replace(
+      /\r\n/g,
+      '\n',
+    );
 
     expect(workflow).toContain('name: Stale PRs');
     expect(workflow).toContain("cron: '30 3 * * *'");

@@ -56,7 +56,13 @@ describe('context compression benchmark runner', () => {
         mode: 'off',
         usage: { inputTokens: 100, outputTokens: 10, totalTokens: 110 },
         context: { chars: 1000, lines: 30, approxTokens: 250 },
-        verdict: { completed: true, specFacts: 4, driftedFacts: 0, acceptanceCriteriaTotal: 2, acceptanceCriteriaMet: 2 },
+        verdict: {
+          completed: true,
+          specFacts: 4,
+          driftedFacts: 0,
+          acceptanceCriteriaTotal: 2,
+          acceptanceCriteriaMet: 2,
+        },
         durationMs: 100,
       },
       {
@@ -64,7 +70,13 @@ describe('context compression benchmark runner', () => {
         mode: 'beta',
         usage: { inputTokens: 90, outputTokens: 10, totalTokens: 100 },
         context: { chars: 900, lines: 26, approxTokens: 225 },
-        verdict: { completed: true, specFacts: 4, driftedFacts: 0, acceptanceCriteriaTotal: 2, acceptanceCriteriaMet: 2 },
+        verdict: {
+          completed: true,
+          specFacts: 4,
+          driftedFacts: 0,
+          acceptanceCriteriaTotal: 2,
+          acceptanceCriteriaMet: 2,
+        },
         durationMs: 100,
       },
       {
@@ -72,7 +84,13 @@ describe('context compression benchmark runner', () => {
         mode: 'off',
         usage: { inputTokens: 1000, outputTokens: 20, totalTokens: 1020 },
         context: { chars: 12000, lines: 300, approxTokens: 3000 },
-        verdict: { completed: true, specFacts: 16, driftedFacts: 1, acceptanceCriteriaTotal: 8, acceptanceCriteriaMet: 7 },
+        verdict: {
+          completed: true,
+          specFacts: 16,
+          driftedFacts: 1,
+          acceptanceCriteriaTotal: 8,
+          acceptanceCriteriaMet: 7,
+        },
         durationMs: 100,
       },
       {
@@ -80,7 +98,13 @@ describe('context compression benchmark runner', () => {
         mode: 'beta',
         usage: { inputTokens: 600, outputTokens: 20, totalTokens: 620 },
         context: { chars: 6000, lines: 160, approxTokens: 1500 },
-        verdict: { completed: true, specFacts: 16, driftedFacts: 0, acceptanceCriteriaTotal: 8, acceptanceCriteriaMet: 8 },
+        verdict: {
+          completed: true,
+          specFacts: 16,
+          driftedFacts: 0,
+          acceptanceCriteriaTotal: 8,
+          acceptanceCriteriaMet: 8,
+        },
         durationMs: 100,
       },
     ]);
@@ -135,10 +159,7 @@ describe('context compression benchmark runner', () => {
       '/d/Project/Comet/assets/skills/comet/scripts/comet-handoff.sh',
     );
     expect(
-      toBashPath(
-        'D:\\Project\\Comet\\assets\\skills\\comet\\scripts\\comet-handoff.sh',
-        'wsl',
-      ),
+      toBashPath('D:\\Project\\Comet\\assets\\skills\\comet\\scripts\\comet-handoff.sh', 'wsl'),
     ).toBe('/mnt/d/Project/Comet/assets/skills/comet/scripts/comet-handoff.sh');
     expect(toBashPath('/tmp/comet-handoff.sh')).toBe('/tmp/comet-handoff.sh');
   });
@@ -182,9 +203,13 @@ describe('context compression benchmark runner', () => {
 
       expect(report).toContain('# Comet 上下文压缩 Benchmark 报告');
       expect(report).toContain('## 汇总');
-      expect(report).toContain('| 模式 | 平均输入 tokens | 平均输出 tokens | 平均总 tokens | Spec 漂移率 | 任务完成率 | JSON 解析成功率 |');
+      expect(report).toContain(
+        '| 模式 | 平均输入 tokens | 平均输出 tokens | 平均总 tokens | Spec 漂移率 | 任务完成率 | JSON 解析成功率 |',
+      );
       expect(report).toContain('## 分档明细');
-      expect(report).toContain('| 档位 | off 上下文字符数 | beta 上下文字符数 | 上下文节省 | Token 节省 | Spec 漂移 off/beta | 任务完成 off/beta |');
+      expect(report).toContain(
+        '| 档位 | off 上下文字符数 | beta 上下文字符数 | 上下文节省 | Token 节省 | Spec 漂移 off/beta | 任务完成 off/beta |',
+      );
       expect(report).toContain('| off |');
       expect(report).toContain('| beta |');
       expect(data.results).toHaveLength(6);

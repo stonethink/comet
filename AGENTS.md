@@ -1,4 +1,5 @@
 ## 回复语言
+
 必须采用中文回答用户
 
 ## 测试
@@ -22,6 +23,28 @@ pnpm test           # 单元测试
 ```
 
 注：本地 Windows 若 `core.autocrlf=true`，未改动的旧文件可能因 CRLF 被 `prettier --check` 误报；钩子只处理暂存文件，不受影响，旧文件下次编辑时会自动转为 LF。
+
+## 项目结构规范
+
+当前源码目录按责任分层：
+
+- `app/`：CLI 入口、命令编排和用户交互层。只能组合 domain/platform 能力，不承载领域规则。
+- `domains/`：业务领域模块。每个子目录是一个可独立维护的领域模块，例如 `domains/bundle/`、`domains/comet-classic/`、`domains/dashboard/`、`domains/skill/`。
+- `platform/`：文件系统、进程、安装平台、版本、路径等平台适配能力。domain 不应直接散落平台差异逻辑。
+- `scripts/`：构建、发布、benchmark、lint 等仓库自动化脚本。可调用源码模块，但不要成为运行时业务入口。
+- `assets/`：发布资产和内置 Skill 内容。修改 runtime 源码后必须通过构建同步生成资产，不要把业务逻辑只写在生成物里。
+
+测试目录必须跟随被测对象归属：
+
+- `test/app/` 覆盖 `app/` 命令和 CLI 行为。
+- `test/domains/<domain>/` 覆盖对应 `domains/<domain>/` 模块；新增 domain 时同步新增同名测试目录。
+- `test/platform/` 覆盖 `platform/` 适配层。
+- `test/scripts/` 覆盖 `scripts/` 自动化脚本。
+- `test/repository/` 覆盖 README、CI、仓库布局等跨层约束。
+- `test/fixtures/` 和 `test/helpers/` 只放测试数据与测试工具。
+- 禁止新增或恢复 `test/ts/` 这种横向桶；旧文件应迁移到上面对应目录。
+
+架构约束由 `pnpm run lint:architecture` 校验，并已接入 `pnpm lint`。它会检查顶层目录白名单、活跃源码根、app/domain/platform 子模块、脚本模块、Classic runtime 入口/生成物、内置 Skill 根目录、测试归属和禁止旧目录回归。如果确实需要新增顶层目录、源码模块、测试根目录或例外，必须先更新 `config/repository-layout.json`、架构 linter 和本节说明。
 
 ## Classic runtime 脚本规范
 
@@ -49,6 +72,7 @@ comet-hook-guard.mjs ← comet-runtime.mjs
 ## .comet.yaml 状态机
 
 每个 change 的状态文件，字段变更需要同步三处：
+
 1. `domains/comet-classic/classic-state-command.ts` — `set` 白名单 + enum 验证
 2. `domains/comet-classic/classic-validate-command.ts` — schema 校验 + KNOWN_KEYS
 3. `test/domains/comet-classic/comet-scripts.test.ts` — 测试中的 yaml 字符串
@@ -86,6 +110,7 @@ Changelog写英文
 ```
 
 要点：
+
 - 版本号与 `package.json` 的 `version` 字段一致
 - 每条以 `- **粗体关键词**: ` 开头，后接具体变更内容
 - 按类型分组：Added → Changed → Fixed → Tests → Removed → Security
