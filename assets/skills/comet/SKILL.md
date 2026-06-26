@@ -32,8 +32,8 @@ Use the language of the user request that triggered this workflow as the default
 2. When no preset matches, run `openspec list --json` to get all active changes
 
 **Preset detection has highest priority**:
-- User explicitly describes a bug fix / hotfix + meets hotfix conditions → directly invoke `/comet-hotfix`
-- User explicitly describes copy/config/docs/prompt small adjustment + meets tweak conditions → directly invoke `/comet-tweak`
+- User explicitly describes a fix for existing abnormal, regressed, or incorrect behavior and meets hotfix conditions (no new capability, no full design needed) → directly invoke `/comet-hotfix`
+- User explicitly describes a lightweight/medium change that can fit in a single OpenSpec change, should be executed through OpenSpec apply, and does not need full `/comet` deep design/plan → directly invoke `/comet-tweak`
 - No preset match → follow the table below
 
 | Active changes | User input | Behavior |

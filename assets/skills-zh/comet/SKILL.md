@@ -32,8 +32,8 @@ agent 做决策只需读本节，参考附录按需查阅。
 2. 未命中预设时，运行 `openspec list --json` 获取所有活跃 change
 
 **预设检测优先级最高**：
-- 用户明确描述为 bug fix / 热修复 + 满足 hotfix 条件 → 直接 `/comet-hotfix`
-- 用户明确描述为文案/配置/文档/prompt 小调整 + 满足 tweak 条件 → 直接 `/comet-tweak`
+- 用户明确描述为已有异常/回归/错误行为修复，且满足 hotfix 条件（不新增 capability、不需要完整设计）→ 直接 `/comet-hotfix`
+- 用户明确描述为可收敛为单一 OpenSpec change 的轻量/中等变更，需通过 OpenSpec apply 执行，且不需要完整 `/comet` 深度设计/plan → 直接 `/comet-tweak`
 - 未命中预设 → 按下表处理
 
 | 活跃 change | 用户输入 | 行为 |

@@ -57,6 +57,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Init/update clarity**: Prevents unrelated platform Skill directories from being reported as incomplete Comet installs and keeps existing install health checks focused on Comet-managed assets.
 - **Dashboard collector resilience**: Keeps dashboard collection read-only and best-effort by isolating malformed change state, guarding verification report paths, and rendering partial Git snapshots defensively.
 - **Dashboard progress polish**: Makes dashboard summary and task-progress counters count up from zero when shown, replaces the compact search glyph with a balanced SVG icon, and renames the Git dirty-file label to a clearer uncommitted-file label.
+- **Comet preset intent routing**: Aligns the main `/comet` preset detection wording with the current hotfix and OpenSpec-chained tweak positioning so `/comet-tweak` is no longer described as only copy/config/docs/prompt small adjustments.
 
 ### Tests
 
@@ -79,6 +80,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **CI layout coverage**: Adds repository tests that assert CI runs the architecture linter and no longer references the removed `test/ts` Classic script test path.
 - **Platform coverage**: Adds regression coverage for ZCode and MimoCode platform detection, slash command generation, OpenSpec mirroring, Superpowers staging, init E2E behavior, and install/update path checks.
 - **Workflow contract coverage**: Adds bilingual Skill contract checks for phase decisions, output language, subagent dispatch, `/comet-tweak` OpenSpec apply routing, and full `/comet-build` staying on the Superpowers execution path.
+- **Preset intent coverage**: Adds bilingual contract coverage that keeps main `/comet` preset detection aligned with the current hotfix and tweak workflow positioning.
 
 ### Removed
 

@@ -729,6 +729,11 @@ describe('skills', () => {
       expect(zhVerify).toContain('实现符合 `openspec/changes/<name>/design.md` 高层设计决策');
       expect(zhTweak).not.toContain('停止 tweak，升级为完整 `/comet`');
 
+      // IMPORTANT: main /comet preset detection must match the current tweak positioning.
+      expect(zhComet).toContain('用户明确描述为可收敛为单一 OpenSpec change 的轻量/中等变更');
+      expect(zhComet).toContain('通过 OpenSpec apply 执行');
+      expect(zhComet).not.toContain('用户明确描述为文案/配置/文档/prompt 小调整');
+
       // CRITICAL: build scope split must not bypass Comet state initialization
       expect(zhBuild).toContain('通过 `/comet-open` 创建独立 change');
       expect(zhBuild).not.toContain('`/opsx:new` 创建独立 change');
@@ -1086,6 +1091,14 @@ describe('skills', () => {
       expect(enTweak).toContain('Immediately use the Skill tool to load the `comet-design` skill');
       expect(enVerify).toContain(
         'After user selects B, run `node "$COMET_STATE" transition <change-name> verify-fail`, then invoke `/comet-build`',
+      );
+
+      expect(enComet).toContain(
+        'User explicitly describes a lightweight/medium change that can fit in a single OpenSpec change',
+      );
+      expect(enComet).toContain('executed through OpenSpec apply');
+      expect(enComet).not.toContain(
+        'User explicitly describes copy/config/docs/prompt small adjustment',
       );
 
       expect(enBuild).toContain(
