@@ -20,6 +20,18 @@ vi.mock('../../app/commands/platform-select-prompt.js', () => ({
   platformSelectPrompt: vi.fn(),
 }));
 
+vi.mock('../../platform/version/version.js', () => ({
+  printVersionInfo: vi.fn(async (log: (message: string) => void) => {
+    log('  Comet vtest');
+    return {
+      currentVersion: 'test',
+      latestVersion: null,
+      hasUpdate: false,
+      checked: false,
+    };
+  }),
+}));
+
 const manifestPath = path.resolve('assets', 'manifest.json');
 const INIT_E2E_TIMEOUT_MS = 60_000;
 
@@ -68,6 +80,22 @@ async function captureJsonOutput(fn: () => Promise<void>): Promise<Record<string
     console.log = orig;
   }
   return JSON.parse(lines.join('\n'));
+}
+
+async function captureTextOutput(fn: () => Promise<void>): Promise<string> {
+  const lines: string[] = [];
+  const errors: string[] = [];
+  const origLog = console.log;
+  const origError = console.error;
+  console.log = vi.fn((...args: unknown[]) => lines.push(args.map(String).join(' ')));
+  console.error = vi.fn((...args: unknown[]) => errors.push(args.map(String).join(' ')));
+  try {
+    await fn();
+  } finally {
+    console.log = origLog;
+    console.error = origError;
+  }
+  return [...lines, ...errors].join('\n');
 }
 
 describe('comet init E2E', () => {
@@ -508,9 +536,49 @@ describe('comet init E2E', () => {
         await expect(fs.access(dest)).resolves.toBeUndefined();
       }
 
-await expect(
+      await expect(
         fs.access(path.join(tmpDir, '.zcode', 'skills', 'comet', 'SKILL.md')),
       ).rejects.toThrow();
+    },
+    INIT_E2E_TIMEOUT_MS,
+  );
+
+  it(
+    'summarizes partial OpenCode failures by failed component only once',
+    async () => {
+      mockedExecFileSync.mockImplementation((command: unknown, args?: unknown) => {
+        const cmd = String(command);
+        const cmdArgs = Array.isArray(args) ? args.map((arg) => String(arg)) : [];
+
+        if ((cmd === 'which' || cmd === 'where') && cmdArgs[0] === 'openspec') {
+          return Buffer.from('/usr/bin/openspec');
+        }
+        if (cmd === 'openspec' && cmdArgs[0] === 'init') {
+          throw new Error('OpenSpec init failed for opencode');
+        }
+        if ((cmd === 'which' || cmd === 'where') && cmdArgs[0] === 'codegraph') {
+          return Buffer.from('/usr/bin/codegraph');
+        }
+        if (cmd === 'codegraph') {
+          return Buffer.from('ok');
+        }
+        if ((cmd === 'npx' || cmd === 'npx.cmd') && cmdArgs[0] === 'skills') {
+          return Buffer.from('installed');
+        }
+        return Buffer.from('');
+      });
+
+      await fs.mkdir(path.join(tmpDir, '.opencode'), { recursive: true });
+
+      const { initCommand } = await import('../../app/commands/init.js');
+      const output = await captureTextOutput(() =>
+        initCommand(tmpDir, { yes: true, language: 'en' }),
+      );
+
+      expect(output).not.toContain('Installed:\n    OpenCode -> .opencode/skills/');
+      expect(output).toContain('Failed:');
+      expect(output).toContain('OpenCode (OpenSpec failed)');
+      expect(output.match(/OpenCode \(OpenSpec failed\)/g) ?? []).toHaveLength(1);
     },
     INIT_E2E_TIMEOUT_MS,
   );

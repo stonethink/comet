@@ -73,6 +73,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 - **Dashboard collector resilience**: Keeps dashboard collection read-only and best-effort by isolating malformed change state, guarding verification report paths, and rendering partial Git snapshots defensively.
 - **Dashboard progress polish**: Makes dashboard summary and task-progress counters count up from zero when shown, replaces the compact search glyph with a balanced SVG icon, and renames the Git dirty-file label to a clearer uncommitted-file label.
 - **Comet preset intent routing**: Aligns the main `/comet` preset detection wording with the current hotfix and OpenSpec-chained tweak positioning so `/comet-tweak` is no longer described as only copy/config/docs/prompt small adjustments.
+- **Partial init failure summary**: Merges the 0.3.11 fix into the beta line so `comet init` keeps platforms with any failed component out of `Installed` and names the failed component (e.g. `OpenCode (OpenSpec failed)`) in `Failed`, instead of showing a partial setup as both installed and failed.
 
 ### Tests
 
@@ -133,6 +134,7 @@ All notable changes to @rpamis/comet will be documented in this file.
 
 - **Per-change failure isolation in the dashboard collector**: A single malformed `.comet.yaml` or unreadable change directory no longer aborts the whole dashboard snapshot. The offending change is logged and skipped, and the rest of the sweep continues so the dashboard always renders.
 - **Defensive defaults in the Git snapshot frontend card**: A partial or stale `/api/dashboard` response (missing `recentCommits` / `dirtyFileList` / `dirtyFiles`) now renders an empty card instead of throwing a TypeError.
+- **Partial init failure summary**: `comet init` now keeps platforms with any failed component out of the final `Installed` section and names the failed component in `Failed`, so partial OpenCode setups no longer appear both installed and failed.
 
 ### Security
 

@@ -277,6 +277,17 @@ function isAllSkipped(r: PlatformResult): boolean {
 
 function displaySummary(results: PlatformResult[], scope: InstallScope, lang: string): void {
   const scopeLabel = scope === 'global' ? os.homedir() : 'project';
+  const componentStatuses: Array<[keyof Omit<PlatformResult, 'platform'>, string]> = [
+    ['openspec', 'OpenSpec'],
+    ['superpowers', 'Superpowers'],
+    ['comet', 'Comet'],
+    ['codegraph', 'CodeGraph'],
+  ];
+  const failedDetails = (result: PlatformResult) =>
+    componentStatuses
+      .filter(([key]) => result[key] === 'failed')
+      .map(([, label]) => `${label} ${t(lang, 'failedStatus')}`)
+      .join(', ');
 
   console.log(`\n  ${t(lang, 'setupComplete')} (scope: ${scopeLabel})\n`);
 
@@ -296,7 +307,10 @@ function displaySummary(results: PlatformResult[], scope: InstallScope, lang: st
     console.log(`  ${t(lang, 'skippedLabel')} ${skipped.map((r) => r.platform.name).join(', ')}`);
   }
   if (failed.length > 0) {
-    console.log(`  ${t(lang, 'failedLabel')} ${failed.map((r) => r.platform.name).join(', ')}`);
+    console.log(`  ${t(lang, 'failedLabel')}`);
+    for (const r of failed) {
+      console.log(`    ${r.platform.name} (${failedDetails(r)})`);
+    }
   }
 
   if (scope === 'project') {
