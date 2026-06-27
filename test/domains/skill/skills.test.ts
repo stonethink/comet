@@ -689,12 +689,14 @@ describe('skills', () => {
       );
       expect(zhBuild).toContain('提供 plan-ready 暂停点');
       expect(zhBuild).toContain('不得自动继续，也不得把暂停写入 `build_mode`');
-      expect(zhBuild).toContain('`build_mode` 为 `executing-plans`');
+      expect(zhBuild).toContain('在 `executing-plans` 下，主会话直接执行任务');
       expect(zhBuild).toContain('review_mode');
       expect(zhBuild).toContain('| `off` | 不自动派发代码审查 |');
-      expect(zhBuild).toContain('| `standard` | 只在任务完成后运行一次最终轻量代码审查');
       expect(zhBuild).toContain(
-        '| `thorough` | 按批次或风险边界运行合并审查，最后再运行一次完整审查 |',
+        '| `standard` | 默认不为每任务派发 reviewer，仅当任务命中风险信号时派发每任务 reviewer，外加一次最终轻量代码审查 |',
+      );
+      expect(zhBuild).toContain(
+        '| `thorough` | 为每个任务派发每任务 reviewer（spec + quality），外加一次最终完整审查 |',
       );
       expect(zhBuild).toContain('build → verify');
       expect(zhBuild).toContain(
@@ -1007,11 +1009,13 @@ describe('skills', () => {
       expect(enBuild).toContain(
         'Must not auto-continue and must not write the pause into `build_mode`',
       );
-      expect(enBuild).toContain('`build_mode` is `executing-plans`');
+      expect(enBuild).toContain(
+        'Under `executing-plans`, the main session executes tasks directly',
+      );
       expect(enBuild).toContain(
         'use the Skill tool to load the Superpowers `requesting-code-review` skill',
       );
-      expect(enBuild).toContain('request code review at least once');
+      expect(enBuild).toContain('request one lightweight code review');
       expect(enBuild).toContain('build → verify');
       expect(enBuild).toContain(
         'CRITICAL review findings (security vulnerabilities, data loss risk, build/test failures) must be fixed',
@@ -1292,9 +1296,11 @@ describe('skills', () => {
         '使用 Skill 工具加载 Superpowers `test-driven-development` 技能',
       );
       expect(zhDispatch).toContain(
-        '当 `review_mode: standard` 时，每个 task 不自动派发 per-task reviewer',
+        '当 `review_mode: standard` 时，默认不为每个 task 派发 reviewer，而是按**风险触发**决定',
       );
-      expect(zhDispatch).toContain('当 `review_mode: thorough` 时，不执行每 task 双审查');
+      expect(zhDispatch).toContain(
+        '当 `review_mode: thorough` 时，**每个 task 派发一个每任务 reviewer，同时检查 spec compliance 与 code quality**',
+      );
       expect(zhDispatch).toContain('当 `review_mode: off` 时');
       expect(zhDispatch).toContain(
         'node "$COMET_STATE" task-checkoff "$PLAN_FILE" "$PLAN_TASK_TEXT"',
@@ -1344,8 +1350,8 @@ describe('skills', () => {
         'TDD constraints and evidence thresholds are defined in `comet/reference/subagent-dispatch.md`',
       );
       expect(enBuild).toContain('current execution branch and `review_mode`');
-      expect(enBuild).toContain('dispatches no per-task reviewer in `standard` or `off`');
-      expect(enBuild).toContain('not per-task dual review');
+      expect(enBuild).toContain('dispatches no per-task reviewer under `off`');
+      expect(enBuild).toContain('every task gets a per-task reviewer');
       expect(enBuild).not.toContain('must wait for both reviews to pass');
       expect(enDispatch).toContain(
         'If the Superpowers skill conflicts with this document, the more specific Comet constraints here take precedence',
@@ -1511,21 +1517,33 @@ describe('skills', () => {
           );
           if (!content.includes('COMET_STATE') && !content.includes('COMET_GUARD')) continue;
 
-          expect(content, `${languageDir}/${skillPath} should use comet-env.mjs`).toContain(
-            'comet-env.mjs',
-          );
-          expect(
-            content,
-            `${languageDir}/${skillPath} should resolve COMET_ENV via node`,
-          ).toContain('node "$COMET_ENV"');
-          expect(
-            content,
-            `${languageDir}/${skillPath} should allow HOME skill glob expansion`,
-          ).toContain('"$HOME"/.*/skills');
-          expect(
-            content,
-            `${languageDir}/${skillPath} should not quote the HOME skill glob`,
-          ).not.toContain('"$HOME/.*/skills"');
+          // The main entry SKILL.md delegates the bootstrap to reference/scripts.md
+          // (progressive loading) and is not independently bootable, so it only needs
+          // to reference scripts.md; sub-skills must carry the full bootstrap inline.
+          const isMainEntry = skillPath === 'comet/SKILL.md';
+
+          if (!isMainEntry) {
+            expect(content, `${languageDir}/${skillPath} should use comet-env.mjs`).toContain(
+              'comet-env.mjs',
+            );
+            expect(
+              content,
+              `${languageDir}/${skillPath} should resolve COMET_ENV via node`,
+            ).toContain('node "$COMET_ENV"');
+            expect(
+              content,
+              `${languageDir}/${skillPath} should allow HOME skill glob expansion`,
+            ).toContain('"$HOME"/.*/skills');
+            expect(
+              content,
+              `${languageDir}/${skillPath} should not quote the HOME skill glob`,
+            ).not.toContain('"$HOME/.*/skills"');
+          } else {
+            expect(
+              content,
+              `${languageDir}/${skillPath} should delegate bootstrap to reference/scripts.md`,
+            ).toContain('comet/reference/scripts.md');
+          }
           expect(content, `${languageDir}/${skillPath} should not inline roots`).not.toContain(
             'COMET_SEARCH_ROOTS=',
           );

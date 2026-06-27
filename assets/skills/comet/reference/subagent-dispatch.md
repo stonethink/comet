@@ -9,7 +9,7 @@ This document provides Comet-specific extensions applied **on top of** the Super
 > After a task passes `review_mode` validation and is checked off, **immediately dispatch the next task** without stopping, summarizing, or asking the user whether to continue. The user expects all tasks to execute in sequence without manual intervention. Pausing between tasks breaks the workflow and requires the user to manually resume each time.
 >
 > Only stop and wait for user input when:
-> - A task is **BLOCKED** (review-fix rounds exhausted: `review_mode: standard` — 1 round of lightweight review not passed; `review_mode: thorough` — 2 rounds of batch/final review-fix not passed)
+> - A task is **BLOCKED** (review-fix rounds exhausted: `review_mode: standard` — 1 round of risk-task review-fix or final lightweight review not passed; `review_mode: thorough` — 2 rounds of task-level/final review-fix not passed)
 > - There is irreducible ambiguity that cannot be resolved from the repository, plan, or existing context
 > - The platform lacks real background agent dispatch capability and the user must choose `executing-plans`
 > - The user **explicitly** asks to pause
@@ -45,9 +45,27 @@ Every implementer or fix-agent prompt must include:
 - The required test commands and commit requirements
 - For a fix agent, the corresponding reviewer's complete feedback
 
-The agent return status must be `DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT` and include implementation details, test results, commit hash, changed files, and concerns. Before review, the coordinator must verify that the commit and changed files are visible in the current worktree; on isolated-copy platforms, pull or merge the changes first.
+The agent return status must be `DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT` and include implementation details, test results, commit hash, changed files, and concerns. **The implementer/fix agent must also report whether this task hits any risk signal** (see the list below); if so, list each one hit. This is the first signal source for whether a per-task reviewer is dispatched under `review_mode: standard`. Before review, the coordinator must verify that the commit and changed files are visible in the current worktree; on isolated-copy platforms, pull or merge the changes first.
+
+**Risk signal list** (hitting any one marks the task as a risk task):
+
+- Cross-module / cross-subsystem coordinated change
+- Security-sensitive surface: auth, authorization, crypto, SQL, external input handling, secrets/credentials
+- Concurrency, locks, shared mutable state
+- Data or schema migration
+- Public API contract or external interface change
+- Implementer returns `DONE_WITH_CONCERNS`
+- Single-task diff exceeds 200 lines
 
 When `review_mode` requires a reviewer, each reviewer prompt must include the full task, the implementation commit or diff and the RED/GREEN evidence (when `tdd_mode: tdd`). A reviewer must not review from the implementer's summary alone.
+
+**Model selection (mandatory)**: Every dispatch must specify the model explicitly. An omitted model silently inherits the session's most expensive model, slowing execution and raising cost. Follow the Superpowers `subagent-driven-development` Model Selection rules:
+
+- **Implementer / fix agent**: 1–2 files with a complete spec → cheapest tier; multi-file integration, pattern matching, or debugging → standard tier; requires design judgment or broad codebase understanding → most capable tier. When the plan text already contains the complete code to write (transcription + testing), use the cheapest tier.
+- **Reviewer (task-level / final)**: scale to the diff's size, complexity, and risk. A small mechanical diff does not need the most capable model; a subtle concurrency change does.
+- **Final whole-branch review**: use the most capable available model, not the session default.
+
+Omitting the model equals letting it run the session's most expensive model — directly defeating this section's goal.
 
 ### 2. Implementer Scope Restriction
 
@@ -72,15 +90,32 @@ The coordinator must maintain `openspec/changes/<name>/.comet/subagent-progress.
 - Implementation commit hash, changed files, and RED/GREEN evidence
 - The selected `review_mode`
 - Review stages already passed and unresolved reviewer feedback
-- The current task, batch, or final-review review-fix round (`standard`: max 1, `thorough`: max 2, `off`: 0)
+- The current task or final-review review-fix round (`standard`: max 1, `thorough`: max 2, `off`: 0)
+- Under `review_mode: standard`, whether this task has already triggered a risk task-level review and which risk signals it hit (on recovery, do not re-dispatch an already-completed task-level review)
 
 This file stores only coordinator recovery state and does not replace plan or OpenSpec checkboxes. Retain the final record when a task completes, then replace it with the next task's record when that task begins.
 
 ### 5. Review Mode Behavior
 
-**When `review_mode: standard`**: No per-task reviewer is dispatched automatically. The implementer must self-test, commit, and report evidence; the coordinator completes targeted checkoff verification. After all tasks complete, dispatch exactly one final lightweight code reviewer scoped to correctness, security, and edge cases. If the final lightweight review finds CRITICAL or IMPORTANT issues, dispatch at most one fix agent and re-review once; if still not passed, mark **BLOCKED** and pause, handing feedback to the user. Non-CRITICAL findings may be accepted with rationale recorded.
+> **⚠️ CRITICAL — review_mode takes over the Superpowers default flow, no double review**
+>
+> The Superpowers `subagent-driven-development` Process flowchart makes "dispatch a task reviewer after every task" a mandatory node. **Comet's `review_mode` takes over this stage, deciding which tasks get a per-task reviewer** (see the per-task reviewer column in the table below). **Do not dispatch additional reviewers beyond what `review_mode` prescribes.** Tasks that do not get a reviewer (`off`: all; `standard`: non-risk tasks) must go straight to task checkoff and dispatch of the next task.
+>
+> The total review count for a change is decided solely by the table below — do not add more.
 
-**When `review_mode: thorough`**: No per-task dual review. The coordinator runs merged reviews by batch or risk boundary: after every 3 tasks or when a cross-module/high-risk boundary is crossed, dispatch one reviewer checking both spec compliance and code quality. If total tasks <= 3 and no high-risk boundary exists, skip mid-batch review and only do the final complete review. After all tasks, dispatch one final complete reviewer. Batch and final reviews each allow at most 2 review-fix rounds; if still not passed, mark **BLOCKED** and pause, handing accumulated feedback to the user.
+**Build-phase review budget** (these only — do not add more). This table covers the build phase only; the verify phase has its own review handling (see note below):
+
+| `review_mode` | per-task reviewer (build) | final review (build) |
+|---------------|---------------------------|----------------------|
+| `off` | 0 | 0 |
+| `standard` | risk tasks only (see rules below) | 1 (lightweight) |
+| `thorough` | every task (spec + quality) | 1 (complete) |
+
+**Verify-phase review is not in this table.** The verify phase's review is driven by `verify_mode` (light/full), with `review_mode` only gating whether automatic code review fires at all (`off` skips it; `standard`/`thorough` run a lightweight code review under lightweight verification, or rely on `openspec-verify-change` under full verification). There is no separate per-`review_mode` "complete" code review in verify — see `comet-verify` for the authoritative verify-phase behavior.
+
+**When `review_mode: standard`**: By default no per-task reviewer is dispatched; instead, a **risk trigger** decides: after the implementer self-tests, commits, and reports evidence (including the risk-signal self-report), the coordinator reads the self-report and reviews the task's diff. **Only when the implementer's self-report hits any risk signal, or the coordinator's diff review finds any risk signal**, dispatch one per-task reviewer for that task, checking both spec compliance and code quality; CRITICAL/IMPORTANT findings enter one review-fix round (max 1), and a failed re-review marks it **BLOCKED**. Tasks that hit no risk signal go straight through targeted checkoff verification. After all tasks complete, still dispatch one final lightweight code reviewer (scope: correctness, security, edge cases). If the final lightweight review finds CRITICAL or IMPORTANT issues, dispatch at most one fix agent and re-review once; if still not passed, mark **BLOCKED** and pause, handing feedback to the user. Non-CRITICAL findings may be accepted with rationale recorded.
+
+**When `review_mode: thorough`**: **Dispatch one per-task reviewer per task, checking both spec compliance and code quality**: after the implementer self-tests, commits, and reports evidence, the coordinator dispatches a fresh background reviewer for that task. CRITICAL/IMPORTANT findings enter review-fix (max 2 rounds); if still not passed, mark **BLOCKED** and pause, handing feedback to the user. After all tasks, dispatch one final complete reviewer. Thorough does not run batched review — a high-risk change demands immediate, focused review on every task; deferring to a batch boundary to catch issues is too costly.
 
 **When `review_mode: off`**: No automatic spec reviewer, code quality reviewer, final reviewer, or review-fix agent is dispatched. Task completion is determined by implementer test/build evidence, current worktree confirmation, targeted task text checkoff verification, and explicit user request. If test failures, build failures, or abnormal behavior occur during execution, the debug gate protocol must still be followed - `off` does not skip real issues.
 

@@ -182,6 +182,7 @@ Agents should not skip these decision points; other unambiguous phase transition
 - Before `build → verify`, `build_mode` must be selected
 - `build_mode: subagent-driven-development` must also have `subagent_dispatch: confirmed`
 - Before full workflow leaves build phase, `tdd_mode` must be selected as `tdd` or `direct`
+- Before full workflow leaves build phase, `review_mode` must be selected as `off`, `standard`, or `thorough`
 - `build_mode: direct` is allowed by default only for `hotfix` / `tweak`; full workflow requires `direct_override: true`
 - `build_pause` is not an execution method and must not be written to `build_mode`
 - These constraints are enforced by both `comet-guard.mjs build --apply` and `comet-state.mjs transition <name> build-complete`
@@ -212,62 +213,14 @@ See `comet/reference/debug-gate.md` for the complete debug gate protocol.
 
 ### Script Location
 
-Comet scripts are distributed in `comet/scripts/`. **Do not hardcode paths** — locate once, cache in env vars. This block is a standard boilerplate repeated in every sub-skill for independent loadability; changes must be kept in sync across all files:
+Comet scripts are distributed in `comet/scripts/`. **Do not hardcode paths** — locate once, cache in env vars. The full bootstrap block, command reference (`--apply`, `transition`, `next`, `archive`), and output formats live in `comet/reference/scripts.md`. Run that bootstrap once per session, then reuse `$COMET_GUARD`, `$COMET_STATE`, `$COMET_HANDOFF`, `$COMET_ARCHIVE`, `$COMET_RUNTIME` throughout. Key entry points:
 
 ```bash
-COMET_ENV="${COMET_ENV:-$(find . "$HOME"/.*/skills "$HOME/.config" "$HOME/.gemini" -path '*/comet/scripts/comet-env.mjs' -type f -print -quit 2>/dev/null)}"
-if [ -z "$COMET_ENV" ]; then
-  echo "ERROR: comet-env.mjs not found. Ensure the comet skill is installed." >&2
-  return 1
-fi
-COMET_SCRIPTS_DIR="$(node "$COMET_ENV")"
-COMET_STATE="$COMET_SCRIPTS_DIR/comet-state.mjs"
-COMET_GUARD="$COMET_SCRIPTS_DIR/comet-guard.mjs"
-COMET_HANDOFF="$COMET_SCRIPTS_DIR/comet-handoff.mjs"
-COMET_ARCHIVE="$COMET_SCRIPTS_DIR/comet-archive.mjs"
-COMET_RUNTIME="$COMET_SCRIPTS_DIR/comet-runtime.mjs"
-
-# Stop workflow when script location fails
-if [ -z "$COMET_SCRIPTS_DIR" ]; then
-  echo "ERROR: Comet scripts not found. Ensure the comet skill is installed." >&2
-  return 1
-fi
+node "$COMET_GUARD" <change-name> <phase> --apply    # phase guard + auto state update
+node "$COMET_STATE" transition <change-name> <event> # open-complete | design-complete | build-complete | verify-pass | verify-fail
+node "$COMET_STATE" next <change-name>               # NEXT: auto|manual|done  + SKILL: <skill-name>; auto_transition:false → manual, which pauses only the next skill invocation and does not block phase updates
+node "$COMET_ARCHIVE" <change-name>                  # full archive in one command
 ```
-
-**Auto state update**: Guard supports `--apply` flag, automatically updating `.comet.yaml` state fields after checks pass:
-
-```bash
-node "$COMET_GUARD" <change-name> <phase> --apply
-```
-
-`--apply` delegates to `comet-state transition`. Use these semantic events when state changes need to be expressed directly:
-
-```bash
-node "$COMET_STATE" transition <change-name> open-complete
-node "$COMET_STATE" transition <change-name> design-complete
-node "$COMET_STATE" transition <change-name> build-complete
-node "$COMET_STATE" transition <change-name> verify-pass
-node "$COMET_STATE" transition <change-name> verify-fail
-```
-
-Archive completion is handled by `node "$COMET_ARCHIVE" <change-name>` after OpenSpec moves the change into its date-prefixed archive directory; do not manually transition an `<archive-name>`.
-
-**Resolve next action**: after guard-based phase advancement, use the `next` subcommand to determine whether to auto-invoke the next skill:
-
-```bash
-node "$COMET_STATE" next <change-name>
-```
-
-Output format: `NEXT: auto|manual|done` + `SKILL: <skill-name>` (omitted for `done`) + `HINT` (for `manual` only). With `auto_transition: false`, output is `manual`, which pauses only the next skill invocation and does not block phase updates.
-
-**Archive script**: Complete all archive steps in one command:
-
-```bash
-node "$COMET_ARCHIVE" <change-name>
-```
-
-After loading comet, agents should run the variable assignments above once, then reuse `$COMET_GUARD`, `$COMET_STATE`, `$COMET_HANDOFF`, `$COMET_ARCHIVE` throughout the session.
-
 
 ### Best Practices
 

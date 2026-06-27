@@ -9,7 +9,7 @@
 > 当一个 task 按 `review_mode` 完成验收并被勾选后，**立即派发下一个 task**，不得停止、总结或询问用户是否继续。用户期望所有 task 按顺序自动执行，无需手动干预。任务之间暂停会中断工作流，导致用户每次都需要手动恢复。
 >
 > 仅在以下情况才停止并等待用户输入：
-> - 任务处于 **BLOCKED** 状态（`review_mode: standard` 下一轮轻量复查仍未通过，或 `review_mode: thorough` 下批次/最终审查 2 轮审查-修复仍未通过）
+> - 任务处于 **BLOCKED** 状态（`review_mode: standard` 下风险任务 1 轮 review-fix 或最终轻量复查仍未通过，或 `review_mode: thorough` 下任务级/最终审查 2 轮审查-修复仍未通过）
 > - 存在无法从仓库、计划或既有上下文消除的真实歧义
 > - 平台没有真实后台 agent 调度能力，需要用户改选 `executing-plans`
 > - 用户**明确**要求暂停
@@ -45,9 +45,27 @@
 - 必须执行的测试命令和提交要求
 - 修复 agent 还必须收到对应 reviewer 的完整反馈
 
-agent 回报状态必须为 `DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT`，并包含实现内容、测试结果、提交哈希、变更文件和顾虑。进入审查前，主会话必须确认提交和文件在当前工作树可见；若平台使用隔离副本，先拉取或合并变更。
+agent 回报状态必须为 `DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT`，并包含实现内容、测试结果、提交哈希、变更文件和顾虑。**implementer/修复 agent 还必须回报本任务是否命中任一风险信号**（见下方清单），命中则逐条列出；这是 `review_mode: standard` 下是否派发每任务 reviewer 的第一信号源。进入审查前，主会话必须确认提交和文件在当前工作树可见；若平台使用隔离副本，先拉取或合并变更。
+
+**风险信号清单**（命中任一即视为风险任务）：
+
+- 跨模块/跨子系统协调改动
+- 安全敏感面：认证、授权、加解密、SQL、外部输入处理、密钥/凭证
+- 并发、锁、共享可变状态
+- 数据或 schema 迁移
+- 公共 API 契约或对外接口变更
+- implementer 返回 `DONE_WITH_CONCERNS`
+- 单任务 diff 超过 200 行
 
 当 `review_mode` 需要 reviewer 时，每个 reviewer prompt 必须包含完整 task、实现提交或差异以及 RED/GREEN 证据（`tdd_mode: tdd` 时）。reviewer 不得只依据 implementer 的总结进行审查。
+
+**Model 选择（强制）**：每次派发必须显式指定 model，省略会静默继承会话最贵 model，拖慢执行并抬高成本。遵循 Superpowers `subagent-driven-development` 的 Model Selection 规则：
+
+- **implementer / 修复 agent**：1–2 个文件、规格完整 → 最便宜档；多文件集成、需要模式匹配或调试 → 中档；需要设计判断或广泛理解代码库 → 高档。plan 文本已含完整待写代码时（转写+测试），用最便宜档。
+- **reviewer（任务级/最终）**：按 diff 大小、复杂度和风险缩放。小机械 diff 不需要最高档；微妙并发改动才上高档。
+- **final whole-branch review**：使用可用的最高档 model，不用会话默认档。
+
+省略 model 等于让它跑会话最贵 model，直接违背本节目标。
 
 ### 2. Implementer 范围限制
 
@@ -72,15 +90,32 @@ implementer 或修复 agent 回报必须提供 **RED 失败命令与失败摘要
 - 实现提交哈希、变更文件和 RED/GREEN 证据
 - 已选择的 `review_mode`
 - 已通过的审查阶段及尚未解决的 reviewer 反馈
-- 当前 task、批次或 final review 的审查-修复轮次（`standard` 最多 1 轮，`thorough` 最多 2 轮，`off` 为 0 轮）
+- 当前 task 或 final review 的审查-修复轮次（`standard` 最多 1 轮，`thorough` 最多 2 轮，`off` 为 0 轮）
+- `review_mode: standard` 时，本 task 是否已触发风险任务级 review 及命中的风险信号（恢复时不得重复派发已完成的任务级 review）
 
 该文件只保存恢复所需的协调状态，不替代 plan 或 OpenSpec checkbox。当前 task 完成后保留其最终记录，开始下一个 task 时用下一 task 的记录替换。
 
 ### 5. 代码审查模式与轮次限制
 
-当 `review_mode: standard` 时，每个 task 不自动派发 per-task reviewer；implementer 必须自测、提交并回报证据，协调者完成定向勾选验证。所有 task 完成后只派发一次最终轻量 code reviewer，审查范围限定为正确性、安全和边界条件。若最终轻量审查发现 CRITICAL 或 IMPORTANT 问题，最多自动派发一轮修复 agent 并复查一次；复查仍未通过时标记 **BLOCKED**，暂停并把反馈交给用户。非 CRITICAL 发现可记录接受理由后继续。
+> **⚠️ CRITICAL — review_mode 接管 Superpowers 默认流程，禁止双重审查**
+>
+> Superpowers `subagent-driven-development` 的 Process 流程图把"每个 task 后派发 task reviewer"设为必经节点。**Comet 的 `review_mode` 接管这一环节，决定哪些任务派发每任务 reviewer**（见下表每任务 reviewer 列）。**不得在 review_mode 已规定的每任务 reviewer 之外，额外按 Superpowers 默认派发 reviewer**。未派发 reviewer 的任务（`off` 全部、`standard` 非风险任务）必须直接进入 task 勾选与下一个 task 的派发。
+>
+> 一个 change 的审查次数由下表唯一决定，不得自行追加。
 
-当 `review_mode: thorough` 时，不执行每 task 双审查。协调者按批次或风险边界运行合并审查：每完成最多 3 个 task、或完成一个跨模块/高风险边界时，派发一个 reviewer 同时检查 spec compliance 与 code quality。若总 task 数不超过 3 且没有高风险边界，可跳过中途批次审查，只做最终完整审查。所有 task 完成后再派发一次最终完整 reviewer。批次和最终审查各最多 2 轮审查-修复；仍未通过则标记 **BLOCKED**，暂停并把累计反馈交给用户。
+**build 阶段审查次数预算**（仅这些，不得额外增加）。本表只覆盖 build 阶段；verify 阶段有自己的审查处理（见下方说明）：
+
+| `review_mode` | build 阶段每任务 reviewer | build 阶段最终审查 |
+|---------------|--------------------------|-------------------|
+| `off` | 0 | 0 |
+| `standard` | 仅风险任务（见下方规则） | 1（轻量） |
+| `thorough` | 每个任务（spec + quality） | 1（完整） |
+
+**verify 阶段的审查不在此表内。** verify 阶段的审查由 `verify_mode`（light/full）驱动规模，`review_mode` 只决定是否触发自动代码审查（`off` 跳过；`standard`/`thorough` 在轻量验证下做一次轻量代码审查，在全量验证下依赖 `openspec-verify-change`）。verify 阶段没有按 `review_mode` 区分的独立"完整"代码审查——verify 阶段的权威行为见 `comet-verify`。
+
+当 `review_mode: standard` 时，默认不为每个 task 派发 reviewer，而是按**风险触发**决定：implementer 自测、提交并回报证据（含风险信号自报）后，协调者读取自报信号并复核该 task 的 diff。**仅当 implementer 自报命中任一风险信号、或协调者复核 diff 发现命中任一风险信号时**，为该 task 单独派发一个每任务 reviewer，同时检查 spec compliance 与 code quality，发现 CRITICAL/IMPORTANT 问题进入一轮 review-fix（最多 1 轮），复查未通过则标记 **BLOCKED**。未命中风险信号的 task 直接做定向勾选验证后放行。所有 task 完成后仍派发一次最终轻量 code reviewer（范围：正确性、安全、边界）。若最终轻量审查发现 CRITICAL 或 IMPORTANT 问题，最多自动派发一轮修复 agent 并复查一次；复查仍未通过时标记 **BLOCKED**，暂停并把反馈交给用户。非 CRITICAL 发现可记录接受理由后继续。
+
+当 `review_mode: thorough` 时，**每个 task 派发一个每任务 reviewer，同时检查 spec compliance 与 code quality**：implementer 自测、提交并回报证据后，协调者为该 task 派发一个全新后台 reviewer。reviewer 发现 CRITICAL/IMPORTANT 问题进入审查-修复（最多 2 轮），仍未通过则标记 **BLOCKED**，暂停并把反馈交给用户。所有 task 完成后再派发一次最终完整 reviewer。thorough 不做批次合并审查——高风险 change 要求每个任务即时、专注的审查，等批次边界才抓到问题代价过大。
 
 当 `review_mode: off` 时，不自动派发 spec reviewer、code quality reviewer、final reviewer 或审查修复 agent。任务完成依据 implementer 的测试/构建证据、当前工作树确认、任务唯一文本勾选验证和用户显式要求。若执行过程中出现测试失败、构建失败或异常行为，仍必须按异常调试协议处理，不得用 `off` 跳过真实问题。
 

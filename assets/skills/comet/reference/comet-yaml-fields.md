@@ -17,6 +17,7 @@ build_pause: null
 subagent_dispatch: confirmed
 tdd_mode: tdd
 review_mode: standard
+auto_transition: true
 isolation: branch
 verify_mode: light
 verify_result: pending

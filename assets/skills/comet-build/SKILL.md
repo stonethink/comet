@@ -135,7 +135,7 @@ Plan has been written to the current branch. Before starting execution, **ask th
 
 | Option | Skill | Applicable Scenario |
 |------|------|-------------------|
-| A | Superpowers `subagent-driven-development` | Independent tasks, high complexity, requires two-phase review |
+| A | Superpowers `subagent-driven-development` | Independent tasks, high complexity; each task runs in an isolated implementer subagent with review driven by `review_mode` |
 | B | Superpowers `executing-plans` | Simple tasks, no subagent environment, lightweight and fast |
 
 **Execution method recommendation rules**:
@@ -169,8 +169,8 @@ Run `node "$COMET_STATE" set <name> tdd_mode <tdd|direct>`
 | Option | Meaning | Applicable Scenario |
 |--------|---------|---------------------|
 | `off` | No automatic code review dispatch | Documentation, configuration, copywriting, small low-risk tasks |
-| `standard` | Run a single final lightweight code review after all tasks complete; if issues found, auto-fix at most one round, then hand off to user decision | Default recommended, suits most ordinary changes |
-| `thorough` | Run consolidated reviews per batch or risk boundary, then a full review at the end | High-risk, multi-module, architecture or security-related changes |
+| `standard` | No per-task reviewer by default; dispatch a per-task reviewer only when a task hits a risk signal, plus one final lightweight code review | Default recommended, suits most ordinary changes |
+| `thorough` | Dispatch a per-task reviewer (spec + quality) on every task, plus one final complete review | High-risk, multi-module, architecture or security-related changes |
 
 Run `node "$COMET_STATE" set <name> review_mode <off|standard|thorough>`
 
@@ -231,9 +231,13 @@ If `tdd_mode: direct`: Follow normal flow, no enforced TDD.
 
 **`executing-plans` review gate**:
 
-When `build_mode` is `executing-plans` and `review_mode` is `standard` or `thorough`, after all planned tasks are complete and before running the build → verify phase guard, must use the Skill tool to load the Superpowers `requesting-code-review` skill and request code review at least once. When `review_mode` is `off`, skip automatic code review, do not load `requesting-code-review`, and record the skip reason in the verification report draft or tasks.md.
+Under `executing-plans`, the main session executes tasks directly (no isolated implementer subagent), so there is no per-task reviewer as in `subagent-driven-development`. Code review is done against completed diffs and scales with `review_mode`:
 
-Requirements:
+- **`review_mode: off`**: No automatic code review. Do not load `requesting-code-review`. Record the skip reason in the verification report draft or tasks.md.
+- **`review_mode: standard`**: After all planned tasks are complete and before the build → verify phase guard, use the Skill tool to load the Superpowers `requesting-code-review` skill once and request one lightweight code review (correctness, security, edge cases) scoped to the whole change.
+- **`review_mode: thorough`**: In addition to the single final review, request one segmented code review per task segment (every 3 tasks, scoped to that segment's diff). If total tasks ≤ 3, skip the mid-execution segments and only do the final review. Each segment review uses `requesting-code-review` against the segment's commit range. This is the closest equivalent to `subagent-driven-development`'s per-task review that `executing-plans` can offer, since it has no isolated implementer to review per task.
+
+Requirements (apply to `standard` and `thorough`):
 - the `requesting-code-review` skill must be loaded before `node "$COMET_GUARD" <change-name> build --apply`
 - if `requesting-code-review` skill is unavailable, skip the review gate but must record `<!-- review skipped: skill unavailable -->` in tasks.md, then continue guard transition
 - CRITICAL review findings (security vulnerabilities, data loss risk, build/test failures) must be fixed first and must not be carried into verify
@@ -273,7 +277,7 @@ When creating an independent change, must invoke `/comet-open`, not `/opsx:new` 
 
 Build is the longest phase and may span many tasks. To support resume after context compaction:
 
-- **After each task**: complete acceptance per the current execution branch and `review_mode` before checking off and committing. `subagent-driven-development` dispatches no per-task reviewer in `standard` or `off`; in `thorough`, it runs merged reviews only by batch or risk boundary, not per-task dual review. All modes must perform targeted verification by unique task text. Use `grep -c '\- \[ \]' tasks.md` to check remaining unchecked count; no need to re-read the entire file
+- **After each task**: complete acceptance per the current execution branch and `review_mode` before checking off and committing. `subagent-driven-development` dispatches no per-task reviewer under `off`; under `standard`, a per-task reviewer fires only when the task hits a risk signal; under `thorough`, every task gets a per-task reviewer. All modes must perform targeted verification by unique task text. Use `grep -c '\- \[ \]' tasks.md` to check remaining unchecked count; no need to re-read the entire file
 - **Context compression recovery**: Follow `comet/reference/context-recovery.md` with phase set to `build`.
 - **User manual-change resume**: handle uncommitted changes through `comet/reference/dirty-worktree.md`. That protocol defines checks, attribution, and prohibitions. Build-specific handling:
   1. After attribution, if the diff implies plan or spec changes, handle it through Step 4 "Spec Incremental Updates"
@@ -288,8 +292,7 @@ Build is the longest phase and may span many tasks. To support resume after cont
 - `build_mode` has been written as `subagent-driven-development`, `executing-plans`, or `direct` with explicit override; if `subagent-driven-development`, `subagent_dispatch` must be `confirmed`
 - `tdd_mode` has been written as `tdd` or `direct`
 - `review_mode` has been written as `off`, `standard`, or `thorough`
-- If `review_mode` is `standard` or `thorough`, code review has been completed per the review mode and CRITICAL review findings have been fixed or acceptance rationale for non-CRITICAL review findings has been recorded; if `review_mode: off`, the reason for skipping automatic code review has been recorded in a persistent artifact
-- If `build_mode` is `executing-plans`, the Skill tool has been used to load the Superpowers `requesting-code-review` skill and request code review at least once, and CRITICAL review findings have been fixed or acceptance rationale for non-CRITICAL review findings has been recorded
+- Code review has been completed per the `executing-plans` review gate (Section "Execute plan") for the chosen `review_mode`: under `standard` or `thorough`, code review has been requested and CRITICAL review findings fixed or non-CRITICAL acceptance rationale recorded; under `review_mode: off`, the reason for skipping automatic code review has been recorded in a persistent artifact
 - **Phase guard**: Run `node "$COMET_GUARD" <change-name> build --apply`; after all PASS, state advances to `phase: verify`
 
 Guard reads project command configuration first:

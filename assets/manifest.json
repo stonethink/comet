@@ -9,6 +9,7 @@
     "comet/reference/decision-point.md",
     "comet/reference/dirty-worktree.md",
     "comet/reference/file-structure.md",
+    "comet/reference/scripts.md",
     "comet/reference/subagent-dispatch.md",
     "comet-any/SKILL.md",
     "comet-any/reference/authoring-subagents.md",
