@@ -27,8 +27,10 @@
 | 检测到 | 判定 | 动作 |
 |--------|------|------|
 | `phase: build` + `workflow: full` + `design_doc` 为空/null | 绕过 design 空跳 | 停止写源代码，运行 `/comet-design` 补 Design Doc 并过 guard |
-| `phase: build/verify` + proposal/design/tasks 任一缺失或为空 | 绕过 open 空跳 | 回 `/comet-open` 补齐三件套 |
+| `phase: build` + proposal/design/tasks 任一缺失或为空 | 绕过 open 空跳 | 回 `/comet-open` 补齐三件套 |
 | `phase: archive` + `verify_result` ≠ `pass` | 绕过 verify 空跳 | 回 `/comet-verify` 完成验证 |
+
+> 说明：上表只覆盖 hook 硬门实际检测的范围（`design_doc` 空跳在 build 阶段；proposal/design/tasks 三件套完整性在 open→build 的 guard 退出时校验）。`verify` 阶段不在此写源码自洽门内——若 verify 发现产物缺失，按下方「Verify 阶段专项」的 verify-fail 回退处理。
 
 预设例外：`workflow: hotfix/tweak` 本就跳过 design，`design_doc` 为空属正常，不算非法。
 
@@ -84,6 +86,7 @@
 1. 第一步运行 `comet-state scale <name>` 确定验证级别
 2. 验证失败后列出失败项等用户选择，CRITICAL 必须修
 3. 连续 3 次失败后必须让用户选择接受偏差或继续修
+4. 用户选择修复时运行 `comet-state transition <name> verify-fail`：该转移会把 `phase` 回退到 `build`（不是停在 verify），随后进入 `/comet-build` 修复，修完重新过 build→verify guard
 
 ## 上下文压缩恢复
 

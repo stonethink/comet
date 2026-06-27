@@ -26,8 +26,10 @@ Reading the `phase` field alone is not enough — you must also confirm **how** 
 | Detected | Verdict | Action |
 |----------|---------|--------|
 | `phase: build` + `workflow: full` + `design_doc` empty/null | Skipped design | Stop writing source; run `/comet-design` to create the Design Doc and pass guard |
-| `phase: build/verify` + any of proposal/design/tasks missing or empty | Skipped open | Return to `/comet-open` to fill the three artifacts |
+| `phase: build` + any of proposal/design/tasks missing or empty | Skipped open | Return to `/comet-open` to fill the three artifacts |
 | `phase: archive` + `verify_result` ≠ `pass` | Skipped verify | Return to `/comet-verify` to complete verification |
+
+> Note: the table above only covers what the hook hard-gate actually detects (the `design_doc` empty-jump at the build phase; proposal/design/tasks completeness is validated at the open→build guard exit). The `verify` phase is not covered by this write-source self-consistency gate — if artifacts are found missing during verify, follow the verify-fail rewind handling under "Verify Phase Specifics" below.
 
 Exception: `workflow: hotfix/tweak` intentionally skips design, so an empty `design_doc` is normal and not an illegal jump.
 
@@ -82,6 +84,7 @@ The following decision points must pause to wait for explicit user selection; do
 1. First step run `comet-state scale <name>` to determine verification level
 2. After verification fails, list failed items and wait for user selection; CRITICAL must be fixed
 3. After 3 consecutive failures, must let user choose to accept deviation or continue fixing
+4. When the user chooses to fix, run `comet-state transition <name> verify-fail`: this transition rewinds `phase` back to `build` (not staying in verify), then enter `/comet-build` to fix; after fixing, re-run the build→verify guard
 
 ## Context Compression Recovery
 

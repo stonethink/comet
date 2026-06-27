@@ -13,12 +13,14 @@ Before any provider action, show:
 - `full` estimated runs, covered components, and token workload.
 - the three choices: `skip / quick / full benchmark`.
 
-If benchmark is skipped or fails, do not enter ready, generate an install candidate, or install/enable.
+If benchmark is skipped or fails, do not enter ready; do not publish or distribute.
 
 For ordinary users, the benchmark path remains single-purpose: daily evaluation goes through
 `comet eval`. `/comet-any` may internally call `comet bundle benchmark-plan` and
 `comet bundle benchmark-record` to plan and record evidence, but must not present them as
 replacement user-facing benchmark commands.
+For ordinary users, prefer the word "verify" when explaining; do not surface `Publish readiness:`
+as a first-class concept.
 
 ## Result recording
 
@@ -59,16 +61,15 @@ output to show:
 - `Validate this Skill` and the next action so the user knows why the candidate can become ready
   or is blocked.
 
-Readiness blockers stop ready/install. If missing current-hash benchmark evidence, missing human
+Readiness blockers stop publishing. If missing current-hash benchmark evidence, missing human
 approval, required capability gaps, or unconfirmed executable disclosures remain, the flow must stop
-in review and cannot continue to ready.
+in review and cannot continue to publish.
 
-Only after explicit approval may the agent run `comet publish approve` and then generate the install
-candidate.
+Only after explicit user approval may the agent run `comet publish approve` and publish.
 
 ## Install preview
 
-Before real installation, preview is mandatory:
+Before real distribution, preview is mandatory:
 
 ```bash
 comet publish distribute <name> --platform <id> --scope project --preview --json
@@ -83,4 +84,4 @@ Preview is a required check, not an optional extra. It should show:
 - `No files were written`
 
 Only after the user confirms the preview result may the Skill remove `--preview` and execute real
-installation.
+distribution.

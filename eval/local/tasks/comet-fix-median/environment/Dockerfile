@@ -4,7 +4,7 @@ WORKDIR /workspace
 
 # Runtime tools for both comet baselines:
 # - bash: 0.3.9 classic shell scripts (bash 4+ arrays, [[ ]]; python:3.12-slim ships only dash)
-# - nodejs npm: v3 comet (.mjs launchers + comet-runtime.mjs) and OpenSpec CLI
+# - nodejs npm: 0.4.0-beta.1 comet (.mjs launchers + comet-runtime.mjs) and OpenSpec CLI
 # - git curl jq: comet scripts and state inspection
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash git curl jq ca-certificates \

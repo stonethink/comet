@@ -43,7 +43,8 @@
     "comet-classic/comet/checks.yaml"
   ],
   "rules": [
-    "comet/rules/comet-phase-guard.md"
+    "comet/rules/comet-phase-guard.md",
+    "comet/rules/comet-phase-guard.en.md"
   ],
   "hooks": {
     "comet/scripts/comet-hook-guard.mjs": {

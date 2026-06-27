@@ -29,11 +29,14 @@ This is the first beta of the 0.4.0 line. Relative to 0.3.9, Comet becomes a Nod
 
 - **Windows path handling**: Fixes OpenSpec init/update path quoting for directories with spaces on Windows, so `comet init` no longer fails when the project path contains spaces.
 - **Partial init failure summary**: `comet init` now keeps platforms with any failed component out of `Installed` and names the failed component (e.g. `OpenCode (OpenSpec failed)`) in `Failed`, instead of showing a partial setup as both installed and failed.
+- **Skill doc sync (EN/ZH)**: Restores the missing `review_mode` selection table and review-gate conditions in the English `comet-build` skill, backfills the verify "retry limit" paragraph in the Chinese skill, and reconciles the `comet-any` eval-provider reference back to the publish/distribute model so the English bundle matches the Chinese source of truth.
+- **Phase-guard rule vs hook alignment**: Narrows the phase-guard self-consistency table to only the conditions the write-source hook actually enforces (`design_doc` empty at build; proposal/design/tasks completeness at the open→build guard exit), and documents the previously undocumented `verify-fail → build` rewind, so the soft rule no longer promises checks the hard gate does not backstop.
 
 ### Removed
 
 - **Bash-first runtime dependency**: Removes the requirement that bundled Classic workflow scripts run through Bash-compatible shell scripts; Node launchers and cross-platform runtime checks are now the default contract.
 - **Legacy runtime eval aliases**: Removes the `comet/evals.yaml` fallback and the `comet skill eval` command so runtime checks no longer compete with the shared `comet eval` harness.
+- **Boilerplate version marker**: Removes the unused `boilerplate version: vN` annotation from the script-location block in `comet/SKILL.md`. No code or test read it, and git already tracks cross-file sync, so the marker only added noise.
 
 ### Security
 

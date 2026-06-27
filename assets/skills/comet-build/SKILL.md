@@ -164,6 +164,16 @@ node "$COMET_STATE" set <name> isolation <branch|worktree>
 
 Run `node "$COMET_STATE" set <name> tdd_mode <tdd|direct>`
 
+**Code Review Mode**:
+
+| Option | Meaning | Applicable Scenario |
+|--------|---------|---------------------|
+| `off` | No automatic code review dispatch | Documentation, configuration, copywriting, small low-risk tasks |
+| `standard` | Run a single final lightweight code review after all tasks complete; if issues found, auto-fix at most one round, then hand off to user decision | Default recommended, suits most ordinary changes |
+| `thorough` | Run consolidated reviews per batch or risk boundary, then a full review at the end | High-risk, multi-module, architecture or security-related changes |
+
+Run `node "$COMET_STATE" set <name> review_mode <off|standard|thorough>`
+
 `isolation` is a script-enforced hard constraint. Full workflow init may temporarily leave it as `null`, but only before this step. If it remains `null`, both the `build → verify` guard and `comet-state transition build-complete` will fail.
 
 `subagent_dispatch` is a script-enforced hard constraint. `build_mode: subagent-driven-development` requires `subagent_dispatch: confirmed` before leaving the build phase, otherwise both `comet-guard.mjs build --apply` and `comet-state transition build-complete` will fail.
@@ -221,7 +231,7 @@ If `tdd_mode: direct`: Follow normal flow, no enforced TDD.
 
 **`executing-plans` review gate**:
 
-When `build_mode` is `executing-plans`, after all planned tasks are complete and before running the build → verify phase guard, must use the Skill tool to load the Superpowers `requesting-code-review` skill and request code review at least once.
+When `build_mode` is `executing-plans` and `review_mode` is `standard` or `thorough`, after all planned tasks are complete and before running the build → verify phase guard, must use the Skill tool to load the Superpowers `requesting-code-review` skill and request code review at least once. When `review_mode` is `off`, skip automatic code review, do not load `requesting-code-review`, and record the skip reason in the verification report draft or tasks.md.
 
 Requirements:
 - the `requesting-code-review` skill must be loaded before `node "$COMET_GUARD" <change-name> build --apply`

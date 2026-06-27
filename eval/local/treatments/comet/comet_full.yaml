@@ -1,9 +1,9 @@
-# Full comet skill treatment (workflow v3, .mjs runtime)
+# Full comet skill treatment (workflow 0.4.0-beta.1, .mjs runtime)
 # Injects: comet main + 7 phase sub-skills + superpowers brainstorming.
 # OpenSpec CLI is provided by the task Docker image; openspec skills are not
 # injected because comet-open drives `openspec new change` directly.
 COMET_FULL:
-  description: "Full comet skill (workflow v3) with all sub-skills and brainstorming"
+  description: "Full comet skill (workflow 0.4.0-beta.1) with all sub-skills and brainstorming"
   skills:
     # Main dispatcher (carries scripts/ with the .mjs launchers + runtime bundle)
     - name: comet

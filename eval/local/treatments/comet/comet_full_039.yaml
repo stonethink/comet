@@ -1,8 +1,8 @@
 # Full comet skill treatment (0.3.9 baseline, .sh runtime)
 # Injects: 0.3.9 comet main (with .sh scripts) + 7 phase sub-skills + brainstorming.
-# Source dirs are prefixed comet-classic-039* to avoid colliding with the v3
-# sources, but the injected skill names are restored to comet/comet-open/etc.
-# so the 0.3.9 boilerplate `find ... */comet/scripts/comet-env.sh` resolves.
+# Source dirs are prefixed comet-classic-039* to avoid colliding with the
+# 0.4.0-beta.1 sources, but the injected skill names are restored to
+# comet/comet-open/etc. so the 0.3.9 boilerplate `find ... */comet/scripts/comet-env.sh` resolves.
 COMET_FULL_039:
   description: "0.3.9 baseline comet skill (shell runtime) with all sub-skills and brainstorming"
   skills:
@@ -40,7 +40,7 @@ COMET_FULL_039:
       skill: comet-classic-039-tweak
       variant: all
       base: benchmarks
-    # Superpowers brainstorming (same as v3; design phase dependency)
+    # Superpowers brainstorming (same as 0.4.0-beta.1; design phase dependency)
     - name: brainstorming
       skill: superpowers-brainstorming
       variant: all

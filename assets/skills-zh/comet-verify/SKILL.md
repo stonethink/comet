@@ -95,6 +95,8 @@ node "$COMET_STATE" set <change-name> verify_mode full
 - **全部修复**：运行 `node "$COMET_STATE" transition <change-name> verify-fail`，然后调用 `/comet-build` 修复
 - **逐项处理**：CRITICAL 或 IMPORTANT 失败项必须修复；WARNING/SUGGESTION 失败项可选择接受偏差，但必须在验证报告中记录接受原因和影响范围。若存在任何 CRITICAL 或 IMPORTANT 失败项，不允许跳过修复直接全部接受
 
+**重试上限**：连续 3 次 verify-fail 循环后，第 4 次失败时代理不得自动选择继续修复；**必须使用当前平台可用的用户输入/确认机制暂停**，仅给出两个选项：「接受所有偏差并记录」或「继续修复」，由用户明确决定。
+
 ### 2. 产物上下文加载（Hash 按需读）
 
 验证需要读取 OpenSpec 产物时，先检查产物是否自 design 阶段以来发生变化：

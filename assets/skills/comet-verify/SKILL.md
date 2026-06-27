@@ -220,6 +220,10 @@ node "$COMET_GUARD" <change-name> verify --apply
 
 State file auto-updates to `phase: archive`, `verify_result: pass`, `verified_at: YYYY-MM-DD`.
 
+## Context Compression Recovery
+
+Follow `comet/reference/context-recovery.md` with phase set to `verify`.
+
 ## Automatic Handoff to Next Phase
 
 Follow `comet/reference/auto-transition.md`. Key command:
@@ -233,7 +237,3 @@ node "$COMET_STATE" next <change-name>
 - `NEXT: done` → workflow is complete, no further action needed
 
 Note: after `comet-archive` starts, it must first execute the final archive confirmation blocking point and wait for the user to explicitly choose "Confirm archive" before running the archive script. Must not automatically archive just because verification passed.
-
-## Context Compression Recovery
-
-Follow `comet/reference/context-recovery.md` with phase set to `verify`.

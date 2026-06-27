@@ -1,7 +1,7 @@
 """Compare comet baseline treatments across the rubric dimensions.
 
 Reads experiment reports from ``local/logs/experiments/<id>/reports/*.json`` and
-emits a markdown comparison report highlighting where the workflow (v3) baseline
+emits a markdown comparison report highlighting where the workflow (0.4.0-beta.1) baseline
 scores below the 0.3.9 baseline.
 
 Usage::
