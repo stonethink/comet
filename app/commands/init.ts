@@ -482,15 +482,19 @@ export async function initCommand(targetPath: string, options: InitOptions = {})
 
     let cmStatus: InstallStatus = 'skipped';
     if (cmAction !== 'skip') {
-      const { copied } = await copyCometSkillsForPlatform(
+      const { copied, failed } = await copyCometSkillsForPlatform(
         baseDir,
         platform,
         cmAction === 'overwrite',
         language.skillsDir,
         scope,
       );
-      cmStatus = copied > 0 ? 'installed' : 'skipped';
-      log(`  Comet -> ${platform.name}: ${cmStatus} (${copied} files) -> ${skillsPath}`);
+      cmStatus = failed > 0 ? 'failed' : copied > 0 ? 'installed' : 'skipped';
+      log(
+        `  Comet -> ${platform.name}: ${cmStatus} (${copied} files${
+          failed > 0 ? `, ${failed} failed` : ''
+        }) -> ${skillsPath}`,
+      );
     } else {
       log(`  Comet -> ${platform.name}: skipped (${t(lang, 'alreadyExists')})`);
     }

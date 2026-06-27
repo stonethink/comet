@@ -90,7 +90,7 @@ async function copyCometSkillsForPlatform(
   overwrite: boolean,
   languageSkillsDir: string = 'skills',
   scope: InstallScope = 'project',
-): Promise<{ copied: number; skipped: number }> {
+): Promise<{ copied: number; skipped: number; failed: number }> {
   const assetsDir = getAssetsDir();
   const manifestPath = path.join(assetsDir, 'manifest.json');
 
@@ -104,6 +104,7 @@ async function copyCometSkillsForPlatform(
   }
   let copied = 0;
   let skippedCount = 0;
+  let failedCount = 0;
 
   for (const skillRelPath of getManagedSkillPaths(manifest)) {
     const isScript = skillRelPath.includes('/scripts/');
@@ -121,6 +122,11 @@ async function copyCometSkillsForPlatform(
       await copyFile(src, dest);
       copied++;
     } catch (err) {
+      // Surface the failure via the returned `failed` count instead of
+      // swallowing it, so a half-installed state (e.g. a missing
+      // comet-hook-guard.mjs) is visible in the summary rather than silently
+      // breaking phase guard downstream.
+      failedCount++;
       console.error(`    Failed to copy ${skillRelPath}: ${(err as Error).message}`);
     }
   }
@@ -150,7 +156,7 @@ async function copyCometSkillsForPlatform(
     skippedCount += result.skipped;
   }
 
-  return { copied, skipped: skippedCount };
+  return { copied, skipped: skippedCount, failed: failedCount };
 }
 
 function getTopLevelSkillNames(skillPaths: string[]): string[] {

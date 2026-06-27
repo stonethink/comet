@@ -11,10 +11,10 @@ import type { ClassicRunContext } from './classic-migrate.js';
 import type { ClassicState } from './classic-state.js';
 import { classicValidateCommand } from './classic-validate-command.js';
 
-const GREEN = '[32m';
-const RED = '[31m';
-const YELLOW = '[33m';
-const RESET = '[0m';
+const GREEN = '\u001b[32m';
+const RED = '\u001b[31m';
+const YELLOW = '\u001b[33m';
+const RESET = '\u001b[0m';
 const PHASES = ['open', 'design', 'build', 'verify', 'archive'] as const;
 const PHASE_HEADER: Record<string, string> = {
   open: '=== Guard: open → next ===',

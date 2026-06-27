@@ -19,10 +19,10 @@ import {
 } from '../../domains/engine/run-store.js';
 import type { Checkpoint, EngineAction, RunState } from '../../domains/engine/types.js';
 
-const GREEN = '[32m';
-const RED = '[31m';
-const YELLOW = '[33m';
-const RESET = '[0m';
+const GREEN = '\u001b[32m';
+const RED = '\u001b[31m';
+const YELLOW = '\u001b[33m';
+const RESET = '\u001b[0m';
 
 function green(message: string): string {
   return `${GREEN}${message}${RESET}`;

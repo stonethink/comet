@@ -12,4 +12,15 @@
 //   does not allow source writes
 import { main } from './comet-runtime.mjs';
 
-process.exitCode = await main(['hook-guard', ...process.argv.slice(2)]);
+try {
+  process.exitCode = await main(['hook-guard', ...process.argv.slice(2)]);
+} catch (error) {
+  // Hook-entry backstop: an exception outside main() (corrupt bundle, import
+  // failure, unexpected throw) must not exit with an ambiguous code. Fail
+  // closed (exit 2) so the user/model sees the hook fault instead of silently
+  // allowing a write that phase guard should have vetted.
+  process.stderr.write(
+    `[COMET-HOOK] crash: ${error instanceof Error ? error.message : String(error)}\n`,
+  );
+  process.exitCode = 2;
+}
