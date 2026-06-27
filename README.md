@@ -38,7 +38,7 @@ publishing in one loop, so you can start a change, resume it later, diagnose dri
 toolchain.
 
 > [!IMPORTANT]
-> **0.4.0-beta.1** — This is the main product jump beyond master (`0.3.11`): Comet is now a Node-only runtime instead of a Bash/WSL-dependent workflow layer, keeps the local `comet dashboard` path, adds stable `comet skill` and `comet eval` user paths, and turns `/comet-any` into a real Skill Factory with next-action guidance, readiness gates, generated `comet/eval.yaml`, and a clearer publish evidence chain.
+> **0.4.0-beta.1** — Comet becomes a Node-only runtime (no Bash/WSL dependency) and gains three headline capabilities: orchestrate **any** Skills into custom workflows with `/comet-any`, evaluate **any** local Skill with `comet eval`, and visualize every change in a browser dashboard with `comet dashboard`.
 >
 > **0.3.9** — Review mode (`off|standard|thorough`) controls Build/Verify code review with project defaults; init/update now use optional dependency prompts, broader CLI i18n, stronger phase guards, and macOS executable bits.
 >

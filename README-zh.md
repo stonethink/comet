@@ -37,7 +37,7 @@
 让你可以用一个工具链开启变更、中断后恢复、诊断漂移，并把可复用 Skill 发布出去。
 
 > [!IMPORTANT]
-> **0.4.0-beta.1** — 这是相对 master（0.3.11）的一次产品面升级：Comet 现在是纯 Node runtime，不再把 Bash/WSL 当成工作流前提；保留本地 `comet dashboard` 路径；新增 `comet skill` 与 `comet eval` 两条稳定 CLI 主路径；`/comet-any` 被收敛成真正的 Skill Factory，具备 next action、readiness、generated `comet/eval.yaml` 与更清晰的发布前证据链。
+> **0.4.0-beta.1** — Comet 升级为纯 Node runtime（不再依赖 Bash/WSL），并带来三大核心能力：用 `/comet-any` 把**任意** Skill 组合成自定义工作流、用 `comet eval` 评估**任意**本地 Skill、用 `comet dashboard` 在浏览器里可视化每一个 change。
 >
 > **0.3.9** — `review_mode: off|standard|thorough` 控制 Build/Verify 自动代码审查并支持项目级默认；init/update 改为可选依赖安装，补齐 CLI 国际化、阶段守护加固和 macOS 可执行权限。
 >

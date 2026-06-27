@@ -4,145 +4,40 @@ All notable changes to @rpamis/comet will be documented in this file.
 
 ## What's Changed [0.4.0-beta.1] - 2026-06-27
 
+This is the first beta of the 0.4.0 line. Relative to 0.3.9, Comet becomes a Node-only runtime and gains three headline capabilities: orchestrate **any** Skills into custom workflows with `/comet-any`, evaluate **any** local Skill with `comet eval`, and visualize every change in a browser dashboard with `comet dashboard`. The sections below cover only what a 0.3.9 user would notice.
+
 ### Added
 
-- **Node-only Comet runtime**: Replaces the Bash-first Classic workflow scripts with thin `.mjs` launchers backed by a shared TypeScript runtime, so normal `/comet` workflows run on Windows, macOS, and Linux without Git Bash, WSL, or shell-script compatibility surprises.
-- **Skill platform commands**: Adds `comet skill install|validate|inspect|run|resume|check` for local Skill packages, with immutable run snapshots, resumable pending actions, project Skill discovery, and runtime checks that make Skill execution auditable instead of purely conversational.
-- **`/comet-any` Skill Factory**: Turns `/comet-any` into the main path for creating or upgrading reusable Skills. It now guides users through candidate discovery, confirmable proposals, generated Skill bundles, readiness checks, eval planning, review approval, and publish/distribution steps.
-- **Skill Maker workflow contracts**: Adds Workflow Nodes, Skill Bindings, Output Schemas, Guardrails, Handoffs, and generated Node Skills to `/comet-any` proposals so customized multi-step workflows behave like real composed Skills instead of a single thin wrapper.
-- **Publish and distribution flow**: Adds `comet publish` as the user-facing path for `/comet-any` outputs, including readiness status, review/approval, publish execution, and distribution preview before writing files to target platforms.
-- **Shared eval harness**: Adds `comet eval collect|run` for Comet workflows and arbitrary local Skills, including generated manifests, task profiles, HTML reports, token/cost attribution, failure attribution, and reusable regression checks.
-- **Platform support**: Adds ZCode and MimoCode support, including project/global Skill installs, OpenCode-style command generation where appropriate, OpenSpec mirroring, and coverage in init/update and distribution paths.
-- **Comet dashboard**: Adds `comet dashboard` as a local read-only browser dashboard with active and archived changes, phase progress, artifact checklists, task summaries, verify status, next-action guidance, Git snapshot, and a `--json` snapshot mode for scripts.
+- **Node-only runtime**: Every bundled Comet workflow script now runs through thin `.mjs` launchers backed by a shared TypeScript runtime. The same `/comet` workflow now works on Windows, macOS, and Linux without Git Bash, WSL, or shell-script compatibility. Classic `.comet.yaml` state is still understood via a typed state projection, so existing changes keep working.
+- **`comet dashboard` command** (new): Boots a local, read-only browser dashboard that shows every active and archived change with phase progress (Open → Design → Build → Verify → Archive), artifact checklist, task breakdown, verify status, next-action guidance, and a Git snapshot. `--json` prints one snapshot for CI/scripts, `--port` pins a port, `--no-open` skips the browser for SSH/containers, and `GET /api/dashboard` exposes the same snapshot to scripts.
+- **`comet skill` commands** (new): Adds `comet skill add|show|run|continue|check` for local Skill packages — install a Skill into a project, inspect it, run it with immutable snapshots, resume pending actions, and run deterministic checks, so Skill execution is auditable instead of purely conversational.
+- **`comet eval` harness** (new): Adds `comet eval [target]` to evaluate Comet workflows or any local Skill with generated manifests, task profiles, HTML reports, token/cost attribution, and reusable regression checks. Repeated runs yield pass@k / pass^k capability-vs-reliability metrics.
+- **`/comet-any` Skill Factory** (new): `/comet-any` is now the main path for creating or upgrading reusable Skills. It guides you through candidate discovery, a confirmable proposal, generated Skill bundles, readiness feedback, eval planning, review approval, and publish/distribution. A proposal can declare Workflow Nodes, Skill Bindings, Output Schemas, Guardrails, Handoffs, and Required Skill Calls, so a custom multi-step workflow behaves like a real composed Skill instead of a single thin wrapper.
+- **`comet publish` command** (new): The user-facing path for `/comet-any` outputs. It reports readiness status, requires review approval, runs the publish step, and previews distribution before writing files to target platforms.
+- **Skill preferences** (new): Adds `.comet/skill-preferences.yaml` with inventory-backed setup, proposal previews, and readiness feedback, so you can guide `/comet-any` Skill creation and preferred ordering without editing internal Bundle files.
+- **New platforms**: Adds ZCode and MimoCode support, including project/global Skill installs, OpenCode-style command generation where appropriate, OpenSpec mirroring, and coverage in init/update and distribution paths.
 
 ### Changed
 
-- **Comet product model**: Repositions Comet from an OpenSpec/Superpowers script bundle into a resumable workflow and Skill platform. README, CLI help, and `/comet-any` guidance now lead with task paths: run workflows, create Skills, evaluate them, publish them, and diagnose stuck changes.
-- **Status and doctor diagnostics**: `comet status` and `comet doctor` now share the same runtime evidence path, exposing current step, runtime mode, malformed state, missing evidence, and next recovery action instead of only listing active changes or install files.
-- **Run state storage**: Moves machine-owned run state out of `.comet.yaml` into `.comet/run-state.json`, keeping user-editable workflow fields separate from engine checkpoints and reducing accidental state corruption.
-- **Repository layout**: Reorganizes source code into `app/`, `domains/`, `platform/`, and `scripts/` so CLI commands, domain logic, platform integration, and build tooling are easier to maintain while preserving the packaged CLI and installed Skill assets.
-- **`/comet-any` authoring model**: Replaces the low-level Bundle-first story with a Skill Maker flow for customizing existing Comet Skills, creating new Skills, or upgrading existing Skills. The advanced `comet bundle` backend remains available for audits and debugging.
-- **Comet Any workflow compiler**: Replaces copy-paste call-chain generation with a shared Workflow Contract compiler. Customizing existing Comet Skills now renders a protected `comet-five-phase-overlay`, while arbitrary Skill composition renders a `workflow-kernel` with Nodes, Guardrails, pause points, recovery, workflow scripts, and route-conformance eval metadata.
-- **Comet Any workflow contracts**: Replaces unpublished draft inputs with `workflow` plans based on Workflow Nodes, Skill Bindings, Required Skill Calls, and Output Schemas so `/comet-any` can create user-designed Skills while keeping `callChain` internal source-inventory evidence.
-- **Comet Any Required Skill Calls**: Adds Required Skill Calls to Workflow Nodes so component-library, subagent, code-review, verify, and archive Skills can be required inside protected Comet Nodes without replacing the main workflow implementation.
-- **Workflow contract deep module**: Adds `domains/workflow-contract` as the shared source for Comet five-phase overlays, arbitrary workflow kernels, protocol hashing, validation, and built-in Comet Output Schemas used by Factory, eval, review, and readiness.
-- **Workflow Node responsibilities**: Replaces leaked internal Node coordinates with explicit Node responsibilities in Workflow Protocols and generated Skill prose, making composed Skills easier to review without learning implementation IDs.
-- **Comet Any authoring lanes**: Splits generated Skill creation into reviewed authoring lanes for Skill core prose, script contracts, references, pause points, eval metadata, and Skill review reports so `/comet-any` outputs are assembled from auditable artifacts instead of one opaque renderer.
-- **Comet Any authoring subagent contract**: Deepens authoring lanes into a subagent-ready adapter contract with author metadata, semantic claims, and a shared assembler, while keeping deterministic local authors as the default generation path until an external agent executor is provided.
-- **Factory package generator architecture**: Removes unreachable legacy audit-section renderers and separates workflow routing, Skill markdown rendering, script templates, and package assembly so `/comet-any` generation stays easier to maintain without changing emitted workflow behavior.
-- **Dashboard demo polish**: Keeps the Comet brand anchored in the sidebar, updates the demo version label, hides unfinished Skill composition/evaluation navigation entries, removes extra shadow from the right action/Git column, adds artifact-focused demo visualizations for Skill composition and Skill evaluation, aligns dashboard sections on the same left edge, standardizes typography on Inter, improves the task-progress panel density with synchronized ring/count animation, and reshapes Skill composition/evaluation demo pages into compact Chinese-first workbench layouts with viewport-adaptive panel heights.
-- **Dashboard refresh UX**: Adds automatic dashboard status refresh with a visible interval hint so the read-only monitor stays current without relying on repeated manual refreshes.
-- **Dashboard React frontend**: Rebuilds the dashboard frontend as a React application styled with Tailwind CSS while preserving the current Comet Dashboard colors, layout density, and read-only TypeScript backend API.
-- **Dashboard command validation**: Makes `comet dashboard --port` reject non-numeric values up front instead of accepting parsed numeric prefixes.
-- **Skill preferences**: Replaces the unpublished `.comet/skills.txt` path with `.comet/skill-preferences.yaml`, inventory-backed setup, proposal previews, and readiness feedback so users can guide Skill creation without learning internal Bundle files.
-- **Runtime checks naming**: Renames deterministic Engine Run checks from `comet skill eval` and `comet/evals.yaml` to `comet skill check` and `comet/checks.yaml`, keeping `comet eval` reserved for the shared eval harness.
-- **Eval benchmark wording**: Clarifies the user-facing naming boundary between `comet eval run` benchmarks and Engine runtime checks, including CLI help, Bundle backend benchmark commands, readiness blockers, dashboard demo copy, `/comet-any` Skill guidance, and operation docs.
-- **CLI command simplification**: Simplifies the public Skill and eval command surface to `comet skill add/show/run/continue/check` and `comet eval [target]`, so users can evaluate Skills or manifests without memorizing separate `run`, `collect`, `--manifest`, and `--skill-path` entry points.
-- **Repository architecture guardrails**: Documents the active `app/`, `domains/`, `platform/`, scripts, assets, and test ownership layout for agents and adds an architecture linter so top-level drift, module drift, root-level code, and legacy roots such as `src/` and `test/ts/` cannot return unnoticed.
-- **Repository architecture CI**: Runs the architecture linter as an explicit CI step and updates PR guidance so layout drift is visible independently from the broader ESLint check.
-- **Chinese preset terminology**: Translates user-facing Chinese Skill and architecture wording from "preset" to "预设" while preserving machine identifiers such as `preset-escalate`.
-- **Tweak workflow path**: Reframes `/comet-tweak` as a tweak-only OpenSpec action chain that runs `openspec-apply-change` during build, allows single-change delta-spec work, and explicitly keeps full `/comet` on the Superpowers design/plan/build path.
+- **Product positioning**: Comet is now positioned as a resumable workflow and Skill platform rather than an OpenSpec + Superpowers script bundle. README, CLI help, and `/comet-any` guidance lead with what you do: run workflows, create Skills, evaluate them, publish them, and diagnose stuck changes.
+- **Run state storage**: Machine-owned run state moved out of `.comet.yaml` into `.comet/run-state.json`, keeping user-editable workflow fields separate from engine checkpoints and reducing accidental state corruption.
+- **Unified diagnostics**: `comet status` and `comet doctor` now share the same runtime evidence path, exposing the current step, runtime mode, malformed state, missing evidence, and the next recovery action — instead of only listing active changes or install files.
+- **`/comet-tweak` path**: `/comet-tweak` is now a tweak-only OpenSpec action chain that runs `openspec-apply-change` during build and supports single-change delta-spec work, while full `/comet` stays on the Superpowers design/plan/build path.
+- **Repository layout**: Source code is reorganized into `app/`, `domains/`, `platform/`, and `scripts/` so CLI commands, domain logic, platform integration, and build tooling are easier to maintain. Packaged CLI and installed Skill assets are unchanged.
 
 ### Fixed
 
-- **Packaged CLI reliability**: Restores packaged commands such as `comet doctor`, `status`, `init`, and `update` after the repo/runtime restructuring by resolving shipped assets from the package root.
-- **Malformed workflow states**: Prevents malformed `.comet.yaml` files from crashing scans and reports recovery hints through `status`, `doctor`, and guard output.
-- **Publish readiness blockers**: Makes `/comet-any` publish blockers explicit, including missing candidates, stale evals, missing review approval, unsupported required capabilities, and executable hook disclosures.
-- **Proposal confirmation**: Blocks `/comet-any` generation, review, and publish until the Factory proposal is confirmed, while preserving recovery for missing or ambiguous candidates.
-- **Comet Skill Maker fidelity**: Stops pasting source Skill bodies and generated audit sections into user-facing Skills. Generated outputs now keep Comet-style routing prose, frontmatter descriptions in English, nested Skill invocation wording, and explicit Workflow Node evidence checks.
-- **Generated runtime assumptions**: Removes copied Comet runtime resources from generated outputs and uses the generated workflow protocol plus workflow scripts as the authority for Node progression, preventing stale prose routes from bypassing custom steps.
-- **Generated workflow guards**: Makes `/comet-any` generated Skills write localized Node guidance, require script-backed evidence before exits, and print the next generated Node from workflow scripts so composed Skills advance like Comet instead of relying on copied prose.
-- **Generated semantic guards**: Makes `/comet-any` generated workflow scripts check machine-readable semantic evidence, source Skill completion markers, and Comet five-phase overlay `.comet.yaml` phase transitions before advancing Nodes.
-- **Arbitrary workflow kernels**: Allows non-Comet `/comet-any` workflows to define their own Workflow Nodes, Skill Bindings, Output Schemas, and recovery protocol instead of forcing them through Comet phase naming.
-- **Generated workflow route authority**: Aligns generated Engine manifests, guardrails, eval route conformance, and plan scripts with the compiled workflow protocol so Workflow Nodes cannot be skipped or replaced by raw source Skill names.
-- **Comet overlay phase contracts**: Adds generated open/design/build/verify/archive contracts that preserve Comet's PRD split, clarification, handoff, build pause, mode choices, verification, and archive semantics when composing new Skills.
-- **Generated Skill invocation clarity**: Uses bare Skill names in generated nested load instructions, avoiding provider labels such as Superpowers or Comet in the executable call target while keeping composed workflow routing under script control.
-- **Generated Skill entry routing**: Makes `/comet-any` entry Skills route through workflow state scripts instead of listing immediate Node Skill loads, so generated workflows behave like Comet's guarded router.
-- **Required Skill Call enforcement**: Propagates Workflow Node Required Skill Calls into workflow protocols, generated Node guidance, resolved Skill evidence, composition reports, and Factory review blockers so mandatory Skills cannot be silently skipped.
-- **Custom Node required calls**: Preserves Required Skill Calls declared directly on custom `workflow-kernel` Nodes, so handoff and guardrail Nodes can require release-note, quality, review, or project-specific Skills without needing a separate patch section.
-- **Output Schema exit guards**: Makes generated `workflow-guard.mjs` block Node exits until required Output Schema evidence fields and artifact paths exist, so replacement producer Skills must prove the artifacts that later scripts, eval, and readiness consume.
-- **Generated Node usability**: Preserves explicit localized Node labels and includes pause points in generated workflow references so generated Skills read consistently across entry, Node, and recovery docs.
-- **Comet Any subagent references**: Ships bilingual authoring subagent briefs, including a dedicated workflow-entry author, so platforms with native subagents can draft generated Skill artifacts through the same reviewed lane structure.
-- **Factory review artifacts**: Includes `reference/authoring-lanes.json` and `reference/skill-review.md` in generated Factory bundles so review outcomes travel with both Comet five-phase overlays and arbitrary Skill workflow drafts.
-- **Windows path handling**: Fixes OpenSpec init/update path quoting for directories with spaces and hardens eval/task handling for Windows UTF-8, Docker, and report output.
-- **Eval rubric aggregation**: Separates derived `weighted_score` output from base rubric dimensions so comparison reports use validator-weighted Overall scores while `RubricAvg` remains an unweighted dimension mean.
-- **Generated Skill eval contract**: Updates authoring evals for the current `/comet-any` package format, including `comet/eval.yaml`, generated internal Node Skills, route conformance metadata, authoring lanes, and review artifacts instead of the previous `evals.yaml` contract.
-- **Runtime TypeScript build**: Limits the runtime TypeScript compilation to Node type definitions so pnpm-linked dashboard React type packages cannot break the Node CLI build through implicit type-library discovery.
-- **Submodule hooks**: Installs Comet hook commands with an absolute script path and explicit project root so agents working inside Git submodules still use the parent workspace's Comet phase state.
-- **Init/update clarity**: Prevents unrelated platform Skill directories from being reported as incomplete Comet installs and keeps existing install health checks focused on Comet-managed assets.
-- **Dashboard collector resilience**: Keeps dashboard collection read-only and best-effort by isolating malformed change state, guarding verification report paths, and rendering partial Git snapshots defensively.
-- **Dashboard progress polish**: Makes dashboard summary and task-progress counters count up from zero when shown, replaces the compact search glyph with a balanced SVG icon, and renames the Git dirty-file label to a clearer uncommitted-file label.
-- **Comet preset intent routing**: Aligns the main `/comet` preset detection wording with the current hotfix and OpenSpec-chained tweak positioning so `/comet-tweak` is no longer described as only copy/config/docs/prompt small adjustments.
-- **Partial init failure summary**: Merges the 0.3.11 fix into the beta line so `comet init` keeps platforms with any failed component out of `Installed` and names the failed component (e.g. `OpenCode (OpenSpec failed)`) in `Failed`, instead of showing a partial setup as both installed and failed.
-
-### Tests
-
-- **CLI smoke coverage**: Adds built-CLI checks for `doctor`, `status`, help output, packaged asset lookup, and init/update behavior so tests cover the shipped entry point, not only source imports.
-- **Skill Factory coverage**: Adds command-level and end-to-end coverage for Factory proposal confirmation, generated `comet/eval.yaml`, readiness aggregation, publish gates, distribution preview, and `/comet-any` bilingual Skill Maker wording.
-- **Workflow Node Skill coverage**: Adds regression coverage for Skill Maker Node labels, generated internal Node Skills, Engine references, preserving real local Comet Node Skill sources over built-in placeholders, and keeping full source Skill bodies in generated Comet variants.
-- **Generated guard coverage**: Adds regression coverage for localized generated Node prose, workflow evidence recording, script-blocked exits, and script-emitted next-Node routing.
-- **Generated route authority coverage**: Adds regression coverage that compares generated Engine YAML, guardrails, eval manifests, and recovery order against the compiled workflow route, including Comet design and build Nodes.
-- **Workflow contract coverage**: Adds regression coverage for Workflow Contract normalization, command initialization, Bundle generation, generated route/eval metadata, multi-source Node Skill prose, and Skill Maker summaries.
-- **Free composition coverage**: Adds regression coverage for bare Skill load wording across customized `/comet` and arbitrary Skill composition outputs.
-- **Semantic guard coverage**: Adds regression coverage for arbitrary Skill semantic checks, Comet five-phase overlay `.comet.yaml` phase binding, and structured non-Comet Node overrides.
-- **Authoring lane coverage**: Adds regression coverage for lane proposal assembly, protocol hash checks, review reports, generated review resources, and blocking findings for unusable generated Skill prose.
-- **Authoring subagent contract coverage**: Adds regression coverage for subagent executor adapters, lane author metadata, semantic claims, mandatory Skill review artifacts, and generated authoring-lane metadata persistence.
-- **Workflow entry coverage**: Adds regression coverage for the workflow-entry authoring lane, script-routed entry startup, and review blocking for entry Skills that immediately load generated Node Skills.
-- **Generated Node coverage**: Adds regression coverage for custom Node labels and Node-level pause point references in generated Skill packages.
-- **Required Skill Call coverage**: Adds regression coverage for Required Skill Call normalization, proposal/state persistence, generated protocol and Node prose, and review blocking when required Skill call evidence is missing.
-- **Workflow contract dogfood coverage**: Validates generated Comet overlays, arbitrary research/writer workflows, producer replacement, and release handoff workflows end to end, including generated scripts, hook guards, state progression, Output Schema evidence, and eval collection.
-- **Comet Any reference coverage**: Extends shipped-reference checks to `/comet-any` authoring references so nested subagent briefs cannot be referenced without being included in the asset manifest.
-- **Factory generator cleanup coverage**: Adds regression coverage that scans Factory package sources for removed legacy audit-section renderers so generated source-evidence and variant-routing prose cannot return as unreachable code.
-- **Dashboard coverage**: Adds tests for the dashboard command, snapshot collector, task and verify parsers, Git snapshot, and local HTTP server including static serving and port fallback.
-- **Dashboard frontend build coverage**: Runs the React/Tailwind dashboard build through the main `pnpm build` path so packaged dashboard assets are produced with the rest of Comet.
-- **Eval harness coverage**: Adds tests for manifest generation, profiles, task validation, attribution, HTML/report outputs, pass@k metrics, and generic Skill smoke runs.
-- **Eval rubric coverage**: Adds regression coverage for weighted Overall reporting and for keeping derived `weighted_score` out of the unweighted rubric average.
-- **CLI simplification coverage**: Adds regression coverage for `comet eval [target]`, `--collect`, `comet skill show`, `comet skill continue`, and the simplified built-CLI help output.
-- **Authoring eval coverage**: Adds regression coverage for generated Skill manifest route metadata, dynamic Skill package snapshotting, authoring rubric dimensions, and the `workflow-route-conformance` task.
-- **Classic runtime coverage**: Adds regression coverage for Classic state, guard, handoff, archive, hook guard, migration, resolver, diagnostics, runtime checks, generated runtime parity, and the frozen 0.3.9 fixture.
-- **Runtime check naming coverage**: Adds regression coverage that rejects legacy `comet/evals.yaml`, validates `comet/checks.yaml`, and exposes `comet skill check` instead of the old runtime eval command.
-- **Repository layout coverage**: Moves legacy `test/ts` coverage into ownership-aligned `test/app`, `test/domains`, `test/platform`, `test/repository`, and `test/scripts` locations, with architecture lint coverage for the new structure.
-- **CI layout coverage**: Adds repository tests that assert CI runs the architecture linter and no longer references the removed `test/ts` Classic script test path.
-- **Platform coverage**: Adds regression coverage for ZCode and MimoCode platform detection, slash command generation, OpenSpec mirroring, Superpowers staging, init E2E behavior, and install/update path checks.
-- **Workflow contract coverage**: Adds bilingual Skill contract checks for phase decisions, output language, subagent dispatch, `/comet-tweak` OpenSpec apply routing, and full `/comet-build` staying on the Superpowers execution path.
-- **Preset intent coverage**: Adds bilingual contract coverage that keeps main `/comet` preset detection aligned with the current hotfix and tweak workflow positioning.
+- **Windows path handling**: Fixes OpenSpec init/update path quoting for directories with spaces on Windows, so `comet init` no longer fails when the project path contains spaces.
+- **Partial init failure summary**: `comet init` now keeps platforms with any failed component out of `Installed` and names the failed component (e.g. `OpenCode (OpenSpec failed)`) in `Failed`, instead of showing a partial setup as both installed and failed.
 
 ### Removed
 
-- **Bash-first runtime dependency**: Removes the old requirement that bundled Classic workflow scripts execute through Bash-compatible shell scripts; Node launchers and cross-platform runtime checks are now the default contract.
-- **Deprecated shell test path**: Removes the old shell-script test runner and replaces it with Vitest coverage around the generated Classic runtime and compatibility fixtures.
-- **Legacy runtime eval aliases**: Removes the `comet/evals.yaml` compatibility fallback and the `comet skill eval` command so runtime checks no longer compete with the shared `comet eval` harness naming.
+- **Bash-first runtime dependency**: Removes the requirement that bundled Classic workflow scripts run through Bash-compatible shell scripts; Node launchers and cross-platform runtime checks are now the default contract.
+- **Legacy runtime eval aliases**: Removes the `comet/evals.yaml` fallback and the `comet skill eval` command so runtime checks no longer compete with the shared `comet eval` harness.
 
 ### Security
 
-- **Dashboard path traversal guard**: Rejects absolute and parent-directory `verification_report` paths before dashboard collection reads verify reports from a change directory.
-- **Dependabot dependency alerts**: Pins the development test toolchain to patched Vite and esbuild versions across npm and pnpm lockfiles, clearing the open Vite path traversal, launch-editor, and esbuild dev-server advisories without changing Comet runtime dependencies.
-
-## What's Changed [0.3.11] - 2026-06-24
-
-### Added
-
-- **`comet dashboard` command**: New command that boots a local read-only HTTP server (default port 4321 with automatic fallback) and opens a single-page dashboard in the user's browser. The page surfaces every active and archived change in the current project's `openspec/changes/` tree, including phase progress (Open → Design → Build → Verify → Archive), artifact checklist, task breakdown, verify status, next-action recommendation, project-level Git snapshot, and rule-driven risk list — so users can `cd` into a repo and inspect Comet workflow health at a glance instead of grepping `tasks.md` or `.comet.yaml` by hand.
-- **Dashboard JSON API**: `GET /api/dashboard` returns the same `DashboardSnapshot` the frontend renders, so scripts and other tooling can consume the same shape. `comet dashboard --json` prints one snapshot to stdout and exits without starting the server, useful for CI and one-off inspection.
-- **`--port` and `--no-open` flags on `comet dashboard`**: Pin the server to a fixed port (helpful when running multiple repos side by side) or skip the auto-open call (useful for SSH / containers / CI where opening a browser would fail).
-
-### Changed
-
-- **Stricter `--port` validation**: `comet dashboard --port` now rejects values that are not entirely numeric (for example `4321abc`) instead of silently accepting the parsed prefix. Invalid ports fail fast with a clear error message.
-
-### Fixed
-
-- **Per-change failure isolation in the dashboard collector**: A single malformed `.comet.yaml` or unreadable change directory no longer aborts the whole dashboard snapshot. The offending change is logged and skipped, and the rest of the sweep continues so the dashboard always renders.
-- **Defensive defaults in the Git snapshot frontend card**: A partial or stale `/api/dashboard` response (missing `recentCommits` / `dirtyFileList` / `dirtyFiles`) now renders an empty card instead of throwing a TypeError.
-- **Partial init failure summary**: `comet init` now keeps platforms with any failed component out of the final `Installed` section and names the failed component in `Failed`, so partial OpenCode setups no longer appear both installed and failed.
-
-### Security
-
-- **Path traversal guard for `verification_report`**: The `verification_report` field in `.comet.yaml` is now resolved with a containment check against the change directory. Absolute paths and `..` escapes are rejected and the parser falls back to the default `.comet/verify-result.md` location, preventing a malicious repository from coaxing the dashboard into reading arbitrary local files into its API response and UI.
-
-### Tests
-
-- **Dashboard module coverage**: Added unit tests for the tasks parser, verify parser (including absolute-path and `..`-traversal regressions), Git collector, snapshot collector (including per-change failure isolation), HTTP server (snapshot endpoint, static serving, path traversal guard, port fallback), and the `dashboard --json` command.
+- **Dependabot dependency alerts**: Pins the development test toolchain to patched Vite and esbuild versions across npm and pnpm lockfiles, clearing open Vite path traversal, launch-editor, and esbuild dev-server advisories without changing Comet runtime dependencies.
 
 ## What's Changed [0.3.9] - 2026-06-17
 
