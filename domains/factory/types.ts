@@ -1,16 +1,8 @@
+import type { WorkflowDefinitionInput, WorkflowProtocol } from '../workflow-contract/index.js';
+
 export interface FactoryCallChainItem {
   skill: string;
   preferenceIndex: number | null;
-}
-
-export interface FactoryStageName {
-  skill: string;
-  name: string;
-  recommendedName: string;
-  source: 'recommended' | 'custom';
-  phase?: string;
-  step?: string;
-  label?: string;
 }
 
 export interface FactoryCompositionStep {
@@ -91,17 +83,10 @@ export interface FactorySkillPackagePlan {
   goal: string;
   defaultLocale: string;
   callChain: FactoryCallChainItem[];
-  stageNames?: FactoryStageName[];
+  workflowDefinition?: WorkflowDefinitionInput;
+  workflowProtocol?: WorkflowProtocol;
   skillMaker?: {
     intent: 'customize-comet' | 'new-skill' | 'upgrade-existing';
-    baseTemplate?: { skill: 'comet'; profile: 'full' | 'hotfix' | 'tweak' };
-    templateExpansion?: {
-      retained: string[];
-      additions: string[];
-      replacements: string[];
-      disabled: string[];
-      rejected: string[];
-    };
   };
   composition?: FactoryComposition;
   resolvedSkills?: FactoryResolvedSkill[];

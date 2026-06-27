@@ -1,31 +1,31 @@
-# Eval Provider Reference
+# Benchmark Provider Reference
 
 ## Provider priority
 
-Prefer native `skill-creator` generation and Eval capabilities. If the native capability is
+Prefer native `skill-creator` generation and benchmark capabilities. If the native capability is
 unavailable, ask the user before fallback to the Comet fallback. Never enable fallback by default.
 
-## Eval choices
+## Benchmark choices
 
 Before any provider action, show:
 
 - `quick` estimated runs, covered components, and token workload.
 - `full` estimated runs, covered components, and token workload.
-- the three choices: `skip / quick / full Eval`.
+- the three choices: `skip / quick / full benchmark`.
 
-If Eval is skipped or fails, do not enter ready, generate an install candidate, or install/enable.
+If benchmark is skipped or fails, do not enter ready, generate an install candidate, or install/enable.
 
-For ordinary users, the Eval path remains single-purpose: daily evaluation goes through
-`comet eval`. `/comet-any` may internally call `comet bundle eval-plan` and
-`comet bundle eval-record` to plan and record evidence, but must not present them as replacement
-user-facing Eval commands.
+For ordinary users, the benchmark path remains single-purpose: daily evaluation goes through
+`comet eval`. `/comet-any` may internally call `comet bundle benchmark-plan` and
+`comet bundle benchmark-record` to plan and record evidence, but must not present them as
+replacement user-facing benchmark commands.
 
 ## Result recording
 
-The Eval provider must produce structured JSON, then record it with:
+The benchmark provider must produce structured JSON, then record it with:
 
 ```bash
-comet bundle eval-record <name> --result <file> --json
+comet bundle benchmark-record <name> --result <file> --json
 ```
 
 The result must bind to the current Bundle hash, cover every entry Skill, and include Bundle
@@ -33,7 +33,7 @@ compile and safety evidence. Old-hash evidence may remain on disk but cannot adv
 
 ## Human review
 
-Passing Eval still requires human approval. The review summary must include at least:
+Passing benchmark still requires human approval. The review summary must include at least:
 
 First run `comet publish review <name> --platform <reference-platform> --json`, then use its
 output to show:
@@ -55,13 +55,13 @@ output to show:
 - Whether `hooks/*.yaml` are treated only as portable hook descriptors until
   `comet publish distribute` compiles them for the target platform.
 - Capability gaps and executable disclosures.
-- Eval choice, token workload, and result summary.
+- benchmark choice, token workload, and result summary.
 - `Validate this Skill` and the next action so the user knows why the candidate can become ready
   or is blocked.
 
-Readiness blockers stop ready/install. If missing current-hash Eval evidence, missing human approval,
-required capability gaps, or unconfirmed executable disclosures remain, the flow must stop in
-review and cannot continue to ready.
+Readiness blockers stop ready/install. If missing current-hash benchmark evidence, missing human
+approval, required capability gaps, or unconfirmed executable disclosures remain, the flow must stop
+in review and cannot continue to ready.
 
 Only after explicit approval may the agent run `comet publish approve` and then generate the install
 candidate.

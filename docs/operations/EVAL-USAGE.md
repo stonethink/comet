@@ -1,24 +1,24 @@
-# Evaluate a Skill with `comet eval`
+# Benchmark a Skill with `comet eval`
 
 This document explains, from the user's point of view, how to evaluate a Skill in the current
 release. In normal usage, you do not need to understand pytest, task registry details, profiles,
 treatments, or Docker internals. The user-facing entry point is `comet eval`.
 
-## First understand where eval fits in Comet
+## First understand where `comet eval` fits in Comet
 
-`/comet-any` creates or optimizes a Skill, while `comet eval` verifies whether that Skill can be
+`/comet-any` creates or optimizes a Skill, while `comet eval` benchmarks whether that Skill can be
 discovered by the eval harness, run, and reported correctly. The current `/comet-any` flow also
-feeds eval results and project-level preference evidence into publish readiness: `preferenceHash`,
-the composition proposal, resolved Skill evidence, and Eval evidence must all match the current
-draft.
+feeds benchmark results and project-level preference evidence into publish readiness:
+`preferenceHash`, the composition proposal, resolved Skill evidence, and benchmark evidence must
+all match the current draft.
 
 Think about the flow like this:
 
 ```text
 /comet-any generates a Skill
   -> produces comet/eval.yaml
-  -> comet eval collect performs discovery precheck
-  -> comet eval run --html performs the real evaluation
+  -> comet eval --collect performs discovery precheck
+  -> comet eval --html performs the real evaluation
   -> /comet-any or comet publish reads the result and continues into readiness / review / publish / distribute
 ```
 
@@ -50,30 +50,30 @@ generated-skill/
 Then run these two commands:
 
 ```bash
-comet eval collect --manifest ./generated-skill/comet/eval.yaml
-comet eval run --manifest ./generated-skill/comet/eval.yaml --html
+comet eval ./generated-skill/comet/eval.yaml --collect
+comet eval ./generated-skill/comet/eval.yaml --html
 ```
 
-The first command, `collect`, only confirms whether tasks can be discovered. It is a low-cost
+The first command, `--collect`, only confirms whether tasks can be discovered. It is a low-cost
 precheck right after generation.
 
-The second command, `run --html`, performs the real evaluation and produces a browsable report.
+The second command, `--html`, performs the real evaluation and produces a browsable report.
 After it passes, `/comet-any` can use the result as publish evidence.
 
-## How Eval results enter publish readiness
+## How benchmark results enter publish readiness
 
-After `/comet-any` or the backend records Eval results, they are merged into publish readiness.
+After `/comet-any` or the backend records benchmark results, they are merged into publish readiness.
 What the user needs to know is just:
 
 1. Results from `comet eval` become evidence for `Publish readiness:`.
-2. If current-hash Eval evidence is missing, `User next steps:` must point to running Eval before
-   publish continues.
+2. If current-hash benchmark evidence is missing, `User next steps:` must point to running
+   `comet eval` before publish continues.
 
 The usual sequence is:
 
 ```bash
-comet eval collect --manifest ./generated-skill/comet/eval.yaml
-comet eval run --manifest ./generated-skill/comet/eval.yaml --html
+comet eval ./generated-skill/comet/eval.yaml --collect
+comet eval ./generated-skill/comet/eval.yaml --html
 comet publish review <name> --platform <reference-platform> --json
 ```
 
@@ -92,7 +92,7 @@ comet publish review <name> --platform <reference-platform> --json
 It should not start a full model evaluation first, and it should not spend long-running cost
 before manifest and discovery work.
 
-## What `run --html` prints
+## What `--html` prints
 
 During execution, the CLI prints a set of execution facts:
 
@@ -125,21 +125,21 @@ Users do not need to read low-level logs line by line. Start with:
 - whether the problem is path, manifest, or environment related
 - whether token / cost / duration look abnormal
 
-`comet eval run` surfaces failure attribution so the report groups failures under harness,
+`comet eval` surfaces failure attribution so the report groups failures under harness,
 workflow, task, model, and related categories. That attribution helps decide whether the next step
 is fixing the Skill, the eval config, or the environment.
 
-## How `/comet-any` uses Eval results
+## How `/comet-any` uses benchmark results
 
-From the user's point of view, after Eval finishes you can hand control back to `/comet-any` to
-continue. `/comet-any` merges Eval evidence into readiness:
+From the user's point of view, after `comet eval` finishes you can hand control back to
+`/comet-any` to continue. `/comet-any` merges benchmark evidence into readiness:
 
-- no Eval evidence: cannot publish
-- Eval failed: cannot publish
-- Eval evidence points to an old hash: cannot publish
+- no benchmark evidence: cannot publish
+- benchmark failed: cannot publish
+- benchmark evidence points to an old hash: cannot publish
 - `.comet/skill-preferences.yaml` changed while in `strict` mode: cannot publish; confirm or
   regenerate first
-- Eval passed and hash matches: continue into review / publish decisions
+- benchmark passed and hash matches: continue into review / publish decisions
 
 Users should not edit Bundle state manually, and they should not write report paths into internal
 JSON by hand. `/comet-any` records structured evidence through the Bundle backend.
@@ -150,7 +150,7 @@ If you do not yet have `comet/eval.yaml` and only have a local Skill directory, 
 smoke:
 
 ```bash
-comet eval run --skill-path ./my-skill --skill-name my-skill --quick
+comet eval ./my-skill --quick
 ```
 
 This is appropriate for early validation:
@@ -172,12 +172,12 @@ recommended to let `/comet-any` generate `comet/eval.yaml` and then use the mani
 
 The rule is simple:
 
-- if `comet/eval.yaml` exists: use `--manifest`
-- if you only have a local directory and are still in early debugging: use `--skill-path --quick`
-- if the Skill was generated by `/comet-any`: use `--manifest`
-- if you want publish readiness: use `--manifest`
+- if `comet/eval.yaml` exists: pass that file as the target
+- if you only have a local directory and are still in early debugging: pass the Skill directory with `--quick`
+- if the Skill was generated by `/comet-any`: pass its `comet/eval.yaml`
+- if you want publish readiness: pass its `comet/eval.yaml`
 
-Do not treat `--skill-path --quick` as the final publish evaluation.
+Do not treat a local Skill `--quick` smoke as the final publish evaluation.
 
 ## What to do when it fails
 
@@ -221,7 +221,7 @@ meets the runtime checks in `comet/checks.yaml`.
 If your question is "Can this Skill pass product evaluation?", use:
 
 ```bash
-comet eval run --manifest ./generated-skill/comet/eval.yaml --html
+comet eval ./generated-skill/comet/eval.yaml --html
 ```
 
 If your question is "Is this deterministic Skill Run missing artifacts or status?", then use:
@@ -235,13 +235,13 @@ comet skill check --change ./changes/demo --scope completion
 In practice, only remember these three points:
 
 1. If `/comet-any` generated the Skill, prefer `comet/eval.yaml`
-2. Run `collect` first, then `run --html`
-3. Eval results are publish readiness evidence, not the publish action itself
+2. Run `--collect` first, then `--html`
+3. Benchmark results are publish readiness evidence, not the publish action itself
 
 Recommended commands:
 
 ```bash
-comet eval collect --manifest ./generated-skill/comet/eval.yaml
-comet eval run --manifest ./generated-skill/comet/eval.yaml --html
+comet eval ./generated-skill/comet/eval.yaml --collect
+comet eval ./generated-skill/comet/eval.yaml --html
 comet publish review <name> --platform <reference-platform> --json
 ```

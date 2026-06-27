@@ -1,414 +1,111 @@
 ---
 name: comet-any
-description: "Use when the user wants to customize /comet, create a new Skill, upgrade an existing Skill, or express workflow changes as add Skill / replace Skill / turn off Skill while hiding backend complexity."
+description: "Use when the user wants to customize existing Comet Skills, create a new workflow Skill, upgrade an existing Skill, or orchestrate arbitrary Skills with Workflow Nodes, Skill Bindings, and Output Schemas."
 ---
 
 # Comet Any - Skill Maker
 
-`/comet-any` is the Comet Skill creation guide. The user only invokes this Skill and describes the
-workflow they want to create or upgrade. This Skill first resumes existing authoring state,
-provides a first-use guide, reads project-level preferences in `.comet/skill-preferences.yaml`,
-uses `find-skill` to resolve real local Skill contents, shows the Skill Maker confirmation page and
-waits for confirmation, then generates a stable composed Skill Bundle. After that it internally
-calls CLI backends for validation, install-candidate generation, and optional installation. CLI is
-the internal deterministic backend; the user only invokes this Skill.
-For ordinary users, the first layer is only three starting points: `Customize /comet`, `Create a new Skill`,
-and `Upgrade an existing Skill`; ordinary users do not need to understand Bundle, Factory, or composition,
-Phase Recipe, or template delta; those concepts only exist in internal implementation and audit evidence.
-When the user chooses `Customize /comet`, treat `/comet` as a protected boundary: `open / design / build / verify / archive`
-and the `.comet.yaml` state machine must not be rewritten; allowed changes are add Skill, replace Skill, and turn off Skill.
+`/comet-any` is the Comet Skill creation guide. The user describes the workflow they want; this Skill resolves real Skills, proposes a plan, waits for confirmation, generates a verifiable Comet-native Skill Bundle, and internally drives eval, review, publish readiness, and install preview.
 
-<IMPORTANT>
-Engine is the runtime semantic foundation. Generated workflows with multiple steps, recovery needs,
-guardrails, runtime checks, or script side effects must generate a stable composed Skill Bundle, not
-only a `SKILL.md` file. The stable composed Skill Bundle required capability set is
-`skills/scripts/rules/hooks/references`, and `scripts/rules/hooks` remain the required control
-plane instead of optional extras. A Bundle must include `SKILL.md`, `comet/skill.yaml`,
-`comet/guardrails.yaml`, `comet/checks.yaml`, `comet/eval.yaml`, entry Skills, internal stage
-Skills, `scripts`, `rules`, `hooks`, `reference`, and `bundle.yaml`. `hooks/*.yaml` are Comet
-portable hook descriptors and only become active after `comet publish distribute` compiles them into
-target platform configuration.
-In short, lightweight single-step Skills can skip Engine only when the user is told that Run recovery and
-runtime checks will be unavailable.
-</IMPORTANT>
+Ordinary users see three starting points:
 
-## References
+- `customize existing Comet Skills`: overlay the existing five phase Skills for `open / design / build / verify / archive` without modifying the `/comet` command itself.
+- `create a new workflow Skill`: generate a new `workflow-kernel` from the goal and candidate Skills.
+- `upgrade an existing Skill`: read existing Skills and add Workflow Nodes, Skill Bindings, Output Schemas, Guardrails, Handoffs, eval, and readiness.
 
-- `comet-any/reference/bundle-authoring.md`: Skill Factory backend, Factory metadata, and
-  Bundle/CLI lifecycle.
-- `comet-any/reference/eval-provider.md`: Eval choices, evidence format, review summaries, and
-  fallback gates.
+Bundle, Factory, and composition are backend audit terms, not the first-screen user model.
 
-## Hard Gates
+## Core Model
 
-- The user only invokes this Skill; do not make manual `comet bundle` or `comet skill` commands
-  the user-facing workflow.
-- CLI is the internal deterministic backend; do not ask the user to memorize Bundle subcommands.
-- The ordinary user first layer must be Skill Maker: `Customize /comet`, `Create a new Skill`,
-  `Upgrade an existing Skill`, and "add Skill / replace Skill / turn off Skill".
-- When the user chooses `Customize /comet`, explicitly preserve the `/comet` protected boundary:
-  `open / design / build / verify / archive`, `.comet.yaml`, decision points,
-  verify-result-transition, and archive-delta-sync cannot be replaced or removed.
-- Use `find-skill` to resolve real local Skills. Do not infer capability from names alone.
-- `.comet/skill-preferences.yaml` is the project-level preferences file and supports `advisory`
-  and `strict`; before generation, show the composition proposal with prefer/require sources,
-  missing or ambiguous Skills, deviation reasons, scripts/hooks disclosures, and record
-  `preferenceHash` after confirmation.
-- The confirmation page must show recommended stage names and editable name fields; users can set
-  multiple internal stage Skill names with `stageNames`.
-- Missing or ambiguous candidates must pause for user input. Never ignore them or choose for the
-  user.
-- Use the `comet bundle` CLI to maintain deterministic state. Do not hand-write
-  `.comet/bundle-*` state files.
-- Show Eval workload and token workload before asking the user to choose `skip / quick / full Eval`.
-- If Eval is skipped or fails, do not enter ready, generate an install candidate, or install/enable.
-- Missing Eval evidence cannot become ready.
-- In non-JSON output, explicitly show `Readiness:`, `Blockers:`, `Warnings:`, and `Evidence:` so
-  the user can directly understand readiness, blockers, warnings, evidence, and recovery clues.
-- Before ready, read the review summary readiness state. If unresolved candidates, missing
-  current-hash Eval evidence, missing current-hash human approval, capability gaps, or executable
-  disclosures remain, do not mark ready.
-- Human approval is required before ready; ask the user before installation.
-- Prefer native `skill-creator`; must ask the user before fallback to the Comet fallback.
+Every path compiles to one Workflow Contract:
+
+- `Workflow Node`: a resumable workflow node such as `open`, `design`, `plan`, `execute`, `subagent-execute`, `review`, `verify`, or `archive`.
+- `Node Responsibility`: the responsibility this Node owns in the Agent workflow, explaining why it exists, what it must produce, and whether it can be replaced.
+- `Skill Binding`: the implementation or helper Skill bound to a Node.
+- `Required Skill Call`: a Skill that must be called inside a Node without replacing the Node implementation. For example, `execute` and `subagent-execute` may require `elementui`, while `review` may require `whitebox-code-standard`.
+- `Output Schema`: the artifacts, state, or evidence a Node must produce. Scripts, eval, and readiness depend on Output Schemas, not Skill names.
+- `Guardrail`: a check that blocks or allows Node advancement.
+- `Handoff`: evidence returned by a subagent or cross-Node delegation.
+- `workflow-protocol.json`: the package's single runtime source of truth, with kind `comet-five-phase-overlay` or `workflow-kernel`.
+
+## Protected Boundary
+
+`comet-five-phase-overlay` preserves the Comet control flow and `.comet.yaml` state semantics. In ordinary mode:
+
+- `control` Nodes cannot be overridden: `open`, `execute`, `verify`, `archive`.
+- `producer` Nodes may be overridden: `design`, `plan`, but only when the replacement satisfies the matching Output Schema.
+- `handoff` and `guardrail` Nodes may require or augment Skills.
+- If the user insists on replacing a control Node, switch to advanced `workflow-kernel` and require a new state model, Output Schemas, and Guardrails.
+- Every Node must explain its responsibility; internal coordinates are not part of the user-facing workflow model.
 
 ## Steps
 
-### 1. Resume Existing Authoring State
+1. Resume state: internally run `comet bundle factory-guide --project . --json` and show a resume summary.
+2. Read preferences: load `.comet/skill-preferences.yaml`, then use `find-skill` to resolve real local Skills.
+3. Build proposal: express the goal as Workflow Nodes, Skill Bindings, Output Schemas, Guardrails, Handoffs, and Evidence.
+4. Show confirmation: list each Node, bound Skill, Required Skill Call, Output Schema, executable disclosure, and readiness impact.
+5. Wait for confirmation: do not write a Bundle draft before confirmation; pause for missing or ambiguous Skills.
+6. Initialize backend state: after confirmation, call `comet bundle factory-init <name> --file <plan.json> --confirmed-proposal --json`.
+7. Generate Comet-native Skill Bundle: output entry Skill, Node Skills, `reference/workflow-protocol.json`, scripts, rules, hooks, and `comet/eval.yaml`.
+8. Validate: show quick/full eval workload and run or record benchmark evidence; failed or skipped eval cannot become ready.
+9. Review readiness: read `comet publish review <name> --platform <reference-platform> --json` and show `Readiness:`, `Blockers:`, `Warnings:`, and `Evidence:`.
+10. Publish and install preview: publish only after human approval; installation must start with preview and show `No files were written`.
 
-Unless the user explicitly says to start over or abandon previous state, always try to resume the
-existing flow first. The first deterministic backend call should be:
+## Plan Example
 
-```bash
-comet bundle factory-guide --project . --json
+Component-library and whitebox-review requirements should produce a plan like:
+
+```json
+{
+  "goal": "Customize existing Comet Skills with component and whitebox review requirements.",
+  "skillMakerIntent": "customize-comet",
+  "workflow": {
+    "kind": "comet-five-phase-overlay",
+    "name": "team-comet",
+    "goal": "Require component and whitebox review Skills.",
+    "nodes": {
+      "execute": {
+        "requiredSkillCalls": [
+          {
+            "skill": "elementui",
+            "reason": "Use project component library during direct implementation."
+          }
+        ]
+      },
+      "subagent-execute": {
+        "requiredSkillCalls": [
+          {
+            "skill": "elementui",
+            "scope": "handoff"
+          }
+        ]
+      },
+      "review": {
+        "requiredSkillCalls": [
+          {
+            "skill": "whitebox-code-standard",
+            "scope": "review"
+          }
+        ]
+      }
+    }
+  }
+}
 ```
 
-If the guide or later state returns recoverable entries, show a `resume summary` first so
-`resumeSummary`, current blockers, and user next steps appear together instead of jumping into a
-new flow.
-
-If the user has not provided `<name>`, then run:
-
-```bash
-comet publish list --json
-```
-
-If recoverable Factory / Bundle authoring states exist, show each name, status, next action, and
-reason, then ask which one to continue. Do not ask the user to inspect
-`.comet/bundle-authoring/` manually.
-
-After the user provides `<name>` or chooses an existing entry, run:
-
-```bash
-comet publish status <name> --json
-```
-
-If state exists, resume from it; otherwise continue to the next step and ask whether to derive the
-Skill/Bundle name from the target workflow. When you need to explain a blocker in user-facing
-text, surface `Current step`, `Suggested user command`, the reason, and the suggested command
-directly. Drop back to `comet bundle status` only when debugging the backend.
-
-### 2. Run first-use guide
-
-For first-time use, treat `comet bundle factory-guide --project . --json` as the data source for
-the first-use guide and explain:
-
-- `.comet/skill-preferences.yaml` is the project-level preferences file.
-- `preference`, `inventory`, `resumable`, `nextQuestions`, and `userMessage` are the important
-  guide fields.
-- Recommended preferences may be written to `.comet/skill-preferences.yaml` only after explicit
-  user confirmation.
-
-If this is the user's first `/comet-any` run, explicitly say that CLI is the internal deterministic
-backend and the user only invokes this Skill.
-
-### 3. Choose starting point and language
-
-Ask the user to choose:
-
-- `Customize /comet`: make incremental changes inside the `/comet` protected boundary; only add Skill,
-  replace Skill, or turn off Skill.
-- `Create a new Skill`: create a new Comet-native Skill from the user's target.
-- `Upgrade an existing Skill`: read existing Skills or candidate Skills and upgrade them into a new
-  Comet-native Skill.
-
-Also confirm the default language and locales. Record at least the default locale; for multilingual
-Skills, explain which files are overridden by locale overlays.
-
-### 4. Read preferences and resolve real Skills
-
-Read project-level preferences from `.comet/skill-preferences.yaml` first. If the file is missing,
-scan the platform Skill inventory, group reusable capabilities, recommend default preferences, and
-ask whether to save them as project-level preferences. If it exists, use `prefer` and `require`
-and run:
-
-```bash
-comet bundle candidates --json
-```
-
-Then pass candidates through `find-skill` to resolve real sources. `advisory` may add
-target-needed Skills when the proposal explains why; `strict` must block required missing Skills,
-ambiguity, or denied scripts/hooks. Do not infer capability from names alone; read the final
-candidates' real `SKILL.md`, direct references, rules, scripts, and hooks.
-
-### 5. Resolve missing or ambiguous candidates
-
-List every `missing` and `ambiguous` item, then pause and ask the user how to handle it. Do not
-silently ignore missing candidates, and do not choose among multiple sources on the user's behalf.
-If the backend returns `unresolved factory Skill candidates`, return to this step and resolve the
-missing or ambiguous items before generation continues.
-
-After the user chooses a concrete source, update state through the internal backend:
-
-```bash
-comet bundle factory-resolve <name> --candidate <query> --source <root-or-hash> --json
-```
-
-When the user explicitly agrees to ignore a missing preference, record the reason:
-
-```bash
-comet bundle factory-resolve <name> --candidate <query> --ignore-missing --reason <reason> --json
-```
-
-### 6. Read real candidate implementations
-
-Read candidate `SKILL.md`, then read referenced references, rules, scripts, and hooks as needed.
-This step only reads real implementation files; never execute candidate scripts.
-
-### 7. Show the Skill Maker proposal and wait for confirmation
-
-Start from `.comet/skill-preferences.yaml` `prefer`/`require` entries and show the Skill Maker confirmation page with each Skill's `preferenceIndex`, source, hash, role, and call order.
-
-The proposal must identify which Skills came from project-level preferences, which were added by
-target semantics, which are missing or ambiguous, whether the plan deviates from the preferred
-order, and what executable disclosures scripts/hooks introduce. Before confirmation, do not
-generate a Bundle draft. If the starting point is `Customize /comet`, express the proposal as
-add Skill / replace Skill / turn off Skill changes to `/comet` instead of exposing Bundle, Factory,
-or composition terms to the user. The proposal must list each stage's recommended stage names,
-editable name fields, final internal stage Skill name, and source Skill. The user can accept the
-recommendation or provide custom names through `stageNames`. The user may adjust preferences,
-choose ambiguous sources, remove missing Skills, switch `advisory`/`strict`, or cancel. Explicitly
-say that the current screen is the Skill Maker confirmation page. In other words, show the composition confirmation page before any
-draft write. If the proposal deviates from the preferred order, the review and proposal summaries
-must explain why.
-
-The user must choose one of these three actions on the composition confirmation page:
-
-1. `confirm-generate` - confirm generation, then call
-   `comet bundle factory-init <name> --file <plan> --confirmed-proposal`
-2. `revise-proposal` - change the goal, preferences, candidates, or control-plane strategy and
-   re-run the proposal
-3. `cancel` - do not write Bundle state
-
-If the proposal still has missing, ambiguous, or composition blockers, do not call
-`confirm-generate`. Only initialize an unresolved Factory state without `--confirmed-proposal`
-when backend state is needed for `factory-resolve`; after candidates and composition are resolved,
-show the generation-ready composition again and call
-`comet bundle factory-init <name> --file <plan> --confirmed-proposal` to persist confirmation
-metadata before `factory-generate`.
-
-### 8. Clarify the Skill Factory goal
-
-Confirm with the user:
-
-- The new Skill's goal, usage scenario, and success criteria.
-- Which pieces are entry Skill surfaces and which are internal Skill components.
-- Shared resources, security boundaries, and Hook/script side effects.
-- Target platforms, required/optional capabilities, and capability-gap strategy.
-- Whether Engine, runner recovery, and runtime checks are required.
-
-### 9. Initialize the draft and Factory metadata through CLI
-
-First produce a structured plan file. Before writing a Bundle draft, run the dry-run proposal:
-
-```bash
-comet bundle factory-propose <name> --file <plan.json> --json
-```
-
-Show the proposal composition, `preferenceHash`, blockers, warnings, resolved Skill evidence,
-`userSummary`, `actions`, `proposalHash`, and planned file list to the user. After confirmation,
-run:
-
-```bash
-comet bundle factory-init <name> --file <plan.json> --confirmed-proposal --json
-```
-
-`proposalHash` must be recorded and verified by Factory metadata; it is not a user-supplied CLI
-parameter.
-
-If an unresolved Factory state was created earlier for `factory-resolve`, run the same
-`factory-init --confirmed-proposal` command again after candidate/composition blockers are resolved.
-The backend records confirmation metadata from the current resolved state; without that metadata,
-`factory-generate`, review, and publish all refuse to continue.
-
-This command must handle both responsibilities:
-
-- Create the draft in create/optimize mode when no draft exists yet.
-- Write preferred order, required Skills, `advisory`/`strict` mode, policies, `preferenceHash`,
-  resolved real Skills, default call chain, deviation reasons, and Engine mode into Factory
-  metadata so the CLI maintains deterministic state.
-- Persist the normalized plan to `.comet/bundle-factory-plans/<name>/plan.json` and record
-  `planHash` in metadata for recovery, review, and audit.
-
-Only when resuming old state, debugging backend behavior, or explicitly optimizing an existing
-Bundle should the Skill use these commands separately:
-
-```bash
-comet bundle draft create <name> --json
-comet bundle draft optimize <bundle> --json
-comet bundle status <name> --json
-```
-
-### 10. Generate the Comet-native Skill source
-
-Prefer native `skill-creator` to generate or optimize the Comet-native Skill. If the native
-creator is unavailable, explain the difference and risk first, then ask whether the user allows
-the Comet fallback.
-
-Generate entry Skill surfaces, internal Skills, references, scripts, rules, and hooks. The user
-does not need to run `comet bundle` or `comet skill` manually; those are internal backend steps.
-Multi-step workflows must not generate only one `SKILL.md`: the entry Skill owns the main entry
-point and recovery guidance, every stage must generate an internal stage Skill, and
-`comet/skill.yaml` must invoke those internal Skills.
-
-Generated output must include real Skill evidence plus a composed workflow section, and write
-structured evidence to `reference/resolved-skills.json`. The summary should cite resolved Skill
-names, sources, descriptions, hashes, and excerpts distilled from real `SKILL.md` bodies.
-`resolved-skills.json` must include `sourceSummaries` to prove composition used real local content
-instead of name-only guesses.
-
-### 11. Generate the Engine Package
-
-For multi-step or higher-risk output, generate `comet/skill.yaml`, `comet/guardrails.yaml`,
-`comet/checks.yaml`, and `comet/eval.yaml`.
-
-The Engine Package must match the call chain, guardrails, runtime checks, the
-scripts/rules/hooks control plane, and script side-effect declarations. Engine-enabled generated
-Skills must also write `comet/eval.yaml` using the `authoring-skill` profile and the
-`authoring-skill-smoke` quick eval.
-
-When running local evals internally, prefer the unified entry instead of hand-built pytest
-commands:
-
-```bash
-comet eval collect --manifest <path-to-comet/eval.yaml>
-comet eval run --manifest <path-to-comet/eval.yaml> --html
-```
-
-If `runnerMode` is `standalone`, the generated Skill should instruct the Agent to store run state
-under `.comet/runs/<run-id>`. When persistent execution is needed, the internal runner entry is:
-
-```bash
-comet skill run <skill> --run-id <run-id> --json
-comet skill resume --run-id <run-id> --status succeeded --summary <summary> --json
-comet skill check --run-id <run-id> --scope completion --json
-```
-
-### 12. Compile and validate
-
-Run at least one reference-platform compile:
-
-```bash
-comet bundle compile <name> --platform <id> --json
-```
-
-If there are capability gaps or executable disclosures, show them to the user. Required capability
-gaps block that platform; optional capability gaps require the user to explicitly choose skip.
-
-### 13. Show Eval workload and ask skip/quick/full
-
-Run:
-
-```bash
-comet bundle eval-plan <name> --level quick --json
-comet bundle eval-plan <name> --level full --json
-```
-
-Explain quick/full token workload, estimated runs, and coverage. Then ask the user to choose
-`skip / quick / full Eval`. If the user chooses skip, keep the state in draft and do not continue
-to ready.
-
-### 14. Record Eval evidence
-
-After the user chooses quick/full, call the Eval provider, produce a structured result file, then
-run:
-
-```bash
-comet bundle eval-record <name> --result <file> --json
-```
-
-If Eval fails or the hash does not match, stop and return to draft repair.
-
-### Show user-facing validation summary and wait for explicit approval
-
-First run:
-
-```bash
-comet publish review <name> --platform <reference-platform> --json
-```
-
-Use that summary to show entry Skills, internal Skills, `planHash`, `preferenceHash`,
-project-level preference mode, real Skill evidence, recommended call order, deviations from the
-preferred order, capability gaps, executable disclosures, quick/full Eval workload, Eval result,
-and target platforms. If the call chain deviates from the preferred order, explain why.
-
-The user-facing validation summary must be shown directly and must include at least
-`Validate this Skill`, `Readiness:`, `Blockers:`, `Warnings:`, and `Evidence:`.
-In non-JSON output, read those fields line by line. When `Readiness: blocked`, resolve candidate
-recovery, Eval, or review blockers before continuing. If readiness is not
-`publishable`, or if missing Eval evidence is reported, stop before ready.
-
-Approve:
-
-```bash
-comet publish approve <name> --reviewer <reviewer> --json
-```
-
-Reject:
-
-```bash
-comet bundle review <name> --reject --reviewer <reviewer> --json
-```
-
-### 15. Generate install candidate
-
-Only after the current hash has passed Eval and received human approval, run:
-
-```bash
-comet publish run <name> --platform <reference-platform> --json
-```
-
-### 16. Install preview
-
-Before real installation, first run:
-
-```bash
-comet publish distribute <name> --platform <id> --scope project --preview --json
-```
-
-Show `Install preview`, planned files, unsupported capability, executable disclosures, and
-`No files were written` directly to the user. Only after the user confirms the planned files,
-unsupported capability, and executable disclosures in preview may the Skill remove `--preview` and
-execute real installation.
-
-### 17. Ask before executing installation
-
-After ready, ask the user whether to install/enable. Never install automatically.
-
-If the user agrees, first show platform capability gaps and executable disclosures. Hooks/scripts
-require confirmation before installation. Then run:
-
-```bash
-comet publish distribute <name> --platform <id> --scope project --json
-```
-
-If the user explicitly confirms executable disclosures, add:
-
-```bash
---confirm-executables
-```
-
-If the user explicitly chooses to skip an optional capability, add:
-
-```bash
---skip-capability <capability>
-```
+## Hard Rules
+
+- Show the proposal confirmation page before generation.
+- A Required Skill Call does not replace Node implementation.
+- A producer override must declare the Output Schema it satisfies.
+- Ordinary mode must not override control Nodes.
+- Eval, review, and publish readiness must read the same `workflow-protocol.json`.
+- Handoff must require subagents to load Required Skill Calls and return evidence.
+- Scripts read protocol and state; they do not use Skill names as validation authority.
+- Ask before installation. Never install automatically.
+
+## References
+
+- `comet-any/reference/bundle-authoring.md`
+- `comet-any/reference/authoring-subagents.md`
+- `comet-any/reference/eval-provider.md`

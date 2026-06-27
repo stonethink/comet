@@ -75,6 +75,64 @@ describe('eval command', () => {
     );
   });
 
+  it('runs a local Skill target directly without requiring --skill-path', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    try {
+      const { evalCommand } = await import('../../app/commands/eval.js');
+      await evalCommand('D:/tmp/demo-skill', {
+        project: 'D:/Project/Comet',
+        quick: true,
+      });
+    } finally {
+      log.mockRestore();
+    }
+
+    expect(execFileSync).toHaveBeenCalledWith(
+      'uv',
+      [
+        'run',
+        'pytest',
+        'local/tests/tasks/test_tasks.py',
+        '--task=generic-skill-smoke',
+        `--skill-path=${'D:\\tmp\\demo-skill'}`,
+        '--skill-name=demo-skill',
+        '-v',
+      ],
+      {
+        cwd: 'D:\\Project\\Comet\\eval',
+        stdio: 'inherit',
+      },
+    );
+  });
+
+  it('collects a manifest target directly with --collect', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    try {
+      const { evalCommand } = await import('../../app/commands/eval.js');
+      await evalCommand('D:/tmp/demo/comet/eval.yaml', {
+        project: 'D:/Project/Comet',
+        collect: true,
+      });
+    } finally {
+      log.mockRestore();
+    }
+
+    expect(execFileSync).toHaveBeenCalledWith(
+      'uv',
+      [
+        'run',
+        'pytest',
+        'local/tests/tasks/test_tasks.py',
+        `--eval-manifest=${'D:\\tmp\\demo\\comet\\eval.yaml'}`,
+        '--collect-only',
+      ],
+      {
+        cwd: 'D:\\Project\\Comet\\eval',
+        stdio: 'inherit',
+      },
+    );
+  });
+
   it('uses collect-only discovery for manifest smoke checks', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     try {
@@ -138,6 +196,19 @@ describe('eval command', () => {
         project: 'D:/Project/Comet',
       }),
     ).rejects.toThrow('Pass one of --manifest or --skill-path');
+
+    expect(execFileSync).not.toHaveBeenCalled();
+  });
+
+  it('rejects mixing the direct target with explicit target options', async () => {
+    const { evalCommand } = await import('../../app/commands/eval.js');
+
+    await expect(
+      evalCommand('D:/tmp/demo-skill', {
+        project: 'D:/Project/Comet',
+        manifest: 'D:/tmp/demo/comet/eval.yaml',
+      }),
+    ).rejects.toThrow('Pass either a target or explicit --manifest/--skill-path options');
 
     expect(execFileSync).not.toHaveBeenCalled();
   });

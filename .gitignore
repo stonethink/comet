@@ -21,6 +21,9 @@ node_modules/
 # TypeScript cache
 *.tsbuildinfo
 
+# Local temporary workspace
+.tmp/
+
 # Build output
 dist/
 

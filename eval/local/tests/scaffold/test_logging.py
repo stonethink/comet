@@ -124,6 +124,23 @@ def test_rubric_columns_accept_profile_dimensions():
     ]
 
 
+def test_rubric_average_excludes_weighted_score():
+    columns = rubric_columns(("completion", "skill_invocation", "weighted_score"))
+    avg_column = next(column for column in columns if column.name == "RubricAvg")
+    result = TreatmentResult(
+        name="COMET_FULL",
+        passed=True,
+        checks_passed=[
+            "[RUBRIC] completion: 0.00 - failed",
+            "[RUBRIC] skill_invocation: 1.00 - ok",
+            "[RUBRIC] weighted_score: 1.00",
+        ],
+        checks_failed=[],
+    )
+
+    assert avg_column.get_value(result) == "0.50"
+
+
 def test_treatment_result_exposes_eval_metadata():
     result = TreatmentResult(
         name="DYNAMIC_SKILL",

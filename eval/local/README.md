@@ -26,6 +26,19 @@ uv run pytest local/tests/tasks/test_tasks.py \
   --profile=authoring-skill -v
 ```
 
+Generated Skill route conformance run:
+
+```bash
+uv run pytest local/tests/tasks/test_tasks.py \
+  --task=workflow-route-conformance \
+  --eval-manifest=/path/to/generated-skill/comet/eval.yaml \
+  --profile=authoring-skill -v
+```
+
+When `--eval-manifest` points at a `/comet-any` package, the runner copies the
+entry Skill package and generated internal Node Skills into the isolated eval
+workspace before Docker validation.
+
 Task index:
 
 ```text

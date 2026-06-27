@@ -102,6 +102,9 @@ def test_dynamic_treatment_config_from_eval_manifest(tmp_path: Path):
     package = tmp_path / "manifest-skill"
     package.mkdir()
     (package / "SKILL.md").write_text("---\nname: manifest-skill\n---\n\nBody.", encoding="utf-8")
+    stage = tmp_path / "manifest-skill-open"
+    stage.mkdir()
+    (stage / "SKILL.md").write_text("---\nname: manifest-skill-open\n---\n\nStage.", encoding="utf-8")
     comet_dir = package / "comet"
     comet_dir.mkdir()
     manifest = comet_dir / "eval.yaml"
@@ -118,8 +121,15 @@ skill:
 evaluation:
   recommendedTasks:
     - generic-skill-smoke
+    - workflow-route-conformance
   requiredSkills:
     - manifest-skill
+  generatedNodeSkills:
+    - manifest-skill-open
+  routeConformance:
+    task: workflow-route-conformance
+    expectedNodeOrder:
+      - open
 interaction:
   mode: none
 """,
@@ -136,3 +146,33 @@ interaction:
     assert cfg.skills[0]["name"] == "manifest-skill"
     assert cfg.skills[0]["source"] == "path"
     assert cfg.skills[0]["profile"] == "generic"
+    assert cfg.skills[0]["generated_node_skills"] == ["manifest-skill-open"]
+    assert cfg.skills[0]["route_conformance_expected_node_order"] == ["open"]
+    assert cfg.skills[1]["name"] == "manifest-skill-open"
+    assert cfg.skills[1]["path"] == str(stage.resolve())
+
+
+def test_snapshot_dynamic_skill_package_copies_package_and_node_skills(tmp_path: Path):
+    source_root = tmp_path / "source"
+    package = source_root / "manifest-skill"
+    package.mkdir(parents=True)
+    (package / "SKILL.md").write_text("---\nname: manifest-skill\n---\n\nBody.", encoding="utf-8")
+    (package / "reference").mkdir()
+    (package / "reference" / "workflow-protocol.json").write_text("{}", encoding="utf-8")
+    stage = source_root / "manifest-skill-open"
+    stage.mkdir()
+    (stage / "SKILL.md").write_text("---\nname: manifest-skill-open\n---\n\nStage.", encoding="utf-8")
+    test_dir = tmp_path / "workspace"
+    test_dir.mkdir()
+
+    relative_package = conftest._snapshot_dynamic_skill_package(
+        test_dir,
+        {
+            "path": str(package),
+            "generated_node_skills": ["manifest-skill-open"],
+        },
+    )
+
+    assert relative_package == "_eval_target_skills/manifest-skill"
+    assert (test_dir / relative_package / "SKILL.md").exists()
+    assert (test_dir / "_eval_target_skills" / "manifest-skill-open" / "SKILL.md").exists()

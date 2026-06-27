@@ -32,6 +32,7 @@ describe('repository layout registry', () => {
       'factory',
       'integrations',
       'skill',
+      'workflow-contract',
     ]);
     expect(layout.platformModules).toEqual(['fs', 'install', 'paths', 'process', 'version']);
     expect(layout.scriptModules).toEqual([

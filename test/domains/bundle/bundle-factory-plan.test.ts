@@ -1,191 +1,167 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { promises as fs } from 'fs';
+import os from 'os';
+import path from 'path';
 import {
   normalizeBundleFactoryPlan,
-  type BundleFactoryPlanFile,
+  readBundleFactoryPlan,
 } from '../../../domains/bundle/factory-plan.js';
 
 describe('bundle factory plan normalization', () => {
-  it('merges project preferences with callChain order and defaults', () => {
-    const normalized = normalizeBundleFactoryPlan({
-      plan: {
-        goal: 'Create a review-oriented Comet-native Skill.',
-        callChain: ['brainstorming', 'writing-plans', 'requesting-code-review'],
-      },
-      projectPreferredSkills: ['brainstorming', 'writing-plans'],
-    });
+  let root: string;
 
-    expect(normalized).toEqual({
-      goal: 'Create a review-oriented Comet-native Skill.',
-      skillMakerIntent: 'new-skill',
-      preferredSkills: ['brainstorming', 'writing-plans', 'requesting-code-review'],
-      callChain: [
-        { skill: 'brainstorming', preferenceIndex: 0 },
-        { skill: 'writing-plans', preferenceIndex: 1 },
-        { skill: 'requesting-code-review', preferenceIndex: 2 },
-      ],
-      deviations: [],
-      engineMode: 'deterministic',
-      runnerMode: 'standalone',
-      mode: 'create',
-      creator: 'native',
-      defaultLocale: 'en',
-      locales: ['en'],
-      engineEnabled: true,
-    });
+  beforeEach(async () => {
+    root = await fs.mkdtemp(path.join(os.tmpdir(), 'comet-factory-plan-'));
   });
 
-  it('preserves explicit preference indexes and explicit plan overrides', () => {
-    const plan: BundleFactoryPlanFile = {
-      goal: 'Optimize an existing Bundle.',
-      preferredSkills: ['brainstorming', 'writing-plans'],
-      callChain: [{ skill: 'writing-plans', preferenceIndex: 5 }, { skill: 'brainstorming' }],
-      deviations: [
-        {
-          skill: 'writing-plans',
-          expectedIndex: 1,
-          actualIndex: 0,
-          reason: 'The user already supplied a concrete workflow.',
-        },
-      ],
-      engineMode: 'none',
-      runnerMode: 'change',
-      mode: 'optimize',
-      sourceRoot: './existing-bundle',
-      creator: 'comet-fallback',
-      defaultLocale: 'zh',
-      locales: ['zh', 'en'],
-      engineEnabled: false,
-    };
-
-    const normalized = normalizeBundleFactoryPlan({ plan });
-
-    expect(normalized).toEqual({
-      goal: 'Optimize an existing Bundle.',
-      skillMakerIntent: 'upgrade-existing',
-      preferredSkills: ['brainstorming', 'writing-plans'],
-      callChain: [
-        { skill: 'writing-plans', preferenceIndex: 5 },
-        { skill: 'brainstorming', preferenceIndex: 0 },
-      ],
-      deviations: [
-        {
-          skill: 'writing-plans',
-          expectedIndex: 1,
-          actualIndex: 0,
-          reason: 'The user already supplied a concrete workflow.',
-        },
-      ],
-      engineMode: 'none',
-      runnerMode: 'change',
-      mode: 'optimize',
-      sourceRoot: './existing-bundle',
-      creator: 'comet-fallback',
-      defaultLocale: 'zh',
-      locales: ['zh', 'en'],
-      engineEnabled: false,
-    });
+  afterEach(async () => {
+    await fs.rm(root, { recursive: true, force: true });
   });
 
-  it('normalizes user-provided stage names for generated internal Skills', () => {
+  it('normalizes workflow contracts as the primary factory plan input', () => {
     const normalized = normalizeBundleFactoryPlan({
       plan: {
-        goal: 'Customize /comet with a named grill stage.',
-        callChain: ['comet-design', 'grill-me', 'comet-build'],
-        stageNames: [
-          {
-            skill: 'grill-me',
-            name: 'comet-grill-flow-design-pressure-test',
-            phase: 'design',
-            label: 'Design pressure test',
+        goal: 'Customize existing Comet Skills with team execution requirements.',
+        skillMakerIntent: 'customize-comet',
+        workflow: {
+          kind: 'comet-five-phase-overlay',
+          name: 'team-comet',
+          goal: 'Require component and whitebox Skills without replacing Comet control nodes.',
+          nodes: {
+            execute: {
+              requiredSkillCalls: [
+                {
+                  skill: 'elementui',
+                  reason: 'Use the project component library during implementation.',
+                },
+              ],
+            },
+            'subagent-execute': {
+              requiredSkillCalls: [{ skill: 'elementui', scope: 'handoff' }],
+            },
+            review: {
+              requiredSkillCalls: [{ skill: 'whitebox-code-standard', scope: 'review' }],
+            },
           },
-        ],
+        },
       },
+      projectPreferredSkills: ['elementui'],
     });
 
-    expect(normalized.stageNameOverrides).toEqual([
-      {
-        skill: 'grill-me',
-        name: 'comet-grill-flow-design-pressure-test',
-        phase: 'design',
-        label: 'Design pressure test',
-      },
-    ]);
+    expect(normalized.workflowProtocol.kind).toBe('comet-five-phase-overlay');
+    expect(normalized.workflowProtocol.nodes.find((node) => node.id === 'execute')).toMatchObject({
+      requiredSkillCalls: [expect.objectContaining({ skill: 'elementui' })],
+    });
+    expect(normalized.preferredSkills).toEqual(
+      expect.arrayContaining(['elementui', 'whitebox-code-standard', 'comet-build']),
+    );
+    expect(normalized.callChain.map((item) => item.skill)).toEqual(
+      expect.arrayContaining(['elementui', 'whitebox-code-standard']),
+    );
   });
 
-  it('rejects invalid or duplicate custom stage names before proposal generation', () => {
-    expect(() =>
-      normalizeBundleFactoryPlan({
-        plan: {
-          goal: 'Customize /comet with duplicate stage names.',
-          callChain: ['comet-design', 'grill-me'],
-          stageNames: [
-            { skill: 'comet-design', name: 'duplicate-stage' },
-            { skill: 'grill-me', name: 'duplicate-stage' },
+  it('normalizes workflow-kernel plans with custom Nodes and Output Schemas', () => {
+    const normalized = normalizeBundleFactoryPlan({
+      plan: {
+        goal: 'Create a research and writing Skill.',
+        workflow: {
+          kind: 'workflow-kernel',
+          name: 'research-writer',
+          goal: 'Research, write, and review a document.',
+          customNodes: [
+            {
+              id: 'research',
+              label: 'Research',
+              kind: 'producer',
+              responsibility: 'Collect research notes for the writing workflow.',
+              implementation: { skill: 'research-skill', operation: 'default', scope: 'main' },
+              requiredSkillCalls: [{ skill: 'domain-design', reason: 'Use domain notes.' }],
+              operations: ['require', 'augment', 'override'],
+              outputSchemas: ['research.notes.v1'],
+              guardrails: [
+                { id: 'notes', label: 'Research notes exist', validation: 'artifact-exists' },
+              ],
+            },
+          ],
+          outputSchemas: [
+            {
+              id: 'research.notes.v1',
+              description: 'Research notes.',
+              artifacts: [
+                {
+                  id: 'notes',
+                  kind: 'file',
+                  required: true,
+                  paths: ['notes/*.md'],
+                  validations: ['artifact-exists'],
+                },
+              ],
+              evidence: [{ id: 'summary', required: true }],
+            },
           ],
         },
-      }),
-    ).toThrow(/duplicate stage name/iu);
-
-    expect(() =>
-      normalizeBundleFactoryPlan({
-        plan: {
-          goal: 'Customize /comet with invalid stage names.',
-          callChain: ['comet-design'],
-          stageNames: [{ skill: 'comet-design', name: 'Bad Stage Name' }],
-        },
-      }),
-    ).toThrow(/invalid stage name/iu);
-  });
-
-  it('rejects optimize mode without sourceRoot', () => {
-    expect(() =>
-      normalizeBundleFactoryPlan({
-        plan: {
-          goal: 'Optimize an existing Bundle.',
-          mode: 'optimize',
-          callChain: ['brainstorming'],
-        },
-      }),
-    ).toThrow(/sourceRoot/i);
-  });
-
-  it('expands derive mode from the comet base template without changing persisted state mode', () => {
-    const normalized = normalizeBundleFactoryPlan({
-      plan: {
-        goal: 'Customize /comet with security review.',
-        mode: 'derive' as never,
-        baseTemplate: { skill: 'comet', profile: 'full' } as never,
-        templateDelta: {
-          add: [{ phase: 'verify', position: 'before', skill: 'security-review' }],
-          replace: [{ phase: 'build', step: 'writing-plans', skill: 'team-planning' }],
-          disable: [{ phase: 'build', step: 'build-review' }],
-        } as never,
-      } as never,
+      },
     });
 
-    expect(normalized).toMatchObject({
-      skillMakerIntent: 'customize-comet',
-      baseTemplate: { skill: 'comet', profile: 'full' },
-      templateDelta: {
-        add: [{ phase: 'verify', position: 'before', skill: 'security-review' }],
-        replace: [{ phase: 'build', step: 'writing-plans', skill: 'team-planning' }],
-        disable: [{ phase: 'build', step: 'build-review' }],
-      },
-      templateExpansion: {
-        additions: ['verify before: security-review'],
-        replacements: ['build writing-plans: writing-plans -> team-planning'],
-        disabled: ['build build-review'],
-      },
-      mode: 'create',
-    });
+    expect(normalized.skillMakerIntent).toBe('new-skill');
+    expect(normalized.workflowProtocol.nodes.map((node) => node.id)).toEqual(['research']);
     expect(normalized.callChain.map((item) => item.skill)).toEqual([
-      'comet-open',
-      'comet-design',
-      'team-planning',
-      'comet-build',
-      'security-review',
-      'comet-verify',
-      'comet-archive',
+      'research-skill',
+      'domain-design',
     ]);
+  });
+
+  it('rejects unknown factory plan fields', async () => {
+    const file = path.join(root, 'unknown-plan.json');
+    await fs.writeFile(
+      file,
+      JSON.stringify(
+        {
+          goal: 'Plan with an unknown field.',
+          workflow: {
+            kind: 'workflow-kernel',
+            name: 'unknown-plan',
+            goal: 'Plan with an unknown field.',
+            customNodes: [],
+            outputSchemas: [],
+          },
+          unexpected: true,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    await expect(readBundleFactoryPlan(file)).rejects.toThrow(/unknown fields.*unexpected/iu);
+  });
+
+  it('requires sourceRoot for optimize mode', () => {
+    expect(() =>
+      normalizeBundleFactoryPlan({
+        plan: {
+          mode: 'optimize',
+          goal: 'Upgrade an existing Skill.',
+          workflow: {
+            kind: 'workflow-kernel',
+            name: 'upgrade-skill',
+            goal: 'Upgrade an existing Skill.',
+            customNodes: [
+              {
+                id: 'review',
+                label: 'Review',
+                kind: 'guardrail',
+                responsibility: 'Review the upgraded Skill before it is considered ready.',
+                implementation: { skill: 'review-skill', operation: 'default', scope: 'review' },
+                operations: ['require', 'augment'],
+                outputSchemas: [],
+                guardrails: [],
+              },
+            ],
+            outputSchemas: [],
+          },
+        },
+      }),
+    ).toThrow(/sourceRoot/iu);
   });
 });

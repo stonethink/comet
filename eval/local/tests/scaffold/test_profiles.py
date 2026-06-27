@@ -91,16 +91,46 @@ def test_authoring_profile_scores_generated_package_and_engine_contract(tmp_path
     package = tmp_path / "authoring-skill"
     (package / "reference").mkdir(parents=True)
     (package / "comet").mkdir(parents=True)
+    node_skill = tmp_path / "authoring-skill-open"
+    node_skill.mkdir()
     (package / "SKILL.md").write_text(
-        "# Demo\n\n## 调用链\n- step\n\n## 停止点\n- stop here\n",
+        "# Demo\n\n## Workflow Nodes\n- `authoring-skill-open`\n\n## 用户停顿点\n- Confirm before exit.\n\n## 自动推进与恢复\n- scripts/workflow-guard.mjs\n\n## 参考\n- `reference/workflow-protocol.json`\n- `reference/resolved-skills.json`\n",
+        encoding="utf-8",
+    )
+    (node_skill / "SKILL.md").write_text(
+        "# Node\n\n## Node Goal\n- open\n",
         encoding="utf-8",
     )
     (package / "reference" / "resolved-skills.json").write_text(
         '{"sourceSummaries":[{"name":"demo-source"}]}',
         encoding="utf-8",
     )
-    for name in ("skill.yaml", "guardrails.yaml", "evals.yaml"):
+    (package / "reference" / "workflow-protocol.json").write_text(
+        '{"name":"authoring-skill","nodes":[{"id":"open","disabled":false}]}',
+        encoding="utf-8",
+    )
+    (package / "reference" / "authoring-lanes.json").write_text(
+        '{"lanes":[{"lane":"skill-core"},{"lane":"script-contract"},{"lane":"reference"},{"lane":"pause-points"},{"lane":"eval"},{"lane":"skill-review"}],"review":{"passed":true,"blockingFindings":[]}}',
+        encoding="utf-8",
+    )
+    (package / "reference" / "skill-review.md").write_text(
+        "# Skill Review\n\nStatus: Review passed\n",
+        encoding="utf-8",
+    )
+    for name in ("skill.yaml", "guardrails.yaml", "checks.yaml"):
         (package / "comet" / name).write_text("name: demo\n", encoding="utf-8")
+    (package / "comet" / "eval.yaml").write_text(
+        "evaluation:\n"
+        "  recommendedTasks:\n"
+        "    - workflow-route-conformance\n"
+        "  generatedNodeSkills:\n"
+        "    - authoring-skill-open\n"
+        "  routeConformance:\n"
+        "    task: workflow-route-conformance\n"
+        "    expectedNodeOrder:\n"
+        "      - open\n",
+        encoding="utf-8",
+    )
 
     outputs = {
         "completion": {"passed": ["validator ok"], "failed": []},
@@ -115,6 +145,8 @@ def test_authoring_profile_scores_generated_package_and_engine_contract(tmp_path
         "expected_artifacts": [],
         "interaction": {"mode": "auto_user", "max_turns": 8},
         "skill_package_path": str(package),
+        "generated_node_skills": ["authoring-skill-open"],
+        "route_conformance_expected_node_order": ["open"],
     }
 
     passed, failed = run_profile_rubric("authoring-skill", tmp_path, outputs)
@@ -123,18 +155,39 @@ def test_authoring_profile_scores_generated_package_and_engine_contract(tmp_path
     assert any("[RUBRIC] generated_package: 1.00" in msg for msg in passed)
     assert any("[RUBRIC] resolved_skill_evidence: 1.00" in msg for msg in passed)
     assert any("[RUBRIC] engine_contract: 1.00" in msg for msg in passed)
+    assert any("[RUBRIC] workflow_route_conformance: 1.00" in msg for msg in passed)
+    assert any("[RUBRIC] authoring_lanes: 1.00" in msg for msg in passed)
+    assert any("[RUBRIC] review_gate: 1.00" in msg for msg in passed)
     assert any("[RUBRIC] weighted_score:" in msg for msg in passed)
 
 
 def test_authoring_profile_allows_lightweight_package_without_engine_files(tmp_path: Path):
     package = tmp_path / "authoring-skill"
     (package / "reference").mkdir(parents=True)
+    node_skill = tmp_path / "authoring-skill-open"
+    node_skill.mkdir()
     (package / "SKILL.md").write_text(
-        "# Demo\n\n## call chain\n- step\n\n## stop\n- done\n",
+        "# Demo\n\n## Workflow Nodes\n- `authoring-skill-open`\n\n## 用户停顿点\n- Confirm before exit.\n\n## 自动推进与恢复\n- scripts/workflow-guard.mjs\n\n## 参考\n- `reference/workflow-protocol.json`\n- `reference/resolved-skills.json`\n",
+        encoding="utf-8",
+    )
+    (node_skill / "SKILL.md").write_text(
+        "# Node\n\n## Node Goal\n- open\n",
         encoding="utf-8",
     )
     (package / "reference" / "resolved-skills.json").write_text(
         '{"sourceSummaries":[{"name":"demo-source"}]}',
+        encoding="utf-8",
+    )
+    (package / "reference" / "workflow-protocol.json").write_text(
+        '{"name":"authoring-skill","nodes":[{"id":"open","disabled":false}]}',
+        encoding="utf-8",
+    )
+    (package / "reference" / "authoring-lanes.json").write_text(
+        '{"lanes":[{"lane":"skill-core"},{"lane":"script-contract"},{"lane":"reference"},{"lane":"pause-points"},{"lane":"eval"},{"lane":"skill-review"}],"review":{"passed":true,"blockingFindings":[]}}',
+        encoding="utf-8",
+    )
+    (package / "reference" / "skill-review.md").write_text(
+        "# Skill Review\n\nStatus: Review passed\n",
         encoding="utf-8",
     )
 
@@ -151,6 +204,8 @@ def test_authoring_profile_allows_lightweight_package_without_engine_files(tmp_p
         "expected_artifacts": [],
         "interaction": {"mode": "auto_user", "max_turns": 8},
         "skill_package_path": str(package),
+        "generated_node_skills": ["authoring-skill-open"],
+        "route_conformance_expected_node_order": ["open"],
     }
 
     passed, failed = run_profile_rubric("authoring-skill", tmp_path, outputs)

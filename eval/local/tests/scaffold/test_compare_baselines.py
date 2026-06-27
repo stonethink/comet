@@ -125,3 +125,52 @@ def test_compare_report_lists_source_evidence(tmp_path: Path):
     assert "comet-workflow" in report
     assert "sha256:abc" in report
     assert "reports/comet_full_report.json" in report
+
+
+def test_compare_report_overall_uses_weighted_score(tmp_path: Path):
+    experiment = tmp_path / "experiment"
+    reports = experiment / "reports"
+    reports.mkdir(parents=True)
+
+    workflow = {
+        "name": "comet-full-workflow-COMET_FULL",
+        "passed": True,
+        "checks_passed": [
+            "[RUBRIC] main_flow: 1.00 - ok",
+            "[RUBRIC] gate_guard: 1.00 - ok",
+            "[RUBRIC] skill_invocation: 1.00 - ok",
+            "[RUBRIC] spec_drift: 1.00 - ok",
+            "[RUBRIC] completion: 1.00 - ok",
+            "[RUBRIC] efficiency: 1.00 - ok",
+            "[RUBRIC] decision_point_compliance: 1.00 - ok",
+            "[RUBRIC] artifact_quality: 1.00 - ok",
+            "[RUBRIC] recovery_resilience: 1.00 - ok",
+            "[RUBRIC] weighted_score: 0.25",
+        ],
+        "checks_failed": [],
+        "events_summary": {},
+    }
+    baseline = {
+        "name": "comet-full-workflow-COMET_FULL_039",
+        "passed": True,
+        "checks_passed": [
+            "[RUBRIC] main_flow: 0.00 - missing",
+            "[RUBRIC] gate_guard: 0.00 - missing",
+            "[RUBRIC] skill_invocation: 0.00 - missing",
+            "[RUBRIC] spec_drift: 0.00 - missing",
+            "[RUBRIC] completion: 0.00 - missing",
+            "[RUBRIC] efficiency: 0.00 - missing",
+            "[RUBRIC] decision_point_compliance: 0.00 - missing",
+            "[RUBRIC] artifact_quality: 0.00 - missing",
+            "[RUBRIC] recovery_resilience: 0.00 - missing",
+            "[RUBRIC] weighted_score: 0.75",
+        ],
+        "checks_failed": [],
+        "events_summary": {},
+    }
+    (reports / "workflow_report.json").write_text(json.dumps(workflow))
+    (reports / "baseline_report.json").write_text(json.dumps(baseline))
+
+    report = build_report(experiment)
+
+    assert "| **Overall** | — | 0.25 | 0.75 | -0.50 |" in report

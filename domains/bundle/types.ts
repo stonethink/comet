@@ -4,6 +4,7 @@ import type {
   SkillPreferencePolicies,
   SkillPreferenceWarning,
 } from '../skill/preferences.js';
+import type { WorkflowDefinitionInput, WorkflowProtocol } from '../workflow-contract/index.js';
 import type { SkillMakerIntent } from './user-facing.js';
 
 export type BundleSkillVisibility = 'entry' | 'internal';
@@ -123,32 +124,6 @@ export interface BundleFactoryCallChainItem {
   preferenceIndex: number | null;
 }
 
-export interface BundleFactoryStageNameOverride {
-  skill: string;
-  name: string;
-  phase?: string;
-  step?: string;
-  label?: string;
-}
-
-export interface BundleFactoryStageNameHint {
-  skill: string;
-  phase?: string;
-  step?: string;
-  recommendedName: string;
-  label?: string;
-}
-
-export interface BundleFactoryStageName {
-  skill: string;
-  name: string;
-  recommendedName: string;
-  source: 'recommended' | 'custom';
-  phase?: string;
-  step?: string;
-  label?: string;
-}
-
 export interface BundleFactoryCompositionStep {
   id: string;
   skill: string;
@@ -247,28 +222,6 @@ export interface BundleFactoryProposalConfirmation {
   warnings: string[];
 }
 
-export type BundleAuthoringPlanMode = BundleAuthoringState['mode'] | 'derive';
-
-export interface BundleBaseTemplate {
-  skill: 'comet';
-  profile: 'full' | 'hotfix' | 'tweak';
-}
-
-export interface BundleTemplateDelta {
-  add: Array<{ phase: string; position: 'before' | 'after'; skill: string }>;
-  replace: Array<{ phase: string; step: string; skill: string }>;
-  disable: Array<{ phase: string; step: string }>;
-}
-
-export interface BundleTemplateExpansion {
-  retained: string[];
-  additions: string[];
-  replacements: string[];
-  disabled: string[];
-  rejected: string[];
-  stageNameHints?: BundleFactoryStageNameHint[];
-}
-
 export interface BundleControlPlaneOutput {
   checksPath: string | null;
   evalManifestPath: string | null;
@@ -290,11 +243,8 @@ export interface BundleFactoryMetadata {
   preferredSkills: string[];
   requiredSkills?: string[];
   skillMakerIntent?: SkillMakerIntent;
-  baseTemplate?: BundleBaseTemplate;
-  templateDelta?: BundleTemplateDelta;
-  templateExpansion?: BundleTemplateExpansion;
-  stageNameOverrides?: BundleFactoryStageNameOverride[];
-  stageNames?: BundleFactoryStageName[];
+  workflowDefinition?: WorkflowDefinitionInput;
+  workflowProtocol?: WorkflowProtocol;
   preferenceMode?: NormalizedSkillPreferences['mode'];
   preferencePolicies?: SkillPreferencePolicies;
   preferencePath?: string;

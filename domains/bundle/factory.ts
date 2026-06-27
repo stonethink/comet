@@ -12,14 +12,13 @@ import {
   writeBundleFactoryPlanArtifact,
 } from './factory-plan.js';
 import { buildBundleFactoryProposal } from './factory-proposal.js';
-import { resolveFactoryStageNames } from './factory-stage-names.js';
 import { readBundleSkillPreferences } from './preferences.js';
 import { reconcileBundleAuthoringState, writeBundleAuthoringState } from './state.js';
 import { generateFactorySkillPackage } from '../factory/package.js';
 import { hashBundle } from './hash.js';
 import { loadBundle } from './load.js';
 import type { BundleAuthoringState, BundleFactoryMetadata, BundleManifest } from './types.js';
-import { isCometSkillMakerBuiltin } from './templates/comet-skill-maker-template.js';
+import { COMET_FIVE_PHASE_NODES } from '../workflow-contract/builtins.js';
 
 function slug(value: string): string {
   return value
@@ -30,6 +29,20 @@ function slug(value: string): string {
 
 function entrySkillId(state: BundleAuthoringState): string {
   return slug(state.name);
+}
+
+function generatedNodeSkillName(workflowName: string, nodeId: string): string {
+  const base = slug(workflowName) || 'workflow';
+  const suffix = slug(nodeId) || 'node';
+  return `${base}-${suffix}`;
+}
+
+const WORKFLOW_CONTRACT_BUILTIN_SKILLS = new Set(
+  COMET_FIVE_PHASE_NODES.map((node) => node.implementation.skill),
+);
+
+function isWorkflowContractBuiltinSkill(skill: string): boolean {
+  return WORKFLOW_CONTRACT_BUILTIN_SKILLS.has(skill);
 }
 
 function isMissingStateError(error: unknown): boolean {
@@ -47,9 +60,8 @@ function confirmationHash(factory: BundleFactoryMetadata): string {
         requiredSkills: factory.requiredSkills ?? [],
         resolvedSkills: factory.resolvedSkills,
         callChain: factory.callChain,
+        workflowProtocol: factory.workflowProtocol ?? null,
         composition: factory.composition ?? null,
-        stageNameOverrides: factory.stageNameOverrides ?? [],
-        stageNames: factory.stageNames ?? [],
         planHash: factory.planHash ?? null,
       }),
     )
@@ -269,7 +281,7 @@ function applyBuiltInCandidates(
   candidates: BundleCandidate[],
 ): BundleCandidate[] {
   return candidates.map((candidate) => {
-    if (!isCometSkillMakerBuiltin(candidate.name) || candidate.status !== 'missing') {
+    if (!isWorkflowContractBuiltinSkill(candidate.name) || candidate.status !== 'missing') {
       return candidate;
     }
     return {
@@ -312,18 +324,11 @@ export async function composeFactoryMetadata(
     resolvedSkills: factory.resolvedSkills,
   });
   const callChain = composed.callChain.length > 0 ? composed.callChain : factory.callChain;
-  const stageNames = resolveFactoryStageNames({
-    bundleName: name,
-    callChain,
-    hints: factory.templateExpansion?.stageNameHints,
-    overrides: factory.stageNameOverrides,
-  });
   return {
     ...factory,
     compositionEntrySkills: [...compositionEntrySkills],
     callChain,
     composition: composed.composition,
-    stageNames,
   };
 }
 
@@ -344,9 +349,15 @@ export async function generateBundleDraftFromFactoryState(options: {
 
   const skillId = entrySkillId(state);
   await clearDirectory(state.draftPath);
+  if (!factory.workflowProtocol) {
+    throw new Error(`Bundle ${state.name} factory metadata is missing workflowProtocol`);
+  }
+  const internalSkillIds = factory.workflowProtocol.nodes
+    .filter((node) => !node.disabled)
+    .map((node) => generatedNodeSkillName(factory.workflowProtocol!.name, node.id));
   await fs.writeFile(
     path.join(state.draftPath, 'bundle.yaml'),
-    stringify(bundleManifest(state, skillId, factory.stageNames?.map((stage) => stage.name) ?? [])),
+    stringify(bundleManifest(state, skillId, internalSkillIds)),
     'utf8',
   );
 
@@ -358,6 +369,8 @@ export async function generateBundleDraftFromFactoryState(options: {
     goal: factory.goal,
     defaultLocale: state.defaultLocale,
     callChain: factory.callChain,
+    workflowDefinition: factory.workflowDefinition,
+    workflowProtocol: factory.workflowProtocol,
     composition: factory.composition,
     resolvedSkills: factory.resolvedSkills,
     preference: {
@@ -370,12 +383,9 @@ export async function generateBundleDraftFromFactoryState(options: {
     },
     deviations: factory.deviations,
     engineMode: factory.engineMode,
-    stageNames: factory.stageNames,
     skillMaker: factory.skillMakerIntent
       ? {
           intent: factory.skillMakerIntent,
-          baseTemplate: factory.baseTemplate,
-          templateExpansion: factory.templateExpansion,
         }
       : undefined,
   });
@@ -500,19 +510,8 @@ export async function initializeBundleFactoryState(options: {
     preferredSkills: plan.preferredSkills,
     requiredSkills: projectPreferences?.preferences.require ?? [],
     skillMakerIntent: plan.skillMakerIntent,
-    baseTemplate: plan.baseTemplate,
-    templateDelta: plan.templateDelta,
-    templateExpansion: plan.templateExpansion
-      ? {
-          retained: plan.templateExpansion.retained,
-          additions: plan.templateExpansion.additions,
-          replacements: plan.templateExpansion.replacements,
-          disabled: plan.templateExpansion.disabled,
-          rejected: plan.templateExpansion.rejected,
-          stageNameHints: plan.templateExpansion.stageNameHints,
-        }
-      : undefined,
-    stageNameOverrides: plan.stageNameOverrides,
+    workflowDefinition: plan.workflowDefinition,
+    workflowProtocol: plan.workflowProtocol,
     preferenceMode: projectPreferences?.preferences.mode,
     preferencePolicies: projectPreferences?.preferences.policies,
     preferencePath: projectPreferences?.path,

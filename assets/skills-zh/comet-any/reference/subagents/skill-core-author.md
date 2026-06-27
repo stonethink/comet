@@ -2,23 +2,21 @@
 
 ## 职责
 
-编写 entry Skill 与 internal stage Skill 的用户可见核心内容。目标是产出 Comet-like 的多阶段 workflow，
+编写 internal Node Skill 的用户可见核心内容。entry Skill 由 workflow entry 作者单独负责。目标是产出 Comet-like 的多 Node workflow，
 不得把来源 Skill 简单串联，也不复制粘贴原 Skill 全文。
 
 必须覆盖：
 
-- entry Skill
-- 每个 internal stage Skill
+- 每个 internal Node Skill
 - `comet/skill.yaml` 中的阶段调用语义
-- workflow-entry
-- 每个 `stage-skill:<skill-name>` claim
+- 每个 `node-skill:<skill-name>` claim
 
 ## 输入
 
 读取主会话提供的通用输入，尤其关注：
 
 - 用户确认的阶段名和可输入名字项。
-- `reference/workflow-protocol.json` 的阶段目标与自动推进条件。
+- `reference/workflow-protocol.json` 的阶段目标、`requiredSkillCalls` 与自动推进条件。
 - `reference/resolved-skills.json` 的真实 Skill 摘要。
 - 脚本作者返回的 `NEXT:`、`SKILL:`、guard 和 recovery 契约。
 
@@ -37,21 +35,21 @@ prompt:
   先读取本 brief、通用输入路径、脚本契约路径、reference 证据路径和报告文件路径。
   开始前先提出问题：如果阶段名、必须调用的 Skill、自动推进或用户停顿点不清楚，先返回 NEEDS_CONTEXT。
   不要猜测或自行补全缺失流程。
-  只写 entry Skill 与 internal stage Skill 草稿，不写 Bundle state，不执行候选脚本。
+  只写 internal Node Skill 草稿，不写 entry Skill，不写 Bundle state，不执行候选脚本。
   把完整 Skill 草稿写入报告文件路径，并只返回 15 行以内状态摘要。
 ```
 
 ## 输出要求
 
-返回 Skill 核心草稿，必须体现：
+返回 internal Node Skill 草稿，必须体现：
 
-- entry Skill 负责入口、恢复、总控说明和用户停顿点。
-- internal stage Skill 负责单阶段目标、必须调用的 Skill、阶段完成证据和脚本守卫。
+- internal Node Skill 负责单 Node 目标、必须调用的 Skill、Node 完成证据和脚本守卫。
+- 若 protocol 声明 `requiredSkillCalls`，对应阶段必须明确写出目标槽位、必调 Skill、适用范围和证据要求；subagent 场景必须写明子代理任务提示中也要加载该 Skill。
 - 阶段未达成目标时继续工作，不因为流程清单走完就退出。
 - 自动推进必须来自脚本输出的 `NEXT:` 和 `SKILL:`，而不是让 Agent 猜下一步。
 - 嵌套 Skill 调用只写 Skill 名字，不写 provider 前缀。
 - 对 `/comet` 定制，保留 `open / design / build / verify / archive` 与 `.comet.yaml` 语义。
-- 对任意 Skill 组合，整理为 Comet-like 多阶段 workflow。
+- 对任意 Skill 组合，整理为 Comet-like 多 Node workflow。
 
 禁止：
 
@@ -64,8 +62,8 @@ prompt:
 
 返回前逐项检查：
 
-- entry Skill 与每个 internal stage Skill 的职责不重叠。
 - 每个阶段都说明必须调用的 Skill、完成证据、脚本守卫和恢复入口。
+- 每个 `requiredSkillCalls` 都能在对应Node Skill 中找到明确加载指令和证据要求。
 - 自动推进引用脚本输出的 `NEXT:` 和 `SKILL:`。
 - Skill 调用只写 Skill 名字，不写 provider 前缀。
 - 中文用户可见文案没有混入英文流程句。
@@ -73,8 +71,7 @@ prompt:
 
 ## 必须返回的 claim
 
-- `workflow-entry`
-- 每个 internal stage Skill 的 `stage-skill:<skill-name>`
+- 每个 internal Node Skill 的 `node-skill:<skill-name>`
 
 缺少任一 claim 时，Skill 审查必须阻塞。
 

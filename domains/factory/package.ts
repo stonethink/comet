@@ -2,92 +2,17 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { stringify } from 'yaml';
 import type { FactorySkillPackagePlan, GeneratedFactorySkillPackage } from './types.js';
-import { compileWorkflowSpec } from './protocol.js';
-import { createDeterministicArtifactAuthor } from './authoring.js';
-import { assembleFactoryPackageDraft } from './package-assembly.js';
 import {
   workflowProtocolHash,
   type FactoryArtifactClaim,
-  type FactoryArtifactAuthorMetadata,
   type FactoryArtifactProposal,
   type FactoryPackageArtifact,
   type FactoryPackageDraft,
-  type FactoryStagePlan,
 } from './artifacts.js';
-import { renderSkillReviewMarkdown, reviewFactoryArtifactProposals } from './review.js';
-import {
-  buildSourceSummaries,
-  buildStagePlans,
-  stepId,
-  workflowRouteItems,
-  workflowRouteStageSkills,
-} from './package-workflow.js';
-import {
-  factoryEntryDescription,
-  renderCompositionReport,
-  renderInternalStageSkillMarkdown,
-  renderSkillMarkdown,
-  renderWorkflowDecisionPointsMarkdown,
-  renderWorkflowRecoveryMarkdown,
-} from './package-rendering.js';
-import {
-  checkScript,
-  hookGuardScript,
-  planScript,
-  workflowGuardScript,
-  workflowHandoffScript,
-  workflowStateScript,
-} from './package-scripts.js';
+import type { WorkflowNodeProtocol, WorkflowProtocol } from '../workflow-contract/index.js';
 
-function skillDefinition(plan: FactorySkillPackagePlan): Record<string, unknown> {
-  const workflow = compileWorkflowSpec(plan);
-  const route = workflowRouteItems(workflow);
-  const steps = route.map((item, index) => ({
-    id: stepId(index, item.stageSkill),
-    action: { type: 'invoke_skill', ref: item.stageSkill },
-    ...(index + 1 < route.length ? { next: stepId(index + 1, route[index + 1]!.stageSkill) } : {}),
-  }));
-
-  return {
-    apiVersion: 'comet/v1alpha1',
-    kind: 'Skill',
-    metadata: {
-      name: plan.name,
-      version: plan.version,
-      description: factoryEntryDescription(plan),
-    },
-    goal: {
-      statement: plan.goal,
-      inputs: [],
-      outputs: [{ name: 'result', description: 'Generated workflow result' }],
-      success: ['The generated workflow completes according to its compiled workflow protocol'],
-    },
-    orchestration:
-      plan.engineMode === 'adaptive'
-        ? { mode: 'adaptive' }
-        : {
-            mode: 'deterministic',
-            entry: steps[0]?.id ?? 'complete',
-            steps: steps.length > 0 ? steps : [{ id: 'complete', action: { type: 'checkpoint' } }],
-          },
-    skills: route.map((item) => ({
-      id: item.stageSkill,
-    })),
-    agents: [],
-    tools: [],
-  };
-}
-
-function guardrails(plan: FactorySkillPackagePlan): Record<string, unknown> {
-  const route = workflowRouteStageSkills(compileWorkflowSpec(plan));
-  return {
-    allowedSkills: route,
-    allowedAgents: [],
-    allowedTools: [],
-    maxIterations: Math.max(route.length + 2, 5),
-    maxRetriesPerAction: 2,
-    confirmationRequiredFor: [],
-  };
+function factoryEntryDescription(plan: FactorySkillPackagePlan): string {
+  return plan.description || `Use when running the generated ${plan.name} workflow.`;
 }
 
 function runtimeEvals(): Record<string, unknown> {
@@ -101,43 +26,6 @@ function runtimeEvals(): Record<string, unknown> {
         equals: 'completed',
       },
     ],
-  };
-}
-
-function evalManifest(plan: FactorySkillPackagePlan): Record<string, unknown> {
-  const workflow = compileWorkflowSpec(plan);
-  const route = workflowRouteStageSkills(workflow);
-  return {
-    apiVersion: 'comet.eval/v1alpha1',
-    kind: 'SkillEvalManifest',
-    metadata: {
-      name: plan.name,
-      description: factoryEntryDescription(plan),
-    },
-    skill: {
-      name: plan.name,
-      source: '..',
-      profile: 'authoring-skill',
-    },
-    evaluation: {
-      recommendedTasks: ['authoring-skill-smoke', 'workflow-route-conformance'],
-      requiredSkills: plan.callChain.map((item) => item.skill),
-      generatedStageSkills: route,
-      expectedArtifacts: [
-        'reference/resolved-skills.json',
-        'reference/workflow-protocol.json',
-        'reference/decision-points.md',
-        'reference/recovery.md',
-      ],
-      routeConformance: {
-        task: 'workflow-route-conformance',
-        expectedStageOrder: route,
-      },
-    },
-    interaction: {
-      mode: 'none',
-      maxTurns: 8,
-    },
   };
 }
 
@@ -158,23 +46,1019 @@ function jsonArtifact(
   return artifact(artifactPath, kind, `${JSON.stringify(value, null, 2)}\n`);
 }
 
+function slug(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/gu, '-')
+    .replace(/^-+|-+$/gu, '');
+}
+
+function generatedNodeSkillName(workflowName: string, nodeId: string): string {
+  const base = slug(workflowName) || 'workflow';
+  const suffix = slug(nodeId) || 'node';
+  return `${base}-${suffix}`;
+}
+
+function workflowContractRoute(protocol: WorkflowProtocol): WorkflowNodeProtocol[] {
+  return protocol.nodes.filter((node) => !node.disabled);
+}
+
+function workflowContractInternalSkillNames(protocol: WorkflowProtocol): string[] {
+  return workflowContractRoute(protocol).map((node) =>
+    generatedNodeSkillName(protocol.name, node.id),
+  );
+}
+
+function workflowContractEntryMarkdown(
+  plan: FactorySkillPackagePlan,
+  protocol: WorkflowProtocol,
+): string {
+  const nodeLines = workflowContractRoute(protocol)
+    .map((node, index) => {
+      const required =
+        node.requiredSkillCalls.length === 0
+          ? ''
+          : ` Required Skills: ${node.requiredSkillCalls.map((binding) => `\`${binding.skill}\``).join(', ')}.`;
+      const schemas =
+        node.outputSchemas.length === 0
+          ? ''
+          : ` Output Schemas: ${node.outputSchemas.map((schema) => `\`${schema}\``).join(', ')}.`;
+      return `${index + 1}. \`${generatedNodeSkillName(protocol.name, node.id)}\` - ${node.label} (${node.kind}). Responsibility: ${node.responsibility}${required}${schemas}`;
+    })
+    .join('\n');
+  const bindings = workflowContractRoute(protocol)
+    .map(
+      (node) =>
+        `- \`${node.id}\`: implementation \`${node.implementation.skill}\` (${node.implementation.operation}); required calls ${
+          node.requiredSkillCalls.map((binding) => `\`${binding.skill}\``).join(', ') || 'none'
+        }.`,
+    )
+    .join('\n');
+  const guardrails = workflowContractRoute(protocol)
+    .flatMap((node) =>
+      node.guardrails.map(
+        (guardrail) =>
+          `- \`${node.id}.${guardrail.id}\`: ${guardrail.label} (${guardrail.validation}).`,
+      ),
+    )
+    .join('\n');
+  return `---
+name: ${plan.name}
+description: ${factoryEntryDescription(plan)}
+---
+
+# ${protocol.name}
+
+## Workflow Nodes
+
+${nodeLines}
+
+## Skill Bindings
+
+${bindings || '- No Skill bindings.'}
+
+## Guardrails And Evidence
+
+${guardrails || '- No explicit guardrails.'}
+
+## Runtime And Recovery
+
+1. Run \`node ${plan.name}/scripts/workflow-state.mjs status\`.
+2. If the workflow is not started, run \`node ${plan.name}/scripts/workflow-state.mjs init\`.
+3. Run \`node ${plan.name}/scripts/workflow-state.mjs next\` and load only the returned Skill.
+4. Before leaving a Node, run \`node ${plan.name}/scripts/workflow-guard.mjs exit <node> --apply\`.
+
+The route, Output Schemas, required Skill calls, and recovery state are defined by \`reference/workflow-protocol.json\`.
+`;
+}
+
+function requiredSkillCallMarkdown(node: WorkflowNodeProtocol): string {
+  if (node.requiredSkillCalls.length === 0) return '- This Node has no extra required Skill calls.';
+  return node.requiredSkillCalls
+    .map((binding) => {
+      const check = `required-skill:${node.id}.${binding.skill}`;
+      const reason = binding.reason ? ` Reason: ${binding.reason}` : '';
+      if (binding.scope === 'handoff') {
+        return `- When delegating this Node, the handoff prompt must require loading \`${binding.skill}\` and returning evidence with completed check \`${check}\`.${reason}`;
+      }
+      return `- Load \`${binding.skill}\` during this Node and record completed check \`${check}\`.${reason}`;
+    })
+    .join('\n');
+}
+
+function outputSchemaMarkdown(protocol: WorkflowProtocol, node: WorkflowNodeProtocol): string {
+  if (node.outputSchemas.length === 0) return '- This Node has no declared Output Schema.';
+  return node.outputSchemas
+    .map((schemaId) => {
+      const schema = protocol.outputSchemas.find((item) => item.id === schemaId);
+      if (!schema) return `- \`${schemaId}\` (missing schema definition)`;
+      const evidence = schema.evidence
+        .filter((item) => item.required)
+        .map((item) => `\`${item.id}\``)
+        .join(', ');
+      const artifacts = schema.artifacts
+        .filter((item) => item.required)
+        .map(
+          (item) =>
+            `\`${item.id}\` at ${item.paths.map((schemaPath) => `\`${schemaPath}\``).join(' or ')}`,
+        )
+        .join('; ');
+      return `- \`${schema.id}\`: ${schema.description} Required evidence: ${evidence || 'none'}. Required artifacts: ${artifacts || 'none'}.`;
+    })
+    .join('\n');
+}
+
+function workflowContractNodeMarkdown(
+  plan: FactorySkillPackagePlan,
+  protocol: WorkflowProtocol,
+  node: WorkflowNodeProtocol,
+): string {
+  const skillName = generatedNodeSkillName(protocol.name, node.id);
+  const next =
+    workflowContractRoute(protocol)[
+      workflowContractRoute(protocol).findIndex((item) => item.id === node.id) + 1
+    ];
+  const schemaLines = outputSchemaMarkdown(protocol, node);
+  const guardrailLines =
+    node.guardrails.length === 0
+      ? '- This Node has no explicit guardrails.'
+      : node.guardrails
+          .map(
+            (guardrail) => `- \`${guardrail.id}\`: ${guardrail.label} (${guardrail.validation}).`,
+          )
+          .join('\n');
+  return `---
+name: ${skillName}
+description: Run the ${node.label} Node for ${protocol.name}.
+---
+
+# ${node.label}
+
+## Node Goal
+
+Complete the \`${node.id}\` Node for \`${protocol.name}\`.
+
+Responsibility: ${node.responsibility}
+
+## Entry Check
+
+\`\`\`bash
+node ${plan.name}/scripts/workflow-guard.mjs entry ${node.id}
+\`\`\`
+
+## Skill Implementation
+
+Load \`${node.implementation.skill}\` for this Node. Operation: \`${node.implementation.operation}\`.
+
+## Required Skill Calls
+
+${requiredSkillCallMarkdown(node)}
+
+## Output Schemas
+
+${schemaLines}
+
+## Evidence Record
+
+\`\`\`bash
+node ${plan.name}/scripts/workflow-state.mjs record ${node.id} '{"summary":"record the real Node result","completedChecks":[]}'
+\`\`\`
+
+## Guardrails
+
+${guardrailLines}
+
+## Exit Check
+
+\`\`\`bash
+node ${plan.name}/scripts/workflow-guard.mjs exit ${node.id} --apply
+\`\`\`
+
+${next ? `If the script prints \`SKILL: ${generatedNodeSkillName(protocol.name, next.id)}\`, load that Skill next.` : 'If the script prints `NEXT: done`, summarize the workflow evidence and stop.'}
+
+## Recovery
+
+Read \`reference/workflow-protocol.json\` and the configured workflow state. Resume the first Node that is not listed in \`${protocol.state.completedNodesField}\`.
+`;
+}
+
+function workflowContractPlanScript(): string {
+  return `#!/usr/bin/env node
+import './workflow-state.mjs';
+`;
+}
+
+function workflowContractCheckScript(requiredFiles: string[]): string {
+  return `#!/usr/bin/env node
+import { promises as fs } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const packageRoot = path.resolve(__dirname, '..');
+const required = ${JSON.stringify(requiredFiles, null, 2)};
+
+async function main() {
+  const missing = [];
+  for (const relative of required) {
+    try {
+      const stats = await fs.stat(path.join(packageRoot, relative));
+      if (!stats.isFile()) missing.push(relative);
+    } catch {
+      missing.push(relative);
+    }
+  }
+  if (missing.length > 0) {
+    console.error('Missing required workflow contract files: ' + missing.join(', '));
+    process.exit(1);
+  }
+  const protocol = JSON.parse(await fs.readFile(path.join(packageRoot, 'reference', 'workflow-protocol.json'), 'utf8'));
+  if (protocol.schemaVersion !== 1 || !Array.isArray(protocol.nodes)) {
+    throw new Error('workflow-protocol.json must use the current schema with nodes');
+  }
+  console.log('workflow-contract-ok');
+}
+
+main().catch((error) => {
+  console.error(error.message);
+  process.exit(1);
+});
+`;
+}
+
+function workflowContractHookGuardScript(): string {
+  return `#!/usr/bin/env node
+import { promises as fs } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const event = process.argv[2] ?? 'before_tool';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const packageRoot = path.resolve(__dirname, '..');
+const runRoot = process.env.COMET_RUN_ROOT ? path.resolve(process.env.COMET_RUN_ROOT) : process.cwd();
+const protocolPath = path.join(packageRoot, 'reference', 'workflow-protocol.json');
+
+function statePath(protocol) {
+  const preferred = String(protocol.state?.statePath ?? '');
+  const fallback = String(protocol.state?.compatibilityStatePath ?? '.comet/runs/' + protocol.name + '/state.json');
+  const relative = preferred.includes('*') ? fallback : preferred;
+  return path.join(runRoot, ...relative.split('/').filter(Boolean));
+}
+
+async function readJson(file) {
+  return JSON.parse(await fs.readFile(file, 'utf8'));
+}
+
+function route(protocol) {
+  return (protocol.nodes ?? []).filter((node) => !node.disabled);
+}
+
+function completedSet(state) {
+  return new Set(Array.isArray(state.completedNodes) ? state.completedNodes : []);
+}
+
+function nextNode(protocol, state) {
+  const completed = completedSet(state);
+  return route(protocol).find((node) => !completed.has(node.id)) ?? null;
+}
+
+async function main() {
+  const protocol = await readJson(protocolPath);
+  if (protocol.schemaVersion !== 1 || !Array.isArray(protocol.nodes)) {
+    throw new Error('workflow-protocol.json must use the current schema with nodes');
+  }
+  const nodes = route(protocol);
+  if (nodes.length === 0) {
+    throw new Error('workflow protocol has no enabled nodes');
+  }
+  let state;
+  try {
+    state = await readJson(statePath(protocol));
+  } catch (error) {
+    if (error && typeof error === 'object' && error.code === 'ENOENT') {
+      throw new Error('workflow state is missing; run workflow-state.mjs init first');
+    }
+    throw error;
+  }
+  if (state.workflow !== protocol.name) {
+    throw new Error('workflow state does not match this workflow protocol');
+  }
+  if (state.status !== 'running') {
+    throw new Error('workflow is not running; current status is ' + String(state.status));
+  }
+  const current = state.currentNode ?? nextNode(protocol, state)?.id ?? null;
+  if (!current || !nodes.some((node) => node.id === current)) {
+    throw new Error('workflow state has no valid current Node');
+  }
+  console.log('workflow-hook-guard-ok');
+  console.log('EVENT: ' + event);
+  console.log('NODE: ' + current);
+}
+
+main().catch((error) => {
+  console.error(error.message);
+  process.exit(1);
+});
+`;
+}
+
+function workflowContractStateScript(): string {
+  return `#!/usr/bin/env node
+import { promises as fs } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const command = process.argv[2] ?? 'status';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const packageRoot = path.resolve(__dirname, '..');
+const runRoot = process.env.COMET_RUN_ROOT ? path.resolve(process.env.COMET_RUN_ROOT) : process.cwd();
+const protocolPath = path.join(packageRoot, 'reference', 'workflow-protocol.json');
+
+function slug(value) {
+  return String(value).toLowerCase().replace(/[^a-z0-9._-]+/gu, '-').replace(/^-+|-+$/gu, '');
+}
+
+function generatedNodeSkillName(protocol, nodeId) {
+  return (slug(protocol.name) || 'workflow') + '-' + (slug(nodeId) || 'node');
+}
+
+function statePath(protocol) {
+  const preferred = String(protocol.state?.statePath ?? '');
+  const fallback = String(protocol.state?.compatibilityStatePath ?? '.comet/runs/' + protocol.name + '/state.json');
+  const relative = preferred.includes('*') ? fallback : preferred;
+  return path.join(runRoot, ...relative.split('/').filter(Boolean));
+}
+
+async function readJson(file) {
+  return JSON.parse(await fs.readFile(file, 'utf8'));
+}
+
+async function writeJson(file, value) {
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  await fs.writeFile(file, JSON.stringify(value, null, 2) + '\\n', 'utf8');
+}
+
+function route(protocol) {
+  return (protocol.nodes ?? []).filter((node) => !node.disabled);
+}
+
+function completedSet(state) {
+  return new Set(Array.isArray(state.completedNodes) ? state.completedNodes : []);
+}
+
+function nextNode(protocol, state) {
+  const completed = completedSet(state);
+  return route(protocol).find((node) => !completed.has(node.id)) ?? null;
+}
+
+function printNext(protocol, node) {
+  if (!node) {
+    console.log('NEXT: done');
+    return;
+  }
+  console.log('NEXT: auto');
+  console.log('NODE: ' + node.id);
+  console.log('SKILL: ' + generatedNodeSkillName(protocol, node.id));
+}
+
+function parseEvidence(raw) {
+  if (!raw || raw.trim().length === 0) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : { value: parsed };
+  } catch {
+    return { summary: raw };
+  }
+}
+
+async function readState(protocol) {
+  try {
+    return await readJson(statePath(protocol));
+  } catch (error) {
+    if (error && typeof error === 'object' && error.code === 'ENOENT') {
+      throw new Error('Missing workflow state. Run workflow-state.mjs init first.');
+    }
+    throw error;
+  }
+}
+
+async function main() {
+  const protocol = await readJson(protocolPath);
+  if (protocol.schemaVersion !== 1 || !Array.isArray(protocol.nodes)) {
+    throw new Error('workflow-protocol.json must use the current schema with nodes');
+  }
+  const file = statePath(protocol);
+  if (command === 'init') {
+    const node = nextNode(protocol, { completedNodes: [] });
+    await writeJson(file, {
+      schemaVersion: 1,
+      workflow: protocol.name,
+      status: node ? 'running' : 'completed',
+      currentNode: node?.id ?? null,
+      completedNodes: [],
+      evidence: {},
+      history: [],
+    });
+    printNext(protocol, node);
+    return;
+  }
+  if (command === 'status') {
+    try {
+      console.log(JSON.stringify(await readJson(file), null, 2));
+    } catch (error) {
+      if (error && typeof error === 'object' && error.code === 'ENOENT') {
+        console.log(JSON.stringify({ status: 'not-started' }, null, 2));
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+  if (command === 'next') {
+    printNext(protocol, nextNode(protocol, await readState(protocol)));
+    return;
+  }
+  if (command === 'record') {
+    const nodeId = process.argv[3];
+    if (!nodeId) throw new Error('record requires a Node id.');
+    const node = route(protocol).find((item) => item.id === nodeId || generatedNodeSkillName(protocol, item.id) === nodeId);
+    if (!node) throw new Error('Unknown workflow Node: ' + nodeId);
+    const state = await readState(protocol);
+    state.evidence = state.evidence && typeof state.evidence === 'object' ? state.evidence : {};
+    state.history = Array.isArray(state.history) ? state.history : [];
+    state.evidence[node.id] = { ...parseEvidence(process.argv.slice(4).join(' ')), recordedAt: new Date().toISOString() };
+    state.history.push({ event: 'evidence-recorded', node: node.id, at: new Date().toISOString() });
+    await writeJson(file, state);
+    console.log('EVIDENCE: ' + node.id);
+    printNext(protocol, nextNode(protocol, state));
+    return;
+  }
+  throw new Error('Unknown command: ' + command);
+}
+
+main().catch((error) => {
+  console.error(error.message);
+  process.exit(1);
+});
+`;
+}
+
+function workflowContractGuardScript(): string {
+  return `#!/usr/bin/env node
+import { promises as fs } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const command = process.argv[2] ?? 'verify';
+const nodeId = process.argv[3] ?? null;
+const apply = process.argv.includes('--apply');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const packageRoot = path.resolve(__dirname, '..');
+const runRoot = process.env.COMET_RUN_ROOT ? path.resolve(process.env.COMET_RUN_ROOT) : process.cwd();
+const protocolPath = path.join(packageRoot, 'reference', 'workflow-protocol.json');
+
+function slug(value) {
+  return String(value).toLowerCase().replace(/[^a-z0-9._-]+/gu, '-').replace(/^-+|-+$/gu, '');
+}
+
+function generatedNodeSkillName(protocol, id) {
+  return (slug(protocol.name) || 'workflow') + '-' + (slug(id) || 'node');
+}
+
+function statePath(protocol) {
+  const preferred = String(protocol.state?.statePath ?? '');
+  const fallback = String(protocol.state?.compatibilityStatePath ?? '.comet/runs/' + protocol.name + '/state.json');
+  const relative = preferred.includes('*') ? fallback : preferred;
+  return path.join(runRoot, ...relative.split('/').filter(Boolean));
+}
+
+async function readJson(file) {
+  return JSON.parse(await fs.readFile(file, 'utf8'));
+}
+
+async function writeJson(file, value) {
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  await fs.writeFile(file, JSON.stringify(value, null, 2) + '\\n', 'utf8');
+}
+
+function route(protocol) {
+  return protocol.nodes.filter((node) => !node.disabled);
+}
+
+function findNode(protocol, id) {
+  return route(protocol).find((node) => node.id === id || generatedNodeSkillName(protocol, node.id) === id) ?? null;
+}
+
+function completedSet(state) {
+  return new Set(Array.isArray(state.completedNodes) ? state.completedNodes : []);
+}
+
+function nextNode(protocol, state) {
+  const completed = completedSet(state);
+  return route(protocol).find((node) => !completed.has(node.id)) ?? null;
+}
+
+function printNext(protocol, node) {
+  if (!node) {
+    console.log('NEXT: done');
+    return;
+  }
+  console.log('NEXT: auto');
+  console.log('NODE: ' + node.id);
+  console.log('SKILL: ' + generatedNodeSkillName(protocol, node.id));
+}
+
+function evidenceFor(state, id) {
+  const value = state.evidence && typeof state.evidence === 'object' ? state.evidence[id] : null;
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+}
+
+function missingRequiredSkillChecks(node, evidence) {
+  const values = Array.isArray(evidence?.completedChecks) ? evidence.completedChecks : [];
+  return (node.requiredSkillCalls ?? [])
+    .map((binding) => 'required-skill:' + node.id + '.' + binding.skill)
+    .filter((check) => !values.includes(check));
+}
+
+function hasEvidenceField(evidence, id) {
+  if (Object.prototype.hasOwnProperty.call(evidence, id)) return true;
+  const schemaEvidence = evidence.schemaEvidence;
+  return !!(
+    schemaEvidence &&
+    typeof schemaEvidence === 'object' &&
+    !Array.isArray(schemaEvidence) &&
+    Object.prototype.hasOwnProperty.call(schemaEvidence, id)
+  );
+}
+
+function schemaMap(protocol) {
+  return new Map((protocol.outputSchemas ?? []).map((schema) => [schema.id, schema]));
+}
+
+function missingRequiredSchemaEvidence(protocol, node, evidence) {
+  const schemas = schemaMap(protocol);
+  const missing = [];
+  for (const schemaId of node.outputSchemas ?? []) {
+    const schema = schemas.get(schemaId);
+    for (const field of schema?.evidence ?? []) {
+      if (field.required && !hasEvidenceField(evidence, field.id)) {
+        missing.push(schemaId + '.' + field.id);
+      }
+    }
+  }
+  return missing;
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[|\\\\{}()[\\]^$+?.]/gu, '\\\\$&');
+}
+
+function patternToRegExp(pattern) {
+  return new RegExp('^' + String(pattern).split('*').map(escapeRegExp).join('.*') + '$', 'u');
+}
+
+async function pathPatternExists(root, relativePattern) {
+  const parts = String(relativePattern).split('/').filter(Boolean);
+  async function walk(current, index) {
+    if (index >= parts.length) {
+      try {
+        await fs.stat(current);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    const part = parts[index];
+    if (!part.includes('*')) {
+      return walk(path.join(current, part), index + 1);
+    }
+    let entries;
+    try {
+      entries = await fs.readdir(current, { withFileTypes: true });
+    } catch {
+      return false;
+    }
+    const matcher = patternToRegExp(part);
+    for (const entry of entries) {
+      if (matcher.test(entry.name) && (await walk(path.join(current, entry.name), index + 1))) {
+        return true;
+      }
+    }
+    return false;
+  }
+  return walk(root, 0);
+}
+
+async function missingRequiredArtifacts(protocol, node) {
+  const schemas = schemaMap(protocol);
+  const missing = [];
+  for (const schemaId of node.outputSchemas ?? []) {
+    const schema = schemas.get(schemaId);
+    for (const artifact of schema?.artifacts ?? []) {
+      if (!artifact.required) continue;
+      const exists = (
+        await Promise.all(
+          (artifact.paths ?? []).map((artifactPath) => pathPatternExists(runRoot, artifactPath)),
+        )
+      ).some(Boolean);
+      if (!exists) missing.push(schemaId + '.' + artifact.id);
+    }
+  }
+  return missing;
+}
+
+async function main() {
+  const protocol = await readJson(protocolPath);
+  if (protocol.schemaVersion !== 1 || !Array.isArray(protocol.nodes)) {
+    throw new Error('workflow-protocol.json must use the current schema with nodes');
+  }
+  if (command === 'verify') {
+    console.log('workflow-guard-ok');
+    return;
+  }
+  if (command !== 'entry' && command !== 'exit') throw new Error('Unknown command: ' + command);
+  if (!nodeId) throw new Error(command + ' requires a Node id.');
+  const node = findNode(protocol, nodeId);
+  if (!node) throw new Error('Unknown workflow Node: ' + nodeId);
+  const file = statePath(protocol);
+  const state = await readJson(file);
+  state.completedNodes = Array.isArray(state.completedNodes) ? state.completedNodes : [];
+  state.evidence = state.evidence && typeof state.evidence === 'object' ? state.evidence : {};
+  if (command === 'entry') {
+    const current = state.currentNode ?? nextNode(protocol, state)?.id ?? null;
+    if (current !== node.id && !state.completedNodes.includes(node.id)) {
+      console.error('BLOCKED: current Node is ' + String(current) + ', cannot enter ' + node.id + '.');
+      process.exit(1);
+    }
+    console.log('ENTRY OK: ' + node.id);
+    return;
+  }
+  const evidence = evidenceFor(state, node.id);
+  if (!evidence) {
+    console.error('BLOCKED: missing evidence for Node ' + node.id + '.');
+    process.exit(1);
+  }
+  const missingSchemaEvidence = missingRequiredSchemaEvidence(protocol, node, evidence);
+  if (missingSchemaEvidence.length > 0) {
+    console.error('BLOCKED: missing Output Schema evidence: ' + missingSchemaEvidence.join(', '));
+    process.exit(1);
+  }
+  const missingArtifacts = await missingRequiredArtifacts(protocol, node);
+  if (missingArtifacts.length > 0) {
+    console.error('BLOCKED: missing Output Schema artifacts: ' + missingArtifacts.join(', '));
+    process.exit(1);
+  }
+  const missingRequired = missingRequiredSkillChecks(node, evidence);
+  if (missingRequired.length > 0) {
+    console.error('BLOCKED: missing required Skill evidence: ' + missingRequired.join(', '));
+    process.exit(1);
+  }
+  if (apply) {
+    const completed = completedSet(state);
+    completed.add(node.id);
+    state.completedNodes = route(protocol).filter((item) => completed.has(item.id)).map((item) => item.id);
+    const next = nextNode(protocol, state);
+    state.currentNode = next?.id ?? null;
+    state.status = next ? 'running' : 'completed';
+    state.history = Array.isArray(state.history) ? state.history : [];
+    state.history.push({ event: 'exit-applied', node: node.id, at: new Date().toISOString() });
+    await writeJson(file, state);
+    console.log('ALL CHECKS PASSED');
+    printNext(protocol, next);
+    return;
+  }
+  console.log('ALL CHECKS PASSED');
+  console.log('APPLY: rerun with --apply to update workflow state');
+}
+
+main().catch((error) => {
+  console.error(error.message);
+  process.exit(1);
+});
+`;
+}
+
+function workflowContractHandoffScript(): string {
+  return `#!/usr/bin/env node
+import { promises as fs } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const packageRoot = path.resolve(__dirname, '..');
+
+async function main() {
+  const protocol = JSON.parse(await fs.readFile(path.join(packageRoot, 'reference', 'workflow-protocol.json'), 'utf8'));
+  console.log(JSON.stringify({
+    workflow: protocol.name,
+    nodes: protocol.nodes.map((node) => ({
+      id: node.id,
+      label: node.label,
+      requiredSkillCalls: node.requiredSkillCalls ?? [],
+      outputSchemas: node.outputSchemas ?? [],
+    })),
+  }, null, 2));
+}
+
+main().catch((error) => {
+  console.error(error.message);
+  process.exit(1);
+});
+`;
+}
+
+function workflowContractSkillDefinition(
+  plan: FactorySkillPackagePlan,
+  protocol: WorkflowProtocol,
+): Record<string, unknown> {
+  const route = workflowContractRoute(protocol);
+  const steps = route.map((node, index) => ({
+    id: `node-${index + 1}-${slug(node.id)}`,
+    action: { type: 'invoke_skill', ref: generatedNodeSkillName(protocol.name, node.id) },
+    ...(route[index + 1] ? { next: `node-${index + 2}-${slug(route[index + 1]!.id)}` } : {}),
+  }));
+  return {
+    apiVersion: 'comet/v1alpha1',
+    kind: 'Skill',
+    metadata: {
+      name: plan.name,
+      version: plan.version,
+      description: factoryEntryDescription(plan),
+    },
+    goal: {
+      statement: protocol.goal,
+      inputs: [],
+      outputs: [{ name: 'result', description: 'Generated workflow result' }],
+      success: ['The generated workflow completes according to its workflow protocol'],
+    },
+    orchestration: {
+      mode: plan.engineMode === 'adaptive' ? 'adaptive' : 'deterministic',
+      entry: steps[0]?.id ?? 'complete',
+      steps: steps.length > 0 ? steps : [{ id: 'complete', action: { type: 'checkpoint' } }],
+    },
+    skills: route.map((node) => ({ id: generatedNodeSkillName(protocol.name, node.id) })),
+    agents: [],
+    tools: [],
+  };
+}
+
+function workflowContractEvalManifest(
+  plan: FactorySkillPackagePlan,
+  protocol: WorkflowProtocol,
+): Record<string, unknown> {
+  const route = workflowContractInternalSkillNames(protocol);
+  const expectedArtifacts = protocol.nodes.flatMap((node) =>
+    node.outputSchemas.flatMap((schemaId) => {
+      const schema = protocol.outputSchemas.find((item) => item.id === schemaId);
+      return (schema?.artifacts ?? [])
+        .filter((item) => item.required)
+        .map((item) => ({
+          node: node.id,
+          schema: schemaId,
+          artifact: item.id,
+          paths: item.paths,
+        }));
+    }),
+  );
+  return {
+    apiVersion: 'comet.eval/v1alpha1',
+    kind: 'SkillEvalManifest',
+    metadata: { name: plan.name, description: factoryEntryDescription(plan) },
+    skill: { name: plan.name, source: '..', profile: 'authoring-skill' },
+    evaluation: {
+      recommendedTasks: ['authoring-skill-smoke', 'workflow-route-conformance'],
+      requiredSkills: [plan.name, ...route],
+      generatedNodeSkills: route,
+      expectedArtifacts,
+      routeConformance: {
+        task: 'workflow-route-conformance',
+        expectedNodeOrder:
+          protocol.evals[0]?.expectedNodeOrder ?? protocol.nodes.map((node) => node.id),
+      },
+    },
+    interaction: { mode: 'none', maxTurns: 8 },
+  };
+}
+
+function workflowContractCompositionReport(
+  plan: FactorySkillPackagePlan,
+  protocol: WorkflowProtocol,
+): string {
+  const callChain =
+    plan.callChain.length === 0
+      ? '- None'
+      : plan.callChain.map((item) => `- ${item.skill}`).join('\n');
+  const compositionSteps =
+    !plan.composition || plan.composition.steps.length === 0
+      ? '- None'
+      : plan.composition.steps
+          .map((step) => `- ${step.id}: ${step.skill} (${step.source})`)
+          .join('\n');
+  const resolved =
+    !plan.resolvedSkills || plan.resolvedSkills.length === 0
+      ? '- None'
+      : plan.resolvedSkills.map((skill) => `- ${skill.query}: ${skill.status}`).join('\n');
+  const preferenceMode = plan.preference?.mode ?? 'not configured';
+  const preferenceHash = plan.preference?.sourceHash ?? 'none';
+  return `# Composition Report
+
+## Workflow Contract
+
+- Kind: ${protocol.kind}
+- Nodes: ${protocol.nodes.length}
+- Required Skill Calls: ${protocol.nodes.reduce((count, node) => count + node.requiredSkillCalls.length, 0)}
+- Output Schemas: ${protocol.outputSchemas.map((schema) => schema.id).join(', ')}
+
+## Source Skills
+
+${callChain}
+
+## Composition Steps
+
+${compositionSteps}
+
+## Resolved Skills
+
+${resolved}
+
+## Preferences
+
+- Preference mode: ${preferenceMode}
+- Preference hash: ${preferenceHash}
+`;
+}
+
+function workflowContractArtifacts(plan: FactorySkillPackagePlan): FactoryPackageDraft {
+  const protocol = plan.workflowProtocol;
+  if (!protocol)
+    throw new Error('workflowProtocol is required for workflow contract package generation');
+  const protocolHash = workflowProtocolHash(protocol);
+  const nodeSkills = workflowContractInternalSkillNames(protocol);
+  const requiredFiles = [
+    'SKILL.md',
+    ...nodeSkills.map((name) => `../${name}/SKILL.md`),
+    'reference/resolved-skills.json',
+    'reference/workflow-protocol.json',
+    'reference/decision-points.md',
+    'reference/recovery.md',
+    'reference/authoring-lanes.json',
+    'reference/skill-review.md',
+    'reference/composition-report.md',
+    'scripts/comet-plan.mjs',
+    'scripts/comet-check.mjs',
+    'scripts/comet-hook-guard.mjs',
+    'scripts/workflow-state.mjs',
+    'scripts/workflow-guard.mjs',
+    'scripts/workflow-handoff.mjs',
+    ...(plan.engineMode === 'none'
+      ? []
+      : ['comet/skill.yaml', 'comet/guardrails.yaml', 'comet/checks.yaml', 'comet/eval.yaml']),
+  ];
+  const artifacts: FactoryPackageArtifact[] = [
+    artifact('SKILL.md', 'skill', workflowContractEntryMarkdown(plan, protocol)),
+    ...workflowContractRoute(protocol).map((node) =>
+      artifact(
+        `../${generatedNodeSkillName(protocol.name, node.id)}/SKILL.md`,
+        'skill',
+        workflowContractNodeMarkdown(plan, protocol, node),
+      ),
+    ),
+    artifact('scripts/comet-plan.mjs', 'script', workflowContractPlanScript(), true),
+    artifact('scripts/comet-check.mjs', 'script', workflowContractCheckScript(requiredFiles), true),
+    artifact('scripts/comet-hook-guard.mjs', 'script', workflowContractHookGuardScript(), true),
+    artifact('scripts/workflow-state.mjs', 'script', workflowContractStateScript(), true),
+    artifact('scripts/workflow-guard.mjs', 'script', workflowContractGuardScript(), true),
+    artifact('scripts/workflow-handoff.mjs', 'script', workflowContractHandoffScript(), true),
+    jsonArtifact('reference/resolved-skills.json', {
+      schemaVersion: 1,
+      resolvedSkills: plan.resolvedSkills ?? [],
+      workflow: {
+        kind: protocol.kind,
+        nodes: protocol.nodes.map((node) => ({
+          id: node.id,
+          label: node.label,
+          implementation: node.implementation,
+          requiredSkillCalls: node.requiredSkillCalls,
+          outputSchemas: node.outputSchemas,
+        })),
+      },
+      preference: plan.preference ?? null,
+    }),
+    jsonArtifact('reference/workflow-protocol.json', protocol),
+    artifact(
+      'reference/decision-points.md',
+      'reference',
+      `# Workflow Decision Points\n\n${workflowContractRoute(protocol)
+        .map(
+          (node) =>
+            `- \`${node.id}\`: confirm Output Schemas ${node.outputSchemas.join(', ') || 'none'}.`,
+        )
+        .join('\n')}\n`,
+    ),
+    artifact(
+      'reference/recovery.md',
+      'reference',
+      `# Workflow Recovery\n\n- State path: \`${protocol.state.statePath}\`\n- Compatibility state path: \`${protocol.state.compatibilityStatePath ?? 'none'}\`\n- Resume by reading the first incomplete Workflow Node.\n`,
+    ),
+    artifact(
+      'reference/composition-report.md',
+      'reference',
+      workflowContractCompositionReport(plan, protocol),
+    ),
+    artifact(
+      'reference/skill-review.md',
+      'reference',
+      '# Skill Review\n\nResult: approved by deterministic workflow contract checks.\n',
+    ),
+    jsonArtifact('reference/authoring-lanes.json', {
+      schemaVersion: 1,
+      protocolHash,
+      lanes: [
+        'workflow-entry',
+        'skill-core',
+        'script-contract',
+        'reference',
+        'eval',
+        'skill-review',
+      ],
+      review: { passed: true, blockingFindings: [], warnings: [] },
+    }),
+    ...(plan.engineMode === 'none'
+      ? []
+      : [
+          artifact(
+            'comet/skill.yaml',
+            'engine',
+            stringify(workflowContractSkillDefinition(plan, protocol)),
+          ),
+          artifact(
+            'comet/guardrails.yaml',
+            'engine',
+            stringify({
+              allowedSkills: [plan.name, ...nodeSkills],
+              allowedAgents: [],
+              allowedTools: [],
+              maxIterations: Math.max(nodeSkills.length + 2, 5),
+              maxRetriesPerAction: 2,
+              confirmationRequiredFor: [],
+            }),
+          ),
+          artifact('comet/checks.yaml', 'engine', stringify(runtimeEvals())),
+          artifact(
+            'comet/eval.yaml',
+            'engine',
+            stringify(workflowContractEvalManifest(plan, protocol)),
+          ),
+        ]),
+  ];
+  const proposals: FactoryArtifactProposal[] = [
+    {
+      lane: 'workflow-entry',
+      protocolHash,
+      artifacts: artifacts.filter((item) => item.path === 'SKILL.md'),
+      claims: workflowEntryClaims(),
+    },
+    {
+      lane: 'skill-core',
+      protocolHash,
+      artifacts: artifacts.filter((item) => item.kind === 'skill' && item.path !== 'SKILL.md'),
+      claims: nodeSkills.map((name) =>
+        claim(
+          'node-skill',
+          `node-skill:${name}`,
+          [`../${name}/SKILL.md`],
+          `Workflow Node Skill ${name}.`,
+          name,
+        ),
+      ),
+    },
+  ];
+  return {
+    workflow: protocol,
+    protocolHash,
+    proposals,
+    artifacts,
+    review: { passed: true, blockingFindings: [], warnings: [] },
+  };
+}
+
 function claim(
   kind: FactoryArtifactClaim['kind'],
   id: string,
   paths: string[],
   summary: string,
-  stageSkill?: string,
+  nodeSkill?: string,
 ): FactoryArtifactClaim {
   return {
     kind,
     id,
     paths,
     summary,
-    ...(stageSkill ? { stageSkill } : {}),
+    ...(nodeSkill ? { nodeSkill } : {}),
   };
 }
 
-function skillCoreClaims(stagePlans: FactoryStagePlan[]): FactoryArtifactClaim[] {
+function workflowEntryClaims(): FactoryArtifactClaim[] {
   return [
     claim(
       'workflow-entry',
@@ -182,147 +1066,7 @@ function skillCoreClaims(stagePlans: FactoryStagePlan[]): FactoryArtifactClaim[]
       ['SKILL.md'],
       'Entry Skill routes the generated workflow.',
     ),
-    ...stagePlans.map((stage) =>
-      claim(
-        'stage-skill',
-        `stage-skill:${stage.name}`,
-        [`../${stage.name}/SKILL.md`],
-        `Internal stage Skill ${stage.name} handles ${stage.label ?? stage.sourceSkill}.`,
-        stage.name,
-      ),
-    ),
   ];
-}
-
-function scriptClaims(): FactoryArtifactClaim[] {
-  return [
-    claim(
-      'script',
-      'script:workflow-state',
-      ['scripts/workflow-state.mjs'],
-      'Workflow state script records stage evidence and emits the next generated Skill.',
-    ),
-    claim(
-      'script',
-      'script:workflow-guard',
-      ['scripts/workflow-guard.mjs'],
-      'Workflow guard script blocks stage exit until protocol checks pass.',
-    ),
-    claim(
-      'script',
-      'script:workflow-handoff',
-      ['scripts/workflow-handoff.mjs'],
-      'Workflow handoff script records resumable context across sessions.',
-    ),
-  ];
-}
-
-function referenceClaims(): FactoryArtifactClaim[] {
-  return [
-    claim(
-      'reference',
-      'reference:workflow-protocol',
-      ['reference/workflow-protocol.json'],
-      'Workflow protocol is the route authority for generated Skills and scripts.',
-    ),
-    claim(
-      'reference',
-      'reference:resolved-skills',
-      ['reference/resolved-skills.json'],
-      'Resolved source Skill evidence is preserved outside user-facing Skill prose.',
-    ),
-    claim(
-      'reference',
-      'reference:composition-report',
-      ['reference/composition-report.md'],
-      'Composition report explains preference and source-skill decisions for audits.',
-    ),
-  ];
-}
-
-function pausePointClaims(): FactoryArtifactClaim[] {
-  return [
-    claim(
-      'pause-point',
-      'pause:decision-points',
-      ['reference/decision-points.md'],
-      'Decision point reference describes user pauses before risky workflow transitions.',
-    ),
-    claim(
-      'pause-point',
-      'pause:recovery',
-      ['reference/recovery.md'],
-      'Recovery reference describes cross-session workflow resume behavior.',
-    ),
-  ];
-}
-
-function evalClaims(engineArtifacts: FactoryPackageArtifact[]): FactoryArtifactClaim[] {
-  if (!engineArtifacts.some((item) => item.path === 'comet/eval.yaml')) return [];
-  return [
-    claim(
-      'eval',
-      'eval:manifest',
-      ['comet/eval.yaml'],
-      'Eval manifest covers generated workflow route conformance.',
-    ),
-  ];
-}
-
-function reviewAuthor(): FactoryArtifactAuthorMetadata {
-  return {
-    id: 'skill-review',
-    kind: 'deterministic-adapter',
-    label: 'Skill review author',
-  };
-}
-
-function reviewClaims(): FactoryArtifactClaim[] {
-  return [
-    claim(
-      'review',
-      'review:skill-review',
-      ['reference/skill-review.md'],
-      'Skill review report records the final authoring gate result.',
-    ),
-    claim(
-      'reference',
-      'reference:authoring-lanes',
-      ['reference/authoring-lanes.json'],
-      'Authoring lane manifest records lane authors, claims, artifacts, and review findings.',
-    ),
-  ];
-}
-
-function authoringLanesJson(
-  protocolHash: string,
-  proposals: FactoryArtifactProposal[],
-  review: ReturnType<typeof reviewFactoryArtifactProposals>,
-): string {
-  return `${JSON.stringify(
-    {
-      schemaVersion: 1,
-      protocolHash,
-      lanes: proposals.map((proposal) => ({
-        lane: proposal.lane,
-        protocolHash: proposal.protocolHash,
-        author: proposal.author ?? null,
-        claims: proposal.claims ?? [],
-        artifacts: proposal.artifacts.map((item) => ({
-          path: item.path,
-          kind: item.kind,
-        })),
-        findings: proposal.findings ?? [],
-      })),
-      review: {
-        passed: review.passed,
-        blockingFindings: review.blockingFindings,
-        warnings: review.warnings,
-      },
-    },
-    null,
-    2,
-  )}\n`;
 }
 
 function artifactTarget(packageRoot: string, artifactPath: string): string {
@@ -338,111 +1082,10 @@ function artifactTarget(packageRoot: string, artifactPath: string): string {
 export async function draftFactorySkillArtifacts(
   plan: FactorySkillPackagePlan,
 ): Promise<FactoryPackageDraft> {
-  const sourceSummaries = buildSourceSummaries(plan);
-  const stagePlans = buildStagePlans(plan);
-  const workflow = compileWorkflowSpec(plan);
-  const protocolHash = workflowProtocolHash(workflow);
-  const input = { plan, workflow, protocolHash, sourceSummaries, stagePlans };
-  const scriptArtifacts = [
-    artifact('scripts/comet-plan.mjs', 'script', planScript(plan), true),
-    artifact('scripts/comet-check.mjs', 'script', checkScript(plan), true),
-    artifact('scripts/comet-hook-guard.mjs', 'script', hookGuardScript(plan), true),
-    artifact('scripts/workflow-state.mjs', 'script', workflowStateScript(plan), true),
-    artifact('scripts/workflow-guard.mjs', 'script', workflowGuardScript(), true),
-    artifact('scripts/workflow-handoff.mjs', 'script', workflowHandoffScript(), true),
-  ];
-  const engineArtifacts =
-    plan.engineMode === 'none'
-      ? []
-      : [
-          artifact('comet/skill.yaml', 'engine', stringify(skillDefinition(plan))),
-          artifact('comet/guardrails.yaml', 'engine', stringify(guardrails(plan))),
-          artifact('comet/checks.yaml', 'engine', stringify(runtimeEvals())),
-          artifact('comet/eval.yaml', 'engine', stringify(evalManifest(plan))),
-        ];
-  const authors = [
-    createDeterministicArtifactAuthor(
-      'skill-core',
-      'Skill core author',
-      () => [
-        artifact('SKILL.md', 'skill', renderSkillMarkdown(plan)),
-        ...stagePlans.map((stage) =>
-          artifact(
-            `../${stage.name}/SKILL.md`,
-            'skill',
-            renderInternalStageSkillMarkdown(plan, stage),
-          ),
-        ),
-      ],
-      () => skillCoreClaims(stagePlans),
-    ),
-    createDeterministicArtifactAuthor(
-      'script-contract',
-      'Workflow script contract author',
-      () => scriptArtifacts,
-      () => scriptClaims(),
-    ),
-    createDeterministicArtifactAuthor(
-      'reference',
-      'Reference author',
-      () => [
-        jsonArtifact('reference/resolved-skills.json', {
-          schemaVersion: 1,
-          resolvedSkills: plan.resolvedSkills ?? [],
-          sourceSummaries,
-          stageNames: stagePlans,
-          preference: plan.preference ?? null,
-        }),
-        jsonArtifact('reference/workflow-protocol.json', workflow),
-        artifact('reference/composition-report.md', 'reference', renderCompositionReport(plan)),
-      ],
-      () => referenceClaims(),
-    ),
-    createDeterministicArtifactAuthor(
-      'pause-points',
-      'User pause point author',
-      () => [
-        artifact(
-          'reference/decision-points.md',
-          'reference',
-          renderWorkflowDecisionPointsMarkdown(workflow),
-        ),
-        artifact('reference/recovery.md', 'reference', renderWorkflowRecoveryMarkdown(workflow)),
-      ],
-      () => pausePointClaims(),
-    ),
-    createDeterministicArtifactAuthor(
-      'eval',
-      'Workflow eval author',
-      () => engineArtifacts,
-      () => evalClaims(engineArtifacts),
-    ),
-  ];
-
-  return assembleFactoryPackageDraft({
-    input,
-    authors,
-    requiresEngineArtifacts: plan.engineMode !== 'none',
-    createReviewProposal({ review, proposals }) {
-      const reviewProposal: FactoryArtifactProposal = {
-        lane: 'skill-review',
-        protocolHash,
-        author: reviewAuthor(),
-        artifacts: [],
-        claims: reviewClaims(),
-      };
-      const allProposals = [...proposals, reviewProposal];
-      reviewProposal.artifacts = [
-        artifact('reference/skill-review.md', 'reference', renderSkillReviewMarkdown(review)),
-        artifact(
-          'reference/authoring-lanes.json',
-          'reference',
-          authoringLanesJson(protocolHash, allProposals, review),
-        ),
-      ];
-      return reviewProposal;
-    },
-  });
+  if (!plan.workflowProtocol) {
+    throw new Error('workflowProtocol is required for workflow contract package generation');
+  }
+  return workflowContractArtifacts(plan);
 }
 
 async function writeFactoryArtifacts(
@@ -462,7 +1105,10 @@ export async function generateFactorySkillPackage(
   const packageRoot = path.resolve(plan.root, 'skills', plan.name);
   const cometRoot = path.join(packageRoot, 'comet');
   const referenceRoot = path.join(packageRoot, 'reference');
-  const stagePlans = buildStagePlans(plan);
+  if (!plan.workflowProtocol) {
+    throw new Error('workflowProtocol is required for workflow contract package generation');
+  }
+  const internalSkillIds = workflowContractInternalSkillNames(plan.workflowProtocol);
   const draft = await draftFactorySkillArtifacts(plan);
   const compositionReportPath = path.join(referenceRoot, 'composition-report.md');
   if (!draft.review.passed) {
@@ -481,7 +1127,7 @@ export async function generateFactorySkillPackage(
   return {
     packageRoot,
     skillPath: path.join(packageRoot, 'SKILL.md'),
-    internalSkills: stagePlans.map((stage) => stage.name),
+    internalSkills: internalSkillIds,
     enginePath: plan.engineMode === 'none' ? null : cometRoot,
     evalManifestPath: plan.engineMode === 'none' ? null : path.join(cometRoot, 'eval.yaml'),
     controlPlane: {

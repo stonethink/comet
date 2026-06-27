@@ -8,6 +8,7 @@ import {
   skillInstallCommand,
   skillResumeCommand,
   skillRunCommand,
+  skillShowCommand,
   skillValidateCommand,
 } from '../../app/commands/skill.js';
 
@@ -97,6 +98,28 @@ describe('skill validate and inspect commands', () => {
     });
   });
 
+  it('shows Skill identity and package details through the simplified facade', async () => {
+    const result = await captureJson(() =>
+      skillShowCommand('demo', { project: projectRoot, json: true }),
+    );
+
+    expect(result).toMatchObject({
+      valid: true,
+      name: 'demo',
+      origin: 'project',
+      description: 'Demo skill',
+      orchestration: {
+        mode: 'deterministic',
+        entry: 'finish',
+      },
+      skills: [],
+      agents: [],
+      tools: [],
+      checks: [],
+    });
+    expect(result.hash).toMatch(/^[a-f0-9]{64}$/u);
+  });
+
   it('runs, resumes, and evaluates a deterministic Skill as JSON', async () => {
     const changeDir = path.join(root, 'change');
     await fs.writeFile(
@@ -167,7 +190,7 @@ describe('skill validate and inspect commands', () => {
       });
       const runOutput = log.mock.calls.map((call) => call.join(' ')).join('\n');
       expect(runOutput).toContain('Pending action:');
-      expect(runOutput).toContain('Next: complete the pending action, then run comet skill resume');
+      expect(runOutput).toContain('Next: complete the pending action, then run comet skill continue');
 
       log.mockClear();
       await skillResumeCommand({

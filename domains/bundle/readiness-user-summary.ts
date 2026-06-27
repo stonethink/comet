@@ -12,9 +12,10 @@ export interface BundleReadinessUserSummaryItem {
     | 'proposal'
     | 'preference'
     | 'composition'
+    | 'workflow'
     | 'control-plane'
     | 'draft'
-    | 'eval'
+    | 'benchmark'
     | 'review'
     | 'publish'
     | 'capability'
@@ -70,9 +71,10 @@ function codeOf(message: string): BundleReadinessUserSummaryItem['code'] {
       'proposal',
       'preference',
       'composition',
+      'workflow',
       'control-plane',
       'draft',
-      'eval',
+      'benchmark',
       'review',
       'publish',
       'capability',
@@ -113,6 +115,13 @@ function advice(
         label: 'Ask /comet-any to revise the composition proposal',
         command: 'Ask /comet-any to revise the proposal',
       };
+    case 'workflow':
+      return {
+        impact:
+          'The generated workflow contract is missing a required Output Schema or violates a protected Node rule.',
+        label: 'Revise the workflow contract',
+        command: 'Ask /comet-any to revise the Workflow Nodes, Skill Bindings, or Output Schemas',
+      };
     case 'control-plane':
       return {
         impact: 'Required scripts, rules, hooks, or checks are missing from the generated Skill.',
@@ -125,11 +134,11 @@ function advice(
         label: 'Reconcile the Bundle status',
         command: `comet publish status ${bundleName}`,
       };
-    case 'eval':
+    case 'benchmark':
       return {
-        impact: 'There is no passing Eval evidence for the current draft.',
-        label: 'Run Eval for the generated Skill',
-        command: 'comet eval run --manifest <generated-skill>/comet/eval.yaml --quick --html',
+        impact: 'There is no passing benchmark evidence for the current draft.',
+        label: 'Run a benchmark for the generated Skill',
+        command: 'comet eval <generated-skill>/comet/eval.yaml --quick --html',
       };
     case 'review':
       return {
@@ -214,7 +223,7 @@ export function buildReadinessUserSummary(
         : conclusion === 'needs-confirmation'
           ? 'No blockers remain, but human review approval is still required.'
           : conclusion === 'can-publish'
-            ? 'Eval and review evidence match the current draft.'
+            ? 'Benchmark and review evidence match the current draft.'
             : 'The published Bundle is bound to the current hash.',
     items,
     nextSteps:

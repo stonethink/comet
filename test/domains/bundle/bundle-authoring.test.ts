@@ -10,6 +10,7 @@ import {
   writeBundleAuthoringState,
 } from '../../../domains/bundle/state.js';
 import type { BundleAuthoringState } from '../../../domains/bundle/types.js';
+import { workflowFor as workflowDefinitionFor } from '../../helpers/workflow-plan.js';
 
 async function writeBundle(root: string, name: string, version = '1.0.0'): Promise<void> {
   await fs.mkdir(path.join(root, 'skills', 'demo'), { recursive: true });
@@ -54,6 +55,10 @@ async function writeFactorySkill(projectRoot: string, name: string): Promise<voi
     path.join(skillRoot, 'SKILL.md'),
     `---\nname: ${name}\ndescription: ${name}.\n---\n# ${name}\n`,
   );
+}
+
+function workflowFor(name: string, skills: string[]): ReturnType<typeof workflowDefinitionFor> {
+  return workflowDefinitionFor(name, skills);
 }
 
 describe('Bundle authoring lifecycle', () => {
@@ -353,7 +358,7 @@ describe('Bundle authoring lifecycle', () => {
         {
           goal: 'Create a confirmed Skill',
           preferredSkills: ['task3-confirmed-brainstorming'],
-          callChain: [{ skill: 'task3-confirmed-brainstorming' }],
+          workflow: workflowFor('confirmed-skill', ['task3-confirmed-brainstorming']),
           engineMode: 'deterministic',
           runnerMode: 'standalone',
         },
@@ -385,7 +390,7 @@ describe('Bundle authoring lifecycle', () => {
         {
           goal: 'Create a blocked Skill',
           preferredSkills: ['task3-missing-skill'],
-          callChain: [{ skill: 'task3-missing-skill' }],
+          workflow: workflowFor('blocked-confirmed-skill', ['task3-missing-skill']),
           engineMode: 'deterministic',
           runnerMode: 'standalone',
         },

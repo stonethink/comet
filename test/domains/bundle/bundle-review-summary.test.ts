@@ -10,11 +10,13 @@ import {
   generateBundleDraftFromFactoryState,
   initializeBundleFactoryState,
 } from '../../../domains/bundle/factory.js';
+import { normalizeWorkflowDefinition } from '../../../domains/workflow-contract/index.js';
 import {
   reconcileBundleAuthoringState,
   writeBundleAuthoringState,
 } from '../../../domains/bundle/state.js';
 import type { BundleAuthoringState } from '../../../domains/bundle/types.js';
+import { workflowFor as workflowDefinitionFor } from '../../helpers/workflow-plan.js';
 
 async function writeMinimalBundle(root: string, name: string): Promise<void> {
   await fs.mkdir(path.join(root, 'skills', name), { recursive: true });
@@ -115,6 +117,10 @@ async function writeFactorySkill(projectRoot: string, name: string): Promise<voi
   );
 }
 
+function workflowFor(name: string, skills: string[]): ReturnType<typeof workflowDefinitionFor> {
+  return workflowDefinitionFor(name, skills);
+}
+
 async function createFactoryStateWithGeneratedPackage(
   projectRoot: string,
   name: string,
@@ -128,7 +134,7 @@ async function createFactoryStateWithGeneratedPackage(
       {
         goal: `Generate ${name}.`,
         preferredSkills: [`${name}-source`],
-        callChain: [`${name}-source`],
+        workflow: workflowFor(name, [`${name}-source`]),
         engineMode: 'deterministic',
         runnerMode: 'standalone',
         defaultLocale: 'en',
@@ -148,114 +154,6 @@ async function createFactoryStateWithGeneratedPackage(
   return generateBundleDraftFromFactoryState({ projectRoot, state: initialized });
 }
 
-async function writeGeneratedControlPlane(packageRoot: string): Promise<void> {
-  const draftRoot = path.resolve(packageRoot, '..', '..');
-  const name = path.basename(packageRoot);
-  await fs.mkdir(path.join(packageRoot, 'comet'), { recursive: true });
-  await fs.mkdir(path.join(packageRoot, 'reference'), { recursive: true });
-  await fs.mkdir(path.join(packageRoot, 'scripts'), { recursive: true });
-  await fs.mkdir(path.join(draftRoot, 'rules'), { recursive: true });
-  await fs.mkdir(path.join(draftRoot, 'hooks'), { recursive: true });
-  await fs.writeFile(path.join(packageRoot, 'SKILL.md'), '# Demo\n', 'utf8');
-  await fs.writeFile(path.join(packageRoot, 'comet', 'skill.yaml'), 'steps: []\n', 'utf8');
-  await fs.writeFile(
-    path.join(packageRoot, 'comet', 'guardrails.yaml'),
-    'allowedSkills: []\n',
-    'utf8',
-  );
-  await fs.writeFile(path.join(packageRoot, 'comet', 'checks.yaml'), 'runtime: []\n', 'utf8');
-  await fs.writeFile(path.join(packageRoot, 'comet', 'eval.yaml'), 'tasks: []\n', 'utf8');
-  await fs.writeFile(
-    path.join(packageRoot, 'reference', 'resolved-skills.json'),
-    '{"resolvedSkills":[]}\n',
-    'utf8',
-  );
-  await fs.writeFile(
-    path.join(packageRoot, 'reference', 'composition-report.md'),
-    '# Composition\n',
-    'utf8',
-  );
-  await fs.writeFile(path.join(packageRoot, 'scripts', 'comet-plan.mjs'), '\n', 'utf8');
-  await fs.writeFile(
-    path.join(packageRoot, 'scripts', 'comet-check.mjs'),
-    "const command = process.argv[2] ?? 'verify';\nif (command !== 'verify') throw new Error('bad');\nconsole.log('control-plane-ok');\n// comet/skill.yaml scripts/comet-hook-guard.mjs\n",
-    'utf8',
-  );
-  await fs.writeFile(path.join(packageRoot, 'scripts', 'comet-hook-guard.mjs'), '\n', 'utf8');
-  await fs.writeFile(path.join(draftRoot, 'rules', `${name}-orchestration.md`), '# Rule\n', 'utf8');
-  await fs.writeFile(
-    path.join(draftRoot, 'hooks', `${name}-before-write-guard.yaml`),
-    `event: before_write
-matcher: Write|Edit
-script: comet-hook-guard
-failure: block
-requiresConfirmation: false
-`,
-    'utf8',
-  );
-  await fs.writeFile(
-    path.join(draftRoot, 'hooks', `${name}-before-tool-guard.yaml`),
-    `event: before_tool
-matcher: "*"
-script: comet-hook-guard
-failure: block
-requiresConfirmation: false
-`,
-    'utf8',
-  );
-  await fs.writeFile(
-    path.join(draftRoot, 'bundle.yaml'),
-    `apiVersion: comet/v1alpha1
-kind: SkillBundle
-metadata:
-  name: ${name}
-  version: 1.0.0
-  description: Demo
-  defaultLocale: en
-  locales: [en]
-skills:
-  - id: ${name}
-    path: skills/${name}
-    visibility: entry
-resources:
-  rules:
-    - id: ${name}-orchestration
-      path: rules/${name}-orchestration.md
-      mode: always
-      required: true
-  hooks:
-    - id: ${name}-before-write-guard
-      path: hooks/${name}-before-write-guard.yaml
-    - id: ${name}-before-tool-guard
-      path: hooks/${name}-before-tool-guard.yaml
-  references:
-    - skills/${name}/reference/resolved-skills.json
-    - skills/${name}/reference/composition-report.md
-  scripts:
-    - id: comet-plan
-      path: skills/${name}/scripts/comet-plan.mjs
-      sideEffect: write
-      runtime: node
-    - id: comet-check
-      path: skills/${name}/scripts/comet-check.mjs
-      sideEffect: read
-      runtime: node
-    - id: comet-hook-guard
-      path: skills/${name}/scripts/comet-hook-guard.mjs
-      sideEffect: read
-      runtime: node
-  assets: []
-platforms:
-  requires: [skills, scripts, rules, hooks, references]
-  optional: []
-  overrides: []
-engine:
-  enabled: false
-`,
-    'utf8',
-  );
-}
-
 describe('Bundle review summary readiness', () => {
   let projectRoot: string;
 
@@ -267,7 +165,7 @@ describe('Bundle review summary readiness', () => {
     await fs.rm(projectRoot, { recursive: true, force: true });
   });
 
-  it('blocks unresolved Factory candidates and missing eval evidence', async () => {
+  it('blocks unresolved Factory candidates and missing benchmark evidence', async () => {
     const state = await createBundleDraft({
       projectRoot,
       name: 'factory-demo',
@@ -301,7 +199,7 @@ describe('Bundle review summary readiness', () => {
       '[candidate] Unresolved Factory candidates: missing-skill (missing)',
     );
     expect(summary.readiness.blockers).toContain(
-      '[eval] Eval evidence for the current draft hash is missing',
+      '[benchmark] Benchmark evidence for the current draft hash is missing',
     );
   });
 
@@ -530,13 +428,7 @@ prefer:
       'stable-missing-control',
     );
     await fs.rm(
-      path.join(
-        state.draftPath,
-        'skills',
-        'stable-missing-control',
-        'scripts',
-        'comet-check.mjs',
-      ),
+      path.join(state.draftPath, 'skills', 'stable-missing-control', 'scripts', 'comet-check.mjs'),
     );
 
     const summary = await buildBundleReviewSummary({
@@ -661,43 +553,29 @@ prefer:
   });
 
   it('classifies readiness blockers by type and exposes all readiness states', async () => {
-    const draftPath = path.join(projectRoot, '.comet', 'bundle-drafts', 'factory-classified');
-    const generatedPackageRoot = path.join(draftPath, 'skills', 'factory-classified');
-    await createBundleDraft({
+    const generatedState = await createFactoryStateWithGeneratedPackage(
       projectRoot,
-      name: 'factory-classified',
-      candidates: [],
-      creator: 'native',
-      defaultLocale: 'en',
-      locales: ['en'],
-      engineEnabled: true,
-      factory: {
-        goal: 'Demo',
-        preferredSkills: ['missing-skill'],
-        resolvedSkills: [
-          { query: 'missing-skill', preferenceIndex: 0, status: 'missing', sources: [] },
-        ],
-        callChain: [{ skill: 'missing-skill', preferenceIndex: 0 }],
-        deviations: [],
-        engineMode: 'deterministic',
-        runnerMode: 'standalone',
-        generatedSkillPackage: {
-          entrySkill: 'factory-classified',
-          internalSkills: [],
-          packageRoot: generatedPackageRoot,
-          enginePath: null,
-          evalManifestPath: path.join(generatedPackageRoot, 'comet', 'eval.yaml'),
-        },
-      },
-    });
-    await writeMinimalBundle(draftPath, 'factory-classified');
-    await writeGeneratedControlPlane(generatedPackageRoot);
-
+      'factory-classified',
+    );
+    const draftPath = generatedState.draftPath;
+    const workflow = normalizeWorkflowDefinition(
+      workflowFor('factory-classified', ['missing-skill']),
+    );
     const blockedState = await reconcileBundleAuthoringState(projectRoot, 'factory-classified');
     await writeBundleAuthoringState(projectRoot, {
       ...blockedState,
       status: 'draft',
-      currentHash: blockedState.currentHash,
+      currentHash: generatedState.currentHash,
+      factory: {
+        ...blockedState.factory!,
+        preferredSkills: ['missing-skill'],
+        workflowDefinition: workflow.input,
+        workflowProtocol: workflow.protocol,
+        resolvedSkills: [
+          { query: 'missing-skill', preferenceIndex: 0, status: 'missing', sources: [] },
+        ],
+        callChain: [{ skill: 'missing-skill', preferenceIndex: 0 }],
+      },
     });
 
     const blocked = await buildBundleReviewSummary({
@@ -709,7 +587,7 @@ prefer:
     expect(blocked.readiness.blockers).toEqual(
       expect.arrayContaining([
         expect.stringContaining('[candidate]'),
-        expect.stringContaining('[eval]'),
+        expect.stringContaining('[benchmark]'),
       ]),
     );
     expect(blocked.userSummary).toMatchObject({
@@ -726,10 +604,10 @@ prefer:
           }),
         }),
         expect.objectContaining({
-          code: 'eval',
+          code: 'benchmark',
           severity: 'blocker',
           nextAction: expect.objectContaining({
-            command: expect.stringContaining('comet eval run'),
+            command: expect.stringContaining('comet eval '),
           }),
         }),
       ]),

@@ -52,10 +52,18 @@ export interface BundleControlPlaneValidation {
 const REQUIRED_FACTORY_CONTROL_PLANE = [
   'SKILL.md',
   'reference/resolved-skills.json',
+  'reference/workflow-protocol.json',
+  'reference/decision-points.md',
+  'reference/recovery.md',
+  'reference/authoring-lanes.json',
+  'reference/skill-review.md',
   'reference/composition-report.md',
   'scripts/comet-plan.mjs',
   'scripts/comet-check.mjs',
   'scripts/comet-hook-guard.mjs',
+  'scripts/workflow-state.mjs',
+  'scripts/workflow-guard.mjs',
+  'scripts/workflow-handoff.mjs',
 ] as const;
 
 const REQUIRED_FACTORY_ENGINE_CONTROL_PLANE = [
@@ -106,54 +114,55 @@ function assertNonNegative(value: unknown, label: string): asserts value is numb
 }
 
 function parseEvalResult(value: unknown): BundleEvalResult {
-  assertObject(value, 'Eval result');
-  if (value.schemaVersion !== 1) throw new Error('Eval result schemaVersion must be 1');
+  assertObject(value, 'Benchmark result');
+  if (value.schemaVersion !== 1) throw new Error('Benchmark result schemaVersion must be 1');
   if (!['native-skill-creator', 'comet-fallback'].includes(String(value.provider))) {
-    throw new Error('Eval result provider is unsupported');
+    throw new Error('Benchmark result provider is unsupported');
   }
   if (!['quick', 'full'].includes(String(value.level))) {
-    throw new Error('Eval result level must be quick or full');
+    throw new Error('Benchmark result level must be quick or full');
   }
   if (typeof value.bundleHash !== 'string' || !/^[a-f0-9]{64}$/u.test(value.bundleHash)) {
-    throw new Error('Eval result bundleHash must be a SHA-256 hash');
+    throw new Error('Benchmark result bundleHash must be a SHA-256 hash');
   }
-  if (!Array.isArray(value.entries)) throw new Error('Eval result entries must be an array');
+  if (!Array.isArray(value.entries)) throw new Error('Benchmark result entries must be an array');
   for (const [index, entry] of value.entries.entries()) {
-    assertObject(entry, `Eval result entries[${index}]`);
+    assertObject(entry, `Benchmark result entries[${index}]`);
     if (typeof entry.id !== 'string' || !entry.id) {
-      throw new Error(`Eval result entries[${index}].id must be a string`);
+      throw new Error(`Benchmark result entries[${index}].id must be a string`);
     }
     if (typeof entry.passed !== 'boolean') {
-      throw new Error(`Eval result entries[${index}].passed must be a boolean`);
+      throw new Error(`Benchmark result entries[${index}].passed must be a boolean`);
     }
-    assertRate(entry.passRate, `Eval result entries[${index}].passRate`);
-    assertStringArray(entry.evidence, `Eval result entries[${index}].evidence`);
+    assertRate(entry.passRate, `Benchmark result entries[${index}].passRate`);
+    assertStringArray(entry.evidence, `Benchmark result entries[${index}].evidence`);
   }
-  assertObject(value.bundle, 'Eval result bundle');
+  assertObject(value.bundle, 'Benchmark result bundle');
   if (
     typeof value.bundle.compilePassed !== 'boolean' ||
     typeof value.bundle.safetyPassed !== 'boolean'
   ) {
-    throw new Error('Eval result bundle compilePassed and safetyPassed must be booleans');
+    throw new Error('Benchmark result bundle compilePassed and safetyPassed must be booleans');
   }
-  assertStringArray(value.bundle.evidence, 'Eval result bundle evidence');
-  assertObject(value.benchmark, 'Eval result benchmark');
-  assertNonNegative(value.benchmark.cases, 'Eval result benchmark cases');
+  assertStringArray(value.bundle.evidence, 'Benchmark result bundle evidence');
+  assertObject(value.benchmark, 'Benchmark result benchmark');
+  assertNonNegative(value.benchmark.cases, 'Benchmark result benchmark cases');
   if (!Number.isInteger(value.benchmark.cases) || value.benchmark.cases === 0) {
-    throw new Error('Eval result benchmark cases must be a positive integer');
+    throw new Error('Benchmark result benchmark cases must be a positive integer');
   }
-  assertRate(value.benchmark.baselinePassRate, 'Eval result benchmark baselinePassRate');
-  assertRate(value.benchmark.withSkillPassRate, 'Eval result benchmark withSkillPassRate');
-  assertNonNegative(value.benchmark.tokenCount, 'Eval result benchmark tokenCount');
-  assertNonNegative(value.benchmark.durationMs, 'Eval result benchmark durationMs');
+  assertRate(value.benchmark.baselinePassRate, 'Benchmark result benchmark baselinePassRate');
+  assertRate(value.benchmark.withSkillPassRate, 'Benchmark result benchmark withSkillPassRate');
+  assertNonNegative(value.benchmark.tokenCount, 'Benchmark result benchmark tokenCount');
+  assertNonNegative(value.benchmark.durationMs, 'Benchmark result benchmark durationMs');
   if (value.level === 'full') {
-    assertNonNegative(value.benchmark.variance, 'Eval result benchmark variance');
+    assertNonNegative(value.benchmark.variance, 'Benchmark result benchmark variance');
   } else if (value.benchmark.variance !== undefined) {
-    assertNonNegative(value.benchmark.variance, 'Eval result benchmark variance');
+    assertNonNegative(value.benchmark.variance, 'Benchmark result benchmark variance');
   }
-  if (typeof value.passed !== 'boolean') throw new Error('Eval result passed must be a boolean');
+  if (typeof value.passed !== 'boolean')
+    throw new Error('Benchmark result passed must be a boolean');
   if (typeof value.summary !== 'string' || !value.summary.trim()) {
-    throw new Error('Eval result summary must be a non-empty string');
+    throw new Error('Benchmark result summary must be a non-empty string');
   }
   return value as unknown as BundleEvalResult;
 }
@@ -298,9 +307,26 @@ async function validateFactoryManifestResources(options: {
       id: 'comet-hook-guard',
       path: `skills/${entrySkill}/scripts/comet-hook-guard.mjs`,
     },
+    {
+      id: 'workflow-state',
+      path: `skills/${entrySkill}/scripts/workflow-state.mjs`,
+    },
+    {
+      id: 'workflow-guard',
+      path: `skills/${entrySkill}/scripts/workflow-guard.mjs`,
+    },
+    {
+      id: 'workflow-handoff',
+      path: `skills/${entrySkill}/scripts/workflow-handoff.mjs`,
+    },
   ];
   const expectedReferences = [
     `skills/${entrySkill}/reference/resolved-skills.json`,
+    `skills/${entrySkill}/reference/workflow-protocol.json`,
+    `skills/${entrySkill}/reference/decision-points.md`,
+    `skills/${entrySkill}/reference/recovery.md`,
+    `skills/${entrySkill}/reference/authoring-lanes.json`,
+    `skills/${entrySkill}/reference/skill-review.md`,
     `skills/${entrySkill}/reference/composition-report.md`,
   ];
 
@@ -389,6 +415,15 @@ async function validateGeneratedScriptContracts(
     'scripts/comet-hook-guard.mjs',
     ...(engineMode === 'none' ? [] : ['comet/skill.yaml']),
   ];
+  const workflowContractFragments = [
+    'workflow-protocol.json must use the current schema with nodes',
+    'workflow-contract-ok',
+    'protocol.nodes',
+  ];
+  if (workflowContractFragments.every((fragment) => source.includes(fragment))) {
+    evidence.push('script-contract:comet-check workflow protocol verify');
+    return;
+  }
   const missing = requiredFragments.filter((fragment) => !source.includes(fragment));
   if (missing.length > 0) {
     errors.push(`scripts/comet-check.mjs verify contract missing: ${missing.join(', ')}`);
@@ -401,10 +436,10 @@ function assertEntryCoverageForIds(expectedIds: string[], result: BundleEvalResu
   const expected = [...expectedIds].sort();
   const actual = result.entries.map((entry) => entry.id).sort();
   if (new Set(actual).size !== actual.length) {
-    throw new Error('Eval result entry ids must be unique');
+    throw new Error('Benchmark result entry ids must be unique');
   }
   if (expected.length !== actual.length || expected.some((id, index) => id !== actual[index])) {
-    throw new Error(`Eval result must contain every entry Skill: ${expected.join(', ')}`);
+    throw new Error(`Benchmark result must contain every entry Skill: ${expected.join(', ')}`);
   }
 }
 

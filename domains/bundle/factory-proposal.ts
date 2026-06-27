@@ -6,8 +6,6 @@ import { composeBundleFactoryPlan } from './factory-compose.js';
 import { normalizeBundleFactoryPlan, readBundleFactoryPlan } from './factory-plan.js';
 import { readBundleSkillPreferences } from './preferences.js';
 import { buildSkillMakerPlanSummary, type SkillMakerPlanSummary } from './user-facing.js';
-import { isCometSkillMakerBuiltin } from './templates/comet-skill-maker-template.js';
-import { resolveFactoryStageNames } from './factory-stage-names.js';
 import type {
   BundleFactoryCallChainItem,
   BundleFactoryComposition,
@@ -15,6 +13,8 @@ import type {
   BundleFactoryProposalSummary,
   BundleFactoryResolvedSkill,
 } from './types.js';
+import type { WorkflowProtocol } from '../workflow-contract/index.js';
+import { COMET_FIVE_PHASE_NODES } from '../workflow-contract/builtins.js';
 
 export interface BundleFactoryProposal {
   schemaVersion: 1;
@@ -27,6 +27,7 @@ export interface BundleFactoryProposal {
     warnings: unknown[];
   };
   callChain: BundleFactoryCallChainItem[];
+  workflowProtocol?: WorkflowProtocol;
   resolvedSkills: BundleFactoryResolvedSkill[];
   composition: BundleFactoryComposition;
   blockers: string[];
@@ -90,12 +91,20 @@ function builtInCandidate(
   };
 }
 
+const WORKFLOW_CONTRACT_BUILTIN_SKILLS = new Set(
+  COMET_FIVE_PHASE_NODES.map((node) => node.implementation.skill),
+);
+
+function isWorkflowContractBuiltinSkill(skill: string): boolean {
+  return WORKFLOW_CONTRACT_BUILTIN_SKILLS.has(skill);
+}
+
 function applyBuiltInCandidates(
   projectRoot: string,
   candidates: BundleCandidate[],
 ): BundleCandidate[] {
   return candidates.map((candidate) => {
-    if (!isCometSkillMakerBuiltin(candidate.name) || candidate.status !== 'missing') {
+    if (!isWorkflowContractBuiltinSkill(candidate.name) || candidate.status !== 'missing') {
       return candidate;
     }
     return builtInCandidate(projectRoot, candidate.name, candidate.preferenceIndex);
@@ -132,12 +141,6 @@ export async function buildBundleFactoryProposal(options: {
     resolvedSkills,
   });
   const callChain = composed.callChain.length > 0 ? composed.callChain : plan.callChain;
-  const stageNames = resolveFactoryStageNames({
-    bundleName: options.name,
-    callChain,
-    hints: plan.templateExpansion?.stageNameHints,
-    overrides: plan.stageNameOverrides,
-  });
 
   const blockers = [
     ...resolvedSkills
@@ -183,9 +186,9 @@ export async function buildBundleFactoryProposal(options: {
       },
       {
         id: 'run-eval',
-        label: 'Run Eval before publish',
+        label: 'Run benchmark before publish',
         required: true,
-        reason: 'Eval evidence is required before the candidate can become publishable.',
+        reason: 'Benchmark evidence is required before the candidate can become publishable.',
       },
     ],
     preferenceNotes: [
@@ -197,12 +200,29 @@ export async function buildBundleFactoryProposal(options: {
     intent: plan.skillMakerIntent,
     skillName: options.name,
     goal: plan.goal,
-    retained: plan.templateExpansion?.retained ?? [],
-    additions: plan.templateExpansion?.additions ?? plan.callChain.map((item) => item.skill),
-    replacements: plan.templateExpansion?.replacements ?? [],
-    disabled: plan.templateExpansion?.disabled ?? [],
-    rejected: [...(plan.templateExpansion?.rejected ?? []), ...blockers],
-    stageNames,
+    workflow: {
+      kind: plan.workflowProtocol.kind,
+      nodes: plan.workflowProtocol.nodes
+        .filter((node) => !node.disabled)
+        .map((node) => ({
+          id: node.id,
+          label: node.label,
+          kind: node.kind,
+          implementationSkill: node.implementation.skill,
+          requiredSkills: node.requiredSkillCalls.map((binding) => binding.skill),
+          outputSchemas: node.outputSchemas,
+        })),
+      outputSchemas: plan.workflowProtocol.outputSchemas.map((schema) => schema.id),
+    },
+    retained: [],
+    additions: plan.workflowProtocol.nodes
+      .filter((node) => !node.disabled)
+      .map((node) => `${node.id}: ${node.implementation.skill}`),
+    replacements: plan.workflowProtocol.nodes
+      .filter((node) => node.implementation.operation === 'override')
+      .map((node) => `${node.id}: ${node.implementation.skill}`),
+    disabled: plan.workflowProtocol.nodes.filter((node) => node.disabled).map((node) => node.id),
+    rejected: blockers,
     generated: generatedControlPlane(),
     validation: validationPlan(),
     install: ['Install/enable into the current Agent after validation and preview.'],
@@ -248,6 +268,7 @@ export async function buildBundleFactoryProposal(options: {
       warnings: projectPreferences?.warnings ?? [],
     },
     callChain,
+    ...(plan.workflowProtocol ? { workflowProtocol: plan.workflowProtocol } : {}),
     resolvedSkills,
     composition: composed.composition,
     blockers,

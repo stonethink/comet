@@ -97,7 +97,7 @@ export async function publishBundle(options: {
     state.review?.hash !== currentHash ||
     state.review.decision !== 'approved'
   ) {
-    throw new Error('Bundle publish requires Eval and review approval for the current hash');
+    throw new Error('Bundle publish requires benchmark and review approval for the current hash');
   }
 
   const ir = await compileBundleIr(bundle, { locale: state.defaultLocale });

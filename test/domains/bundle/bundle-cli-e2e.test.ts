@@ -4,10 +4,15 @@ import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
 import type { BundleEvalResult } from '../../../domains/bundle/eval.js';
+import { workflowFor as workflowDefinitionFor } from '../../helpers/workflow-plan.js';
 import { ensureCliBuilt } from '../../helpers/ensure-cli-built.js';
 
 const repositoryRoot = path.resolve('.');
 const cli = path.join(repositoryRoot, 'bin', 'comet.js');
+
+function workflowFor(name: string, skills: string[]): ReturnType<typeof workflowDefinitionFor> {
+  return workflowDefinitionFor(name, skills);
+}
 
 async function writeBundle(root: string): Promise<void> {
   for (const entry of ['alpha', 'beta']) {
@@ -57,7 +62,7 @@ async function writeFactoryPlan(planFile: string): Promise<void> {
       {
         goal: 'Create a review-oriented Comet-native Skill.',
         preferredSkills: ['factory-alpha'],
-        callChain: ['factory-alpha'],
+        workflow: workflowFor('factory-workflow', ['factory-alpha']),
         deviations: [],
         engineMode: 'deterministic',
         runnerMode: 'standalone',
@@ -154,7 +159,7 @@ describe('comet bundle CLI end to end', () => {
 
     const evalPlan = runJson(
       'bundle',
-      'eval-plan',
+      'benchmark-plan',
       'e2e-bundle',
       '--project',
       projectRoot,
@@ -167,7 +172,7 @@ describe('comet bundle CLI end to end', () => {
     await fs.writeFile(resultFile, JSON.stringify(passingResult(String(status.currentHash))));
     const evaluated = runJson(
       'bundle',
-      'eval-record',
+      'benchmark-record',
       'e2e-bundle',
       '--project',
       projectRoot,
@@ -235,7 +240,7 @@ describe('comet bundle CLI end to end', () => {
           name: 'recoverable-bundle',
           status: 'draft',
           nextAction: {
-            action: 'choose-eval-level',
+            action: 'choose-benchmark-level',
           },
         },
       ],
@@ -253,14 +258,14 @@ describe('comet bundle CLI end to end', () => {
         {
           name: 'publish-facade-bundle',
           status: 'draft',
-          nextAction: { action: 'choose-eval-level' },
+          nextAction: { action: 'choose-benchmark-level' },
         },
       ],
     });
     expect(status).toMatchObject({
       name: 'publish-facade-bundle',
       status: 'draft',
-      nextAction: { action: 'choose-eval-level' },
+      nextAction: { action: 'choose-benchmark-level' },
     });
   });
 
@@ -286,7 +291,7 @@ prefer:
       JSON.stringify(
         {
           goal: 'Create a proposal.',
-          callChain: ['factory-alpha'],
+          workflow: workflowFor('proposal-factory', ['factory-alpha']),
         },
         null,
         2,
@@ -451,7 +456,7 @@ prefer:
     );
     const quickEvalPlan = runJson(
       'bundle',
-      'eval-plan',
+      'benchmark-plan',
       'factory-bundle',
       '--project',
       projectRoot,
@@ -460,7 +465,7 @@ prefer:
     );
     const fullEvalPlan = runJson(
       'bundle',
-      'eval-plan',
+      'benchmark-plan',
       'factory-bundle',
       '--project',
       projectRoot,
@@ -584,7 +589,7 @@ prefer:
         {
           goal: 'Create a review-oriented Skill.',
           preferredSkills: ['factory-alpha', 'missing-skill'],
-          callChain: ['factory-alpha', 'missing-skill'],
+          workflow: workflowFor('factory-missing', ['factory-alpha', 'missing-skill']),
           deviations: [],
           engineMode: 'deterministic',
           runnerMode: 'standalone',
@@ -675,7 +680,7 @@ prefer:
       },
     });
     expect(summary.readiness).toMatchObject({
-      blockers: ['[eval] Eval evidence for the current draft hash is missing'],
+      blockers: ['[benchmark] Benchmark evidence for the current draft hash is missing'],
     });
   });
 
@@ -703,7 +708,7 @@ prefer:
         {
           goal: 'Create a review-oriented Skill.',
           preferredSkills: ['factory-alpha', 'missing-skill'],
-          callChain: ['factory-alpha', 'missing-skill'],
+          workflow: workflowFor('factory-text-mode', ['factory-alpha', 'missing-skill']),
           deviations: [],
           engineMode: 'deterministic',
           runnerMode: 'standalone',
@@ -763,7 +768,9 @@ prefer:
     expect(reviewSummary.status, reviewSummary.stderr).toBe(0);
     expect(reviewSummary.stdout).toContain('Readiness: blocked');
     expect(reviewSummary.stdout).toContain('Blockers:');
-    expect(reviewSummary.stdout).toContain('Eval evidence for the current draft hash is missing');
+    expect(reviewSummary.stdout).toContain(
+      'Benchmark evidence for the current draft hash is missing',
+    );
     expect(reviewSummary.stdout).toContain('Evidence:');
   });
 
@@ -838,7 +845,7 @@ prefer:
     );
     runJson(
       'bundle',
-      'eval-record',
+      'benchmark-record',
       'factory-warning-text-mode',
       '--project',
       projectRoot,
@@ -938,15 +945,15 @@ prefer:
     expect(bundleStatus.stdout).toContain('Status: draft');
     expect(bundleStatus.stdout).toContain('Factory package:');
     expect(bundleStatus.stdout).toContain(
-      'Eval: missing; run comet bundle eval-plan and comet bundle eval-record',
+      'Benchmark: missing; run comet bundle benchmark-plan and comet bundle benchmark-record',
     );
     expect(bundleStatus.stdout).toContain(
       'Review: missing; run comet bundle review-summary before approval',
     );
-    expect(bundleStatus.stdout).toContain('Next action: choose-eval-level');
-    expect(bundleStatus.stdout).toContain('Suggested user command: comet eval run --manifest');
+    expect(bundleStatus.stdout).toContain('Next action: choose-benchmark-level');
+    expect(bundleStatus.stdout).toContain('Suggested user command: comet eval ');
     expect(bundleStatus.stdout).toContain(
-      'Backend command: comet bundle eval-plan factory-status-text-mode --level quick',
+      'Backend command: comet bundle benchmark-plan factory-status-text-mode --level quick',
     );
   });
 
@@ -973,7 +980,7 @@ prefer:
         {
           goal: 'Create a review-oriented Skill.',
           preferredSkills: ['factory-alpha'],
-          callChain: ['factory-alpha'],
+          workflow: workflowFor('factory-next-action', ['factory-alpha']),
           deviations: [],
           engineMode: 'deterministic',
           runnerMode: 'standalone',
@@ -1003,9 +1010,9 @@ prefer:
 
     expect(status).toMatchObject({
       nextAction: {
-        action: 'choose-eval-level',
-        backendCommand: 'comet bundle eval-plan factory-next-action --level quick',
-        userCommand: expect.stringContaining('comet eval run --manifest'),
+        action: 'choose-benchmark-level',
+        backendCommand: 'comet bundle benchmark-plan factory-next-action --level quick',
+        userCommand: expect.stringContaining('comet eval '),
       },
     });
   });
@@ -1026,7 +1033,7 @@ prefer:
         {
           goal: 'Create a review-oriented Skill.',
           preferredSkills: ['missing-skill'],
-          callChain: ['missing-skill'],
+          workflow: workflowFor('factory-resolve-action', ['missing-skill']),
           deviations: [],
           engineMode: 'deterministic',
           runnerMode: 'standalone',
@@ -1054,7 +1061,9 @@ prefer:
 
     expect(status.status, status.stderr).toBe(0);
     expect(status.stdout).toContain('Next action: resolve-candidates');
-    expect(status.stdout).toContain('Suggested user command: Ask /comet-any to resolve missing-skill');
+    expect(status.stdout).toContain(
+      'Suggested user command: Ask /comet-any to resolve missing-skill',
+    );
     expect(status.stdout).toContain(
       'Backend command: comet bundle factory-resolve factory-resolve-action --candidate missing-skill',
     );

@@ -13,6 +13,7 @@ interface EvalCommandOptions {
   reportConfig?: string;
   html?: boolean;
   quick?: boolean;
+  collect?: boolean;
 }
 
 interface EvalLaunchDetails {
@@ -41,6 +42,39 @@ function assertTarget(options: EvalCommandOptions): void {
   if (options.manifest && options.skillPath) {
     throw new Error('Pass exactly one of --manifest or --skill-path');
   }
+}
+
+function inferredSkillName(target: string): string {
+  const resolved = path.resolve(target);
+  return path.basename(resolved) === 'SKILL.md'
+    ? path.basename(path.dirname(resolved))
+    : path.basename(resolved);
+}
+
+function isManifestTarget(target: string): boolean {
+  const normalized = target.replace(/\\/gu, '/').toLowerCase();
+  return normalized.endsWith('comet/eval.yaml') || normalized.endsWith('comet/eval.yml');
+}
+
+function optionsWithTarget(
+  target: string | undefined,
+  options: EvalCommandOptions,
+): EvalCommandOptions {
+  if (!target) return options;
+  if (options.manifest || options.skillPath) {
+    throw new Error('Pass either a target or explicit --manifest/--skill-path options');
+  }
+  if (isManifestTarget(target)) {
+    return {
+      ...options,
+      manifest: target,
+    };
+  }
+  return {
+    ...options,
+    skillPath: target,
+    skillName: options.skillName ?? inferredSkillName(target),
+  };
 }
 
 function resolveProfile(options: EvalCommandOptions): string {
@@ -150,7 +184,7 @@ function printLaunchDetails(details: EvalLaunchDetails): void {
   }
   if (details.mode === 'run') {
     console.log(
-      'Failure attribution: the generated eval summary records harness, workflow, task, and model buckets for failed checks.',
+      'Failure attribution: the generated benchmark summary records harness, workflow, task, and model buckets for failed checks.',
     );
   }
 }
@@ -176,6 +210,18 @@ export async function evalCollectCommand(options: EvalCommandOptions = {}): Prom
   const args = await buildEvalArgs(options, true, details.reportConfig);
   printLaunchDetails(details);
   runEval(args, options);
+}
+
+export async function evalCommand(
+  target?: string,
+  options: EvalCommandOptions = {},
+): Promise<void> {
+  const resolvedOptions = optionsWithTarget(target, options);
+  if (resolvedOptions.collect) {
+    await evalCollectCommand(resolvedOptions);
+    return;
+  }
+  await evalRunCommand(resolvedOptions);
 }
 
 export type { EvalCommandOptions };

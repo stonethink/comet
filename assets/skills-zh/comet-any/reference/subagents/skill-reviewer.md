@@ -12,9 +12,9 @@
 
 ## 输入
 
-读取主会话提供的通用输入，以及其他四个角色返回的全部 artifacts、claims 和 findings。
+读取主会话提供的通用输入，以及其他五个作者角色返回的全部 artifacts、claims 和 findings。
 
-使用文件交接：主会话提供路径，不粘贴大段全文。读取总览、通用输入、四个作者报告文件、artifact 路径和
+使用文件交接：主会话提供路径，不粘贴大段全文。读取总览、通用输入、五个作者报告文件、artifact 路径和
 claims。不得读取主会话历史来替代 artifact 证据。
 
 ## 派发模板
@@ -26,7 +26,7 @@ description: "审查 <bundle-name> 的 Comet-like Skill 产物"
 model: <必须显式指定 model>
 prompt:
   你是 Skill 审查 subagent。
-  先读取本 brief、通用输入路径、四个作者报告路径、artifact 路径、claim 清单和报告文件路径。
+  先读取本 brief、通用输入路径、五个作者报告路径、artifact 路径、claim 清单和报告文件路径。
   审查不信任作者报告；作者报告只是 claim，必须用 artifact 和 claim 交叉验证。
   不要告诉审查者不要标记某问题，也不要预设某问题只能是 Minor。
   审查是只读任务，不得修改工作树、索引、HEAD 或分支状态。
@@ -40,7 +40,7 @@ prompt:
 
 审查必须给两个 verdict：
 
-- Skill 契约符合度：是否满足用户确认的目标、workflow protocol、claim、阶段推进、脚本守卫、停顿点和恢复要求。
+- Skill 契约符合度：是否满足用户确认的目标、workflow protocol、`requiredSkillCalls`、claim、阶段推进、脚本守卫、停顿点和恢复要求。
 - 可用性质量：是否像 Comet 一样好用，是否清晰、可恢复、可审计、不会过度暴露内部 metadata。
 
 证据必须引用 artifact 路径和 claim。不能只写“看起来可以”。
@@ -51,16 +51,18 @@ prompt:
 
 - 缺少 `reference/skill-review.md`。
 - 缺少 `reference/authoring-lanes.json`。
-- 缺少脚本作者、reference 作者、Skill 核心作者或停顿点作者的关键 claim。
+- 缺少 workflow entry 作者、脚本作者、reference 作者、Skill 核心作者或停顿点作者的关键 claim。
+- entry Skill 把阶段路线写成多个 `**立即执行：**` Node Skill，而不是通过状态脚本只路由当前阶段。
 - 缺少 `workflow-state.mjs`、`workflow-guard.mjs` 或 `workflow-handoff.mjs` 契约。
-- Skill 核心没有 entry Skill 或 internal stage Skill。
+- workflow entry 缺失，或 Skill 核心没有 internal Node Skill。
 - 阶段推进没有通过脚本输出 `NEXT:` 和 `SKILL:` 表达。
+- workflow protocol 声明的 `requiredSkillCalls` 没有在对应Node Skill 中明确要求加载，或 subagent 槽位没有要求子代理任务提示加载该 Skill。
 - 用户停顿点缺失，或停顿点可被默认值绕过。
 - 中文 Skill 混入英文流程句。
 - 嵌套 Skill 调用使用 provider 前缀。
 - 用户可见 `SKILL.md` 泄漏生成审计章节、source hash 或内部 metadata。
 - `/comet` 定制替换或删除了 `open / design / build / verify / archive`、`.comet.yaml`、decision point、verify-result-transition 或 archive-delta-sync。
-- 任意 Skill 组合缺少自动推进、脚本守卫、用户停顿点、恢复或 eval。
+- 任意 Skill 组合缺少自动推进、脚本守卫、用户停顿点、恢复或 benchmark。
 
 ## 严重级别
 

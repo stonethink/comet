@@ -3,30 +3,26 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import type {
   BundleAuthoringState,
-  BundleAuthoringPlanMode,
-  BundleBaseTemplate,
   BundleFactoryCallChainItem,
   BundleFactoryMetadata,
   BundleFactoryOrderDeviation,
-  BundleFactoryStageNameOverride,
-  BundleTemplateDelta,
-  BundleTemplateExpansion,
 } from './types.js';
 import type { SkillMakerIntent } from './user-facing.js';
-import { expandCometSkillMakerTemplate } from './templates/comet-skill-maker-template.js';
+import {
+  normalizeWorkflowDefinition,
+  type WorkflowDefinitionInput,
+  type WorkflowProtocol,
+} from '../workflow-contract/index.js';
 
 export interface BundleFactoryPlanFile {
   goal: string;
   preferredSkills?: string[];
   skillMakerIntent?: SkillMakerIntent;
-  callChain?: Array<string | { skill: string; preferenceIndex?: number | null }>;
-  baseTemplate?: BundleBaseTemplate;
-  templateDelta?: BundleTemplateDelta;
-  stageNames?: BundleFactoryStageNameOverride[];
+  workflow: WorkflowDefinitionInput;
   deviations?: BundleFactoryOrderDeviation[];
   engineMode?: BundleFactoryMetadata['engineMode'];
   runnerMode?: BundleFactoryMetadata['runnerMode'];
-  mode?: BundleAuthoringPlanMode;
+  mode?: BundleAuthoringState['mode'];
   sourceRoot?: string;
   creator?: BundleAuthoringState['creator'];
   defaultLocale?: string;
@@ -39,10 +35,8 @@ export interface NormalizedBundleFactoryPlan {
   skillMakerIntent: SkillMakerIntent;
   preferredSkills: string[];
   callChain: BundleFactoryCallChainItem[];
-  baseTemplate?: BundleBaseTemplate;
-  templateDelta?: BundleTemplateDelta;
-  templateExpansion?: BundleTemplateExpansion;
-  stageNameOverrides?: BundleFactoryStageNameOverride[];
+  workflowDefinition: WorkflowDefinitionInput;
+  workflowProtocol: WorkflowProtocol;
   deviations: BundleFactoryOrderDeviation[];
   engineMode: BundleFactoryMetadata['engineMode'];
   runnerMode: BundleFactoryMetadata['runnerMode'];
@@ -54,14 +48,45 @@ export interface NormalizedBundleFactoryPlan {
   engineEnabled: boolean;
 }
 
-interface PersistedBundleFactoryPlan extends NormalizedBundleFactoryPlan {
+interface PersistedBundleFactoryPlan extends Omit<NormalizedBundleFactoryPlan, 'callChain'> {
   schemaVersion: 1;
+  workflow: WorkflowDefinitionInput;
 }
+
+const FACTORY_PLAN_FIELDS = new Set([
+  'goal',
+  'preferredSkills',
+  'skillMakerIntent',
+  'workflow',
+  'deviations',
+  'engineMode',
+  'runnerMode',
+  'mode',
+  'sourceRoot',
+  'creator',
+  'defaultLocale',
+  'locales',
+  'engineEnabled',
+]);
 
 function persistedFactoryPlan(plan: NormalizedBundleFactoryPlan): PersistedBundleFactoryPlan {
   return {
     schemaVersion: 1,
-    ...plan,
+    goal: plan.goal,
+    skillMakerIntent: plan.skillMakerIntent,
+    preferredSkills: plan.preferredSkills,
+    workflow: plan.workflowDefinition,
+    workflowDefinition: plan.workflowDefinition,
+    workflowProtocol: plan.workflowProtocol,
+    deviations: plan.deviations,
+    engineMode: plan.engineMode,
+    runnerMode: plan.runnerMode,
+    mode: plan.mode,
+    ...(plan.sourceRoot ? { sourceRoot: plan.sourceRoot } : {}),
+    creator: plan.creator,
+    defaultLocale: plan.defaultLocale,
+    locales: plan.locales,
+    engineEnabled: plan.engineEnabled,
   };
 }
 
@@ -93,115 +118,31 @@ function dedupe(values: string[]): string[] {
 }
 
 function normalizeCallChain(
-  value: Array<string | { skill: string; preferenceIndex?: number | null }>,
+  skills: string[],
   preferredSkills: string[],
 ): BundleFactoryCallChainItem[] {
-  if (!Array.isArray(value) || value.length === 0) {
-    throw new Error('factory plan callChain must contain at least one Skill');
-  }
-
   const preferredIndex = new Map(preferredSkills.map((skill, index) => [skill, index]));
-  return value.map((item, index) => {
-    if (typeof item === 'string') {
-      return {
-        skill: item,
-        preferenceIndex: preferredIndex.get(item) ?? null,
-      };
-    }
-    if (
-      !item ||
-      typeof item !== 'object' ||
-      typeof item.skill !== 'string' ||
-      item.skill.length === 0
-    ) {
-      throw new Error(`factory plan callChain[${index}] must be a Skill name or object`);
-    }
-    return {
-      skill: item.skill,
-      preferenceIndex:
-        item.preferenceIndex === undefined
-          ? (preferredIndex.get(item.skill) ?? null)
-          : item.preferenceIndex,
-    };
-  });
+  return skills.map((skill) => ({
+    skill,
+    preferenceIndex: preferredIndex.get(skill) ?? null,
+  }));
 }
 
-function assertValidStageName(name: string): void {
-  if (!/^[a-z0-9][a-z0-9._-]*$/u.test(name)) {
-    throw new Error(`Invalid stage name: ${name}`);
-  }
+function assertKnownFactoryPlanFields(plan: Record<string, unknown>, absolutePath: string): void {
+  const unknown = Object.keys(plan).filter((field) => !FACTORY_PLAN_FIELDS.has(field));
+  if (unknown.length === 0) return;
+  throw new Error(
+    `Invalid factory plan: ${absolutePath} unknown fields are not supported (${unknown.join(
+      ', ',
+    )})`,
+  );
 }
 
-function normalizeStageNameOverrides(
-  value: BundleFactoryPlanFile['stageNames'],
-): BundleFactoryStageNameOverride[] {
-  if (value === undefined) return [];
-  if (!Array.isArray(value)) {
-    throw new Error('factory plan stageNames must be an array when provided');
-  }
-  const names = new Set<string>();
-  return value.map((item, index) => {
-    if (
-      !item ||
-      typeof item !== 'object' ||
-      typeof item.skill !== 'string' ||
-      item.skill.length === 0 ||
-      typeof item.name !== 'string' ||
-      item.name.length === 0
-    ) {
-      throw new Error(`factory plan stageNames[${index}] must include skill and name`);
-    }
-    assertValidStageName(item.name);
-    if (names.has(item.name)) {
-      throw new Error(`Duplicate stage name: ${item.name}`);
-    }
-    names.add(item.name);
-    return {
-      skill: item.skill,
-      name: item.name,
-      ...(item.phase ? { phase: item.phase } : {}),
-      ...(item.step ? { step: item.step } : {}),
-      ...(item.label ? { label: item.label } : {}),
-    };
-  });
-}
-
-export async function readBundleFactoryPlan(filePath: string): Promise<BundleFactoryPlanFile> {
-  const absolutePath = path.resolve(filePath);
-  const value = JSON.parse(await fs.readFile(absolutePath, 'utf8')) as unknown;
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error(`Invalid factory plan: ${absolutePath}`);
-  }
-  const plan = value as Partial<BundleFactoryPlanFile>;
-  if (typeof plan.goal !== 'string' || plan.goal.length === 0) {
-    throw new Error(`Invalid factory plan: ${absolutePath} must include goal`);
-  }
-  if (!Array.isArray(plan.callChain)) {
-    if (plan.mode === 'derive') {
-      if (!plan.baseTemplate) {
-        throw new Error(
-          `Invalid factory plan: ${absolutePath} derive mode must include baseTemplate`,
-        );
-      }
-      if (!plan.templateDelta) {
-        throw new Error(
-          `Invalid factory plan: ${absolutePath} derive mode must include templateDelta`,
-        );
-      }
-    } else {
-      throw new Error(`Invalid factory plan: ${absolutePath} must include callChain`);
-    }
-  }
-  if (plan.preferredSkills !== undefined) {
-    ensureStringArray(plan.preferredSkills, 'preferredSkills');
-  }
-  if (plan.locales !== undefined) {
-    ensureStringArray(plan.locales, 'locales');
-  }
+function assertValidDeviations(value: unknown, absolutePath: string): void {
   if (
-    plan.deviations !== undefined &&
-    (!Array.isArray(plan.deviations) ||
-      plan.deviations.some(
+    value !== undefined &&
+    (!Array.isArray(value) ||
+      value.some(
         (item) =>
           !item ||
           typeof item !== 'object' ||
@@ -213,9 +154,30 @@ export async function readBundleFactoryPlan(filePath: string): Promise<BundleFac
   ) {
     throw new Error(`Invalid factory plan: ${absolutePath} deviations must be structured objects`);
   }
-  if (plan.stageNames !== undefined) {
-    normalizeStageNameOverrides(plan.stageNames);
+}
+
+export async function readBundleFactoryPlan(filePath: string): Promise<BundleFactoryPlanFile> {
+  const absolutePath = path.resolve(filePath);
+  const value = JSON.parse(await fs.readFile(absolutePath, 'utf8')) as unknown;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`Invalid factory plan: ${absolutePath}`);
   }
+  const plan = value as Partial<BundleFactoryPlanFile> & Record<string, unknown>;
+  assertKnownFactoryPlanFields(plan, absolutePath);
+  if (typeof plan.goal !== 'string' || plan.goal.length === 0) {
+    throw new Error(`Invalid factory plan: ${absolutePath} must include goal`);
+  }
+  if (!plan.workflow || typeof plan.workflow !== 'object' || Array.isArray(plan.workflow)) {
+    throw new Error(`Invalid factory plan: ${absolutePath} must include workflow`);
+  }
+  normalizeWorkflowDefinition(plan.workflow as WorkflowDefinitionInput);
+  if (plan.preferredSkills !== undefined) {
+    ensureStringArray(plan.preferredSkills, 'preferredSkills');
+  }
+  if (plan.locales !== undefined) {
+    ensureStringArray(plan.locales, 'locales');
+  }
+  assertValidDeviations(plan.deviations, absolutePath);
   return plan as BundleFactoryPlanFile;
 }
 
@@ -224,52 +186,38 @@ export function normalizeBundleFactoryPlan(options: {
   projectPreferredSkills?: string[] | null;
 }): NormalizedBundleFactoryPlan {
   const { plan } = options;
-  const derived =
-    plan.mode === 'derive' && plan.baseTemplate && plan.templateDelta
-      ? expandCometSkillMakerTemplate({
-          baseTemplate: plan.baseTemplate,
-          templateDelta: plan.templateDelta,
-        })
-      : null;
-  const rawCallChain = plan.callChain ?? derived?.callChain ?? [];
+  assertKnownFactoryPlanFields(plan as unknown as Record<string, unknown>, '<inline factory plan>');
+  const workflow = normalizeWorkflowDefinition(plan.workflow);
   const preferredSkills = dedupe([
     ...(plan.preferredSkills ?? options.projectPreferredSkills ?? []),
-    ...rawCallChain
-      .map((item) => (typeof item === 'string' ? item : item.skill))
-      .filter((skill) => skill.length > 0),
-    ...(plan.baseTemplate ? [plan.baseTemplate.skill] : []),
+    ...workflow.requiredSkills,
   ]);
-  const callChain = normalizeCallChain(rawCallChain, preferredSkills);
-  const stageNameOverrides = normalizeStageNameOverrides(plan.stageNames);
-  const defaultLocale = plan.defaultLocale ?? 'en';
-  const locales = dedupe(plan.locales ?? [defaultLocale]);
-  const engineMode = plan.engineMode ?? 'deterministic';
   const planMode = plan.mode ?? 'create';
   if (planMode === 'optimize' && !plan.sourceRoot) {
     throw new Error('factory plan sourceRoot is required for optimize mode');
   }
-  const mode = planMode === 'optimize' ? 'optimize' : 'create';
   const skillMakerIntent =
     plan.skillMakerIntent ??
-    (planMode === 'derive'
+    (workflow.protocol.kind === 'comet-five-phase-overlay'
       ? 'customize-comet'
       : planMode === 'optimize'
         ? 'upgrade-existing'
         : 'new-skill');
+  const defaultLocale = plan.defaultLocale ?? 'en';
+  const locales = dedupe(plan.locales ?? [defaultLocale]);
+  const engineMode = plan.engineMode ?? 'deterministic';
 
   return {
     goal: plan.goal,
     skillMakerIntent,
     preferredSkills,
-    callChain,
-    ...(plan.baseTemplate ? { baseTemplate: plan.baseTemplate } : {}),
-    ...(plan.templateDelta ? { templateDelta: plan.templateDelta } : {}),
-    ...(derived ? { templateExpansion: derived } : {}),
-    ...(stageNameOverrides.length > 0 ? { stageNameOverrides } : {}),
+    callChain: normalizeCallChain(workflow.requiredSkills, preferredSkills),
+    workflowDefinition: workflow.input,
+    workflowProtocol: workflow.protocol,
     deviations: structuredClone(plan.deviations ?? []),
     engineMode,
     runnerMode: plan.runnerMode ?? 'standalone',
-    mode,
+    mode: planMode,
     ...(plan.sourceRoot ? { sourceRoot: plan.sourceRoot } : {}),
     creator: plan.creator ?? 'native',
     defaultLocale,

@@ -16,7 +16,7 @@
 读取主会话提供的通用输入，尤其关注：
 
 - `reference/workflow-protocol.json`
-- `plan.json` 的 `stageNames`、`engineMode`、`runnerMode`
+- `plan.json` 的 `workflow.kind`、`workflow.nodes`、`engineMode`、`runnerMode`，以及规范化后的 `workflow-protocol.json`
 - `reference/resolved-skills.json`
 - `/comet` 定制时的 `.comet.yaml` 受保护语义
 
@@ -33,7 +33,7 @@ model: <必须显式指定 model>
 prompt:
   你是脚本作者 subagent。
   先读取本 brief、通用输入路径、workflow protocol 路径、resolved skills 路径和报告文件路径。
-  开始前先提出问题：如果脚本边界、阶段完成条件、状态写入或恢复语义不清楚，先返回 NEEDS_CONTEXT。
+  开始前先提出问题：如果脚本边界、Node 完成条件、状态写入或恢复语义不清楚，先返回 NEEDS_CONTEXT。
   不要猜测或自行补全缺失协议。
   不要调用 comet bundle、comet publish、comet skill，也不要执行候选 Skill 的脚本。
   把完整脚本契约写入报告文件路径，并只返回 15 行以内状态摘要。
@@ -57,7 +57,7 @@ prompt:
 返回前逐项检查：
 
 - 每个脚本都有输入、输出、状态读写、evidence 写入和失败行为。
-- 阶段完成条件来自 workflow protocol，而不是来自固定阶段名。
+- Node 完成条件来自 workflow protocol，而不是来自固定阶段名。
 - `NEXT:` 和 `SKILL:` 的输出条件可被 Skill 核心作者直接引用。
 - 跨设备恢复不依赖当前会话记忆。
 - 没有执行候选脚本，也没有写入 Bundle state。

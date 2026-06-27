@@ -90,7 +90,7 @@ describe('comet skill CLI end to end', () => {
       action: { type: 'checkpoint', stepId: 'finish' },
     });
 
-    const pending = runCli('skill', 'resume', '--change', changeDir, '--json');
+    const pending = runCli('skill', 'continue', '--change', changeDir, '--json');
     expect(pending.status, pending.stderr).toBe(0);
     expect(JSON.parse(pending.stdout)).toMatchObject({
       state: { status: 'waiting', skill: 'demo' },
@@ -99,7 +99,7 @@ describe('comet skill CLI end to end', () => {
 
     const resumed = runCli(
       'skill',
-      'resume',
+      'continue',
       '--change',
       changeDir,
       '--status',
@@ -120,7 +120,7 @@ describe('comet skill CLI end to end', () => {
     await writeSkill(skillRoot, '2');
     const upgraded = runCli(
       'skill',
-      'resume',
+      'continue',
       '--change',
       changeDir,
       '--project',
@@ -170,7 +170,7 @@ describe('comet skill CLI end to end', () => {
 
     const resumed = runCli(
       'skill',
-      'resume',
+      'continue',
       '--project',
       projectRoot,
       '--run-id',

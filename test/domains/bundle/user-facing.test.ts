@@ -7,32 +7,51 @@ import {
 } from '../../../domains/bundle/user-facing.js';
 
 describe('Skill Maker user-facing summaries', () => {
-  it('formats a customize-comet proposal without backend vocabulary first', () => {
+  it('formats a Comet-based workflow contract', () => {
     const summary = buildSkillMakerPlanSummary({
       intent: 'customize-comet',
       skillName: 'team-comet',
-      goal: 'Add security review before verification.',
-      retained: ['open / design / build / verify / archive'],
-      additions: ['verify before: security-review'],
-      replacements: ['build planning: writing-plans -> team-planning'],
+      goal: 'Use project component and review Skills inside the Comet workflow.',
+      workflow: {
+        kind: 'comet-five-phase-overlay',
+        outputSchemas: ['comet.plan.v1', 'comet.execution-evidence.v1'],
+        nodes: [
+          {
+            id: 'execute',
+            label: 'Execute',
+            kind: 'control',
+            implementationSkill: 'comet-build',
+            requiredSkills: ['elementui'],
+            outputSchemas: ['comet.execution-evidence.v1'],
+          },
+          {
+            id: 'review',
+            label: 'Review',
+            kind: 'guardrail',
+            implementationSkill: 'requesting-code-review',
+            requiredSkills: ['whitebox-code-standard'],
+            outputSchemas: ['comet.review.v1'],
+          },
+        ],
+      },
+      retained: [],
+      additions: ['execute: comet-build', 'review: requesting-code-review'],
+      replacements: [],
       disabled: [],
-      rejected: ['delete verify: verify is the Comet closure step'],
-      generated: ['/team-comet', 'Skill files, rules, hooks, scripts'],
+      rejected: [],
+      generated: ['Skill files, rules, hooks, scripts'],
       validation: ['Quick validation is recommended before install'],
       install: ['Install/enable into the current Agent after preview'],
-      advanced: ['Bundle Factory state is preserved for audit'],
+      advanced: ['Workflow Contract hash will be recorded after confirmation'],
     });
 
     const text = formatSkillMakerPlanSummary(summary);
 
-    expect(text).toContain('You are making: Customize /comet');
-    expect(text).toContain('Keep:');
-    expect(text).toContain('Add:');
-    expect(text).toContain('Replace:');
-    expect(text).toContain('Cannot do:');
-    expect(text).toContain('Validate:');
-    expect(text).toContain('Install/enable:');
-    expect(text.indexOf('Bundle Factory')).toBeGreaterThan(text.indexOf('Advanced details:'));
+    expect(text).toContain('You are making: Customize existing Comet Skills');
+    expect(text).toContain('Workflow contract:');
+    expect(text).toContain('Node execute: Execute; control; implementation: comet-build');
+    expect(text).toContain('required Skill calls: elementui');
+    expect(text).toContain('Output Schemas: comet.plan.v1, comet.execution-evidence.v1');
   });
 
   it('formats resume text around user progress and next action', () => {

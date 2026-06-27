@@ -1,19 +1,19 @@
-# 使用 `comet eval` 评估 Skill
+# 使用 `comet eval` benchmark 一个 Skill
 
 本文从用户视角说明新版本怎么评估一个 Skill。正常情况下，你不需要理解 pytest、task registry、profile、treatment 或 Docker 细节；用户主入口是 `comet eval`。
 
-## 先理解 eval 在 Comet 里的位置
+## 先理解 `comet eval` 在 Comet 里的位置
 
-`/comet-any` 负责创建或优化 Skill，`comet eval` 负责验证这个 Skill 是否能被 eval harness 发现、运行并产出报告。
-新版本的 `/comet-any` 还会把 eval 结果和项目级偏好证据一起放进 publish readiness：`preferenceHash`、组合方案、resolved Skill 证据和 Eval evidence 必须都能对应当前 draft。
+`/comet-any` 负责创建或优化 Skill，`comet eval` 负责 benchmark 这个 Skill 是否能被 eval harness 发现、运行并产出报告。
+新版本的 `/comet-any` 还会把 benchmark 结果和项目级偏好证据一起放进 publish readiness：`preferenceHash`、组合方案、resolved Skill 证据和 benchmark evidence 必须都能对应当前 draft。
 
 两者的关系可以这样理解：
 
 ```text
 /comet-any 生成 Skill
   -> 产出 comet/eval.yaml
-  -> comet eval collect 做发现预检查
-  -> comet eval run --html 执行真实评估
+  -> comet eval --collect 做发现预检查
+  -> comet eval --html 执行真实评估
   -> /comet-any 或 comet publish 读取评估结果并进入 readiness / review / publish / distribute
 ```
 
@@ -36,26 +36,26 @@ generated-skill/
 然后按两步跑：
 
 ```bash
-comet eval collect --manifest ./generated-skill/comet/eval.yaml
-comet eval run --manifest ./generated-skill/comet/eval.yaml --html
+comet eval ./generated-skill/comet/eval.yaml --collect
+comet eval ./generated-skill/comet/eval.yaml --html
 ```
 
-第一步 `collect` 只确认“能不能发现任务”。它适合刚生成完 Skill 后做低成本预检查。
+第一步 `--collect` 只确认“能不能发现任务”。它适合刚生成完 Skill 后做低成本预检查。
 
-第二步 `run --html` 才执行真实评估，并生成可浏览报告。评估通过后，`/comet-any` 可以把这份结果作为发布前证据的一部分。
+第二步 `--html` 才执行真实评估，并生成可浏览报告。评估通过后，`/comet-any` 可以把这份结果作为发布前证据的一部分。
 
-## Eval 结果如何进入 publish readiness
+## benchmark 结果如何进入 publish readiness
 
-`/comet-any` 或后端在记录 Eval 结果后，会把它并入 publish readiness。用户需要知道的只有两点：
+`/comet-any` 或后端在记录 benchmark 结果后，会把它并入 publish readiness。用户需要知道的只有两点：
 
 1. `comet eval` 产出的结果会成为 `Publish readiness:` 的证据来源。
-2. 当前 hash 缺少 Eval 证据时，`User next steps:` 必须先指向补齐评估，而不是继续发布。
+2. 当前 hash 缺少 benchmark 证据时，`User next steps:` 必须先指向运行 `comet eval`，而不是继续发布。
 
 通常顺序是：
 
 ```bash
-comet eval collect --manifest ./generated-skill/comet/eval.yaml
-comet eval run --manifest ./generated-skill/comet/eval.yaml --html
+comet eval ./generated-skill/comet/eval.yaml --collect
+comet eval ./generated-skill/comet/eval.yaml --html
 comet publish review <name> --platform <reference-platform> --json
 ```
 
@@ -72,7 +72,7 @@ comet publish review <name> --platform <reference-platform> --json
 
 它不应该先跑完整模型评估，也不应该先消耗长时间任务。失败时，通常先修 manifest、路径或任务发现问题。
 
-## `run --html` 会输出什么
+## `--html` 会输出什么
 
 运行时 CLI 会先打印一组执行信息：
 
@@ -104,7 +104,7 @@ eval/local/logs/experiments/<experiment-id>/summary.html
 - 是否是路径、manifest 或环境问题
 - token / cost / duration 是否异常
 
-`comet eval run` 的输出会提示 failure attribution：报告会把失败归到 harness、workflow、task、model 等桶里。这个归因用于判断下一步应该修 Skill、修 eval 配置，还是重跑环境。
+`comet eval` 的输出会提示 failure attribution：报告会把失败归到 harness、workflow、task、model 等桶里。这个归因用于判断下一步应该修 Skill、修 eval 配置，还是重跑环境。
 
 ## `/comet-any` 如何使用 eval 结果
 
@@ -123,7 +123,7 @@ eval/local/logs/experiments/<experiment-id>/summary.html
 如果你还没有 `comet/eval.yaml`，只有一个本地 Skill 目录，可以先做 quick smoke：
 
 ```bash
-comet eval run --skill-path ./my-skill --skill-name my-skill --quick
+comet eval ./my-skill --quick
 ```
 
 这个路径适合早期验证：
@@ -144,12 +144,12 @@ generic-skill-smoke
 
 优先级很简单：
 
-- 有 `comet/eval.yaml`：用 `--manifest`
-- 只有本地目录、还在早期调试：用 `--skill-path --quick`
-- 是 `/comet-any` 生成物：用 `--manifest`
-- 要进入发布 readiness：用 `--manifest`
+- 有 `comet/eval.yaml`：直接把这个文件作为 target
+- 只有本地目录、还在早期调试：把 Skill 目录作为 target 并加 `--quick`
+- 是 `/comet-any` 生成物：直接传它的 `comet/eval.yaml`
+- 要进入发布 readiness：直接传它的 `comet/eval.yaml`
 
-不要把 `--skill-path --quick` 当成最终发布评估。
+不要把本地 Skill 的 `--quick` 冒烟当成最终发布评估。
 
 ## 失败时怎么判断下一步
 
@@ -190,7 +190,7 @@ eval/local/logs/experiments/
 如果你的问题是“这个 Skill 作为产品能力能不能通过评估”，用：
 
 ```bash
-comet eval run --manifest ./generated-skill/comet/eval.yaml --html
+comet eval ./generated-skill/comet/eval.yaml --html
 ```
 
 如果你的问题是“这个正在运行的 deterministic Skill Run 是否缺 artifact 或状态”，才用：
@@ -204,13 +204,13 @@ comet skill check --change ./changes/demo --scope completion
 实际使用时只需要记三件事：
 
 1. `/comet-any` 生成物优先用 `comet/eval.yaml`
-2. 先 `collect`，再 `run --html`
+2. 先 `--collect`，再 `--html`
 3. eval 结果是 `/comet-any` 发布 readiness 的证据，不是发布动作本身
 
 推荐命令：
 
 ```bash
-comet eval collect --manifest ./generated-skill/comet/eval.yaml
-comet eval run --manifest ./generated-skill/comet/eval.yaml --html
+comet eval ./generated-skill/comet/eval.yaml --collect
+comet eval ./generated-skill/comet/eval.yaml --html
 comet publish review <name> --platform <reference-platform> --json
 ```

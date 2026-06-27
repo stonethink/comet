@@ -370,7 +370,7 @@ export const DEMO_SKILL_VISUALS = {
         ],
         requiredConfirmations: [
           { label: 'Factory proposal confirmed', required: true, confirmed: true },
-          { label: 'Eval result attached', required: true, confirmed: true },
+          { label: 'Benchmark result attached', required: true, confirmed: true },
           { label: 'Review approved', required: true, confirmed: true },
           { label: 'Executable disclosure reviewed', required: false, confirmed: false },
         ],
@@ -438,7 +438,7 @@ export const DEMO_SKILL_VISUALS = {
       {
         name: 'upgrade-review-comments-skill',
         status: 'draft',
-        currentStep: 'needs-eval',
+        currentStep: 'needs-benchmark',
         mode: 'optimize',
         goal: '升级现有 Skill：为 PR 评审意见处理加入“证据优先”和本地验证检查。',
         engineMode: 'deterministic',

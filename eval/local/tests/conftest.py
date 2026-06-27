@@ -316,6 +316,17 @@ def _get_dynamic_treatment_config(config):
         from scaffold.python.treatments import TreatmentConfig
 
         manifest = load_eval_manifest(manifest_path)
+        node_skills = []
+        for node_skill in manifest.generated_node_skills:
+            node_path = manifest.skill_path.parent / node_skill
+            if (node_path / "SKILL.md").exists():
+                node_skills.append(
+                    {
+                        "name": node_skill,
+                        "source": "path",
+                        "path": str(node_path),
+                    }
+                )
         return TreatmentConfig(
             name="DYNAMIC_SKILL",
             description=f"Dynamic Skill target: {manifest.skill_name}",
@@ -328,8 +339,14 @@ def _get_dynamic_treatment_config(config):
                     "manifest": str(manifest.path),
                     "required_skills": manifest.required_skills,
                     "expected_artifacts": manifest.expected_artifacts,
+                    "generated_node_skills": manifest.generated_node_skills,
+                    "route_conformance_task": manifest.route_conformance_task,
+                    "route_conformance_expected_node_order": (
+                        manifest.route_conformance_expected_node_order
+                    ),
                 }
-            ],
+            ]
+            + node_skills,
         )
 
     skill_path = config.getoption("--skill-path")
@@ -408,6 +425,35 @@ def _get_or_create_experiment_id(name: str, use_coordination: bool) -> str:
             )
         )
         return experiment_id
+
+
+def _snapshot_dynamic_skill_package(test_dir: Path, skill_hints: dict[str, Any]) -> str | None:
+    """Copy a manifest target package and generated Node Skills into the workspace.
+
+    Validation scripts run inside Docker with ``test_dir`` mounted as /workspace,
+    so they cannot inspect arbitrary host paths from the original manifest. Keep
+    a package-shaped snapshot under the workspace and pass a relative path.
+    """
+    raw_path = skill_hints.get("path")
+    if not raw_path:
+        return None
+    source = Path(raw_path).expanduser().resolve()
+    package_dir = source.parent if source.is_file() else source
+    if not package_dir.exists():
+        return None
+
+    snapshot_root = test_dir / "_eval_target_skills"
+    snapshot_root.mkdir(parents=True, exist_ok=True)
+    package_dest = snapshot_root / package_dir.name
+    shutil.copytree(package_dir, package_dest, dirs_exist_ok=True)
+
+    for node_skill in skill_hints.get("generated_node_skills") or []:
+        node_source = package_dir.parent / node_skill
+        if not (node_source / "SKILL.md").exists():
+            continue
+        shutil.copytree(node_source, snapshot_root / node_skill, dirs_exist_ok=True)
+
+    return str(package_dest.relative_to(test_dir)).replace("\\", "/")
 
 
 def _cleanup_experiment_coordination():

@@ -142,4 +142,5 @@ def test_comet_task_index_lists_real_tasks():
         "comet-refactor-counter",
         "comet-robust-config",
         "generic-skill-smoke",
+        "workflow-route-conformance",
     }

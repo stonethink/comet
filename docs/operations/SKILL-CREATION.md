@@ -224,17 +224,17 @@ Key files:
 When `comet/eval.yaml` exists, start with the discovery precheck:
 
 ```bash
-comet eval collect --manifest ./generated-skill/comet/eval.yaml
+comet eval ./generated-skill/comet/eval.yaml --collect
 ```
 
 Then run the real evaluation and generate a browsable HTML report:
 
 ```bash
-comet eval run --manifest ./generated-skill/comet/eval.yaml --html
+comet eval ./generated-skill/comet/eval.yaml --html
 ```
 
-Eval results must bind to the current draft hash. If current-hash Eval evidence is missing, Eval
-fails, or Eval is skipped, publish is blocked.
+Benchmark results must bind to the current draft hash. If current-hash benchmark evidence is
+missing, the benchmark fails, or the benchmark is skipped, publish is blocked.
 
 ## Publish
 
@@ -254,7 +254,7 @@ The review summary must show:
 - project-level preference mode and required Skills
 - resolved Skill evidence
 - composition proposal and deviation reasons
-- Eval evidence
+- benchmark evidence
 - readiness, blockers, warnings, evidence
 - `Publish readiness:`
 - `User next steps:`
@@ -264,7 +264,7 @@ Blocking cases include:
 - unresolved candidate
 - missing or ambiguous required Skill
 - preference drift in `strict` mode
-- missing current-hash Eval evidence
+- missing current-hash benchmark evidence
 - missing current-hash human approval
 - required capability gap
 - unconfirmed executable disclosure
@@ -322,7 +322,7 @@ and the last confirmed proposal summary. Resume checks include:
 - whether the draft hash changed
 - whether `.comet/skill-preferences.yaml` `preferenceHash` changed
 - whether resolved Skill hashes changed
-- whether Eval evidence still matches the current hash
+- whether benchmark evidence still matches the current hash
 - whether approval still matches the current hash
 
 Example resume copy:

@@ -1,9 +1,9 @@
 import { createHash } from 'crypto';
-import type { FactoryWorkflowSlot, FactoryWorkflowSpec, FactoryWorkflowStage } from './protocol.js';
-import type { FactoryResolvedSkill, FactorySkillPackagePlan, FactoryStageName } from './types.js';
+import type { WorkflowProtocol } from '../workflow-contract/index.js';
 
 export type FactoryAuthoringLane =
   | 'skill-core'
+  | 'workflow-entry'
   | 'script-contract'
   | 'reference'
   | 'pause-points'
@@ -16,7 +16,7 @@ export type FactoryArtifactAuthorKind = 'deterministic-adapter' | 'subagent';
 
 export type FactoryArtifactClaimKind =
   | 'workflow-entry'
-  | 'stage-skill'
+  | 'node-skill'
   | 'script'
   | 'reference'
   | 'pause-point'
@@ -41,7 +41,7 @@ export interface FactoryArtifactClaim {
   id: string;
   paths: string[];
   summary: string;
-  stageSkill?: string;
+  nodeSkill?: string;
 }
 
 export interface FactoryReviewFinding {
@@ -68,56 +68,14 @@ export interface FactoryGeneratedPackageReview {
 }
 
 export interface FactoryPackageDraft {
-  workflow: FactoryWorkflowSpec;
+  workflow: WorkflowProtocol;
   protocolHash: string;
   proposals: FactoryArtifactProposal[];
   artifacts: FactoryPackageArtifact[];
   review: FactoryGeneratedPackageReview;
 }
 
-export interface FactoryResolvedSkillSourceSummary {
-  query: string;
-  preferenceIndex: number | null;
-  status: FactoryResolvedSkill['status'];
-  source: {
-    name: string;
-    platform: string;
-    scope: string;
-    root: string;
-    hash: string;
-    description: string;
-    references: Array<{ path: string; contentHash: string }>;
-    scripts: Array<{
-      path: string;
-      sideEffect: 'unknown' | 'none' | 'read' | 'write' | 'external';
-    }>;
-  };
-  summary: string;
-}
-
-export interface FactoryStagePlan extends FactoryStageName {
-  sourceSkill: string;
-  workflowStage: FactoryWorkflowStage;
-  workflowSlot?: FactoryWorkflowSlot;
-  parentStage?: FactoryWorkflowStage;
-  kind: 'stage' | 'slot';
-}
-
-export interface FactoryAuthoringInput {
-  plan: FactorySkillPackagePlan;
-  workflow: FactoryWorkflowSpec;
-  protocolHash: string;
-  sourceSummaries: FactoryResolvedSkillSourceSummary[];
-  stagePlans: FactoryStagePlan[];
-}
-
-export interface FactoryArtifactAuthor {
-  lane: FactoryAuthoringLane;
-  author: FactoryArtifactAuthorMetadata;
-  draft(input: FactoryAuthoringInput): FactoryArtifactProposal | Promise<FactoryArtifactProposal>;
-}
-
-export function workflowProtocolHash(workflow: FactoryWorkflowSpec): string {
+export function workflowProtocolHash(workflow: WorkflowProtocol): string {
   return createHash('sha256').update(JSON.stringify(workflow)).digest('hex');
 }
 

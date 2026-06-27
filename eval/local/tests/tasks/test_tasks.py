@@ -179,6 +179,10 @@ def test_task_treatment(task_name, treatment_name):
         target_profile=target_profile,
     )
     interaction = conftest._resolve_interaction_config(task, profile_name, fixtures.request_config)
+    skill_package_path = (
+        conftest._snapshot_dynamic_skill_package(fixtures.test_dir, skill_hints)
+        or skill_hints.get("path")
+    )
 
     result = fixtures.run_claude(prompt, timeout=CLAUDE_TIMEOUT, interaction=interaction)
 
@@ -195,7 +199,12 @@ def test_task_treatment(task_name, treatment_name):
         "expected_artifacts": skill_hints.get("expected_artifacts")
         or task.config.evaluation.expected_artifacts,
         "require_skill_invocation": task.config.evaluation.require_skill_invocation,
-        "skill_package_path": skill_hints.get("path"),
+        "skill_package_path": skill_package_path,
+        "generated_node_skills": skill_hints.get("generated_node_skills") or [],
+        "route_conformance_task": skill_hints.get("route_conformance_task"),
+        "route_conformance_expected_node_order": (
+            skill_hints.get("route_conformance_expected_node_order") or []
+        ),
         "interaction": {
             "mode": interaction.mode,
             "max_turns": interaction.max_turns,

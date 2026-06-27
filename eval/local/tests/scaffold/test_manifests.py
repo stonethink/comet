@@ -28,10 +28,19 @@ skill:
 evaluation:
   recommendedTasks:
     - generic-skill-smoke
+    - workflow-route-conformance
   requiredSkills:
     - my-skill
   expectedArtifacts:
     - result.md
+  generatedNodeSkills:
+    - my-skill-open
+    - my-skill-build
+  routeConformance:
+    task: workflow-route-conformance
+    expectedNodeOrder:
+      - open
+      - build
 interaction:
   mode: auto_user
   maxTurns: 8
@@ -46,9 +55,12 @@ interaction:
     assert manifest.skill_name == "my-skill"
     assert manifest.skill_path == package.resolve()
     assert manifest.profile == "generic"
-    assert manifest.recommended_tasks == ["generic-skill-smoke"]
+    assert manifest.recommended_tasks == ["generic-skill-smoke", "workflow-route-conformance"]
     assert manifest.required_skills == ["my-skill"]
     assert manifest.expected_artifacts == ["result.md"]
+    assert manifest.generated_node_skills == ["my-skill-open", "my-skill-build"]
+    assert manifest.route_conformance_task == "workflow-route-conformance"
+    assert manifest.route_conformance_expected_node_order == ["open", "build"]
     assert manifest.interaction.mode == "auto_user"
     assert manifest.interaction.max_turns == 8
     assert manifest.interaction.simulator_prompt == "Answer concisely."

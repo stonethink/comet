@@ -127,7 +127,7 @@ function formatMissingEvidence(missingEvidence: readonly string[]): string {
   return missingEvidence.join(', ');
 }
 
-function formatRuntimeEvalRecovery(
+function formatRuntimeCheckRecovery(
   nextCommand: string | null,
   missingEvidence: readonly string[],
 ): string {
@@ -163,14 +163,14 @@ function displayStatus(changes: ChangeStatus[]): void {
       const suffix = c.runtimeEval.passed
         ? `(${c.runtimeEval.stepId})`
         : `(${c.runtimeEval.stepId}; missing: ${formatMissingEvidence(c.runtimeEval.missingEvidence)})`;
-      console.log(`     runtime_eval: ${c.runtimeEval.passed ? 'pass' : 'fail'} ${suffix}`);
+      console.log(`     runtime_check: ${c.runtimeEval.passed ? 'pass' : 'fail'} ${suffix}`);
     }
     if (c.designDoc) console.log(`     design: ${c.designDoc}`);
     if (c.plan) console.log(`     plan:   ${c.plan}`);
     if (c.phase === 'verify') console.log(`     verify_result: ${c.verifyResult}`);
     if (c.runtimeEval && !c.runtimeEval.passed) {
       console.log(
-        `     next: ${formatRuntimeEvalRecovery(c.nextCommand, c.runtimeEval.missingEvidence)}`,
+        `     next: ${formatRuntimeCheckRecovery(c.nextCommand, c.runtimeEval.missingEvidence)}`,
       );
     } else if (c.nextCommand) {
       console.log(`     next: ${c.nextCommand}`);

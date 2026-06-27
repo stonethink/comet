@@ -22,12 +22,14 @@ import {
   bundleStatusCommand,
 } from '../../../app/commands/bundle.js';
 import type { BundleEvalResult } from '../../../domains/bundle/eval.js';
+import { workflowFor as workflowDefinitionFor } from '../../helpers/workflow-plan.js';
 import { createBundleDraft } from '../../../domains/bundle/draft.js';
 import { loadBundle } from '../../../domains/bundle/load.js';
 import {
   readBundleAuthoringState,
   writeBundleAuthoringState,
 } from '../../../domains/bundle/state.js';
+import { normalizeWorkflowDefinition } from '../../../domains/workflow-contract/index.js';
 
 async function writeBundle(
   root: string,
@@ -119,6 +121,10 @@ async function writeFactorySkill(
     await fs.writeFile(path.join(skillRoot, 'comet', 'flow.yaml'), options.flow, 'utf8');
   }
   return skillRoot;
+}
+
+function workflowFor(name: string, skills: string[]): ReturnType<typeof workflowDefinitionFor> {
+  return workflowDefinitionFor(name, skills);
 }
 
 function passingResult(hash: string, entries = ['entry']): BundleEvalResult {
@@ -249,22 +255,22 @@ prefer:
       status: 'draft',
       resumeSummary: {
         schemaVersion: 1,
-        currentStep: 'needs-eval',
-        recommendedNextStep: { action: 'choose-eval-level' },
+        currentStep: 'needs-benchmark',
+        recommendedNextStep: { action: 'choose-benchmark-level' },
       },
     });
     expect(status.currentHash).toMatch(/^[a-f0-9]{64}$/u);
     const text = await captureText(() =>
       bundleStatusCommand('optimized-bundle', { project: projectRoot }),
     );
-    expect(text).toContain('Current step: needs-eval');
-    expect(text).toContain('User next step: Run Eval for the generated Skill');
+    expect(text).toContain('Current step: needs-benchmark');
+    expect(text).toContain('User next step: Run a benchmark for the generated Skill');
     expect(text).toContain('Suggested user command:');
     expect(text).toContain(
-      'Backend command: comet bundle eval-plan optimized-bundle --level quick',
+      'Backend command: comet bundle benchmark-plan optimized-bundle --level quick',
     );
     expect(text).toContain('Still missing:');
-    expect(text).toContain('- Passing Eval evidence for the current draft');
+    expect(text).toContain('- Passing benchmark evidence for the current draft');
   });
 
   it('lists recoverable Bundle authoring states with next actions', async () => {
@@ -285,9 +291,9 @@ prefer:
         expect.objectContaining({
           resumeSummary: expect.objectContaining({
             schemaVersion: 1,
-            currentStep: 'needs-eval',
+            currentStep: 'needs-benchmark',
             recommendedNextStep: expect.objectContaining({
-              userCommand: expect.stringContaining('comet eval run'),
+              userCommand: expect.stringContaining('comet eval '),
             }),
           }),
         }),
@@ -301,7 +307,7 @@ prefer:
 
     const text = await captureText(() => bundleListCommand({ project: projectRoot }));
     expect(text).toContain('created-bundle: draft');
-    expect(text).toContain('Next action: choose-eval-level');
+    expect(text).toContain('Next action: choose-benchmark-level');
     expect(text).toContain('Suggested user command:');
     expect(text).toContain('optimized-bundle: draft');
   });
@@ -328,7 +334,11 @@ prefer:
       JSON.stringify(
         {
           goal: 'Create a review-oriented Comet-native Skill.',
-          callChain: ['brainstorming', 'writing-plans', 'requesting-code-review'],
+          workflow: workflowFor('factory-bundle', [
+            'brainstorming',
+            'writing-plans',
+            'requesting-code-review',
+          ]),
           deviations: [
             {
               skill: 'requesting-code-review',
@@ -398,76 +408,6 @@ prefer:
       ),
     ).resolves.toContain('"schemaVersion": 1');
   });
-
-  it('initializes derive plans with skill maker metadata while keeping authoring state in create mode', async () => {
-    await writeFactorySkill(projectRoot, 'security-review', {
-      description: 'Add a security review before verification.',
-    });
-    await writeFactorySkill(projectRoot, 'team-planning', {
-      description: 'Replace the default planning step.',
-    });
-    const planFile = path.join(root, 'factory-derive-plan.json');
-    await fs.writeFile(
-      planFile,
-      JSON.stringify(
-        {
-          goal: 'Customize /comet with a security review.',
-          mode: 'derive',
-          baseTemplate: { skill: 'comet', profile: 'full' },
-          templateDelta: {
-            add: [{ phase: 'verify', position: 'before', skill: 'security-review' }],
-            replace: [{ phase: 'build', step: 'writing-plans', skill: 'team-planning' }],
-            disable: [{ phase: 'build', step: 'build-review' }],
-          },
-          engineMode: 'deterministic',
-          runnerMode: 'change',
-          defaultLocale: 'zh',
-          locales: ['zh', 'en'],
-        },
-        null,
-        2,
-      ),
-    );
-
-    const initialized = await captureJson(() =>
-      bundleFactoryInitCommand('derived-comet-skill', {
-        project: projectRoot,
-        file: planFile,
-        json: true,
-      }),
-    );
-
-    expect(initialized).toMatchObject({
-      name: 'derived-comet-skill',
-      mode: 'create',
-      factory: {
-        skillMakerIntent: 'customize-comet',
-        baseTemplate: { skill: 'comet', profile: 'full' },
-        templateDelta: {
-          add: [{ phase: 'verify', position: 'before', skill: 'security-review' }],
-          replace: [{ phase: 'build', step: 'writing-plans', skill: 'team-planning' }],
-          disable: [{ phase: 'build', step: 'build-review' }],
-        },
-        templateExpansion: {
-          additions: ['verify before: security-review'],
-          replacements: ['build writing-plans: writing-plans -> team-planning'],
-          disabled: ['build build-review'],
-        },
-      },
-    });
-    expect(initialized.factory).toMatchObject({
-      callChain: [
-        { skill: 'comet-open' },
-        { skill: 'comet-design' },
-        { skill: 'team-planning' },
-        { skill: 'comet-build' },
-        { skill: 'security-review' },
-        { skill: 'comet-verify' },
-        { skill: 'comet-archive' },
-      ],
-    });
-  });
-
   it('persists project Skill preference metadata in Factory state', async () => {
     await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
     await fs.writeFile(
@@ -494,7 +434,7 @@ policies:
       JSON.stringify(
         {
           goal: 'Create a preference-backed workflow.',
-          callChain: ['factory-alpha'],
+          workflow: workflowFor('preference-backed-factory', ['factory-alpha']),
         },
         null,
         2,
@@ -544,7 +484,7 @@ policies:
       JSON.stringify(
         {
           goal: 'Create a denied workflow.',
-          callChain: ['factory-alpha'],
+          workflow: workflowFor('deny-scripts-factory', ['factory-alpha']),
         },
         null,
         2,
@@ -577,7 +517,7 @@ prefer:
       JSON.stringify(
         {
           goal: 'Create a proposal first.',
-          callChain: ['factory-alpha'],
+          workflow: workflowFor('proposal-factory', ['factory-alpha']),
         },
         null,
         2,
@@ -619,7 +559,7 @@ prefer:
         {
           goal: 'Create a guided planning Skill',
           preferredSkills: ['task3-guided-brainstorming'],
-          callChain: [{ skill: 'task3-guided-brainstorming' }],
+          workflow: workflowFor('guided-planning', ['task3-guided-brainstorming']),
           engineMode: 'deterministic',
           runnerMode: 'standalone',
         },
@@ -675,218 +615,6 @@ prefer:
     expect(text).toContain('Install/enable:');
     expect(text).toContain('Actions:');
   });
-
-  it('shows recommended and user-provided stage names in Factory proposals', async () => {
-    await writeFactorySkill(projectRoot, 'grill-me', {
-      description: 'Stress-test a design before building.',
-    });
-    const planFile = path.join(root, 'factory-stage-names-plan.json');
-    await fs.writeFile(
-      planFile,
-      JSON.stringify(
-        {
-          goal: 'Customize /comet with a grill stage.',
-          mode: 'derive',
-          baseTemplate: { skill: 'comet', profile: 'full' },
-          templateDelta: {
-            add: [{ phase: 'design', position: 'after', skill: 'grill-me' }],
-            replace: [],
-            disable: [],
-          },
-          stageNames: [
-            {
-              skill: 'grill-me',
-              phase: 'design',
-              name: 'custom-design-pressure-test',
-              label: 'Design pressure test',
-            },
-          ],
-          engineMode: 'deterministic',
-          runnerMode: 'change',
-        },
-        null,
-        2,
-      ),
-    );
-
-    const proposal = await captureJson(() =>
-      bundleFactoryProposeCommand('grill-comet', {
-        project: projectRoot,
-        file: planFile,
-        json: true,
-      }),
-    );
-
-    expect(proposal).toMatchObject({
-      skillMakerSummary: {
-        stageNames: expect.arrayContaining([
-          expect.objectContaining({
-            skill: 'grill-me',
-            name: 'custom-design-pressure-test',
-            recommendedName: 'grill-comet-design-grill',
-            source: 'custom',
-          }),
-        ]),
-      },
-    });
-
-    const text = await captureText(() =>
-      bundleFactoryProposeCommand('grill-comet', {
-        project: projectRoot,
-        file: planFile,
-      }),
-    );
-    expect(text).toContain('Stage names:');
-    expect(text).toContain('custom-design-pressure-test');
-    expect(text).toContain('recommended: grill-comet-design-grill');
-  });
-
-  it('rejects stage names that collide with the generated entry Skill name', async () => {
-    await writeFactorySkill(projectRoot, 'grill-me', {
-      description: 'Stress-test a design before building.',
-    });
-    const planFile = path.join(root, 'factory-stage-name-collision-plan.json');
-    await fs.writeFile(
-      planFile,
-      JSON.stringify(
-        {
-          goal: 'Customize /comet with a colliding stage name.',
-          preferredSkills: ['grill-me'],
-          callChain: ['grill-me'],
-          stageNames: [{ skill: 'grill-me', name: 'grill-comet' }],
-        },
-        null,
-        2,
-      ),
-    );
-
-    await expect(
-      bundleFactoryProposeCommand('grill-comet', {
-        project: projectRoot,
-        file: planFile,
-        json: true,
-      }),
-    ).rejects.toThrow(/entry Skill name/iu);
-  });
-
-  it('accepts structured stage names for arbitrary non-Comet workflows', async () => {
-    await writeFactorySkill(projectRoot, 'brainstorming', {
-      description: 'Explore intent before implementation.',
-    });
-    await writeFactorySkill(projectRoot, 'writing-plans', {
-      description: 'Create an implementation plan.',
-    });
-    const planFile = path.join(root, 'factory-arbitrary-structured-stage-names-plan.json');
-    await fs.writeFile(
-      planFile,
-      JSON.stringify(
-        {
-          goal: 'Create a non-Comet workflow with named stages.',
-          preferredSkills: ['brainstorming', 'writing-plans'],
-          callChain: ['brainstorming', 'writing-plans'],
-          stageNames: [
-            {
-              skill: 'brainstorming',
-              phase: 'discovery',
-              step: 'clarify',
-              name: 'quality-discovery',
-              label: 'Discovery',
-            },
-            {
-              skill: 'writing-plans',
-              phase: 'planning',
-              step: 'implementation-plan',
-              name: 'quality-plan',
-              label: 'Implementation plan',
-            },
-          ],
-          engineMode: 'deterministic',
-          runnerMode: 'standalone',
-        },
-        null,
-        2,
-      ),
-    );
-
-    const proposal = await captureJson(() =>
-      bundleFactoryProposeCommand('quality-flow', {
-        project: projectRoot,
-        file: planFile,
-        json: true,
-      }),
-    );
-
-    expect(proposal).toMatchObject({
-      skillMakerSummary: {
-        stageNames: expect.arrayContaining([
-          expect.objectContaining({
-            skill: 'brainstorming',
-            phase: 'discovery',
-            step: 'clarify',
-            name: 'quality-discovery',
-            source: 'custom',
-          }),
-          expect.objectContaining({
-            skill: 'writing-plans',
-            phase: 'planning',
-            step: 'implementation-plan',
-            name: 'quality-plan',
-            source: 'custom',
-          }),
-        ]),
-      },
-    });
-  });
-
-  it('prefers real local Comet stage Skills over built-in placeholders', async () => {
-    await fs.mkdir(path.join(projectRoot, '.codex', 'skills', 'comet-open'), {
-      recursive: true,
-    });
-    await fs.writeFile(
-      path.join(projectRoot, '.codex', 'skills', 'comet-open', 'SKILL.md'),
-      '---\nname: comet-open\ndescription: Real project Comet open stage.\n---\n# Real Comet Open\n',
-    );
-    const planFile = path.join(root, 'factory-real-comet-plan.json');
-    await fs.writeFile(
-      planFile,
-      JSON.stringify(
-        {
-          goal: 'Customize /comet without losing real Comet stage guidance.',
-          mode: 'derive',
-          baseTemplate: { skill: 'comet', profile: 'tweak' },
-          templateDelta: { add: [], replace: [], disable: [] },
-          engineMode: 'deterministic',
-          runnerMode: 'change',
-        },
-        null,
-        2,
-      ),
-    );
-
-    const proposal = await captureJson(() =>
-      bundleFactoryProposeCommand('real-comet', {
-        project: projectRoot,
-        file: planFile,
-        json: true,
-      }),
-    );
-
-    expect(proposal.resolvedSkills).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          query: 'comet-open',
-          status: 'available',
-          sources: [
-            expect.objectContaining({
-              origin: 'project',
-              description: 'Real project Comet open stage.',
-            }),
-          ],
-        }),
-      ]),
-    );
-  });
-
   it('does not offer confirm-generate on blocked Factory proposals', async () => {
     const planFile = path.join(root, 'factory-blocked-proposal-plan.json');
     await fs.writeFile(
@@ -895,7 +623,7 @@ prefer:
         {
           goal: 'Create a blocked proposal.',
           preferredSkills: ['missing-factory-skill'],
-          callChain: [{ skill: 'missing-factory-skill' }],
+          workflow: workflowFor('blocked-proposal-factory', ['missing-factory-skill']),
           engineMode: 'deterministic',
           runnerMode: 'standalone',
         },
@@ -935,7 +663,7 @@ prefer:
         {
           goal: 'Create a command-confirmed Skill',
           preferredSkills: ['task3-command-confirmed'],
-          callChain: [{ skill: 'task3-command-confirmed' }],
+          workflow: workflowFor('command-confirmed-skill', ['task3-command-confirmed']),
           engineMode: 'deterministic',
           runnerMode: 'standalone',
         },
@@ -968,58 +696,6 @@ prefer:
       proposalHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
     });
   });
-
-  it('keeps derive metadata when the proposal is confirmed through factory-init', async () => {
-    await writeFactorySkill(projectRoot, 'comet', {
-      description: 'Original Comet workflow.',
-    });
-    await writeFactorySkill(projectRoot, 'security-review', {
-      description: 'Add a security review before verification.',
-    });
-    const planFile = path.join(root, 'factory-confirmed-derive-plan.json');
-    await fs.writeFile(
-      planFile,
-      JSON.stringify(
-        {
-          goal: 'Customize /comet with a security review.',
-          mode: 'derive',
-          baseTemplate: { skill: 'comet', profile: 'full' },
-          templateDelta: {
-            add: [{ phase: 'verify', position: 'before', skill: 'security-review' }],
-            replace: [],
-            disable: [],
-          },
-          engineMode: 'deterministic',
-          runnerMode: 'change',
-        },
-        null,
-        2,
-      ),
-    );
-
-    const initialized = await captureJson(() =>
-      bundleFactoryInitCommand('confirmed-derived-comet', {
-        project: projectRoot,
-        file: planFile,
-        confirmedProposal: true,
-        json: true,
-      }),
-    );
-
-    expect(initialized).toMatchObject({
-      factory: {
-        skillMakerIntent: 'customize-comet',
-        baseTemplate: { skill: 'comet', profile: 'full' },
-        templateExpansion: {
-          additions: ['verify before: security-review'],
-        },
-        proposalConfirmation: {
-          confirmed: true,
-        },
-      },
-    });
-  });
-
   it('invalidates proposal confirmation after factory-resolve and points status at reconfirmation', async () => {
     const skillRoot = await writeFactorySkill(projectRoot, 'task3-resolve-after-confirm', {
       description: 'Resolve after confirm test skill.',
@@ -1031,7 +707,7 @@ prefer:
         {
           goal: 'Create a Skill that will be resolved after confirmation',
           preferredSkills: ['task3-resolve-after-confirm'],
-          callChain: [{ skill: 'task3-resolve-after-confirm' }],
+          workflow: workflowFor('resolve-after-confirm-skill', ['task3-resolve-after-confirm']),
           engineMode: 'deterministic',
           runnerMode: 'standalone',
         },
@@ -1085,7 +761,7 @@ prefer:
         {
           goal: 'Create an unconfirmed Skill',
           preferredSkills: ['task3-unconfirmed-generate'],
-          callChain: [{ skill: 'task3-unconfirmed-generate' }],
+          workflow: workflowFor('unconfirmed-generate-skill', ['task3-unconfirmed-generate']),
           engineMode: 'deterministic',
           runnerMode: 'standalone',
         },
@@ -1119,7 +795,7 @@ prefer:
         {
           goal: 'Create the original Skill',
           preferredSkills: ['task3-plan-match-alpha'],
-          callChain: [{ skill: 'task3-plan-match-alpha' }],
+          workflow: workflowFor('plan-match-skill', ['task3-plan-match-alpha']),
           engineMode: 'deterministic',
           runnerMode: 'standalone',
         },
@@ -1141,7 +817,7 @@ prefer:
         {
           goal: 'Create a different blocked Skill',
           preferredSkills: ['task3-plan-match-missing'],
-          callChain: [{ skill: 'task3-plan-match-missing' }],
+          workflow: workflowFor('plan-match-skill', ['task3-plan-match-missing']),
           engineMode: 'deterministic',
           runnerMode: 'standalone',
         },
@@ -1171,7 +847,7 @@ prefer:
         {
           goal: 'Create a publish-gated Skill',
           preferredSkills: ['task3-unconfirmed-publish'],
-          callChain: [{ skill: 'task3-unconfirmed-publish' }],
+          workflow: workflowFor('unconfirmed-publish-skill', ['task3-unconfirmed-publish']),
           engineMode: 'deterministic',
           runnerMode: 'standalone',
         },
@@ -1232,7 +908,7 @@ prefer:
         {
           goal: 'Create a review-gated Skill',
           preferredSkills: ['task3-unconfirmed-review'],
-          callChain: [{ skill: 'task3-unconfirmed-review' }],
+          workflow: workflowFor('unconfirmed-review-skill', ['task3-unconfirmed-review']),
           engineMode: 'deterministic',
           runnerMode: 'standalone',
         },
@@ -1299,7 +975,7 @@ prefer:
         {
           goal: 'Create a composed review workflow.',
           preferredSkills: ['task3-review-flow', 'task3-brainstorming', 'task3-writing-plans'],
-          callChain: ['task3-review-flow'],
+          workflow: workflowFor('composed-factory', ['task3-review-flow']),
           engineMode: 'deterministic',
           runnerMode: 'standalone',
           defaultLocale: 'zh',
@@ -1347,7 +1023,10 @@ prefer:
         {
           goal: 'Create an atomic-only workflow.',
           preferredSkills: ['task3-atomic-first', 'task3-atomic-second'],
-          callChain: ['task3-atomic-second', 'task3-atomic-first'],
+          workflow: workflowFor('atomic-composed-factory', [
+            'task3-atomic-second',
+            'task3-atomic-first',
+          ]),
           engineMode: 'deterministic',
           runnerMode: 'standalone',
           defaultLocale: 'zh',
@@ -1421,7 +1100,7 @@ prefer:
             'task3-entry-brainstorming',
             'task3-entry-writing-plans',
           ],
-          callChain: ['task3-entry-review-flow'],
+          workflow: workflowFor('recomputed-entry-factory', ['task3-entry-review-flow']),
           engineMode: 'deterministic',
           runnerMode: 'standalone',
           defaultLocale: 'zh',
@@ -1531,10 +1210,26 @@ prefer:
         ),
         'utf8',
       ),
+    ).resolves.toContain('recomputed-entry-factory-task3-entry-review-flow');
+    await expect(
+      fs.readFile(
+        path.join(
+          projectRoot,
+          '.comet',
+          'bundle-drafts',
+          'recomputed-entry-factory',
+          'skills',
+          'recomputed-entry-factory',
+          'reference',
+          'composition-report.md',
+        ),
+        'utf8',
+      ),
     ).resolves.toMatch(/task3-entry-brainstorming[\s\S]*task3-entry-writing-plans/u);
   });
 
   it('generates a draft bundle source from stored factory metadata', async () => {
+    const workflow = normalizeWorkflowDefinition(workflowFor('factory-bundle', ['brainstorming']));
     await createBundleDraft({
       projectRoot,
       name: 'factory-bundle',
@@ -1596,6 +1291,8 @@ prefer:
           { skill: 'brainstorming', preferenceIndex: 0 },
           { skill: 'writing-plans', preferenceIndex: 1 },
         ],
+        workflowDefinition: workflow.input,
+        workflowProtocol: workflow.protocol,
         deviations: [],
         engineMode: 'deterministic',
         runnerMode: 'standalone',
@@ -1833,7 +1530,7 @@ prefer:
         path.join(draftRoot, 'skills', 'factory-bundle', 'reference', 'skill-review.md'),
         'utf8',
       ),
-    ).resolves.toContain('Review passed');
+    ).resolves.toContain('approved by deterministic workflow contract checks');
     await expect(
       fs.access(path.join(draftRoot, 'skills', 'factory-bundle', 'scripts', 'comet-plan.mjs')),
     ).resolves.toBeUndefined();
@@ -1942,7 +1639,7 @@ prefer:
         {
           goal: 'Create a workflow with an unresolved review choice.',
           preferredSkills: ['task3-choice-flow'],
-          callChain: ['task3-choice-flow'],
+          workflow: workflowFor('composition-blocked-factory', ['task3-choice-flow']),
           engineMode: 'deterministic',
           runnerMode: 'standalone',
           defaultLocale: 'zh',
@@ -1984,7 +1681,7 @@ prefer:
         {
           goal: 'Create a workflow with duplicate final steps.',
           preferredSkills: ['task3-duplicate-flow', 'task3-duplicate-final'],
-          callChain: ['task3-duplicate-flow'],
+          workflow: workflowFor('duplicate-composition-factory', ['task3-duplicate-flow']),
           engineMode: 'deterministic',
           runnerMode: 'standalone',
           defaultLocale: 'zh',
@@ -2021,7 +1718,7 @@ prefer:
         {
           goal: 'Create a workflow from an empty flow.',
           preferredSkills: ['task3-empty-flow'],
-          callChain: ['task3-empty-flow'],
+          workflow: workflowFor('empty-flow-composition-factory', ['task3-empty-flow']),
           engineMode: 'deterministic',
           runnerMode: 'standalone',
           defaultLocale: 'zh',
@@ -2078,7 +1775,9 @@ prefer:
             'task3-planning-brainstorm',
             'task3-planning-write',
           ],
-          callChain: ['task3-duplicate-composed-entry'],
+          workflow: workflowFor('duplicate-composed-flow-factory', [
+            'task3-duplicate-composed-entry',
+          ]),
           engineMode: 'deterministic',
           runnerMode: 'standalone',
           defaultLocale: 'zh',
@@ -2131,7 +1830,7 @@ prefer:
         {
           goal: 'Create a workflow whose resolved source has an unresolved choice.',
           preferredSkills: ['task3-review-choice-flow'],
-          callChain: ['task3-review-choice-flow'],
+          workflow: workflowFor('resolved-composition-blocked', ['task3-review-choice-flow']),
           engineMode: 'deterministic',
           runnerMode: 'standalone',
           defaultLocale: 'zh',
@@ -2337,7 +2036,7 @@ prefer:
     expect(ignored.factory).not.toHaveProperty('composition');
   });
 
-  it('builds a factory review summary with compile and Eval workload evidence', async () => {
+  it('builds a factory review summary with compile and benchmark workload evidence', async () => {
     const skillRoot = path.join(projectRoot, '.claude', 'skills', 'factory-alpha');
     await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
     await fs.mkdir(skillRoot, { recursive: true });
@@ -2357,7 +2056,7 @@ prefer:
       planFile,
       JSON.stringify({
         goal: 'Create a reviewable factory Skill.',
-        callChain: ['factory-alpha'],
+        workflow: workflowFor('review-factory', ['factory-alpha']),
         engineMode: 'deterministic',
         runnerMode: 'standalone',
         defaultLocale: 'zh',
@@ -2418,7 +2117,7 @@ prefer:
     );
     expect(text).toContain('Validate this Skill:');
     expect(text).toContain('Next steps:');
-    expect(text).not.toContain('Readiness: blocked\nBlockers:\n- [eval]');
+    expect(text).not.toContain('Readiness: blocked\nBlockers:\n- [benchmark]');
   });
 
   it('points composition-blocked factory states away from factory-generate as the next action', async () => {

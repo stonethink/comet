@@ -68,7 +68,8 @@
     "eval",
     "factory",
     "integrations",
-    "skill"
+    "skill",
+    "workflow-contract"
   ],
   "platformModules": ["fs", "install", "paths", "process", "version"],
   "scriptModules": ["benchmark", "build", "install", "lib", "lint", "release"],

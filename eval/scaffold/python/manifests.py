@@ -21,6 +21,9 @@ class SkillEvalManifest:
     recommended_tasks: list[str] = field(default_factory=list)
     required_skills: list[str] = field(default_factory=list)
     expected_artifacts: list[str] = field(default_factory=list)
+    generated_node_skills: list[str] = field(default_factory=list)
+    route_conformance_task: str | None = None
+    route_conformance_expected_node_order: list[str] = field(default_factory=list)
     interaction: InteractionConfig = field(default_factory=InteractionConfig)
 
 
@@ -44,6 +47,7 @@ def load_eval_manifest(path: Path | str) -> SkillEvalManifest:
     evaluation = data.get("evaluation") or {}
     interaction_data = data.get("interaction") or {}
     skill_source = skill.get("source", "..")
+    route_conformance = evaluation.get("routeConformance") or {}
 
     return SkillEvalManifest(
         path=manifest_path,
@@ -55,6 +59,11 @@ def load_eval_manifest(path: Path | str) -> SkillEvalManifest:
         recommended_tasks=list(evaluation.get("recommendedTasks") or []),
         required_skills=list(evaluation.get("requiredSkills") or []),
         expected_artifacts=list(evaluation.get("expectedArtifacts") or []),
+        generated_node_skills=list(evaluation.get("generatedNodeSkills") or []),
+        route_conformance_task=route_conformance.get("task"),
+        route_conformance_expected_node_order=list(
+            route_conformance.get("expectedNodeOrder") or []
+        ),
         interaction=InteractionConfig(
             mode=interaction_data.get("mode", "none"),
             max_turns=int(interaction_data.get("maxTurns", interaction_data.get("max_turns", 12))),

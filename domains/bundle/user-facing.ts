@@ -5,19 +5,23 @@ export interface SkillMakerPlanSummary {
   intentLabel: string;
   skillName: string;
   goal: string;
+  workflow?: {
+    kind: string;
+    nodes: Array<{
+      id: string;
+      label: string;
+      kind: string;
+      implementationSkill: string;
+      requiredSkills: string[];
+      outputSchemas: string[];
+    }>;
+    outputSchemas: string[];
+  };
   retained: string[];
   additions: string[];
   replacements: string[];
   disabled: string[];
   rejected: string[];
-  stageNames?: Array<{
-    skill: string;
-    name: string;
-    recommendedName: string;
-    source: 'recommended' | 'custom';
-    phase?: string;
-    label?: string;
-  }>;
   generated: string[];
   validation: string[];
   install: string[];
@@ -43,7 +47,7 @@ export interface SkillMakerInstallTextInput {
 export function skillMakerIntentLabel(intent: SkillMakerIntent): string {
   switch (intent) {
     case 'customize-comet':
-      return 'Customize /comet';
+      return 'Customize existing Comet Skills';
     case 'new-skill':
       return 'Create a new Skill';
     case 'upgrade-existing':
@@ -67,17 +71,16 @@ function section(title: string, values: string[]): string[] {
   return [`${title}:`, ...values.map((value) => `- ${value}`)];
 }
 
-function stageNameSection(summary: SkillMakerPlanSummary): string[] {
-  const stageNames = summary.stageNames ?? [];
-  if (stageNames.length === 0) {
-    return ['Stage names: None'];
-  }
+function workflowContractSection(summary: SkillMakerPlanSummary): string[] {
+  if (!summary.workflow) return ['Workflow contract: None'];
   return [
-    'Stage names:',
-    ...stageNames.map((stage) => {
-      const phase = stage.phase ? `; phase: ${stage.phase}` : '';
-      const label = stage.label ? `; label: ${stage.label}` : '';
-      return `- ${stage.skill}: ${stage.name} (recommended: ${stage.recommendedName}; ${stage.source}${phase}${label})`;
+    'Workflow contract:',
+    `- Kind: ${summary.workflow.kind}`,
+    `- Output Schemas: ${summary.workflow.outputSchemas.join(', ') || 'none'}`,
+    ...summary.workflow.nodes.map((node) => {
+      const required = node.requiredSkills.length > 0 ? node.requiredSkills.join(', ') : 'none';
+      const schemas = node.outputSchemas.length > 0 ? node.outputSchemas.join(', ') : 'none';
+      return `- Node ${node.id}: ${node.label}; ${node.kind}; implementation: ${node.implementationSkill}; required Skill calls: ${required}; output schemas: ${schemas}`;
     }),
   ];
 }
@@ -92,7 +95,7 @@ export function formatSkillMakerPlanSummary(summary: SkillMakerPlanSummary): str
     ...section('Replace', summary.replacements),
     ...section('Turn off', summary.disabled),
     ...section('Cannot do', summary.rejected),
-    ...stageNameSection(summary),
+    ...workflowContractSection(summary),
     ...section('Will generate', summary.generated),
     ...section('Validate', summary.validation),
     ...section('Install/enable', summary.install),

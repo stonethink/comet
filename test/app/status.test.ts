@@ -136,7 +136,9 @@ describe('status command', () => {
       log.mockRestore();
     }
 
-    expect(output).toContain('runtime_eval: fail (full.open; missing: openspec.proposal, openspec.tasks)');
+    expect(output).toContain(
+      'runtime_check: fail (full.open; missing: openspec.proposal, openspec.tasks)',
+    );
     expect(output).toContain(
       'next: run /comet-open or restore missing evidence (openspec.proposal, openspec.tasks), then rerun comet doctor',
     );

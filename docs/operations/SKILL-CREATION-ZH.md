@@ -192,16 +192,16 @@ comet bundle factory-init <name> --file <plan.json> --confirmed-proposal --json
 有 `comet/eval.yaml` 时，推荐先做发现预检查：
 
 ```bash
-comet eval collect --manifest ./generated-skill/comet/eval.yaml
+comet eval ./generated-skill/comet/eval.yaml --collect
 ```
 
 然后跑真实评估并生成 HTML 报告：
 
 ```bash
-comet eval run --manifest ./generated-skill/comet/eval.yaml --html
+comet eval ./generated-skill/comet/eval.yaml --html
 ```
 
-Eval 结果必须绑定当前 draft hash。没有当前 hash 的 Eval 证据、Eval 失败或 Eval 被跳过时，不得 publish。
+benchmark 结果必须绑定当前 draft hash。没有当前 hash 的 benchmark 证据、benchmark 失败或 benchmark 被跳过时，不得 publish。
 
 ## Publish
 
@@ -220,7 +220,7 @@ Review summary 必须展示：
 - 项目级偏好模式和 required Skill
 - resolved Skill 证据
 - 组合方案和偏离原因
-- Eval evidence
+- benchmark evidence
 - readiness、blockers、warnings、evidence
 - `Publish readiness:`
 - `User next steps:`
@@ -230,7 +230,7 @@ Review summary 必须展示：
 - unresolved candidate
 - required Skill 缺失或歧义
 - strict 模式下偏好文件漂移
-- 缺少当前 hash 的 Eval 证据
+- 缺少当前 hash 的 benchmark 证据
 - 缺少当前 hash 的人工 approval
 - required capability gap
 - executable disclosure 未确认
@@ -285,7 +285,7 @@ comet publish distribute <name> --platform <id> --scope project --json
 - draft hash 是否变化。
 - `.comet/skill-preferences.yaml` 的 `preferenceHash` 是否变化。
 - resolved Skill hash 是否变化。
-- Eval evidence 是否仍匹配当前 hash。
+- benchmark evidence 是否仍匹配当前 hash。
 - approval 是否仍匹配当前 hash。
 
 面向用户的恢复示例：

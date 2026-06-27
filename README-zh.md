@@ -93,9 +93,9 @@ comet init
 
 - **开始 Comet 工作流** — 先用 `comet init` 安装运行时和 Skills，再在你的 Agent 平台里调用 `/comet`。
 - **创建或优化可复用 Skill** — `/comet-any` 是普通用户主路径。它现在生成稳定组合 Skill Bundle，而不只是一个 `SKILL.md`；普通用户链路按 `/comet-any -> comet eval -> comet publish review/approve/run -> comet publish distribute --preview -> comet publish distribute` 推进。发布准备优先走 `comet publish status` 或 `comet publish review`，真正写入平台前先运行 `comet publish distribute --preview`，只有排障时再直接查看 `comet bundle` 高级 Bundle 后端（Advanced Bundle backend）。完整用法见 [docs/operations/SKILL-CREATION-ZH.md](docs/operations/SKILL-CREATION-ZH.md)。
-- **评估本地或生成出的 Skill** — 先用 `comet eval collect --manifest ./comet/eval.yaml` 做发现，再用 `comet eval run --manifest ./comet/eval.yaml --html` 跑真实 eval 并拿到可浏览摘要。完整用法见 [docs/operations/EVAL-USAGE-ZH.md](docs/operations/EVAL-USAGE-ZH.md)。
+- **评估本地或生成出的 Skill** — 先用 `comet eval ./comet/eval.yaml --collect` 做发现，再用 `comet eval ./comet/eval.yaml --html` 跑真实 eval 并拿到可浏览摘要。完整用法见 [docs/operations/EVAL-USAGE-ZH.md](docs/operations/EVAL-USAGE-ZH.md)。
 - **诊断为什么流程卡住** — 先看 `comet status` 的当前阶段和下一步命令，状态、运行时证据或安装健康有问题时再跑 `comet doctor`。
-- **恢复 deterministic Skill Run** — 先用 `comet skill run`，按输出里的 `Pending action` 执行，再根据 `Next:` 提示运行 `comet skill resume` 或 `comet skill check`。
+- **恢复 deterministic Skill Run** — 先用 `comet skill run`，按输出里的 `Pending action` 执行，再根据 `Next:` 提示运行 `comet skill continue` 或 `comet skill check`。
 
 ## 对OpenClaw和Hermes、或其他AI平台的支持
 
@@ -208,25 +208,24 @@ comet uninstall --scope project  # 仅移除项目级安装
 </details>
 
 <details>
-<summary><code>comet skill &lt;command&gt;</code> — 底层 Skill 工具（Low-level Skill utilities）用于编写和运行 Comet Skill 包</summary>
+<summary><code>comet skill &lt;command&gt;</code> — 安装、查看和运行本地 Skill 包</summary>
 
 按显式 Skill 目录、项目 `.comet/skills/` 覆盖项、内置 Skill 的顺序发现包。手工 Run 会持久化不可变 Skill
 快照和 pending action；当前 Agent 或平台执行该 action，再通过 `resume` 提交 outcome。
 
 ```bash
-comet skill install ./my-skill --project .
-comet skill validate my-skill --project .
-comet skill inspect my-skill --json
+comet skill add ./my-skill --project .
+comet skill show my-skill --json
 comet skill run my-skill --change ./changes/demo
 comet skill run my-skill --run-id demo-run --project .
-comet skill resume --change ./changes/demo
-comet skill resume --run-id demo-run --project .
-comet skill resume --change ./changes/demo --status succeeded --summary "完成" --artifact report=report.md
+comet skill continue --change ./changes/demo
+comet skill continue --run-id demo-run --project .
+comet skill continue --change ./changes/demo --status succeeded --summary "完成" --artifact report=report.md
 comet skill check --change ./changes/demo --scope completion
-comet skill resume --change ./changes/demo --upgrade my-skill --project .
+comet skill continue --change ./changes/demo --upgrade my-skill --project .
 ```
 
-六个子命令都支持 `--json`。Run 可以绑定 `--change` 目录，也可以用 `--run-id` 存到
+常用子命令都支持 `--json`。Run 可以绑定 `--change` 目录，也可以用 `--run-id` 存到
 `.comet/runs/<run-id>`。Plan 3 的 `run` 支持 deterministic Skill；adaptive 执行需要 Agent
 候选动作。项目 Skill 按名称覆盖内置 Skill，无效覆盖会失败关闭，不会静默回退。文本输出还会直接给出
 `Pending action` 和 `Next:` 恢复提示，避免用户在 run/eval 失败后自己猜下一步。
@@ -234,19 +233,19 @@ comet skill resume --change ./changes/demo --upgrade my-skill --project .
 </details>
 
 <details>
-<summary><code>comet eval &lt;command&gt;</code> — 通过共享 eval harness 运行 Skill Eval</summary>
+<summary><code>comet eval [target]</code> — 通过共享 eval harness 运行 Skill Eval</summary>
 
 为本地 Skill 或 `comet/eval.yaml` 提供统一 CLI 入口，内部固定从仓库 `eval/` 根目录启动，
 避免用户手工切目录、拼 pytest 参数或自己记 `--collect-only`。
 
 ```bash
-comet eval collect --manifest ./comet/eval.yaml
-comet eval run --manifest ./comet/eval.yaml --html
-comet eval run --skill-path ./assets/skills-zh/comet-any --skill-name comet-any --quick
+comet eval ./comet/eval.yaml --collect
+comet eval ./comet/eval.yaml --html
+comet eval ./assets/skills-zh/comet-any --quick
 ```
 
-`collect` 用于只做发现与预检查；`run` 执行本地 eval。`--manifest` 适合 Bundle/Engine 生成物，
-`--skill-path` 适合直接验证一个本地 Skill。对 `--skill-path`，`--quick` 默认选择
+`--collect` 用于只做发现与预检查；不带它时执行本地 eval。以 `comet/eval.yaml` 结尾的 target 会按 manifest 处理，
+Skill 目录或 `SKILL.md` 会按本地 Skill 处理。对本地 Skill target，`--quick` 默认选择
 `generic-skill-smoke`，先给出低成本冒烟路径。
 
 </details>
@@ -279,7 +278,7 @@ comet publish distribute my-bundle --platform claude --scope project --confirm-e
 <summary><code>comet bundle &lt;command&gt;</code> — <code>/comet-any</code> 与 Bundle 发布流程的高级 Bundle 后端（Advanced Bundle backend）</summary>
 
 从新目标或现有候选 Skill 创建平台无关的 Skill Bundle。Bundle 草稿具备确定性生命周期：可以编译为原生平台
-Skill/rule/hook 安装计划，可以携带可选 Engine 元数据，必须记录结构化 Eval 证据，并且发布和分发前都需要人工批准。
+Skill/rule/hook 安装计划，可以携带可选 Engine 元数据，必须记录结构化 benchmark 证据，并且发布和分发前都需要人工批准。
 
 对大多数用户来说，`/comet-any` 才是主路径。只有在审计后端状态、修复被阻塞的草稿，或你明确要手工操作发布流水线时，才需要直接调用 Bundle CLI。
 
@@ -295,8 +294,8 @@ comet bundle draft create my-bundle --project .
 comet bundle draft optimize ./bundle-source --project .
 comet bundle status my-bundle --json
 comet bundle compile my-bundle --platform claude --json
-comet bundle eval-plan my-bundle --level quick --json
-comet bundle eval-record my-bundle --result ./eval.json --json
+comet bundle benchmark-plan my-bundle --level quick --json
+comet bundle benchmark-record my-bundle --result ./benchmark.json --json
 comet bundle review-summary my-bundle --platform claude --json
 comet bundle review my-bundle --approve --reviewer alice --json
 comet bundle publish my-bundle --platform claude --json

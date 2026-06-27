@@ -287,6 +287,7 @@ def _checks_single(r) -> str:
 
 # Rubric score extraction — parses ``[RUBRIC] dim: score - reason`` messages.
 _RUBRIC_RE = re.compile(r"\[RUBRIC\]\s+(\S+):\s*([0-9.]+)")
+_RUBRIC_DERIVED_METRICS = {"weighted_score"}
 
 
 def _rubric_scores(result: TreatmentResult) -> dict[str, float]:
@@ -320,12 +321,15 @@ def rubric_column(dim: str) -> ReportColumn:
 
 
 def rubric_total_column() -> ReportColumn:
-    """Column showing the mean across all eight rubric dimensions."""
+    """Column showing the unweighted mean across base rubric dimensions."""
 
     def total(scores: dict[str, float]) -> float | None:
-        if not scores:
+        base_scores = {
+            dim: score for dim, score in scores.items() if dim not in _RUBRIC_DERIVED_METRICS
+        }
+        if not base_scores:
             return None
-        return sum(scores.values()) / len(scores)
+        return sum(base_scores.values()) / len(base_scores)
 
     def extract(r: TreatmentResult) -> str:
         t = total(_rubric_scores(r))
@@ -342,12 +346,17 @@ def rubric_total_column() -> ReportColumn:
 
 
 def rubric_columns(dimensions: tuple[str, ...] | list[str] | None = None) -> list[ReportColumn]:
-    """Rubric dimension columns plus the aggregate."""
+    """Rubric dimension columns plus derived metrics and the aggregate."""
     if dimensions is None:
         from scaffold.python.profiles import all_rubric_dimensions
 
         dimensions = all_rubric_dimensions()
-    cols = [rubric_column(dim) for dim in dimensions]
+    base_dimensions = [dim for dim in dimensions if dim not in _RUBRIC_DERIVED_METRICS]
+    derived_metrics = [dim for dim in dimensions if dim in _RUBRIC_DERIVED_METRICS]
+    if "weighted_score" not in derived_metrics:
+        derived_metrics.append("weighted_score")
+    cols = [rubric_column(dim) for dim in base_dimensions]
+    cols.extend(rubric_column(dim) for dim in derived_metrics)
     cols.append(rubric_total_column())
     return cols
 

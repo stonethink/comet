@@ -97,7 +97,7 @@ function runText(result: {
   reason?: string;
 }): string {
   const next = result.action
-    ? 'Next: complete the pending action, then run comet skill resume'
+    ? 'Next: complete the pending action, then run comet skill continue'
     : result.evals.some((evaluation) => !evaluation.passed)
       ? 'Next: record the missing artifact/state and rerun comet skill check'
       : 'Next: none';
@@ -112,6 +112,31 @@ function runText(result: {
     next,
     ...(result.reason ? [`Reason: ${result.reason}`] : []),
   ].join('\n');
+}
+
+function inspectResult(selector: string, options: SkillCommandOptions) {
+  return resolveSkill(selector, { projectRoot: projectRoot(options) }).then((resolved) => {
+    const { definition, guardrails, evals } = resolved.package;
+    return {
+      valid: true,
+      name: resolved.name,
+      version: resolved.version,
+      origin: resolved.origin,
+      root: resolved.root,
+      hash: resolved.hash,
+      description: definition.metadata.description,
+      goal: definition.goal,
+      orchestration: definition.orchestration,
+      skills: definition.skills,
+      agents: definition.agents,
+      tools: definition.tools,
+      guardrails,
+      checks: evals.map(({ id, ...evaluation }) => ({
+        checkId: id,
+        ...evaluation,
+      })),
+    };
+  });
 }
 
 export async function skillValidateCommand(
@@ -138,31 +163,35 @@ export async function skillInspectCommand(
   selector: string,
   options: SkillCommandOptions = {},
 ): Promise<void> {
-  const resolved = await resolveSkill(selector, { projectRoot: projectRoot(options) });
-  const { definition, guardrails, evals } = resolved.package;
-  const result = {
-    name: resolved.name,
-    version: resolved.version,
-    origin: resolved.origin,
-    root: resolved.root,
-    hash: resolved.hash,
-    description: definition.metadata.description,
-    goal: definition.goal,
-    orchestration: definition.orchestration,
-    skills: definition.skills,
-    agents: definition.agents,
-    tools: definition.tools,
-    guardrails,
-    checks: evals.map(({ id, ...evaluation }) => ({
-      checkId: id,
-      ...evaluation,
-    })),
-  };
+  const result = await inspectResult(selector, options);
   emit(
     result,
     options.json,
     [
       `${result.name}@${result.version} (${result.origin})`,
+      result.description,
+      `Root: ${result.root}`,
+      `Hash: ${result.hash}`,
+      `Orchestration: ${result.orchestration.mode}`,
+      `Steps: ${result.orchestration.steps?.length ?? 0}`,
+      `Skills: ${result.skills.length}`,
+      `Agents: ${result.agents.length}`,
+      `Tools: ${result.tools.length}`,
+      `Runtime checks: ${result.checks.length}`,
+    ].join('\n'),
+  );
+}
+
+export async function skillShowCommand(
+  selector: string,
+  options: SkillCommandOptions = {},
+): Promise<void> {
+  const result = await inspectResult(selector, options);
+  emit(
+    result,
+    options.json,
+    [
+      `Valid Comet Skill: ${result.name}@${result.version} (${result.origin})`,
       result.description,
       `Root: ${result.root}`,
       `Hash: ${result.hash}`,

@@ -53,8 +53,8 @@ RUBRIC_DIMENSIONS = (
     "recovery_resilience",
 )
 
-# Dimension weights: critical dimensions get higher weight.
-# Weights are normalized internally so Σweights = 1.0.
+# Dimension weights: critical dimensions get higher relative weight.
+# Raw weights need not sum to 1.0; they are normalized during aggregation.
 _DIMENSION_WEIGHTS: dict[str, float] = {
     "completion": 2.0,               # Must complete the task
     "main_flow": 1.5,                # Core 5-phase workflow

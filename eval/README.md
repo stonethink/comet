@@ -41,6 +41,12 @@ uv run pytest local/tests/tasks/test_tasks.py \
   --eval-manifest=/path/to/my-skill/comet/eval.yaml -v
 ```
 
+Generated `/comet-any` manifests can recommend both `authoring-skill-smoke`
+and `workflow-route-conformance`. The runner snapshots the entry Skill package
+and generated internal Node Skills into the eval workspace so Docker validators
+can inspect `SKILL.md`, `reference/`, `comet/eval.yaml`, and sibling Node
+Skills consistently.
+
 ### Evidence And Attribution
 
 Each local eval report records the selected profile, Skill source/hash metadata,
@@ -101,8 +107,8 @@ eval/langsmith/logs/experiments/
 ## Current Tasks
 
 The local task corpus lives in `eval/local/tasks/index.yaml`, including the
-Comet workflow tasks plus `generic-skill-smoke` and `authoring-skill-smoke`
-for arbitrary and generated Skill packages.
+Comet workflow tasks plus `generic-skill-smoke`, `authoring-skill-smoke`, and
+`workflow-route-conformance` for arbitrary and generated Skill packages.
 
 ## Requirements
 

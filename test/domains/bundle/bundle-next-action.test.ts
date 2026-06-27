@@ -61,12 +61,12 @@ describe('Bundle next action', () => {
     );
 
     expect(action).toMatchObject({
-      action: 'choose-eval-level',
-      category: 'eval',
+      action: 'choose-benchmark-level',
+      category: 'benchmark',
       userCommand:
-        'comet eval run --manifest /project/.comet/bundle-drafts/demo-skill/skills/demo-skill/comet/eval.yaml --quick --html',
+        'comet eval /project/.comet/bundle-drafts/demo-skill/skills/demo-skill/comet/eval.yaml --quick --html',
     });
-    expect(action.backendCommand).toBe('comet bundle eval-plan demo-skill --level quick');
+    expect(action.backendCommand).toBe('comet bundle benchmark-plan demo-skill --level quick');
   });
 
   it('requests review again when the current-hash review was rejected', () => {
@@ -130,18 +130,18 @@ describe('Bundle next action', () => {
       schemaVersion: 1,
       name: 'demo-skill',
       goal: 'Create a resumable Skill',
-      currentStep: 'needs-eval',
+      currentStep: 'needs-benchmark',
       preferenceDrift: {
         changed: true,
         storedHash: 'old-hash',
         currentHash: 'new-hash',
       },
       recommendedNextStep: {
-        action: 'choose-eval-level',
+        action: 'choose-benchmark-level',
       },
     });
     expect(summary.completed).toContain('Factory metadata initialized');
-    expect(summary.missing).toContain('Passing Eval evidence for the current draft');
+    expect(summary.missing).toContain('Passing benchmark evidence for the current draft');
   });
 
   it('marks preference drift when the stored hash exists and the current hash is null', () => {

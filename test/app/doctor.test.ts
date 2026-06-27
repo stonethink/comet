@@ -165,7 +165,7 @@ describe('doctor command', () => {
     expect(cometYaml.message).toContain('mode: engine-projection');
   });
 
-  it('prints runtime eval evidence in doctor output for valid changes', async () => {
+  it('prints runtime check evidence in doctor output for valid changes', async () => {
     state(tmpDir, 'init', 'demo', 'full');
 
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -177,7 +177,9 @@ describe('doctor command', () => {
       log.mockRestore();
     }
 
-    expect(output).toContain('runtime_eval: demo: fail (full.open; missing: openspec.proposal, openspec.tasks;');
+    expect(output).toContain(
+      'runtime_check: demo: fail (full.open; missing: openspec.proposal, openspec.tasks;',
+    );
     expect(output).toContain(
       'next: run /comet-open or restore missing evidence (openspec.proposal, openspec.tasks), then rerun comet doctor',
     );

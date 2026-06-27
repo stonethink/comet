@@ -78,11 +78,10 @@ comet-env.sh    ─┘                   comet-env.mjs    ─┘
 0.3.x 时用户只能消费 Comet 预置的 `/comet` 系列命令，无法自己造 Skill。0.4.0 新增手动 Skill 创作工具链：
 
 ```bash
-comet skill install   # 安装 Skill 包
-comet skill validate  # 校验结构
-comet skill inspect   # 检查内容
+comet skill add       # 安装 Skill 包
+comet skill show      # 查看结构与校验状态
 comet skill run       # 驱动执行
-comet skill resume    # 从检查点恢复
+comet skill continue  # 从检查点恢复
 comet skill check     # 运行 Engine Run runtime checks
 ```
 
@@ -166,11 +165,13 @@ Resolver 的 step/evidence 判断；`.comet.yaml` 保持用户可见投影，`.c
 
 `/comet-any` 在 0.4.0 里的真实定位不是“再一个自动化入口”，而是 **Comet Skill Factory**：
 
-- 输入是用户描述的目标工作流，以及 `.comet/skills.txt` 中表达的本地 Skill 偏好。
-- 中间态是带真实 Skill 证据、候选解析结果、Eval 规划、review readiness 的 Bundle 草稿。
+- 输入是用户描述的目标工作流、项目级 Skill 偏好，以及统一的 Workflow Contract。
+- 中间态是带真实 Skill 证据、Workflow Node、Skill Binding、Output Schema、Guardrail、Handoff、Eval 规划、review readiness 的 Bundle 草稿。
 - 输出才是 review / publish / distribute 可继续推进的 Bundle 生命周期。
 
 因此，对外文档要把 `/comet-any` 描述成“把工作流想法整理成可评审、可验证、可分发的 Skill 产物”的入口，而不是模糊地说成“自动帮你生成一些 Skill 文件”。
+
+`domains/workflow-contract` 是这条链路的深模块：它负责规范化 `comet-five-phase-overlay` 和 `workflow-kernel`，产出 `workflow-protocol.json`，并让 Factory、Eval、review 和 publish readiness 共用同一份 Output Schema 事实源。Bundle 只负责用户计划、候选解析和状态编排；Factory 只负责从 normalized protocol 渲染 Skill Package；Eval/readiness 不再按 Skill 名称猜产物。
 
 ## 八、轻量路径可用性
 

@@ -5,7 +5,7 @@ export type BundleNextActionKind =
   | 'fix-composition'
   | 'confirm-proposal'
   | 'generate-factory-package'
-  | 'choose-eval-level'
+  | 'choose-benchmark-level'
   | 'request-review'
   | 'publish'
   | 'ask-distribution'
@@ -13,7 +13,7 @@ export type BundleNextActionKind =
 
 export type BundleNextActionCategory =
   | 'factory'
-  | 'eval'
+  | 'benchmark'
   | 'review'
   | 'publish'
   | 'distribute'
@@ -39,7 +39,7 @@ export interface BundleResumeSummary {
     | 'needs-composition-fix'
     | 'needs-proposal-confirmation'
     | 'needs-generation'
-    | 'needs-eval'
+    | 'needs-benchmark'
     | 'needs-review'
     | 'needs-publish'
     | 'needs-distribution'
@@ -125,15 +125,15 @@ export function determineBundleNextAction(state: BundleAuthoringState): BundleNe
   if (!state.eval || state.eval.hash !== state.currentHash || !state.eval.passed) {
     const evalManifest = generatedEvalManifest(state);
     return {
-      action: 'choose-eval-level',
-      category: 'eval',
-      userLabel: 'Run Eval for the generated Skill',
-      reason: 'Current draft hash is missing passing Eval evidence',
-      backendCommand: `comet bundle eval-plan ${state.name} --level quick`,
+      action: 'choose-benchmark-level',
+      category: 'benchmark',
+      userLabel: 'Run a benchmark for the generated Skill',
+      reason: 'Current draft hash is missing passing benchmark evidence',
+      backendCommand: `comet bundle benchmark-plan ${state.name} --level quick`,
       userCommand:
         evalManifest !== null
-          ? `comet eval run --manifest ${evalManifest} --quick --html`
-          : 'comet eval run --skill-path <generated-skill> --quick --html',
+          ? `comet eval ${evalManifest} --quick --html`
+          : 'comet eval <generated-skill> --quick --html',
       requiresUserConfirmation: true,
     };
   }
@@ -159,7 +159,7 @@ export function determineBundleNextAction(state: BundleAuthoringState): BundleNe
       action: 'publish',
       category: 'publish',
       userLabel: 'Publish the approved candidate',
-      reason: 'Eval and review are present; the draft is ready to publish',
+      reason: 'Benchmark and review are present; the draft is ready to publish',
       backendCommand: `comet bundle publish ${state.name} --platform <reference-platform>`,
       userCommand: `comet publish run ${state.name} --platform <reference-platform>`,
       requiresUserConfirmation: true,
@@ -199,7 +199,7 @@ export function buildBundleResumeSummary(
     'fix-composition': 'needs-composition-fix',
     'confirm-proposal': 'needs-proposal-confirmation',
     'generate-factory-package': 'needs-generation',
-    'choose-eval-level': 'needs-eval',
+    'choose-benchmark-level': 'needs-benchmark',
     'request-review': 'needs-review',
     publish: 'needs-publish',
     'ask-distribution': 'needs-distribution',
@@ -213,8 +213,8 @@ export function buildBundleResumeSummary(
   if (state.factory?.generatedSkillPackage) completed.push('Generated Skill package recorded');
   else if (state.factory) missing.push('Generated Skill package');
   if (state.eval?.hash === state.currentHash && state.eval.passed)
-    completed.push('Passing Eval evidence');
-  else missing.push('Passing Eval evidence for the current draft');
+    completed.push('Passing benchmark evidence');
+  else missing.push('Passing benchmark evidence for the current draft');
   if (state.review?.hash === state.currentHash && state.review.decision === 'approved') {
     completed.push('Review approval for the current draft');
   } else {

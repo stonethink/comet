@@ -60,3 +60,9 @@ tasks:
     default_treatments:
       - CONTROL
     description: Smoke task for generated Comet-native Skill packages.
+
+  - name: workflow-route-conformance
+    category: generic
+    default_treatments:
+      - CONTROL
+    description: Validates generated Skill route metadata against the workflow protocol and internal Node Skills.

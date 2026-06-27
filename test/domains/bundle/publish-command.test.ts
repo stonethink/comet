@@ -140,7 +140,7 @@ describe('publish command facade', () => {
       bundles: [
         expect.objectContaining({
           resumeSummary: expect.objectContaining({
-            currentStep: 'needs-eval',
+            currentStep: 'needs-benchmark',
           }),
         }),
       ],
@@ -148,10 +148,10 @@ describe('publish command facade', () => {
     expect(status).toMatchObject({
       name: 'publish-facade',
       status: 'draft',
-      nextAction: { action: 'choose-eval-level' },
+      nextAction: { action: 'choose-benchmark-level' },
       resumeSummary: expect.objectContaining({
         recommendedNextStep: expect.objectContaining({
-          category: 'eval',
+          category: 'benchmark',
         }),
       }),
     });
@@ -161,7 +161,7 @@ describe('publish command facade', () => {
     );
     expect(text).toContain('Found an unfinished Skill creation');
     expect(text).toContain('Still needed:');
-    expect(text).toContain('Current step: needs-eval');
+    expect(text).toContain('Current step: needs-benchmark');
     expect(text).toContain('Suggested user command:');
   });
 

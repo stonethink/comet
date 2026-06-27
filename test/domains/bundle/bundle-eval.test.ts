@@ -20,6 +20,7 @@ import {
   initializeBundleFactoryState,
 } from '../../../domains/bundle/factory.js';
 import type { BundleAuthoringState, BundleCompilerIr } from '../../../domains/bundle/types.js';
+import { workflowFor as workflowDefinitionFor } from '../../helpers/workflow-plan.js';
 
 function evalIr(entryCount = 1): BundleCompilerIr {
   return {
@@ -93,6 +94,10 @@ async function writeFactorySkill(projectRoot: string, name: string): Promise<voi
   );
 }
 
+function workflowFor(name: string, skills: string[]): ReturnType<typeof workflowDefinitionFor> {
+  return workflowDefinitionFor(name, skills);
+}
+
 async function createFactoryStateWithGeneratedPackage(
   projectRoot: string,
   planRoot: string,
@@ -107,7 +112,7 @@ async function createFactoryStateWithGeneratedPackage(
       {
         goal: `Generate ${name}.`,
         preferredSkills: [`${name}-source`],
-        callChain: [`${name}-source`],
+        workflow: workflowFor(name, [`${name}-source`]),
         engineMode,
         runnerMode: 'standalone',
         defaultLocale: 'en',
@@ -159,7 +164,7 @@ function result(bundleHash: string, overrides: Partial<BundleEvalResult> = {}): 
   };
 }
 
-describe('Bundle Eval planning and evidence', () => {
+describe('Bundle benchmark planning and evidence', () => {
   let root: string;
   let projectRoot: string;
   let stateHash: string;
@@ -368,7 +373,10 @@ describe('Bundle Eval planning and evidence', () => {
       overrides: [],
     };
     await fs.writeFile(manifestPath, stringify(manifest), 'utf8');
-    const changed = await reconcileBundleAuthoringState(projectRoot, 'stable-degraded-capabilities');
+    const changed = await reconcileBundleAuthoringState(
+      projectRoot,
+      'stable-degraded-capabilities',
+    );
     const resultFile = await writeResult(
       result(changed.currentHash!, {
         entries: [

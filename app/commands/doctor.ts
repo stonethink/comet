@@ -248,13 +248,13 @@ async function checkCometYamlValidity(projectPath: string): Promise<CheckResult[
         message: `valid (step: ${diagnostic.currentStep ?? 'completed'}, mode: ${diagnostic.runtimeMode})`,
       });
       if (diagnostic.runtimeEval) {
-        const runtimeEvalMessage = diagnostic.runtimeEval.passed
+        const runtimeCheckMessage = diagnostic.runtimeEval.passed
           ? `pass (${diagnostic.runtimeEval.stepId})`
           : `fail (${diagnostic.runtimeEval.stepId}; missing: ${formatMissingEvidence(diagnostic.runtimeEval.missingEvidence)}; next: ${formatRuntimeEvalRecovery(diagnostic.nextCommand, diagnostic.runtimeEval.missingEvidence)})`;
         results.push({
-          check: `runtime_eval: ${entry}`,
+          check: `runtime_check: ${entry}`,
           status: diagnostic.runtimeEval.passed ? 'pass' : 'warn',
-          message: runtimeEvalMessage,
+          message: runtimeCheckMessage,
         });
       }
       continue;

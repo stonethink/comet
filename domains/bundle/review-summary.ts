@@ -47,6 +47,7 @@ function buildReadiness(
 ): BundleReviewReadiness {
   const blockers: string[] = [];
   const warnings: string[] = [];
+  const workflowProtocol = state.factory?.workflowProtocol;
   const unresolved =
     state.factory?.resolvedSkills.filter(
       (skill) => skill.status === 'missing' || skill.status === 'ambiguous',
@@ -79,12 +80,25 @@ function buildReadiness(
   for (const issue of state.factory?.composition?.issues ?? []) {
     blockers.push(`[composition] ${issue.message}`);
   }
+  for (const node of workflowProtocol?.nodes ?? []) {
+    if (node.kind === 'control' && node.implementation.operation === 'override') {
+      blockers.push(`[workflow] ${node.id}: control Node cannot be overridden`);
+    }
+    if (node.kind === 'producer' && node.implementation.operation === 'override') {
+      const missing = node.outputSchemas.filter((schema) => !node.satisfies.includes(schema));
+      if (missing.length > 0) {
+        blockers.push(
+          `[workflow] ${node.id}: producer override missing Output Schema ${missing.join(', ')}`,
+        );
+      }
+    }
+  }
   for (const error of controlPlane.errors) {
     blockers.push(`[control-plane] ${error}`);
   }
   if (!state.currentHash) blockers.push('[draft] Current draft hash is missing');
   if (!state.eval || state.eval.hash !== state.currentHash || !state.eval.passed) {
-    blockers.push('[eval] Eval evidence for the current draft hash is missing');
+    blockers.push('[benchmark] Benchmark evidence for the current draft hash is missing');
   }
   if (state.eval?.passed && (!state.review || state.review.hash !== state.currentHash)) {
     warnings.push('[review] Review approval for the current draft hash is missing');
@@ -134,6 +148,18 @@ function buildReadiness(
         ? {
             compositionIssues: `${state.factory.composition.issues.length} issue(s)`,
             compositionChoices: `${state.factory.composition.choices.length} choice(s)`,
+          }
+        : {}),
+      ...(workflowProtocol
+        ? {
+            workflow: `${workflowProtocol.nodes.length} node(s), ${workflowProtocol.outputSchemas.length} output schema(s)`,
+            workflowRequiredSkillCalls: `${workflowProtocol.nodes.reduce(
+              (count, node) => count + node.requiredSkillCalls.length,
+              0,
+            )} required Skill call(s)`,
+            workflowOutputSchemas: workflowProtocol.outputSchemas
+              .map((schema) => schema.id)
+              .join(', '),
           }
         : {}),
       ...(state.factory?.generatedSkillPackage

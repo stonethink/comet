@@ -98,9 +98,9 @@ comet init
 
 - **Start a Comet workflow** — `comet init` to install the runtime and Skills, then invoke `/comet` from your agent surface.
 - **Create or optimize a reusable Skill** — `/comet-any` is the main user path. It now generates a stable composed Skill Bundle rather than only a `SKILL.md`, and the ordinary path is `/comet-any -> comet eval -> comet publish review/approve/run -> comet publish distribute --preview -> comet publish distribute`. Use `comet publish status` or `comet publish review` for normal release readiness, run `comet publish distribute --preview` before any real platform writes, and reach for the `comet bundle` Advanced Bundle backend only when you are debugging the backend state directly. Detailed examples live in [docs/operations/SKILL-CREATION.md](docs/operations/SKILL-CREATION.md).
-- **Evaluate a local or generated Skill** — `comet eval collect --manifest ./comet/eval.yaml` for discovery, then `comet eval run --manifest ./comet/eval.yaml --html` for a real run with a browsable summary.
+- **Evaluate a local or generated Skill** — `comet eval ./comet/eval.yaml --collect` for discovery, then `comet eval ./comet/eval.yaml --html` for a real run with a browsable summary.
 - **Diagnose a stuck workflow** — `comet status` for the current phase and next command, then `comet doctor` when state, runtime evidence, or install health looks wrong.
-- **Resume a deterministic Skill Run** — `comet skill run`, follow the printed `Pending action`, then `comet skill resume` or `comet skill check` using the `Next:` hint.
+- **Resume a deterministic Skill Run** — `comet skill run`, follow the printed `Pending action`, then `comet skill continue` or `comet skill check` using the `Next:` hint.
 
 ## Support for OpenClaw and Hermes, and other AI platforms
 
@@ -217,48 +217,47 @@ comet uninstall --scope project  # Only remove project-level installations
 </details>
 
 <details>
-<summary><code>comet skill &lt;command&gt;</code> — Low-level Skill utilities for authoring and running Comet Skill packages</summary>
+<summary><code>comet skill &lt;command&gt;</code> — Install, inspect, and run local Skill packages</summary>
 
 Discovers explicit Skill directories, project overrides under `.comet/skills/`, and built-in Skills. Manual Runs
 persist an immutable Skill snapshot and pending action; the current Agent or platform executes that action and submits
 its outcome through `resume`.
 
 ```bash
-comet skill install ./my-skill --project .
-comet skill validate my-skill --project .
-comet skill inspect my-skill --json
+comet skill add ./my-skill --project .
+comet skill show my-skill --json
 comet skill run my-skill --change ./changes/demo
 comet skill run my-skill --run-id demo-run --project .
-comet skill resume --change ./changes/demo
-comet skill resume --run-id demo-run --project .
-comet skill resume --change ./changes/demo --status succeeded --summary "Done" --artifact report=report.md
+comet skill continue --change ./changes/demo
+comet skill continue --run-id demo-run --project .
+comet skill continue --change ./changes/demo --status succeeded --summary "Done" --artifact report=report.md
 comet skill check --change ./changes/demo --scope completion
-comet skill resume --change ./changes/demo --upgrade my-skill --project .
+comet skill continue --change ./changes/demo --upgrade my-skill --project .
 ```
 
-All six subcommands support `--json`. Runs can bind to a `--change` directory or use `--run-id` under
+The common subcommands support `--json`. Runs can bind to a `--change` directory or use `--run-id` under
 `.comet/runs/<run-id>`. `run` supports deterministic Skills in Plan 3; adaptive execution requires an Agent candidate.
 Project Skills override built-ins by name, and invalid overrides fail closed instead of silently falling back. Text mode
 also prints direct `Pending action` and `Next:` recovery hints so users do not have to infer what to do after a paused
-Run or failed eval.
+Run or failed runtime check.
 
 </details>
 
 <details>
-<summary><code>comet eval &lt;command&gt;</code> — Run Skill evals through the shared harness</summary>
+<summary><code>comet eval [target]</code> — Benchmark Skills through the shared eval harness</summary>
 
 Provides one stable CLI entry point for local Skills and `comet/eval.yaml`, always launching from the repository
 `eval/` root so users do not have to cd manually, reconstruct pytest arguments, or remember `--collect-only`.
 
 ```bash
-comet eval collect --manifest ./comet/eval.yaml
-comet eval run --manifest ./comet/eval.yaml --html
-comet eval run --skill-path ./assets/skills/comet-any --skill-name comet-any --quick
+comet eval ./comet/eval.yaml --collect
+comet eval ./comet/eval.yaml --html
+comet eval ./assets/skills/comet-any --quick
 ```
 
-Use `collect` for discovery and preflight only; use `run` for actual local eval execution. `--manifest` fits
-Bundle/Engine outputs, while `--skill-path` is the direct path for a local Skill. With `--skill-path`, `--quick`
-defaults to `generic-skill-smoke` for a low-cost smoke path first.
+Use `--collect` for discovery and preflight only; omit it for actual local benchmark execution. A target ending in
+`comet/eval.yaml` is treated as a manifest, while a Skill directory or `SKILL.md` is treated as a local Skill. `--quick`
+defaults local Skill targets to `generic-skill-smoke` for a low-cost smoke path first.
 
 </details>
 
@@ -291,7 +290,7 @@ The intended mental model is:
 
 Creates platform-independent Skill Bundles from new goals or existing candidate Skills. Bundle drafts are deterministic:
 they compile into native platform Skill/rule/hook install plans, can carry optional Engine metadata, require structured
-Eval evidence, and must receive human approval before publishing or distribution.
+benchmark evidence, and must receive human approval before publishing or distribution.
 
 For most users, `/comet-any` is the main user path. Use the Bundle CLI directly when you are auditing backend state,
 repairing a blocked draft, or intentionally operating the release pipeline by hand.
@@ -308,8 +307,8 @@ comet bundle draft create my-bundle --project .
 comet bundle draft optimize ./bundle-source --project .
 comet bundle status my-bundle --json
 comet bundle compile my-bundle --platform claude --json
-comet bundle eval-plan my-bundle --level quick --json
-comet bundle eval-record my-bundle --result ./eval.json --json
+comet bundle benchmark-plan my-bundle --level quick --json
+comet bundle benchmark-record my-bundle --result ./benchmark.json --json
 comet bundle review-summary my-bundle --platform claude --json
 comet bundle review my-bundle --approve --reviewer alice --json
 comet bundle publish my-bundle --platform claude --json

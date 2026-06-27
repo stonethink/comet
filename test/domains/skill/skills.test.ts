@@ -1497,8 +1497,10 @@ describe('skills', () => {
       const manifest = await readManifest();
       const skillPaths = manifest.skills.filter(
         (skillPath) =>
-          skillPath.endsWith('SKILL.md') &&
-          (skillPath === 'comet/SKILL.md' || skillPath.startsWith('comet-')),
+          skillPath.endsWith('.md') &&
+          (skillPath === 'comet/SKILL.md' ||
+            skillPath.startsWith('comet-') ||
+            skillPath.startsWith('comet-any/')),
       );
 
       for (const languageDir of ['skills', 'skills-zh']) {
@@ -1611,7 +1613,8 @@ describe('skills', () => {
             path.resolve('assets', languageDir, skillPath),
             'utf-8',
           );
-          const references = content.match(/comet\/reference\/[a-z-]+\.md/g) ?? [];
+          const references =
+            content.match(/(?:comet|comet-any)\/reference\/(?:subagents\/)?[a-z-]+\.md/g) ?? [];
 
           for (const referencePath of new Set(references)) {
             expect(

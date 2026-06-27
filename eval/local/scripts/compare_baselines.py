@@ -1,4 +1,4 @@
-"""Compare comet baseline treatments across the eight rubric dimensions.
+"""Compare comet baseline treatments across the rubric dimensions.
 
 Reads experiment reports from ``local/logs/experiments/<id>/reports/*.json`` and
 emits a markdown comparison report highlighting where the workflow (v3) baseline
@@ -31,6 +31,7 @@ from scaffold.python.pass_at_k import pass_metrics_table
 
 RUBRIC_RE = re.compile(r"\[RUBRIC\]\s+(\S+):\s*([0-9.]+)")
 RUBRIC_JUDGE_RE = re.compile(r"\[RUBRIC-JUDGE\]\s+(\S+):\s*([0-9.]+)")
+RUBRIC_DERIVED_METRICS = ("weighted_score",)
 
 # Treatments we compare. CONTROL is included for context but not used in the
 # pass/fail decision.
@@ -148,7 +149,7 @@ def _aggregate(reports: list[dict]) -> dict[str, dict[str, float]]:
         for dim, score in _scores_from_report(rep).items():
             per_dim[dim].append(score)
     result: dict[str, dict[str, float]] = {}
-    for dim in RUBRIC_DIMENSIONS:
+    for dim in tuple(RUBRIC_DIMENSIONS) + RUBRIC_DERIVED_METRICS:
         vals = per_dim.get(dim, [])
         n = len(vals)
         if not vals:
@@ -373,7 +374,7 @@ def build_report(experiment_dir: Path) -> str:
     label = "(mean±stdev, pass-rate across runs; 0.00–1.00)" if has_dist else "(mean, 0.00–1.00)"
     lines.append(f"## Rubric dimensions {label}")
     lines.append("")
-    lines.append("_Scores are binary pass-rates (0.0-1.0). Overall uses weighted average (see weights below)._")
+    lines.append("_Scores are binary pass-rates (0.0-1.0). Overall uses the validator-emitted weighted_score when available (see weights below)._")
     lines.append("")
     header = "| Dimension | " + " | ".join(TREATMENTS) + " | Δ (workflow−baseline) |"
     sep = "|-----------|" + "|".join(["------"] * len(TREATMENTS)) + "|------|"

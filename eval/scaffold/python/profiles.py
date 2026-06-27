@@ -50,7 +50,7 @@ def _build_profiles() -> dict[str, ProfileSpec]:
     return {
         GENERIC_PROFILE: ProfileSpec(
             name=GENERIC_PROFILE,
-            rubric_dimensions=GENERIC_RUBRIC_DIMENSIONS + ("weighted_score",),
+            rubric_dimensions=GENERIC_RUBRIC_DIMENSIONS,
             default_interaction=InteractionConfig(
                 mode="none",
                 max_turns=12,
@@ -60,7 +60,7 @@ def _build_profiles() -> dict[str, ProfileSpec]:
         ),
         COMET_WORKFLOW_PROFILE: ProfileSpec(
             name=COMET_WORKFLOW_PROFILE,
-            rubric_dimensions=tuple(RUBRIC_DIMENSIONS) + ("weighted_score",),
+            rubric_dimensions=tuple(RUBRIC_DIMENSIONS),
             default_interaction=InteractionConfig(
                 mode="auto_user",
                 max_turns=12,
@@ -70,7 +70,7 @@ def _build_profiles() -> dict[str, ProfileSpec]:
         ),
         AUTHORING_SKILL_PROFILE: ProfileSpec(
             name=AUTHORING_SKILL_PROFILE,
-            rubric_dimensions=AUTHORING_RUBRIC_DIMENSIONS + ("weighted_score",),
+            rubric_dimensions=AUTHORING_RUBRIC_DIMENSIONS,
             default_interaction=InteractionConfig(
                 mode="auto_user",
                 max_turns=8,

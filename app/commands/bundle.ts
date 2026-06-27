@@ -84,8 +84,9 @@ function formatStateEval(
     | NonNullable<Awaited<ReturnType<typeof reconcileBundleAuthoringState>>['eval']>
     | undefined,
 ): string {
-  if (!evalState) return 'Eval: missing; run comet bundle eval-plan and comet bundle eval-record';
-  return `Eval: ${evalState.passed ? 'passed' : 'failed'} (${evalState.level}) @ ${evalState.hash}`;
+  if (!evalState)
+    return 'Benchmark: missing; run comet bundle benchmark-plan and comet bundle benchmark-record';
+  return `Benchmark: ${evalState.passed ? 'passed' : 'failed'} (${evalState.level}) @ ${evalState.hash}`;
 }
 
 function formatStateReview(

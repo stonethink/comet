@@ -3,17 +3,16 @@ import { initCommand } from '../commands/init.js';
 import { statusCommand } from '../commands/status.js';
 import { dashboardCommand } from '../commands/dashboard.js';
 import { doctorCommand } from '../commands/doctor.js';
-import { evalCollectCommand, evalRunCommand } from '../commands/eval.js';
+import { evalCommand as evalFacadeCommand } from '../commands/eval.js';
 import { updateCommand } from '../commands/update.js';
 import { uninstallCommand } from '../commands/uninstall.js';
 import { getCurrentVersion } from '../../platform/version/version.js';
 import {
   skillCheckCommand,
-  skillInspectCommand,
   skillInstallCommand,
   skillResumeCommand,
   skillRunCommand,
-  skillValidateCommand,
+  skillShowCommand,
 } from '../commands/skill.js';
 import {
   publishApproveCommand,
@@ -139,13 +138,10 @@ program
     }
   });
 
-const evalCommand = program
+program
   .command('eval')
-  .description('Run Comet Skill evals through the shared harness');
-
-evalCommand
-  .command('run')
-  .description('Run a local Skill or eval manifest through the local eval suite')
+  .description('Benchmark a Skill or eval manifest with one command')
+  .argument('[target]', 'Local Skill directory, SKILL.md, or comet/eval.yaml')
   .option('--project <dir>', 'Repository root that contains eval/', '.')
   .option('--manifest <path>', 'Path to comet/eval.yaml')
   .option('--skill-path <path>', 'Local Skill directory or SKILL.md')
@@ -155,29 +151,17 @@ evalCommand
   .option('--report-config <path>', 'JSON/YAML report output config')
   .option('--html', 'Enable HTML report output')
   .option('--quick', 'Use the default quick smoke task where applicable')
-  .action(async (options) => {
-    await evalRunCommand(options);
-  });
-
-evalCommand
-  .command('collect')
-  .description('Collect eval targets without executing Claude or Docker workloads')
-  .option('--project <dir>', 'Repository root that contains eval/', '.')
-  .option('--manifest <path>', 'Path to comet/eval.yaml')
-  .option('--skill-path <path>', 'Local Skill directory or SKILL.md')
-  .option('--skill-name <name>', 'Skill name used with --skill-path')
-  .option('--profile <name>', 'Eval profile override')
-  .option('--task <task>', 'Explicit eval task override')
-  .action(async (options) => {
-    await evalCollectCommand(options);
+  .option('--collect', 'Collect targets without executing Claude or Docker workloads')
+  .action(async (target, options) => {
+    await evalFacadeCommand(target, options);
   });
 
 const skill = program
   .command('skill')
-  .description('Low-level Skill utilities for inspecting and running Engine-native packages');
+  .description('Install, inspect, and run local Skill packages');
 
 skill
-  .command('install <path>')
+  .command('add <path>')
   .description('Install a Comet Skill into the project Skill pool')
   .option('--project <dir>', 'Project root', '.')
   .option('--overwrite', 'Replace an existing project Skill')
@@ -187,21 +171,12 @@ skill
   });
 
 skill
-  .command('validate <skill>')
-  .description('Validate a Comet Skill package')
+  .command('show <skill>')
+  .description('Show Skill package identity, validation status, and runtime metadata')
   .option('--project <dir>', 'Project root used for Skill discovery', '.')
   .option('--json', 'Output as JSON')
   .action(async (selector, options) => {
-    await skillValidateCommand(selector, options);
-  });
-
-skill
-  .command('inspect <skill>')
-  .description('Inspect a Comet Skill package')
-  .option('--project <dir>', 'Project root used for Skill discovery', '.')
-  .option('--json', 'Output as JSON')
-  .action(async (selector, options) => {
-    await skillInspectCommand(selector, options);
+    await skillShowCommand(selector, options);
   });
 
 skill
@@ -217,7 +192,7 @@ skill
   });
 
 skill
-  .command('resume')
+  .command('continue')
   .description('Resume a Comet Skill Run or submit its pending action outcome')
   .option('--change <dir>', 'Change directory that owns the Run')
   .option('--run-id <id>', 'Standalone Run id stored under .comet/runs/<id>')
@@ -238,13 +213,13 @@ skill
 skill
   .command('check')
   .description(
-    'Check deterministic Engine Run runtime checks. Use comet eval run for general Skill evals',
+    'Check deterministic Engine Run runtime checks. Use comet eval for benchmark reports',
   )
   .option('--change <dir>', 'Change directory that owns the Run')
   .option('--run-id <id>', 'Standalone Run id stored under .comet/runs/<id>')
   .option('--project <dir>', 'Project root used for standalone Run lookup', '.')
   .addOption(
-    new Option('--scope <scope>', 'Runtime eval scope')
+    new Option('--scope <scope>', 'Runtime check scope')
       .choices(['progress', 'step', 'completion'])
       .default('progress'),
   )
@@ -449,8 +424,8 @@ bundle
   });
 
 bundle
-  .command('eval-plan <name>')
-  .description('Estimate Bundle Eval work')
+  .command('benchmark-plan <name>')
+  .description('Estimate Bundle benchmark work')
   .option('--project <dir>', 'Project root', '.')
   .addOption(
     new Option('--level <level>', 'Eval level').choices(['quick', 'full']).default('quick'),
@@ -462,10 +437,10 @@ bundle
   });
 
 bundle
-  .command('eval-record <name>')
-  .description('Record structured Bundle Eval evidence')
+  .command('benchmark-record <name>')
+  .description('Record structured Bundle benchmark evidence')
   .option('--project <dir>', 'Project root', '.')
-  .requiredOption('--result <file>', 'Eval result JSON')
+  .requiredOption('--result <file>', 'Benchmark result JSON')
   .option('--json', 'Output as JSON')
   .action(async (name, options) => {
     await bundleEvalRecordCommand(name, options);

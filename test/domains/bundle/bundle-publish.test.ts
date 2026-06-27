@@ -12,6 +12,7 @@ import {
 import { publishBundle, reviewBundle } from '../../../domains/bundle/publish.js';
 import { reconcileBundleAuthoringState } from '../../../domains/bundle/state.js';
 import type { BundleAuthoringState } from '../../../domains/bundle/types.js';
+import { workflowFor as workflowDefinitionFor } from '../../helpers/workflow-plan.js';
 
 async function writeBundle(root: string, name: string, requiresHooks = false): Promise<void> {
   await fs.mkdir(path.join(root, 'skills', 'entry'), { recursive: true });
@@ -57,6 +58,10 @@ async function writeFactorySkill(projectRoot: string, name: string): Promise<voi
     `---\nname: ${name}\ndescription: ${name}.\n---\n\n# ${name}\n`,
     'utf8',
   );
+}
+
+function workflowFor(name: string, skills: string[]): ReturnType<typeof workflowDefinitionFor> {
+  return workflowDefinitionFor(name, skills);
 }
 
 function passingResult(hash: string): BundleEvalResult {
@@ -381,9 +386,7 @@ describe('Bundle review and publish', () => {
   });
 
   it('blocks publishing an evaluated factory Bundle with degraded required capabilities', async () => {
-    const generated = await createFactoryStateWithGeneratedPackage(
-      'stable-degraded-capabilities',
-    );
+    const generated = await createFactoryStateWithGeneratedPackage('stable-degraded-capabilities');
     await recordPassingEval('stable-degraded-capabilities', passingFactoryResult);
     await reviewBundle({
       projectRoot,
@@ -435,7 +438,7 @@ describe('Bundle review and publish', () => {
         {
           goal: `Generate ${name}.`,
           preferredSkills: [`${name}-source`],
-          callChain: [`${name}-source`],
+          workflow: workflowFor(name, [`${name}-source`]),
           engineMode: 'deterministic',
           runnerMode: 'standalone',
           defaultLocale: 'en',
@@ -457,15 +460,11 @@ describe('Bundle review and publish', () => {
 
   async function recordPassingEval(
     name: string,
-    createResult: (hash: string, entry: string) => BundleEvalResult = (hash) =>
-      passingResult(hash),
+    createResult: (hash: string, entry: string) => BundleEvalResult = (hash) => passingResult(hash),
   ) {
     const state = await reconcileBundleAuthoringState(projectRoot, name);
     const resultFile = path.join(root, `${name}-eval.json`);
-    await fs.writeFile(
-      resultFile,
-      JSON.stringify(createResult(state.currentHash!, name), null, 2),
-    );
+    await fs.writeFile(resultFile, JSON.stringify(createResult(state.currentHash!, name), null, 2));
     return recordBundleEval(projectRoot, name, resultFile);
   }
 });
