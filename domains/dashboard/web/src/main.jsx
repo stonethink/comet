@@ -577,7 +577,7 @@ function useAnimatedNumber(target, duration = 800, resetKey = target) {
   const [value, setValue] = useState(0);
 
   useEffect(() => {
-    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const reduceMotion = window.matchMedia?.('(pref-reduced-motion: reduce)').matches;
     if (reduceMotion) {
       setValue(target);
       return undefined;
@@ -664,9 +664,6 @@ function TaskProgress({ change }) {
               strokeLinecap="round"
               strokeDasharray={circumference}
               strokeDashoffset={dashOffset}
-              style={{
-                transition: 'stroke-dashoffset 0.8s cubic-bezier(0.16,1,0.3,1), stroke 0.4s ease',
-              }}
             />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
