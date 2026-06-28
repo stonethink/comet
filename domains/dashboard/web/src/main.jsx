@@ -892,7 +892,7 @@ function ArtifactDrawer({ artifact, onClose }) {
   return (
     <div className="fixed inset-0 z-[90] grid grid-cols-[minmax(0,1fr)_minmax(360px,760px)] max-sm:grid-cols-1">
       <button aria-label="关闭产物预览" className="bg-black/30 max-sm:hidden" onClick={onClose} />
-      <section className="flex min-h-0 min-w-0 flex-col border-l border-border bg-bg shadow-[-20px_0_44px_rgba(0,0,0,0.12)]">
+      <section className="flex min-h-0 min-w-0 flex-col overflow-hidden border-l border-border bg-bg shadow-[-20px_0_44px_rgba(0,0,0,0.12)]">
         <header className="flex items-start gap-3 border-b border-border-soft p-5">
           <div className="min-w-0 flex-1">
             <h2 className="text-xl font-bold">{artifact.name}</h2>
