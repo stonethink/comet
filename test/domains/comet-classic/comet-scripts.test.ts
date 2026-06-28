@@ -259,7 +259,7 @@ describe('comet scripts', () => {
     expect(yaml).toContain('tdd_mode: null');
   }, 20_000);
 
-  it('initializes review_mode as null for full workflow', async () => {
+  it('initializes review_mode as standard for full workflow', async () => {
     const result = runNode(tmpDir, stateScript, ['init', 'review-defaults', 'full']);
     const yaml = await fs.readFile(
       path.join(tmpDir, 'openspec', 'changes', 'review-defaults', '.comet.yaml'),
@@ -267,7 +267,7 @@ describe('comet scripts', () => {
     );
 
     expect(result.status).toBe(0);
-    expect(yaml).toContain('review_mode: null');
+    expect(yaml).toContain('review_mode: standard');
   }, 20_000);
 
   it('initializes review_mode as off for hotfix workflow', async () => {
@@ -3255,7 +3255,11 @@ describe('comet scripts', () => {
       ].join('\n'),
     );
 
-    const fullResult = runNode(tmpDir, stateScript, ['transition', 'escalate-full', 'preset-escalate']);
+    const fullResult = runNode(tmpDir, stateScript, [
+      'transition',
+      'escalate-full',
+      'preset-escalate',
+    ]);
     expect(fullResult.status).not.toBe(0);
     expect(fullResult.stderr).toContain('preset-escalate only applies to hotfix/tweak');
 

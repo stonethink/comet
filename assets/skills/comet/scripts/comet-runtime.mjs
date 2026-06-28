@@ -11164,7 +11164,7 @@ Valid values: true, false`);
   return value;
 }
 async function reviewModeDefault() {
-  const value = process.env.COMET_REVIEW_MODE ?? await projectConfigValue2("review_mode") ?? "null";
+  const value = process.env.COMET_REVIEW_MODE ?? await projectConfigValue2("review_mode") ?? "standard";
   if (!["null", "off", "standard", "thorough"].includes(value)) {
     fail2(`ERROR: Invalid review_mode: '${value}'
 Valid values: off, standard, thorough`);

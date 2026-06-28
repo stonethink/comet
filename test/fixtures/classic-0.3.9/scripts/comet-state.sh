@@ -236,7 +236,7 @@ project_auto_transition_default() {
 }
 
 project_review_mode_default() {
-  local value="null"
+  local value="standard"
   local source="default"
   if [ -n "${COMET_REVIEW_MODE:-}" ]; then
     value="$COMET_REVIEW_MODE"

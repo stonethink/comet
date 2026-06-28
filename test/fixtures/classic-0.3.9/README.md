@@ -13,8 +13,14 @@
 
 规则：
 
-- `scripts/` 中的文件必须保持 byte-for-byte 不变。
+- `scripts/` 中的文件必须保持 byte-for-byte 不变（除非合同有意变更，见下文）。
 - 不对冻结脚本执行格式化、重构或跨平台修复。
 - `checksums.json` 是 fixture 完整性的本地基准，不依赖测试环境存在 Git。
 - 新实现允许增加 Run 字段、Skill snapshot 和 Trajectory，但旧行为投影、
   稳定输出和退出码必须继续匹配本参考实现。
+
+合同变更记录：
+
+- `comet-state.sh` `project_review_mode_default()`: 默认值从 `"null"` 改为 `"standard"`，
+  与 `classic-state-command.ts` 中 `reviewModeDefault()` 的运行时兜底保持一致。
+  此变更属于有意的合同变更，目的是让 `full` 工作流默认启用 standard 级别审查。

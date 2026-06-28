@@ -209,7 +209,7 @@ async function autoTransition(): Promise<string> {
 
 async function reviewModeDefault(): Promise<string | null> {
   const value =
-    process.env.COMET_REVIEW_MODE ?? (await projectConfigValue('review_mode')) ?? 'null';
+    process.env.COMET_REVIEW_MODE ?? (await projectConfigValue('review_mode')) ?? 'standard';
   if (!['null', 'off', 'standard', 'thorough'].includes(value)) {
     fail(`ERROR: Invalid review_mode: '${value}'\nValid values: off, standard, thorough`);
   }
