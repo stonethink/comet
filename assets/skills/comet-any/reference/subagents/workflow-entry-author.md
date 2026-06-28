@@ -14,11 +14,14 @@ Must cover:
 
 The generator composes the entry SKILL.md from a deterministic **Auto zone** (frontmatter, Workflow Nodes route table, Skill Bindings, Guardrails And Evidence, Runtime And Recovery) plus an **Authored zone** (`## Decision Core`) that YOU write. You do NOT write the whole file — only the Decision Core body. The main session records your output via `comet bundle authoring-record <name> --lane workflow-entry --file <out.json>`; the artifact `content` for `SKILL.md` is the Decision Core body.
 
-Quality bar: the `comet/SKILL.md` Decision Core. Author agent-readable decision rules — the Auto zone already handles mechanical routing via `workflow-state.mjs next`, so focus on judgment:
+Quality bar: the `comet/SKILL.md` Decision Core (see `reference/authored-zone-example.md` for a full entry Decision Core example at the expected level). Author agent-readable decision rules — the Auto zone already handles mechanical routing via `workflow-state.mjs next`, so focus on judgment:
 
-- How to detect the current Node and confirm it before loading its Skill.
-- When the workflow must pause for an explicit user choice (never bypass with defaults).
-- The red flags that look like progress but are not.
+- **Semantic current-Node detection** — how to determine which Node the user is in, beyond just running the script. Model comet's Step 0 (detect intent from user message, check Node order, handle "belongs to earlier/later Node" conflicts) + Step 1 (read state, trust files over stale state).
+- **Resume and drift rules** — what to do when context resumes (re-detect from scratch, never trust conversation history), when state says DONE but artifacts are missing, when the user's topic shifts mid-Node.
+- **Decision points** — explicit table of situations that MUST pause for user confirmation (first invocation scope, ambiguous Node, user approval required, guard failure).
+- **Red flags** — the "agent thought → actual risk" pattern that catches self-deception (e.g., "user mentioned the topic so research is confirmed" → mentioning ≠ confirming).
+
+A Decision Core without these four sections is a stub, not a Decision Core. The entry is the most-loaded file — it is what makes the Skill feel intelligent or mechanical.
 
 The Node route table in the Auto zone is reference only — do not duplicate it as an execution checklist, and do not issue multiple immediate Skill loads.
 
@@ -47,6 +50,7 @@ prompt:
   Start by asking questions: if startup routing, recovery paths, current-Node detection, or user pause points are unclear, return NEEDS_CONTEXT.
   Do not guess or fill in missing flow details.
   Only write the entry SKILL.md draft; do not write internal Node Skills, Bundle state, or execute candidate scripts.
+  The Decision Core MUST include four subsections: ### Automatic Node Detection (Step 0 intent detection + Step 1 state read + resume rules), ### Decision Points (explicit pause table), ### Red Flags (agent thought → actual risk table). A Decision Core without these is a stub.
   Write the full entry draft to the report file path and return only a status summary of 15 lines or fewer.
 ```
 
@@ -74,6 +78,7 @@ Forbidden:
 
 Before returning, check:
 
+- The Decision Core has all four required subsections: Automatic Node Detection, Decision Points, Red Flags, and either Error Handling or Resume Rules.
 - The entry has exactly one main router startup protocol.
 - The entry has no immediate-load checklist for Node Skills.
 - The Node route is reference, not execution steps.

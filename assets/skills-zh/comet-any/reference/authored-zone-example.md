@@ -38,6 +38,51 @@
 
 用 `###` 子标题，使其嵌套在 `## Guidance` 之下。上述四段（Prerequisites / Steps / Completion reasoning / Red flags）是 `substance` 节点的预期形态。
 
+## 样例：entry Decision Core（workflow-entry）
+
+下面是 entry SKILL.md 的 `## Decision Core` 正文。entry 是**每次调用最先读取的文件**——一个薄 Decision Core（"跑 next，照做"）会让整个 Skill 感觉机械。一个富 Decision Core 是 comet 级 Skill "好用"的核心。
+
+Decision Core 应建模 Auto 区不处理的三件事：(1) **语义化当前节点检测**（如何判断用户在哪个 Node，而非只看脚本输出），(2) **resume 与 drift 规则**（上下文恢复或状态与文件冲突时怎么办），(3) **决策点与 Red flags**（何时暂停等用户，以及什么是假进展）。
+
+```markdown
+### 自动节点检测
+
+**Step 0：确定当前节点与意图**
+
+1. 检查 workflow protocol 的有序 Node 列表。第一个未完成（无 Exit evidence 记录）的 Node 是候选当前节点。
+2. 若用户描述的工作明显属于更后面的 Node（如"验证结果"但研究尚未完成），暂停并说明：前序 Node 必须先完成。不要跳过。
+3. 若用户描述的工作属于已标记完成的更早 Node，视为纠正——重置该 Node 的完成状态并重新进入。
+
+**Step 1：读取 workflow 状态**
+
+运行 `node "$WORKFLOW_STATE" status` 确认检测到的节点。若脚本的 `NEXT:` 输出与文件证据冲突（如脚本说 DONE 但无 artifact），以文件为准，先纠正状态再继续。
+
+**Resume 规则**：
+- 每次上下文恢复，重新执行 Step 0 和 Step 1。不要信任对话历史做节点检测。
+- 若状态显示某 Node 已完成但预期 artifact 缺失，视为未完成并重新进入。
+- 若用户在某个 Node 中途恢复但话题变了，确认是继续当前 Node 还是开始新的。
+
+### 决策点（必须暂停）
+
+| 情况 | 处理 |
+|------|------|
+| 首次调用，无 workflow 状态 | 初始化状态，在开始第一个 Node 前与用户确认主题/范围 |
+| 用户输入在两个 Node 间有歧义 | 询问用户指哪个 Node；不要猜测 |
+| Node 需要用户确认输出才能推进 | 记录 evidence 后停下；等待明确确认 |
+| Node guard 失败且原因不明 | 展示 guard 输出，询问用户如何继续 |
+
+### Red Flags
+
+| Agent 想法 | 实际风险 |
+|-----------|---------|
+| "用户提到了主题，所以研究隐式确认" | 提到 ≠ 确认。在第一个 Node 边界暂停并确认范围。 |
+| "脚本返回 NEXT: auto，应该立即加载下一个 Skill" | `NEXT: auto` 表示 Node 完成，不是跳过确认。检查下一个 Node 是否有决策点。 |
+| "看起来和上次一样的话题，从上次断点继续" | 始终重新读取状态。对话记忆在上下文压缩后不可靠。 |
+| "Exit Check 通过了，所以工作够好了" | Exit Check 是机械的。你的职责是判断检查之外的质量——稀疏笔记、浅层分析、缺失视角，脚本抓不到。 |
+```
+
+此样例以精简形式建模了 comet 的 Decision Core：语义检测（Step 0 读 Node 顺序，非只看脚本输出）、状态忠实（文件优先于过期状态）、resume 规则（每次恢复重新检测）、阻塞决策点（显式表格）、Red flags（"想法 → 风险"模式，抓 agent 自欺）。
+
 ## substance 与 delegates
 
 - **substance** 节点（workflow-kernel）：上面的样例就是标尺。必须有富 Guidance；缺失时该节点渲染为 `AUTHORING PENDING`，Bundle 不得 ready。

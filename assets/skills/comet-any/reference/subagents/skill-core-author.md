@@ -21,6 +21,33 @@ Quality bar: a real Comet phase skill (e.g. `comet-build/SKILL.md`); see `refere
 - `### Completion reasoning` — when the Node is genuinely done (beyond the mechanical Exit Check), and the judgment calls involved.
 - `### Red flags` — the failure modes that look like progress but are not.
 
+Here is a concrete excerpt showing the expected depth for a "Research" substance node. Notice: it is **decision content** (when to stop, what counts as enough, what to reject), not a restatement of the route table or output schema.
+
+```markdown
+### Prerequisites
+
+- The entry Decision Core has confirmed the research topic and scope.
+- `research-skill` is resolvable in the project Skill pool; if missing, stop and ask the user before improvising.
+
+### Steps
+
+1. Load `research-skill` and follow its discovery method for the confirmed topic. Do not substitute a generic web search when the project Skill defines a specific source order.
+2. Gather sources in priority order; for each source, capture origin, date, and the claim you will reuse. Reject sources that fail the project's credibility bar rather than noting them as "weak".
+3. Distill findings into note files under `notes/*.md` — one note per distinct claim, with a verbatim quote and the source pointer. Synthesis happens in the writer node, not here.
+4. Record the `research.notes.v1` `summary` evidence with a one-paragraph distillation and the count of notes produced.
+
+### Completion reasoning
+
+This node is complete ONLY when both hold: (a) the `summary` evidence is recorded, and (b) at least one artifact matches `notes/*.md`. Do not exit merely because the step list is exhausted — if notes are sparse relative to the topic scope, continue researching rather than declaring done. The Exit Check script enforces the artifact + evidence requirement mechanically; your job is to judge whether the research is genuinely sufficient.
+
+### Red flags
+
+- Exiting after recording `summary` but producing zero `notes/*.md` files (the guardrail will block this — do not attempt to bypass).
+- Copying source text into notes without a quote marker or source pointer.
+- Advancing to the Write node while a source is still "to be verified" — verification belongs in this node.
+- Treating a single source as sufficient for a multi-perspective topic.
+```
+
 Node mode (from the protocol):
 
 - **substance** Node (workflow-kernel default): rich Guidance is mandatory. Without it the Node renders as `AUTHORING PENDING` and the Bundle cannot become ready.

@@ -14,11 +14,14 @@
 
 生成器把 entry SKILL.md 组装成确定性 **Auto 区**（frontmatter、Workflow Nodes 路由表、Skill Bindings、Guardrails And Evidence、Runtime And Recovery）+ 由你编写的 **Authored 区**（`## Decision Core`）。**你只写 Decision Core 正文，不写整个文件**。主会话通过 `comet bundle authoring-record <name> --lane workflow-entry --file <out.json>` 记录；artifact `SKILL.md` 的 `content` 即 Decision Core 正文。
 
-质量标尺：`comet/SKILL.md` 的 Decision Core。写 agent 可读的决策规则——机械路由已由 Auto 区的 `workflow-state.mjs next` 处理，所以聚焦判断：
+质量标尺：`comet/SKILL.md` 的 Decision Core（完整 entry Decision Core 范例见 `reference/authored-zone-example.md`）。写 agent 可读的决策规则——机械路由已由 Auto 区的 `workflow-state.mjs next` 处理，所以聚焦判断：
 
-- 如何检测当前 Node 并在加载其 Skill 前确认。
-- workflow 何时必须暂停等待用户明确选择（不得用默认值绕过）。
-- 看似进展、实则不然的 Red flags。
+- **语义化当前节点检测** — 如何判断用户在哪个 Node，而非只跑脚本。建模 comet 的 Step 0（从用户消息检测意图，检查 Node 顺序，处理"属于前序/后序 Node"的冲突）+ Step 1（读状态，文件优先于过期状态）。
+- **Resume 与 drift 规则** — 上下文恢复时怎么办（从头重新检测，永远不信任对话历史），状态说 DONE 但 artifact 缺失时怎么办，用户在 Node 中途换话题时怎么办。
+- **决策点** — 必须暂停等用户确认的情况的显式表格（首次调用确认范围、Node 歧义、用户确认、guard 失败）。
+- **Red flags** — "agent 想法 → 实际风险"模式，抓自欺（如"用户提到了主题所以研究已确认" → 提到 ≠ 确认）。
+
+没有这四个子节的 Decision Core 是 stub，不是 Decision Core。entry 是每次调用最先读取的文件——它决定了 Skill 感觉"智能"还是"机械"。
 
 Auto 区的 Node 路由表仅供参考——不要复制成执行清单，不要发出多个立即 Skill 加载。
 
@@ -46,6 +49,7 @@ prompt:
   开始前先提出问题：如果启动路由、恢复路径、当前阶段判定或用户停顿点不清楚，先返回 NEEDS_CONTEXT。
   不要猜测或自行补全缺失流程。
   只写 entry SKILL.md 草稿，不写 internal Node Skill，不写 Bundle state，不执行候选脚本。
+  Decision Core 必须包含四个子节：### 自动节点检测（Step 0 意图检测 + Step 1 状态读取 + Resume 规则）、### 决策点（显式暂停表格）、### Red Flags（agent 想法 → 实际风险表格）。没有这些子节的 Decision Core 是 stub。
   把完整 entry 草稿写入报告文件路径，并只返回 15 行以内状态摘要。
 ```
 
@@ -72,6 +76,7 @@ entry 草稿必须体现：
 
 返回前逐项检查：
 
+- Decision Core 包含全部四个必须子节：自动节点检测、决策点、Red Flags、Error Handling 或 Resume Rules。
 - entry 只有一个主路由启动协议。
 - entry 没有立即加载Node Skill 的清单。
 - 阶段路线是参考，不是执行步骤。

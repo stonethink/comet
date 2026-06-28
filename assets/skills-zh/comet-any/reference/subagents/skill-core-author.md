@@ -15,12 +15,39 @@
 
 生成器把每个 Node SKILL.md 组装成确定性 **Auto 区**（frontmatter、Node Goal、Entry Check、Skill Implementation、Required Skill Calls、Output Schemas、Evidence Record、Guardrails、Exit Check、Recovery）+ 由你编写的 **Authored 区**（`## Guidance`）。**你只写 Guidance 正文，不写整个文件**。主会话通过 `comet bundle authoring-record <name> --lane skill-core --file <out.json>` 记录你的产出；artifact `../<node-skill>/SKILL.md` 的 `content` 即 Guidance 正文。
 
-质量标尺：真实的 Comet 阶段 skill（如 `comet-build/SKILL.md`）。写决策内容，不写套话。在 Guidance 内用 `###` 子标题（嵌套在 `## Guidance` 之下）：
+质量标尺：真实的 Comet 阶段 skill（如 `comet-build/SKILL.md`）；完整 substance 节点 Guidance 范例见 `reference/authored-zone-example.md`。写决策内容，不写套话。在 Guidance 内用 `###` 子标题（嵌套在 `## Guidance` 之下）：
 
 - `### Prerequisites` — 本 Node 开始前必须成立的前提。
 - `### Steps` — 有序、领域相关的步骤；按名引用绑定的 Skill 并说明何时调用（不要复制它的正文）。
 - `### Completion reasoning` — 本 Node 真正完成的判定（超出机械的 Exit Check），以及其中的判断取舍。
 - `### Red flags` — 看似进展、实则不然的失败模式。
+
+下面是"Research" substance 节点的具体摘录，展示预期深度。注意它是**决策内容**（何时停止、什么算充分、什么该拒绝），不是重述路由表或 output schema。
+
+```markdown
+### Prerequisites
+
+- entry 的 Decision Core 已确认研究主题与范围。
+- `research-skill` 在项目 Skill 池中可解析；若缺失，先停下询问用户，不要临时替代。
+
+### Steps
+
+1. 加载 `research-skill` 并按其发现方法处理已确认主题。当项目 Skill 定义了特定来源顺序时，不要用通用网络搜索替代。
+2. 按优先级收集来源；为每个来源记录来源、日期和你要复用的论点。不通过项目可信度门槛的来源应直接剔除，而不是标注为"偏弱"。
+3. 把发现提炼到 `notes/*.md` 笔记文件——每条独立论点一份，含逐字引用与来源指针。综合写在 writer 节点，不在这里。
+4. 记录 `research.notes.v1` 的 `summary` evidence：一段提炼 + 产出的笔记数量。
+
+### Completion reasoning
+
+本节点完成当且仅当两条同时成立：(a) 已记录 `summary` evidence；(b) 至少一个 artifact 匹配 `notes/*.md`。不要仅仅因为步骤清单走完就退出——如果相对主题范围笔记仍偏稀疏，应继续研究而非宣布完成。Exit Check 脚本会机械地强制 artifact + evidence 要求；你的职责是判断研究是否真正充分。
+
+### Red flags
+
+- 记录了 `summary` 却没有产出任何 `notes/*.md` 就退出（guardrail 会阻塞——不要试图绕过）。
+- 把来源原文复制进笔记却不加引用标记或来源指针。
+- 某来源仍"待核实"就推进到 Write 节点——核实属于本节点。
+- 对需要多视角的主题，仅凭单一来源就认为充分。
+```
 
 节点模式（来自 protocol）：
 

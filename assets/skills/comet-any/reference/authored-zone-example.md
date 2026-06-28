@@ -38,6 +38,51 @@ This node is complete ONLY when both hold: (a) the `summary` evidence is recorde
 
 Use `###` subsections so they nest under `## Guidance`. The four sections above (Prerequisites / Steps / Completion reasoning / Red flags) are the expected shape for a `substance` node.
 
+## Example: an entry Decision Core (workflow-entry)
+
+This is the `## Decision Core` body for the entry SKILL.md. The entry is the **most-loaded file** — every invocation reads it first. A thin Decision Core ("run next, load what it says") makes the entire Skill feel mechanical. A rich Decision Core is what makes comet-level Skills feel intelligent.
+
+The Decision Core should model three concerns that the Auto zone does NOT handle: (1) **semantic current-Node detection** (how to determine which Node the user is in, beyond script output), (2) **resume and drift rules** (what to do when context resumes or state conflicts with files), and (3) **decision points and red flags** (where to pause for the user, and what false progress looks like).
+
+```markdown
+### Automatic Node Detection
+
+**Step 0: Determine the current Node and intent**
+
+1. Check the workflow protocol for the ordered Node list. The first incomplete Node (no recorded Exit evidence) is the candidate current Node.
+2. If the user's message describes work that clearly belongs to a later Node (e.g., "verify the results" when research is not complete), pause and explain: the earlier Node must finish before the later one starts. Do not skip ahead.
+3. If the user's message describes work that belongs to an earlier Node that is already marked complete, treat this as a correction — reset that Node's completion and re-enter it.
+
+**Step 1: Read workflow state**
+
+Run `node "$WORKFLOW_STATE" status` to confirm the detected Node. If the script's `NEXT:` output conflicts with file evidence (e.g., script says DONE but no artifacts exist), trust file evidence and correct state before continuing.
+
+**Resume rules**:
+- On every context resume, rerun Step 0 and Step 1. Do not trust conversation history for Node detection.
+- If workflow state shows a Node as complete but its expected artifacts are missing, treat the Node as incomplete and re-enter it.
+- If the user resumes mid-Node with a different topic, confirm whether to continue the current Node or start a new one.
+
+### Decision Points (must pause)
+
+| Situation | Action |
+|-----------|--------|
+| First invocation, no workflow state exists | Initialize state, confirm the topic/scope with the user before starting the first Node |
+| User input is ambiguous between two Nodes | Ask the user which Node they mean; do not guess |
+| Node requires user approval of output before advancing | Stop after recording evidence; wait for explicit confirmation |
+| Node fails its guard and the cause is unclear | Present the guard output and ask the user how to proceed |
+
+### Red Flags
+
+| Agent Thought | Actual Risk |
+|--------------|-------------|
+| "The user mentioned the topic, so research is implicitly confirmed" | Mentioning ≠ confirming. Pause at the first Node boundary and confirm scope. |
+| "The script returned NEXT: auto, so I should immediately load the next Skill" | `NEXT: auto` means the Node is done, not that you should skip confirmation. Check if the next Node has a decision point. |
+| "This looks like the same topic as last time, resume from where we left off" | Always re-read state. Conversation memory is unreliable after context compaction. |
+| "The exit check passed, so the work is good enough" | Exit checks are mechanical. Your job is to judge quality beyond the check — sparse notes, shallow analysis, or missing perspectives are not caught by scripts. |
+```
+
+This example models comet's Decision Core in miniature: semantic detection (Step 0 reads Node order, not just script output), state-fidelity (trust files over stale state), resume rules (re-detect on every resume), blocking decision points (explicit table), and red flags (the "thought → risk" pattern that catches agent self-deception).
+
 ## substance vs delegates
 
 - **substance** node (workflow-kernel): the example above is the bar. Rich Guidance is mandatory; without it the node renders `AUTHORING PENDING` and the Bundle cannot become ready.
