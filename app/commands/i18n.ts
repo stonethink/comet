@@ -75,7 +75,12 @@ export type TranslationKey =
   | 'summaryLanguage'
   | 'updateComplete'
   | 'configMerged'
-  | 'cancelled';
+  | 'cancelled'
+  | 'installMode'
+  | 'installModeCopy'
+  | 'installModeSymlink'
+  | 'symlinkCreated'
+  | 'symlinkFailed';
 
 const TRANSLATIONS: Record<Language, Record<TranslationKey, string>> = {
   en: {
@@ -155,6 +160,11 @@ const TRANSLATIONS: Record<Language, Record<TranslationKey, string>> = {
     configMerged:
       'Project config merged (.comet/config.yaml): preserved your values, added any missing fields',
     cancelled: 'Cancelled.',
+    installMode: 'Installation mode:',
+    installModeCopy: 'Copy (traditional, independent copies per platform)',
+    installModeSymlink: 'Symlink (shared central store, saves space)',
+    symlinkCreated: 'symlink created',
+    symlinkFailed: 'symlink creation failed',
   },
   zh: {
     settingUp: '正在设置 Comet：',
@@ -182,7 +192,7 @@ const TRANSLATIONS: Record<Language, Record<TranslationKey, string>> = {
     spSkippedByUser: '用户跳过 Superpowers 安装',
     alreadyExists: '已存在',
     rulesInstalled: '个规则已安装',
-    hooksInstalled: '阶段守卫钩子已安装',
+    hooksInstalled: 'Phase guard hook 已安装',
     hooksSkipped: '已跳过',
     installCodegraph: '是否安装 CodeGraph（语义代码智能）？',
     codegraphYes: '是（推荐 — 节省约 16% 成本，减少约 58% 工具调用）',
@@ -221,7 +231,7 @@ const TRANSLATIONS: Record<Language, Record<TranslationKey, string>> = {
     skillsCopiedSkipped: '已复制，',
     rulesUpdated: '个规则已更新',
     rulesFailed: '失败',
-    hooksUpdated: '阶段守卫钩子已更新',
+    hooksUpdated: 'Phase guard hook 已更新',
     hooksFailed: '失败',
     summary: '摘要：',
     summaryNpm: 'npm：',
@@ -232,6 +242,11 @@ const TRANSLATIONS: Record<Language, Record<TranslationKey, string>> = {
     updateComplete: '更新完成。',
     configMerged: '项目配置已合并 (.comet/config.yaml)：已保留你的设置，补齐缺失字段',
     cancelled: '已取消。',
+    installMode: '安装模式：',
+    installModeCopy: 'Copy（传统方式，每个平台独立副本）',
+    installModeSymlink: 'Symlink（共享中央存储，节省空间）',
+    symlinkCreated: 'Symlink 已创建',
+    symlinkFailed: 'Symlink 创建失败',
   },
 };
 

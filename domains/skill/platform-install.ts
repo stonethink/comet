@@ -1,12 +1,12 @@
 import path from 'path';
 import { existsSync } from 'fs';
-import { readFile, writeFile } from 'fs/promises';
+import { readFile, writeFile, lstat, unlink, symlink, rm } from 'fs/promises';
 import { fileURLToPath } from 'url';
 import { parseDocument } from 'yaml';
 
 import { fileExists, readJson, copyFile, ensureDir } from '../../platform/fs/file-system.js';
 import { getPlatformSkillsDir, type Platform } from '../../platform/install/platforms.js';
-import type { InstallScope } from '../../platform/install/types.js';
+import type { InstallScope, InstallMode } from '../../platform/install/types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -85,13 +85,151 @@ function getAssetsDir(): string {
   return directAssets;
 }
 
-async function copyCometSkillsForPlatform(
+/**
+ * Get the central skills directory for symlink mode.
+ * Project scope: <project>/.comet/skills/
+ * Global scope: ~/.comet/skills/
+ */
+function getCentralSkillsDir(baseDir: string, scope: InstallScope): string {
+  return path.join(baseDir, '.comet', 'skills');
+}
+
+/**
+ * Create a symlink from linkPath pointing to target.
+ * On Windows, uses 'junction' type for directory symlinks (no admin required).
+ */
+async function createSymlink(target: string, linkPath: string): Promise<void> {
+  await ensureDir(path.dirname(linkPath));
+
+  // Remove existing link/directory if present
+  try {
+    const stat = await lstat(linkPath);
+    if (stat.isSymbolicLink()) {
+      await unlink(linkPath);
+    } else if (stat.isDirectory()) {
+      // For directories, try unlink first (handles Windows junctions)
+      try {
+        await unlink(linkPath);
+      } catch {
+        await rm(linkPath, { recursive: true, force: true });
+      }
+    }
+  } catch {
+    // Path doesn't exist, continue
+  }
+
+  // Windows uses 'junction' for directory symlinks (no admin privileges required)
+  const type = process.platform === 'win32' ? 'junction' : 'dir';
+  await symlink(target, linkPath, type);
+}
+
+/**
+ * Install skills using symlink mode:
+ * 1. Copy skills to central store (.comet/skills/)
+ * 2. Create symlink from platform dir to central store
+ */
+async function installSkillsAsSymlink(
   baseDir: string,
   platform: Platform,
   overwrite: boolean,
   languageSkillsDir: string = 'skills',
   scope: InstallScope = 'project',
 ): Promise<{ copied: number; skipped: number; failed: number }> {
+  const centralDir = getCentralSkillsDir(baseDir, scope);
+  const assetsDir = getAssetsDir();
+  const manifestPath = path.join(assetsDir, 'manifest.json');
+
+  if (!(await fileExists(manifestPath))) {
+    throw new Error(`Manifest not found at ${manifestPath}`);
+  }
+
+  const manifest = await readJson<Manifest>(manifestPath);
+  if (!manifest || !Array.isArray(manifest.skills)) {
+    throw new Error(`Invalid manifest at ${manifestPath}: "skills" must be an array`);
+  }
+
+  // Step 1: Copy skills to central store
+  let copied = 0;
+  let skippedCount = 0;
+  let failedCount = 0;
+
+  for (const skillRelPath of getManagedSkillPaths(manifest)) {
+    const isScript = skillRelPath.includes('/scripts/');
+    const sourceDir = isScript ? 'skills' : languageSkillsDir;
+    const src = path.join(assetsDir, sourceDir, skillRelPath);
+    const centralDest = path.join(centralDir, 'skills', skillRelPath);
+
+    if (!overwrite && (await fileExists(centralDest))) {
+      skippedCount++;
+      continue;
+    }
+
+    try {
+      await copyFile(src, centralDest);
+      copied++;
+    } catch (err) {
+      failedCount++;
+      console.error(
+        `    Failed to copy ${skillRelPath} to central store: ${(err as Error).message}`,
+      );
+    }
+  }
+
+  // Step 2: Create symlink from platform dir to central store
+  const platformSkillsDir = path.join(baseDir, getPlatformSkillsDir(platform, scope), 'skills');
+  const centralSkillsDir = path.join(centralDir, 'skills');
+
+  try {
+    await createSymlink(centralSkillsDir, platformSkillsDir);
+  } catch (err) {
+    failedCount++;
+    console.error(
+      `    Failed to create symlink ${platformSkillsDir} -> ${centralSkillsDir}: ${(err as Error).message}`,
+    );
+  }
+
+  // Handle OpenCode-style platform commands (still need copy, as command content may differ)
+  if (OPENCODE_STYLE_PLATFORM_IDS.has(platform.id)) {
+    const result = await createOpenCodeCommands(
+      baseDir,
+      platform,
+      manifest.skills,
+      overwrite,
+      scope,
+      languageSkillsDir,
+    );
+    copied += result.copied;
+    skippedCount += result.skipped;
+  }
+
+  // Handle Pi platform command extension
+  if (platform.id === 'pi') {
+    const result = await createPiCommandExtension(
+      baseDir,
+      platform,
+      manifest.skills,
+      overwrite,
+      scope,
+    );
+    copied += result.copied;
+    skippedCount += result.skipped;
+  }
+
+  return { copied, skipped: skippedCount, failed: failedCount };
+}
+
+async function copyCometSkillsForPlatform(
+  baseDir: string,
+  platform: Platform,
+  overwrite: boolean,
+  languageSkillsDir: string = 'skills',
+  scope: InstallScope = 'project',
+  installMode: InstallMode = 'copy',
+): Promise<{ copied: number; skipped: number; failed: number }> {
+  if (installMode === 'symlink') {
+    return installSkillsAsSymlink(baseDir, platform, overwrite, languageSkillsDir, scope);
+  }
+
   const assetsDir = getAssetsDir();
   const manifestPath = path.join(assetsDir, 'manifest.json');
 
@@ -879,5 +1017,7 @@ export {
   mergeProjectConfig,
   parseProjectConfigOverrides,
   renderProjectConfig,
+  getCentralSkillsDir,
+  installSkillsAsSymlink,
 };
 export type { Manifest, LanguageConfig, PlannedSkillFile, PlannedSkillSourceFile };

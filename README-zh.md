@@ -342,8 +342,8 @@ comet bundle distribute my-bundle --platform claude --scope project --confirm-ex
 | iFlow              | `.iflow/`     | Pi            | `.pi/`       |
 | Qoder              | `.qoder/`     | Antigravity   | `.agents/`   |
 | Bob Shell          | `.bob/`       | ForgeCode     | `.forge/`    |
-| Trae               | `.trae/`      | ZCode         | `.zcode/`    |
-| MimoCode           | `.mimocode/`  |               |              |
+| Trae               | `.trae/`      | Trae CN       | `.trae-cn/`  |
+| ZCode              | `.zcode/`     | MimoCode      | `.mimocode/` |
 
 </details>
 

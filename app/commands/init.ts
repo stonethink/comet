@@ -13,6 +13,7 @@ import {
   getBaseDir,
   type InstallScope,
 } from '../../platform/install/detect.js';
+import type { InstallMode } from '../../platform/install/types.js';
 import {
   copyCometSkillsForPlatform,
   copyCometRulesForPlatform,
@@ -37,6 +38,7 @@ type InitOptions = {
   json?: boolean;
   scope?: InstallScope;
   language?: string;
+  installMode?: InstallMode;
 };
 
 type InstallStatus = 'installed' | 'skipped' | 'failed';
@@ -98,6 +100,19 @@ async function selectLanguage(options: InitOptions): Promise<LanguageConfig> {
   });
 
   return LANGUAGES.find((l) => l.id === langId) ?? LANGUAGES[0];
+}
+
+async function selectInstallMode(options: InitOptions, lang: string): Promise<InstallMode> {
+  if (options.installMode) return options.installMode;
+  if (options.yes) return 'copy';
+
+  return select({
+    message: t(lang, 'installMode'),
+    choices: [
+      { name: t(lang, 'installModeCopy'), value: 'copy' as const },
+      { name: t(lang, 'installModeSymlink'), value: 'symlink' as const },
+    ],
+  });
 }
 
 async function selectPlatforms(
@@ -339,6 +354,7 @@ export async function initCommand(targetPath: string, options: InitOptions = {})
 
   const detected = await detectPlatforms(projectPath);
   const scope = await selectScope(options, lang);
+  const installMode = await selectInstallMode(options, lang);
 
   const selectedPlatformIds = await selectPlatforms(detected, options, lang);
   if (selectedPlatformIds.length === 0) {
@@ -478,7 +494,10 @@ export async function initCommand(targetPath: string, options: InitOptions = {})
   for (const plan of plans) {
     const { platform, cmAction } = plan;
     const platformSkillsDir = getPlatformSkillsDir(platform, scope);
-    const skillsPath = `${scope === 'global' ? '~/' : ''}${platformSkillsDir}/skills/`;
+    const skillsPath =
+      installMode === 'symlink'
+        ? `.comet/skills/ -> ${platformSkillsDir}/skills/`
+        : `${scope === 'global' ? '~/' : ''}${platformSkillsDir}/skills/`;
 
     let cmStatus: InstallStatus = 'skipped';
     if (cmAction !== 'skip') {
@@ -488,6 +507,7 @@ export async function initCommand(targetPath: string, options: InitOptions = {})
         cmAction === 'overwrite',
         language.skillsDir,
         scope,
+        installMode,
       );
       cmStatus = failed > 0 ? 'failed' : copied > 0 ? 'installed' : 'skipped';
       log(

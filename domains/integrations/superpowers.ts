@@ -37,6 +37,7 @@ const SKILLS_AGENT_MAP: Record<string, string | null> = {
   bob: 'bob',
   forgecode: 'forgecode',
   trae: 'trae',
+  'trae-cn': 'trae-cn',
   // zcode/mimocode are not skills CLI agents; Superpowers are installed via
   // the claude-code staging flow and copied into their OpenCode-style dirs.
   zcode: null,

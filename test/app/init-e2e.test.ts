@@ -282,6 +282,7 @@ describe('comet init E2E', () => {
           '.bob',
           '.forge',
           '.trae',
+          '.trae-cn',
           '.github',
           '.zcode',
           '.mimocode',

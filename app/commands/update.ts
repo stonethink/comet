@@ -22,7 +22,7 @@ import {
   hasCodegraphProjectIndex,
   installCodegraph,
 } from '../../domains/integrations/codegraph.js';
-import type { InstallScope } from '../../platform/install/types.js';
+import type { InstallScope, InstallMode } from '../../platform/install/types.js';
 import { printVersionInfo } from '../../platform/version/version.js';
 import { t, type TranslationKey } from './i18n.js';
 
@@ -34,6 +34,7 @@ interface UpdateOptions {
   language?: string;
   scope?: InstallScope;
   skipNpm?: boolean;
+  installMode?: InstallMode;
 }
 
 type SkillLanguage = 'en' | 'zh';
@@ -181,9 +182,26 @@ function formatSkillUpdateCommand(
   scope: InstallScope,
   platform: Platform,
   languageSkillsDir: string,
+  installMode: InstallMode = 'copy',
 ): string {
   const destPrefix = scope === 'global' ? '~/' : '';
+  if (installMode === 'symlink') {
+    return `symlink .comet/skills/ -> ${destPrefix}${getPlatformSkillsDir(platform, scope)}/skills/ (${scope})`;
+  }
   return `copy assets/${languageSkillsDir} -> ${destPrefix}${getPlatformSkillsDir(platform, scope)}/skills/ (${scope})`;
+}
+
+async function selectInstallMode(options: UpdateOptions, lang: string): Promise<InstallMode> {
+  if (options.installMode) return options.installMode;
+  if (options.json) return 'copy';
+
+  return select({
+    message: t(lang, 'installMode'),
+    choices: [
+      { name: t(lang, 'installModeCopy'), value: 'copy' as const },
+      { name: t(lang, 'installModeSymlink'), value: 'symlink' as const },
+    ],
+  });
 }
 
 function getNpmExecutable(): string {
@@ -269,6 +287,8 @@ export async function updateCommand(
     }
   }
 
+  const installMode = await selectInstallMode(options, lang);
+
   const targets = await detectInstalledCometTargets(projectPath, {
     scopes: options.scope ? [options.scope] : undefined,
   });
@@ -304,7 +324,9 @@ export async function updateCommand(
     const scopeLabel = target.scope === 'global' ? 'global' : `project (${projectPath})`;
     const languageSkillsDir = languageToSkillsDir(options.language, target.language);
     log(`    - ${target.platform.name} (${scopeLabel}, ${language})`);
-    log(`      $ ${formatSkillUpdateCommand(target.scope, target.platform, languageSkillsDir)}`);
+    log(
+      `      $ ${formatSkillUpdateCommand(target.scope, target.platform, languageSkillsDir, installMode)}`,
+    );
   }
 
   log(
@@ -324,6 +346,7 @@ export async function updateCommand(
       true,
       languageSkillsDir,
       target.scope,
+      installMode,
     );
     totalCopied += copied;
     targetResults.push({
@@ -334,7 +357,12 @@ export async function updateCommand(
       source: languageSkillsDir,
       copied,
       skipped,
-      command: formatSkillUpdateCommand(target.scope, target.platform, languageSkillsDir),
+      command: formatSkillUpdateCommand(
+        target.scope,
+        target.platform,
+        languageSkillsDir,
+        installMode,
+      ),
     });
     log(
       `  ${target.platform.name} (${target.scope}, ${languageSkillsDir}): ${copied} ${t(lang, 'skillsCopiedSkipped')} ${skipped} skipped`,
@@ -415,6 +443,7 @@ export async function updateCommand(
           },
           skills: {
             totalCopied,
+            installMode,
             targets: targetResults,
           },
           rules: { totalCopied: totalRulesCopied },

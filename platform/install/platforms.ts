@@ -257,6 +257,15 @@ export const PLATFORMS: Platform[] = [
     rulesFormat: 'md',
   },
   {
+    id: 'trae-cn',
+    name: 'Trae CN',
+    skillsDir: '.trae-cn',
+    globalSkillsDir: '.trae-cn',
+    openspecToolId: 'trae-cn',
+    rulesDir: 'rules',
+    rulesFormat: 'md',
+  },
+  {
     id: 'zcode',
     name: 'ZCode',
     skillsDir: '.zcode',

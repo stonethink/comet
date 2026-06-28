@@ -98,13 +98,14 @@ describe('superpowers', () => {
         'bob',
         'forgecode',
         'trae',
+        'trae-cn',
         'zcode',
         'mimocode',
       ];
       for (const id of platformIds) {
         expect(SKILLS_AGENT_MAP).toHaveProperty(id);
       }
-      expect(Object.keys(SKILLS_AGENT_MAP)).toHaveLength(31);
+      expect(Object.keys(SKILLS_AGENT_MAP)).toHaveLength(32);
     });
   });
 

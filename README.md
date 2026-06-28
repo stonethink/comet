@@ -357,8 +357,8 @@ deterministically. Treat the full command list above as an advanced backend refe
 | iFlow              | `.iflow/`     | Pi            | `.pi/`       |
 | Qoder              | `.qoder/`     | Antigravity   | `.agents/`   |
 | Bob Shell          | `.bob/`       | ForgeCode     | `.forge/`    |
-| Trae               | `.trae/`      | ZCode         | `.zcode/`    |
-| MimoCode           | `.mimocode/`  |               |              |
+| Trae               | `.trae/`      | Trae CN       | `.trae-cn/`  |
+| ZCode              | `.zcode/`     | MimoCode      | `.mimocode/` |
 
 </details>
 
