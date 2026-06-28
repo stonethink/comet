@@ -158,7 +158,10 @@ and diagnostic recovery hints when a change is malformed or missing required evi
 Starts a local HTTP server that displays a visual dashboard with active changes, phase status, task progress, and archive history. Auto-opens in your browser by default.
 
 <p align="center">
-  <img src="https://github.com/rpamis/comet/blob/master/img/dashboard.png" alt="Comet Dashboard" width="800">
+  <img src="https://github.com/rpamis/comet/blob/master/img/dashboard-light.png" alt="Comet Dashboard Light" width="800">
+</p>
+<p align="center">
+  <img src="https://github.com/rpamis/comet/blob/master/img/dashboard-dark.png" alt="Comet Dashboard Dark" width="800">
 </p>
 <p align="center">Active change overview with phase indicators, task progress, and archive history</p>
 

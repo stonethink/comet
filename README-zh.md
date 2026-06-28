@@ -150,7 +150,10 @@ npx skills add rpamis/comet
 启动本地 HTTP 服务器，展示包含活跃更改、阶段状态、任务进度和归档历史的可视化仪表盘。默认自动在浏览器中打开。
 
 <p align="center">
-  <img src="https://github.com/rpamis/comet/blob/master/img/dashboard.png" alt="Comet 仪表盘" width="800">
+  <img src="https://github.com/rpamis/comet/blob/master/img/dashboard-light.png" alt="Comet 仪表盘-Light" width="800">
+</p>
+<p align="center">
+  <img src="https://github.com/rpamis/comet/blob/master/img/dashboard-dark.png" alt="Comet 仪表盘-Dark" width="800">
 </p>
 <p align="center">活跃更改概览，包含阶段指示器、任务进度和归档历史</p>
 
