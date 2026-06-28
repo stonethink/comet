@@ -66,6 +66,8 @@ export interface ArtifactPreview {
   exists: boolean;
   content?: string;
   truncated?: boolean;
+  size?: number;
+  updatedAt?: string;
 }
 
 export interface VerifySummary {

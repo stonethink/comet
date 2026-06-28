@@ -330,6 +330,8 @@ async function readArtifactPreviews(
         const stat = await fs.stat(filePath);
         if (!stat.isFile()) return preview;
         preview.exists = true;
+        preview.size = stat.size;
+        preview.updatedAt = stat.mtime.toISOString();
         const bytesToRead = Math.min(stat.size, ARTIFACT_PREVIEW_LIMIT_BYTES);
         const handle = await fs.open(filePath, 'r');
         try {

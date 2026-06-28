@@ -341,14 +341,24 @@ function ChangesExplorer({ visible, selectedId, tab, onTab, onSelect }) {
           ))}
         </div>
         <div className="space-y-2">
-          {visible.map((change) => (
-            <ChangeCard
-              key={change.id}
-              change={change}
-              active={change.id === selectedId}
-              onClick={() => onSelect(change.id)}
-            />
-          ))}
+          {visible.length === 0 ? (
+            <div className="py-8 text-center text-sm text-muted">
+              {tab === 'active'
+                ? '暂无活跃变更'
+                : tab === 'archived'
+                  ? '暂无已归档变更'
+                  : '暂无变更'}
+            </div>
+          ) : (
+            visible.map((change) => (
+              <ChangeCard
+                key={change.id}
+                change={change}
+                active={change.id === selectedId}
+                onClick={() => onSelect(change.id)}
+              />
+            ))
+          )}
         </div>
       </div>
     </aside>
@@ -901,6 +911,12 @@ function ArtifactDrawer({ artifact, onClose }) {
             <p className="mt-1 truncate font-mono text-xs text-meta">
               {preview?.path ?? '当前服务未返回全文内容'}
             </p>
+            {(preview?.size != null || preview?.updatedAt) && (
+              <div className="mt-1.5 flex flex-wrap gap-3 text-[11px] text-muted">
+                {preview?.size != null && <span>{formatFileSize(preview.size)}</span>}
+                {preview?.updatedAt && <span>更新于 {formatTimestamp(preview.updatedAt)}</span>}
+              </div>
+            )}
           </div>
           <button
             className="grid size-10 place-items-center rounded-xl text-fg-2 hover:bg-surface"
@@ -972,6 +988,8 @@ function withDemoArtifactPreviews(snapshot) {
       label: artifact.label,
       path: artifact.path,
       exists: artifact.exists,
+      size: artifact.exists ? 1024 + Math.floor(Math.random() * 4096) : undefined,
+      updatedAt: artifact.exists ? '2026-06-25T12:00:00.000Z' : undefined,
       content: artifact.exists
         ? `# ${artifact.label}\n\n${artifact.label}：${change.displayName}\n\n- 当前阶段：${phaseLabel(change.phase)}\n- 任务进度：${change.tasks.completed}/${change.tasks.total}\n- Verify：${VERIFY_LABEL[change.verify.result] ?? '未知'}\n`
         : undefined,
@@ -1038,6 +1056,13 @@ function formatTimestamp(iso) {
   if (Number.isNaN(d.getTime())) return iso;
   const pad = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function formatFileSize(bytes) {
+  if (bytes == null) return null;
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function toast(message) {
