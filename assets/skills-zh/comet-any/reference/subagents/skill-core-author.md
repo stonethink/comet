@@ -11,6 +11,22 @@
 - `comet/skill.yaml` 中的阶段调用语义
 - 每个 `node-skill:<skill-name>` claim
 
+## 创作区（你写什么）
+
+生成器把每个 Node SKILL.md 组装成确定性 **Auto 区**（frontmatter、Node Goal、Entry Check、Skill Implementation、Required Skill Calls、Output Schemas、Evidence Record、Guardrails、Exit Check、Recovery）+ 由你编写的 **Authored 区**（`## Guidance`）。**你只写 Guidance 正文，不写整个文件**。主会话通过 `comet bundle authoring-record <name> --lane skill-core --file <out.json>` 记录你的产出；artifact `../<node-skill>/SKILL.md` 的 `content` 即 Guidance 正文。
+
+质量标尺：真实的 Comet 阶段 skill（如 `comet-build/SKILL.md`）。写决策内容，不写套话。在 Guidance 内用 `###` 子标题（嵌套在 `## Guidance` 之下）：
+
+- `### Prerequisites` — 本 Node 开始前必须成立的前提。
+- `### Steps` — 有序、领域相关的步骤；按名引用绑定的 Skill 并说明何时调用（不要复制它的正文）。
+- `### Completion reasoning` — 本 Node 真正完成的判定（超出机械的 Exit Check），以及其中的判断取舍。
+- `### Red flags` — 看似进展、实则不然的失败模式。
+
+节点模式（来自 protocol）：
+
+- **substance** 节点（workflow-kernel 默认）：必须有富 Guidance。缺失时该节点渲染为 `AUTHORING PENDING`，Bundle 不得 ready。
+- **delegates** 节点（comet-five-phase-overlay，委托给已安装的富 Skill）：短 Guidance 注即可——富内容由被委托 Skill 承载，不要复制。
+
 ## 输入
 
 读取主会话提供的通用输入，尤其关注：

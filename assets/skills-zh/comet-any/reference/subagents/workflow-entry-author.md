@@ -10,6 +10,18 @@
 - workflow-state / workflow-guard / workflow-handoff 的入口说明
 - `workflow-entry` claim
 
+## 创作区（你写什么）
+
+生成器把 entry SKILL.md 组装成确定性 **Auto 区**（frontmatter、Workflow Nodes 路由表、Skill Bindings、Guardrails And Evidence、Runtime And Recovery）+ 由你编写的 **Authored 区**（`## Decision Core`）。**你只写 Decision Core 正文，不写整个文件**。主会话通过 `comet bundle authoring-record <name> --lane workflow-entry --file <out.json>` 记录；artifact `SKILL.md` 的 `content` 即 Decision Core 正文。
+
+质量标尺：`comet/SKILL.md` 的 Decision Core。写 agent 可读的决策规则——机械路由已由 Auto 区的 `workflow-state.mjs next` 处理，所以聚焦判断：
+
+- 如何检测当前 Node 并在加载其 Skill 前确认。
+- workflow 何时必须暂停等待用户明确选择（不得用默认值绕过）。
+- 看似进展、实则不然的 Red flags。
+
+Auto 区的 Node 路由表仅供参考——不要复制成执行清单，不要发出多个立即 Skill 加载。
+
 ## 输入
 
 读取主会话提供的通用输入，尤其关注：

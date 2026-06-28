@@ -236,6 +236,7 @@ export interface BundleGeneratedSkillPackage {
   enginePath: string | null;
   evalManifestPath: string | null;
   controlPlane?: BundleControlPlaneOutput;
+  unauthoredSubstanceNodes?: string[];
 }
 
 export interface BundleFactoryMetadata {
@@ -261,6 +262,25 @@ export interface BundleFactoryMetadata {
   planHash?: string;
   proposalConfirmation?: BundleFactoryProposalConfirmation;
   generatedSkillPackage?: BundleGeneratedSkillPackage;
+  authoringContent?: Record<string, string>;
+  authoringReview?: AuthoringReview;
+}
+
+export interface AuthoringReviewFinding {
+  severity: 'critical' | 'important' | 'minor';
+  path?: string;
+  problem: string;
+  fix?: string;
+}
+
+export interface AuthoringReview {
+  passed: boolean;
+  evidenceSource: 'deterministic-check-only' | 'llm-single' | 'llm-multivote';
+  voters?: number;
+  lenses?: string[];
+  rounds?: number;
+  findings: AuthoringReviewFinding[];
+  reviewedAt: string;
 }
 
 export interface PlatformInstallFile {

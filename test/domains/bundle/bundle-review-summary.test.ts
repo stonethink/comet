@@ -644,6 +644,10 @@ prefer:
             ],
           },
         ],
+        generatedSkillPackage: {
+          ...blockedState.factory!.generatedSkillPackage!,
+          unauthoredSubstanceNodes: [],
+        },
       },
       eval: {
         level: 'quick',

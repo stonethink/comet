@@ -116,7 +116,12 @@ Factory 必须生成：
 - `scripts/workflow-state.mjs`
 - `scripts/workflow-guard.mjs`
 - `scripts/workflow-handoff.mjs`
+- `scripts/comet-plan.mjs`
+- `scripts/comet-check.mjs`
+- `scripts/comet-hook-guard.mjs`
 - `comet/eval.yaml`
+
+三个 `workflow-*.mjs` 按 workflow 契约创作；三个 `comet-*.mjs` 由 factory 确定性生成（plan 别名、必需文件检查、hook guard），同样读取 `workflow-protocol.json`。
 
 `workflow-protocol.json` 是 runtime、eval、review、publish readiness 的共同事实源。
 

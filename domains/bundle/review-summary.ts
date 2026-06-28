@@ -103,6 +103,30 @@ function buildReadiness(
   if (state.eval?.passed && (!state.review || state.review.hash !== state.currentHash)) {
     warnings.push('[review] Review approval for the current draft hash is missing');
   }
+  const generatedPackage = state.factory?.generatedSkillPackage;
+  const authoringReview = state.factory?.authoringReview;
+  if (generatedPackage) {
+    const unauthored = generatedPackage.unauthoredSubstanceNodes ?? [];
+    if (unauthored.length > 0) {
+      blockers.push(
+        `[authoring] Substance nodes lack authored content (run skill-core lane): ${unauthored.join(', ')}`,
+      );
+    }
+    if (!authoringReview) {
+      warnings.push('[authoring] No LLM authoring review recorded; run the skill-review lane');
+    } else if (authoringReview.evidenceSource === 'deterministic-check-only') {
+      warnings.push('[authoring] Authoring review is deterministic-check-only, not an LLM review');
+    } else if (!authoringReview.passed) {
+      const blockingFindings = authoringReview.findings
+        .filter((finding) => finding.severity === 'critical' || finding.severity === 'important')
+        .map((finding) => finding.problem);
+      blockers.push(
+        `[authoring] LLM authoring review did not pass${
+          blockingFindings.length > 0 ? `: ${blockingFindings.join('; ')}` : ''
+        }`,
+      );
+    }
+  }
   if (state.status === 'ready' && !state.ready) {
     blockers.push('[publish] Ready Bundle metadata is missing');
   }
@@ -138,6 +162,15 @@ function buildReadiness(
     warnings,
     evidence: {
       draftPath: state.draftPath,
+      ...(generatedPackage
+        ? authoringReview
+          ? {
+              authoringReview: `${authoringReview.passed ? 'passed' : 'failed'} (${
+                authoringReview.evidenceSource
+              }${authoringReview.voters ? `, ${authoringReview.voters} voters` : ''})`,
+            }
+          : { authoringReview: 'missing' }
+        : {}),
       ...(state.factory?.generatedSkillPackage?.packageRoot
         ? { generatedPackage: state.factory.generatedSkillPackage.packageRoot }
         : {}),

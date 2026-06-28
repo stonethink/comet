@@ -77,6 +77,52 @@ async function writeFactoryPlan(planFile: string): Promise<void> {
   );
 }
 
+async function authorSubstanceNodes(
+  root: string,
+  projectRoot: string,
+  name: string,
+): Promise<void> {
+  const status = runJson('bundle', 'status', name, '--project', projectRoot);
+  const unauthored = status.factory?.generatedSkillPackage?.unauthoredSubstanceNodes ?? [];
+  for (const nodeSkill of unauthored) {
+    const draftFile = path.join(root, `${name}-${nodeSkill}-guidance.json`);
+    await fs.writeFile(
+      draftFile,
+      JSON.stringify({
+        lane: 'skill-core',
+        status: 'DONE',
+        dispatchMode: 'inline',
+        artifacts: [
+          {
+            path: `../${nodeSkill}/SKILL.md`,
+            kind: 'skill',
+            content:
+              '### Prerequisites\n\nConfirmed goal.\n\n### Steps\n\nRun the bound Skill and record evidence.\n\n### Completion reasoning\n\nEvidence recorded and Exit Check passes.\n\n### Red flags\n\nExiting without evidence.',
+          },
+        ],
+        claims: [
+          { id: `node-skill:${nodeSkill}`, kind: 'skill', paths: [`../${nodeSkill}/SKILL.md`] },
+        ],
+        findings: [],
+      }),
+    );
+    runJson(
+      'bundle',
+      'authoring-record',
+      name,
+      '--project',
+      projectRoot,
+      '--lane',
+      'skill-core',
+      '--file',
+      draftFile,
+    );
+  }
+  if (unauthored.length > 0) {
+    runJson('bundle', 'factory-generate', name, '--project', projectRoot);
+  }
+}
+
 function passingResult(hash: string, entrySkills: string[] = ['alpha', 'beta']): BundleEvalResult {
   return {
     schemaVersion: 1,
@@ -665,6 +711,7 @@ prefer:
       '--project',
       projectRoot,
     );
+    await authorSubstanceNodes(root, projectRoot, 'factory-missing');
     const summary = runJson(
       'bundle',
       'review-summary',
@@ -831,6 +878,7 @@ prefer:
       '--confirmed-proposal',
     );
     runJson('bundle', 'factory-generate', 'factory-warning-text-mode', '--project', projectRoot);
+    await authorSubstanceNodes(root, projectRoot, 'factory-warning-text-mode');
     const status = runJson(
       'bundle',
       'status',

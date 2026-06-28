@@ -10,6 +10,8 @@ Must cover:
 - `scripts/workflow-guard.mjs`
 - `scripts/workflow-handoff.mjs`
 
+The factory also deterministically generates `scripts/comet-plan.mjs`, `scripts/comet-check.mjs`, and `scripts/comet-hook-guard.mjs` from the same `workflow-protocol.json`. Do not duplicate or redesign those three; your contract is for the `workflow-*.mjs` scripts that the Skill core author and entry author reference.
+
 ## Inputs
 
 Read the common input from the main session, especially:

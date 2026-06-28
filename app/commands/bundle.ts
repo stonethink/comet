@@ -18,6 +18,11 @@ import { compileBundleForPlatform } from '../../domains/bundle/platform.js';
 import { buildBundleReviewSummary } from '../../domains/bundle/review-summary.js';
 import { listBundlePlatformTargets } from '../../domains/bundle/bundle-platform.js';
 import { planBundleEval, recordBundleEval } from '../../domains/bundle/eval.js';
+import {
+  buildAuthoringPlan,
+  recordAuthoringLane,
+  type AuthoringDepth,
+} from '../../domains/bundle/authoring.js';
 import { publishBundle, reviewBundle } from '../../domains/bundle/publish.js';
 import { distributeBundle } from '../../domains/bundle/distribute.js';
 import { buildBundleFactoryProposal } from '../../domains/bundle/factory-proposal.js';
@@ -42,6 +47,8 @@ interface BundleCommandOptions {
   scope?: 'project' | 'global';
   locale?: string;
   level?: 'quick' | 'full';
+  depth?: AuthoringDepth;
+  lane?: string;
   result?: string;
   approve?: boolean;
   reject?: boolean;
@@ -554,6 +561,44 @@ export async function bundleDistributeCommand(
     preview: options.preview,
   });
   emit(result, options.json, formatDistributionText(result));
+}
+
+export async function bundleAuthoringPlanCommand(
+  name: string,
+  options: BundleCommandOptions = {},
+): Promise<void> {
+  const plan = await buildAuthoringPlan({
+    projectRoot: projectRoot(options),
+    name,
+    depth: options.depth ?? options.level ?? 'quick',
+  });
+  emit(
+    plan,
+    options.json,
+    [
+      `Authoring depth: ${plan.depth}`,
+      `Protocol hash: ${plan.protocolHash}`,
+      `Wave1 (parallel): ${plan.dag.wave1.join(', ')}`,
+      `Wave2 (after script): ${plan.dag.wave2.join(', ')}`,
+      `Barrier (review): ${plan.dag.barrier.join(', ')}`,
+      `Voters: ${plan.verify.voters}; lenses: ${plan.verify.lenses.join(', ')}`,
+    ].join('\n'),
+  );
+}
+
+export async function bundleAuthoringRecordCommand(
+  name: string,
+  options: BundleCommandOptions = {},
+): Promise<void> {
+  if (!options.lane) throw new Error('--lane is required');
+  if (!options.file) throw new Error('--file is required');
+  const state = await recordAuthoringLane({
+    projectRoot: projectRoot(options),
+    name,
+    lane: options.lane,
+    file: options.file,
+  });
+  emit(state, options.json, `Recorded authoring lane ${options.lane} for ${state.name}`);
 }
 
 export type { BundleCommandOptions };

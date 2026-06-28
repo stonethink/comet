@@ -53,6 +53,7 @@ Any of these must produce blocking findings:
 - Missing critical claims from the workflow entry author, script author, reference author, Skill core author, or pause point author.
 - Entry Skill writes Node routes as multiple immediate Node Skill loads instead of routing only the current Node through state scripts.
 - Missing `workflow-state.mjs`, `workflow-guard.mjs`, or `workflow-handoff.mjs` contract.
+- Missing any of the six generated scripts (`workflow-state`, `workflow-guard`, `workflow-handoff`, `comet-plan`, `comet-check`, `comet-hook-guard`) in the package.
 - Missing workflow entry, or Skill core has no internal Node Skill.
 - Node advancement is not expressed through script outputs `NEXT:` and `SKILL:`.
 - `requiredSkillCalls` declared by the workflow protocol are not clearly required in the matching
@@ -89,3 +90,33 @@ Output must include:
 - `Review passed` or blocking findings.
 
 If any Critical or Important issue exists, do not return `Review passed`. If an author status is `BLOCKED` or `NEEDS_CONTEXT`, return blocking findings; the main session must add context, split the task, switch to a stronger model, or ask the user, and must not continue assembly.
+
+## Multi-vote Review (depth-aware)
+
+The skill-review lane is the DAG barrier and runs after every author lane. Its verdict is recorded with `comet bundle authoring-record <name> --lane skill-review --file <review.json>` and becomes the real `skill-review.md` / `authoring-lanes.json` evidence — it is NOT a hardcoded approval.
+
+- `depth: full` → dispatch N=3 independent reviewers, each holding exactly one lens (`contract-fit`, `usability`, `evidence-trace`, `self-consistency`), none seeing the others' conclusions. Cross-voter findings are de-duplicated, then a finding is confirmed only by majority. Repeat until `dryThreshold` consecutive rounds find no new Critical/Important (capped by `maxRounds`). `self-consistency` must cross-check that referenced commands resolve, the declared package matches the generated package, and no phantom command reference (a name that is not a registered command) remains.
+- `depth: quick` → a single reviewer, single round.
+- `passed` is `true` only when zero Critical/Important findings remain. Minor findings are recorded but do not block.
+
+The recorded review object must match this shape (validated by `authoring-record`):
+
+```json
+{
+  "lane": "skill-review",
+  "status": "DONE",
+  "review": {
+    "passed": true,
+    "evidenceSource": "llm-multivote",
+    "voters": 3,
+    "lenses": ["contract-fit", "usability", "evidence-trace", "self-consistency"],
+    "rounds": 2,
+    "findings": [
+      { "severity": "minor", "path": "SKILL.md", "problem": "Wording nit.", "fix": "Rephrase." }
+    ],
+    "reviewedAt": "2026-06-28T00:00:00.000Z"
+  }
+}
+```
+
+A `passed: false` review is a readiness blocker (publish cannot proceed); a missing review is a warning (the package still carries an honest `deterministic-check-only` placeholder, never a fabricated approval).

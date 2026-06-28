@@ -24,6 +24,8 @@ import {
 } from '../commands/publish.js';
 import {
   bundleCandidatesCommand,
+  bundleAuthoringPlanCommand,
+  bundleAuthoringRecordCommand,
   bundleCompileCommand,
   bundleDistributeCommand,
   bundleDraftCreateCommand,
@@ -315,6 +317,29 @@ bundle
   .option('--json', 'Output as JSON')
   .action(async (options) => {
     await bundleCandidatesCommand(options);
+  });
+
+bundle
+  .command('authoring-plan <name>')
+  .description('Plan the /comet-any authoring pipeline for a Bundle')
+  .option('--project <dir>', 'Project root', '.')
+  .addOption(
+    new Option('--depth <depth>', 'Authoring depth').choices(['quick', 'full']).default('quick'),
+  )
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await bundleAuthoringPlanCommand(name, options);
+  });
+
+bundle
+  .command('authoring-record <name>')
+  .description('Validate and record a /comet-any authoring lane output')
+  .option('--project <dir>', 'Project root', '.')
+  .requiredOption('--lane <id>', 'Authoring lane id')
+  .requiredOption('--file <path>', 'Lane output JSON file')
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await bundleAuthoringRecordCommand(name, options);
   });
 
 const draft = bundle.command('draft').description('Manage Bundle drafts');

@@ -69,9 +69,52 @@ function workflowContractInternalSkillNames(protocol: WorkflowProtocol): string[
   );
 }
 
+function nodeAuthoringMode(
+  protocol: WorkflowProtocol,
+  node: WorkflowNodeProtocol,
+): 'delegates' | 'substance' {
+  return protocol.kind === 'comet-five-phase-overlay' ? 'delegates' : 'substance';
+}
+
+const AUTHORING_PENDING_MARKER = '<!-- AUTHORING PENDING -->';
+
+function entryDecisionCoreBody(plan: FactorySkillPackagePlan): string {
+  const draft = plan.contentDrafts?.['SKILL.md'];
+  if (draft !== undefined) return draft;
+  return `${AUTHORING_PENDING_MARKER}\n**Not yet authored.** The Decision Core for this entry — how to detect the current Node, when to pause for the user, and the red flags — must be authored by the workflow-entry lane. Until then, rely on \`workflow-state.mjs next\` for routing and treat the rest of this file as scaffold only.`;
+}
+
+function nodeGuidanceBody(
+  plan: FactorySkillPackagePlan,
+  protocol: WorkflowProtocol,
+  node: WorkflowNodeProtocol,
+): string {
+  const nodeSkillPath = `../${generatedNodeSkillName(protocol.name, node.id)}/SKILL.md`;
+  const draft = plan.contentDrafts?.[nodeSkillPath];
+  if (draft !== undefined) return draft;
+  if (nodeAuthoringMode(protocol, node) === 'delegates') {
+    return `This Node delegates to \`${node.implementation.skill}\`. Load that Skill, apply the Required Skill Calls below, and record the Output Schema evidence before running the Exit Check. Do not duplicate the delegate Skill's body here.`;
+  }
+  return `${AUTHORING_PENDING_MARKER}\n**Not yet authored.** This substance Node requires its decision content (prerequisites, step-by-step guidance, completion reasoning, red flags) from the skill-core lane. The control-plane sections below are scaffold only; they do not describe *how* to do this Node.`;
+}
+
+export function computeUnauthoredSubstanceNodes(plan: FactorySkillPackagePlan): string[] {
+  const protocol = plan.workflowProtocol;
+  if (!protocol) return [];
+  return workflowContractRoute(protocol)
+    .filter((node) => nodeAuthoringMode(protocol, node) === 'substance')
+    .filter(
+      (node) =>
+        plan.contentDrafts?.[`../${generatedNodeSkillName(protocol.name, node.id)}/SKILL.md`] ===
+        undefined,
+    )
+    .map((node) => generatedNodeSkillName(protocol.name, node.id));
+}
+
 function workflowContractEntryMarkdown(
   plan: FactorySkillPackagePlan,
   protocol: WorkflowProtocol,
+  decisionCoreBody: string,
 ): string {
   const nodeLines = workflowContractRoute(protocol)
     .map((node, index) => {
@@ -108,6 +151,10 @@ description: ${factoryEntryDescription(plan)}
 ---
 
 # ${protocol.name}
+
+## Decision Core
+
+${decisionCoreBody}
 
 ## Workflow Nodes
 
@@ -172,6 +219,7 @@ function workflowContractNodeMarkdown(
   plan: FactorySkillPackagePlan,
   protocol: WorkflowProtocol,
   node: WorkflowNodeProtocol,
+  guidanceBody: string,
 ): string {
   const skillName = generatedNodeSkillName(protocol.name, node.id);
   const next =
@@ -199,6 +247,10 @@ description: Run the ${node.label} Node for ${protocol.name}.
 Complete the \`${node.id}\` Node for \`${protocol.name}\`.
 
 Responsibility: ${node.responsibility}
+
+## Guidance
+
+${guidanceBody}
 
 ## Entry Check
 
@@ -888,6 +940,61 @@ ${resolved}
 `;
 }
 
+function renderSkillReviewMarkdown(plan: FactorySkillPackagePlan): string {
+  const draft = plan.contentDrafts?.['reference/skill-review.md'];
+  if (draft) return draft;
+  const review = plan.authoringReview;
+  if (review) {
+    const findings =
+      review.findings.length === 0
+        ? '- None.'
+        : review.findings
+            .map(
+              (finding) =>
+                `- [${finding.severity}]${finding.path ? ` ${finding.path}` : ''}: ${finding.problem}${finding.fix ? ` -> ${finding.fix}` : ''}`,
+            )
+            .join('\n');
+    return `# Skill Review\n\nEvidence source: ${review.evidenceSource}.\nPassed: ${review.passed ? 'yes' : 'no'}.\nVoters: ${review.voters ?? 'n/a'}.\nLenses: ${(review.lenses ?? []).join(', ') || 'n/a'}.\nRounds: ${review.rounds ?? 'n/a'}.\nReviewed at: ${review.reviewedAt}.\n\n## Findings\n\n${findings}\n`;
+  }
+  return '# Skill Review\n\nEvidence source: deterministic-check-only.\n\nNo LLM authoring review has been recorded for this Bundle yet. This file is an honest placeholder, not a review approval. Run the `/comet-any` skill-review lane and record its verdict via `comet bundle authoring-record <name> --lane skill-review --file <review.json>` to replace this with a real multi-vote review summary.\n';
+}
+
+function authoringLanesReview(plan: FactorySkillPackagePlan): {
+  passed: boolean | null;
+  evidenceSource: string;
+  voters: number | null;
+  lenses: string[];
+  rounds: number | null;
+  blockingFindings: string[];
+  warnings: string[];
+} {
+  const review = plan.authoringReview;
+  if (review) {
+    return {
+      passed: review.passed,
+      evidenceSource: review.evidenceSource,
+      voters: review.voters ?? null,
+      lenses: review.lenses ?? [],
+      rounds: review.rounds ?? null,
+      blockingFindings: review.findings
+        .filter((finding) => finding.severity === 'critical' || finding.severity === 'important')
+        .map((finding) => finding.problem),
+      warnings: review.findings
+        .filter((finding) => finding.severity === 'minor')
+        .map((finding) => finding.problem),
+    };
+  }
+  return {
+    passed: null,
+    evidenceSource: 'deterministic-check-only',
+    voters: null,
+    lenses: [],
+    rounds: null,
+    blockingFindings: [],
+    warnings: ['No LLM authoring review recorded for this Bundle'],
+  };
+}
+
 function workflowContractArtifacts(plan: FactorySkillPackagePlan): FactoryPackageDraft {
   const protocol = plan.workflowProtocol;
   if (!protocol)
@@ -915,12 +1022,16 @@ function workflowContractArtifacts(plan: FactorySkillPackagePlan): FactoryPackag
       : ['comet/skill.yaml', 'comet/guardrails.yaml', 'comet/checks.yaml', 'comet/eval.yaml']),
   ];
   const artifacts: FactoryPackageArtifact[] = [
-    artifact('SKILL.md', 'skill', workflowContractEntryMarkdown(plan, protocol)),
+    artifact(
+      'SKILL.md',
+      'skill',
+      workflowContractEntryMarkdown(plan, protocol, entryDecisionCoreBody(plan)),
+    ),
     ...workflowContractRoute(protocol).map((node) =>
       artifact(
         `../${generatedNodeSkillName(protocol.name, node.id)}/SKILL.md`,
         'skill',
-        workflowContractNodeMarkdown(plan, protocol, node),
+        workflowContractNodeMarkdown(plan, protocol, node, nodeGuidanceBody(plan, protocol, node)),
       ),
     ),
     artifact('scripts/comet-plan.mjs', 'script', workflowContractPlanScript(), true),
@@ -948,28 +1059,26 @@ function workflowContractArtifacts(plan: FactorySkillPackagePlan): FactoryPackag
     artifact(
       'reference/decision-points.md',
       'reference',
-      `# Workflow Decision Points\n\n${workflowContractRoute(protocol)
-        .map(
-          (node) =>
-            `- \`${node.id}\`: confirm Output Schemas ${node.outputSchemas.join(', ') || 'none'}.`,
-        )
-        .join('\n')}\n`,
+      plan.contentDrafts?.['reference/decision-points.md'] ??
+        `# Workflow Decision Points\n\n${workflowContractRoute(protocol)
+          .map(
+            (node) =>
+              `- \`${node.id}\`: confirm Output Schemas ${node.outputSchemas.join(', ') || 'none'}.`,
+          )
+          .join('\n')}\n`,
     ),
     artifact(
       'reference/recovery.md',
       'reference',
-      `# Workflow Recovery\n\n- State path: \`${protocol.state.statePath}\`\n- Compatibility state path: \`${protocol.state.compatibilityStatePath ?? 'none'}\`\n- Resume by reading the first incomplete Workflow Node.\n`,
+      plan.contentDrafts?.['reference/recovery.md'] ??
+        `# Workflow Recovery\n\n- State path: \`${protocol.state.statePath}\`\n- Compatibility state path: \`${protocol.state.compatibilityStatePath ?? 'none'}\`\n- Resume by reading the first incomplete Workflow Node.\n`,
     ),
     artifact(
       'reference/composition-report.md',
       'reference',
       workflowContractCompositionReport(plan, protocol),
     ),
-    artifact(
-      'reference/skill-review.md',
-      'reference',
-      '# Skill Review\n\nResult: approved by deterministic workflow contract checks.\n',
-    ),
+    artifact('reference/skill-review.md', 'reference', renderSkillReviewMarkdown(plan)),
     jsonArtifact('reference/authoring-lanes.json', {
       schemaVersion: 1,
       protocolHash,
@@ -981,7 +1090,7 @@ function workflowContractArtifacts(plan: FactorySkillPackagePlan): FactoryPackag
         'eval',
         'skill-review',
       ],
-      review: { passed: true, blockingFindings: [], warnings: [] },
+      review: authoringLanesReview(plan),
     }),
     ...(plan.engineMode === 'none'
       ? []
@@ -1128,6 +1237,7 @@ export async function generateFactorySkillPackage(
     packageRoot,
     skillPath: path.join(packageRoot, 'SKILL.md'),
     internalSkills: internalSkillIds,
+    unauthoredSubstanceNodes: computeUnauthoredSubstanceNodes(plan),
     enginePath: plan.engineMode === 'none' ? null : cometRoot,
     evalManifestPath: plan.engineMode === 'none' ? null : path.join(cometRoot, 'eval.yaml'),
     controlPlane: {

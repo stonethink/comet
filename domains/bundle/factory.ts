@@ -388,6 +388,8 @@ export async function generateBundleDraftFromFactoryState(options: {
           intent: factory.skillMakerIntent,
         }
       : undefined,
+    contentDrafts: factory.authoringContent,
+    authoringReview: factory.authoringReview,
   });
   await fs.mkdir(path.join(state.draftPath, 'rules'), { recursive: true });
   await fs.writeFile(
@@ -422,6 +424,7 @@ export async function generateBundleDraftFromFactoryState(options: {
         enginePath: generated.enginePath,
         evalManifestPath: generated.evalManifestPath,
         controlPlane: generated.controlPlane,
+        unauthoredSubstanceNodes: generated.unauthoredSubstanceNodes,
       },
     },
   };

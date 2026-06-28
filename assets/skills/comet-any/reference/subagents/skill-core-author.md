@@ -10,6 +10,22 @@ Must cover:
 - Node invocation semantics in `comet/skill.yaml`
 - Every `node-skill:<skill-name>` claim
 
+## Authored Zone (what you write)
+
+The generator composes each Node SKILL.md from a deterministic **Auto zone** (frontmatter, Node Goal, Entry Check, Skill Implementation, Required Skill Calls, Output Schemas, Evidence Record, Guardrails, Exit Check, Recovery) plus an **Authored zone** (`## Guidance`) that YOU write. You do NOT write the whole file — only the Guidance body. The main session records your output via `comet bundle authoring-record <name> --lane skill-core --file <out.json>`; the artifact `content` for `../<node-skill>/SKILL.md` is the Guidance body.
+
+Quality bar: a real Comet phase skill (e.g. `comet-build/SKILL.md`); see `reference/authored-zone-example.md` for a full sample at the expected level. Author decision content, not boilerplate. Use `###` subsections within Guidance so they nest under `## Guidance`:
+
+- `### Prerequisites` — what must be true before this Node starts.
+- `### Steps` — the ordered, domain-specific steps; reference the bound Skill by name and say when to call it (do not copy its body).
+- `### Completion reasoning` — when the Node is genuinely done (beyond the mechanical Exit Check), and the judgment calls involved.
+- `### Red flags` — the failure modes that look like progress but are not.
+
+Node mode (from the protocol):
+
+- **substance** Node (workflow-kernel default): rich Guidance is mandatory. Without it the Node renders as `AUTHORING PENDING` and the Bundle cannot become ready.
+- **delegates** Node (comet-five-phase-overlay, delegating to an installed rich Skill): a short Guidance note is acceptable — the delegate carries the richness; do not duplicate it.
+
 ## Inputs
 
 Read the common input from the main session, especially:

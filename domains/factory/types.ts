@@ -1,4 +1,5 @@
 import type { WorkflowDefinitionInput, WorkflowProtocol } from '../workflow-contract/index.js';
+import type { AuthoringReview } from '../bundle/types.js';
 
 export interface FactoryCallChainItem {
   skill: string;
@@ -106,6 +107,8 @@ export interface FactorySkillPackagePlan {
   };
   deviations: FactoryOrderDeviation[];
   engineMode: 'none' | 'deterministic' | 'adaptive';
+  contentDrafts?: Record<string, string>;
+  authoringReview?: AuthoringReview;
 }
 
 export interface FactoryControlPlaneOutput {
@@ -122,4 +125,5 @@ export interface GeneratedFactorySkillPackage {
   enginePath: string | null;
   evalManifestPath: string | null;
   controlPlane: FactoryControlPlaneOutput;
+  unauthoredSubstanceNodes?: string[];
 }

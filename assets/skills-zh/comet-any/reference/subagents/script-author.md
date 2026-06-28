@@ -11,6 +11,8 @@
 - `scripts/workflow-guard.mjs`
 - `scripts/workflow-handoff.mjs`
 
+factory 还会从同一份 `workflow-protocol.json` 确定性生成 `scripts/comet-plan.mjs`、`scripts/comet-check.mjs`、`scripts/comet-hook-guard.mjs`。不要重复设计这三个脚本；你的契约只针对 skill-core 作者与 entry 作者引用的 `workflow-*.mjs`。
+
 ## 输入
 
 读取主会话提供的通用输入，尤其关注：

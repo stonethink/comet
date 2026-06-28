@@ -1530,7 +1530,7 @@ prefer:
         path.join(draftRoot, 'skills', 'factory-bundle', 'reference', 'skill-review.md'),
         'utf8',
       ),
-    ).resolves.toContain('approved by deterministic workflow contract checks');
+    ).resolves.toContain('deterministic-check-only');
     await expect(
       fs.access(path.join(draftRoot, 'skills', 'factory-bundle', 'scripts', 'comet-plan.mjs')),
     ).resolves.toBeUndefined();

@@ -32,6 +32,21 @@ The relative paths inside this Skill are:
 
 Subagent outputs first become reviewable drafts, then flow into `reference/authoring-lanes.json`, `reference/skill-review.md`, and the final Bundle draft. If any subagent reports a blocking finding, stop in draft repair and do not continue to ready.
 
+## Dispatch by DAG
+
+The Role Briefs order above is a linearization of the authoring DAG, not a mandate to run strictly sequential. The authoritative DAG lives in `reference/authoring-protocol.json` and `comet bundle authoring-plan <name> --depth quick|full --json`:
+
+- **wave1** (`script`, `reference`, `pause-points`): no dependencies on each other. On platforms that expose subagents, dispatch these three concurrently. Each gets only its own role brief, common input, and the protocol/resolved-skills paths (file handoff, no shared history).
+- **wave2** (`workflow-entry`, `skill-core`): depend on the script contract (`NEXT:`/`SKILL:` outputs). Start only after the script lane is DONE. The two may run concurrently with each other.
+- **barrier** (`skill-review`): the single synchronization point. Run only after wave1 and wave2 are all DONE; the reviewer must read every artifact and claim.
+
+Regardless of platform:
+
+- Sequencing follows DAG dependencies; only the barrier truly waits for all prior lanes.
+- On platforms without subagent capability, the main session runs the same lanes inline in dependency order — semantics are identical, only latency changes. Record `dispatchMode: "subagent"` or `"inline"` per lane in `reference/authoring-lanes.json`.
+- Claude Code may delegate a wave's fan-out to its `Workflow` tool as an optional accelerator; this is an implementation choice, not part of the contract. The contract is the protocol + schemas + DAG, which every platform can interpret.
+- Every lane output is validated and recorded via `comet bundle authoring-record <name> --lane <id> --file <out.json> --json` before the next dependent wave begins.
+
 ## Common Inputs
 
 Every subagent must receive the same common context:

@@ -54,6 +54,7 @@ prompt:
 - 缺少 workflow entry 作者、脚本作者、reference 作者、Skill 核心作者或停顿点作者的关键 claim。
 - entry Skill 把阶段路线写成多个 `**立即执行：**` Node Skill，而不是通过状态脚本只路由当前阶段。
 - 缺少 `workflow-state.mjs`、`workflow-guard.mjs` 或 `workflow-handoff.mjs` 契约。
+- 包内缺少六个生成脚本中的任何一个（`workflow-state`、`workflow-guard`、`workflow-handoff`、`comet-plan`、`comet-check`、`comet-hook-guard`）。
 - workflow entry 缺失，或 Skill 核心没有 internal Node Skill。
 - 阶段推进没有通过脚本输出 `NEXT:` 和 `SKILL:` 表达。
 - workflow protocol 声明的 `requiredSkillCalls` 没有在对应Node Skill 中明确要求加载，或 subagent 槽位没有要求子代理任务提示加载该 Skill。
@@ -89,3 +90,33 @@ prompt:
 
 如果存在 Critical 或 Important，不得给出 `Review passed`。如果作者状态是 `BLOCKED` 或 `NEEDS_CONTEXT`，
 必须返回 blocking findings，主会话必须补上下文、拆小任务、换更强模型或询问用户；不得继续组装。
+
+## 多视角审查（按 depth）
+
+skill-review lane 是 DAG 的 barrier，在所有创作 lane 之后运行。其裁决用 `comet bundle authoring-record <name> --lane skill-review --file <review.json>` 记录，成为真实的 `skill-review.md` / `authoring-lanes.json` 证据——绝不是硬编码的批准。
+
+- `depth: full`：派发 N=3 个独立审查者，每人只持一个 lens（`contract-fit`、`usability`、`evidence-trace`、`self-consistency`），互不见彼此结论。跨审查者的 findings 去重后，仅多数确认才成立。重复直到连续 `dryThreshold` 轮无新的 Critical/Important（上限 `maxRounds`）。`self-consistency` 必须交叉校验：引用的命令可解析、声明产物 == 实际产物、无幽灵命令引用（未注册的命令名）残留。
+- `depth: quick`：单审查者、单轮。
+- 仅当无 Critical/Important 残留时 `passed` 为 `true`。Minor 记录但不阻塞。
+
+记录的 review 对象必须符合此形状（由 `authoring-record` 校验）：
+
+```json
+{
+  "lane": "skill-review",
+  "status": "DONE",
+  "review": {
+    "passed": true,
+    "evidenceSource": "llm-multivote",
+    "voters": 3,
+    "lenses": ["contract-fit", "usability", "evidence-trace", "self-consistency"],
+    "rounds": 2,
+    "findings": [
+      { "severity": "minor", "path": "SKILL.md", "problem": "措辞小问题。", "fix": "改写。" }
+    ],
+    "reviewedAt": "2026-06-28T00:00:00.000Z"
+  }
+}
+```
+
+`passed: false` 的审查是 readiness blocker（不得 publish）；缺失审查是 warning（包仍带诚实的 `deterministic-check-only` 占位，绝不伪造批准）。

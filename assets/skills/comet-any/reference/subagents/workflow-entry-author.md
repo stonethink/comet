@@ -10,6 +10,18 @@ Must cover:
 - Entry guidance for workflow-state / workflow-guard / workflow-handoff
 - `workflow-entry` claim
 
+## Authored Zone (what you write)
+
+The generator composes the entry SKILL.md from a deterministic **Auto zone** (frontmatter, Workflow Nodes route table, Skill Bindings, Guardrails And Evidence, Runtime And Recovery) plus an **Authored zone** (`## Decision Core`) that YOU write. You do NOT write the whole file — only the Decision Core body. The main session records your output via `comet bundle authoring-record <name> --lane workflow-entry --file <out.json>`; the artifact `content` for `SKILL.md` is the Decision Core body.
+
+Quality bar: the `comet/SKILL.md` Decision Core. Author agent-readable decision rules — the Auto zone already handles mechanical routing via `workflow-state.mjs next`, so focus on judgment:
+
+- How to detect the current Node and confirm it before loading its Skill.
+- When the workflow must pause for an explicit user choice (never bypass with defaults).
+- The red flags that look like progress but are not.
+
+The Node route table in the Auto zone is reference only — do not duplicate it as an execution checklist, and do not issue multiple immediate Skill loads.
+
 ## Inputs
 
 Read the common input from the main session, especially:
