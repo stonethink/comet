@@ -170,10 +170,23 @@ ${guardrails || '- No explicit guardrails.'}
 
 ## Runtime And Recovery
 
-1. Run \`node ${plan.name}/scripts/workflow-state.mjs status\`.
-2. If the workflow is not started, run \`node ${plan.name}/scripts/workflow-state.mjs init\`.
-3. Run \`node ${plan.name}/scripts/workflow-state.mjs next\` and load only the returned Skill.
-4. Before leaving a Node, run \`node ${plan.name}/scripts/workflow-guard.mjs exit <node> --apply\`.
+### Startup Protocol
+
+1. Run \`node ${plan.name}/scripts/workflow-state.mjs status\` to read current state.
+2. If the workflow is not started, confirm scope with the user, then run \`node ${plan.name}/scripts/workflow-state.mjs init\`.
+3. Run \`node ${plan.name}/scripts/workflow-state.mjs next\` and load **only** the returned Skill. Do not load multiple Skills at once.
+
+### Resume Rules (every context resume)
+
+- **Re-detect from scratch**: on every context resume, re-run the Startup Protocol. Do not trust conversation history for current-Node detection — context compaction may have discarded critical state.
+- **Trust files over state**: if the script says a Node is DONE but its expected artifacts or evidence are missing, treat the Node as incomplete and re-enter it. File evidence is the source of truth.
+- **Drift handling**: if the user's request belongs to a different Node than the one returned by \`next\`, pause and confirm which Node to enter. Do not silently follow the script if the user's intent conflicts.
+
+### Node Boundary Rules
+
+- Before leaving a Node, run \`node ${plan.name}/scripts/workflow-guard.mjs exit <node> --apply\` to advance state and record evidence.
+- If the guard fails, do not proceed — present the guard output and ask the user how to fix it.
+- If the user wants to redo a completed Node, reset its completion state and re-enter rather than creating a parallel path.
 
 The route, Output Schemas, required Skill calls, and recovery state are defined by \`reference/workflow-protocol.json\`.
 `;

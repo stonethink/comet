@@ -118,6 +118,9 @@ describe('Factory content-merge (Auto + Authored zones)', () => {
     expect(entry).toContain('## Decision Core');
     expect(entry).toContain('never skip the Entry Check'); // Authored zone
     expect(entry).toContain('## Workflow Nodes'); // Auto zone preserved
+    expect(entry).toContain('### Startup Protocol'); // Semantic auto zone
+    expect(entry).toContain('### Resume Rules'); // Resume/drift rules
+    expect(entry).toContain('Trust files over state'); // File-over-state principle
 
     const nodeSkill = await fs.readFile(
       path.join(root, 'skills', 'plain-workflow-research', 'SKILL.md'),
