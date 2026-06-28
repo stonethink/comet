@@ -74,6 +74,7 @@ export type TranslationKey =
   | 'summaryScope'
   | 'summaryLanguage'
   | 'updateComplete'
+  | 'configMerged'
   | 'cancelled';
 
 const TRANSLATIONS: Record<Language, Record<TranslationKey, string>> = {
@@ -151,6 +152,8 @@ const TRANSLATIONS: Record<Language, Record<TranslationKey, string>> = {
     summaryScope: 'scope:',
     summaryLanguage: 'language:',
     updateComplete: 'Update complete.',
+    configMerged:
+      'Project config merged (.comet/config.yaml): preserved your values, added any missing fields',
     cancelled: 'Cancelled.',
   },
   zh: {
@@ -227,6 +230,7 @@ const TRANSLATIONS: Record<Language, Record<TranslationKey, string>> = {
     summaryScope: '范围：',
     summaryLanguage: '语言：',
     updateComplete: '更新完成。',
+    configMerged: '项目配置已合并 (.comet/config.yaml)：已保留你的设置，补齐缺失字段',
     cancelled: '已取消。',
   },
 };

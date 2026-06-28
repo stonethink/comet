@@ -2,6 +2,7 @@ import path from 'path';
 import { existsSync } from 'fs';
 import { readFile, writeFile } from 'fs/promises';
 import { fileURLToPath } from 'url';
+import { parseDocument } from 'yaml';
 
 import { fileExists, readJson, copyFile, ensureDir } from '../../platform/fs/file-system.js';
 import { getPlatformSkillsDir, type Platform } from '../../platform/install/platforms.js';
@@ -801,6 +802,52 @@ async function installKiroHooks(
   return { installed: true };
 }
 
+const MANAGED_CONFIG_FIELDS = [
+  { key: 'context_compression', def: 'off', comment: '# context_compression: off | beta' },
+  { key: 'review_mode', def: 'standard', comment: '# review_mode: off | standard | thorough' },
+  { key: 'auto_transition', def: 'true', comment: '# auto_transition: true | false' },
+] as const;
+
+function parseProjectConfigOverrides(content: string): Record<string, string> {
+  if (!content.trim()) return {};
+  const doc = parseDocument(content, { uniqueKeys: false });
+  if (doc.errors.length > 0) return {};
+  const js = doc.toJS();
+  if (!js || typeof js !== 'object' || Array.isArray(js)) return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(js as Record<string, unknown>)) {
+    if (v === null || v === undefined) continue;
+    if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+      out[k] = String(v);
+    }
+  }
+  return out;
+}
+
+function renderProjectConfig(existing: Record<string, string>): string {
+  const lines: string[] = [];
+  const managed: Set<string> = new Set(MANAGED_CONFIG_FIELDS.map((f) => f.key));
+  for (const f of MANAGED_CONFIG_FIELDS) {
+    lines.push(f.comment);
+    lines.push(`${f.key}: ${existing[f.key] ?? f.def}`);
+  }
+  for (const [k, v] of Object.entries(existing)) {
+    if (!managed.has(k)) lines.push(`${k}: ${v}`);
+  }
+  lines.push('');
+  return lines.join('\n');
+}
+
+async function mergeProjectConfig(projectPath: string): Promise<void> {
+  const configPath = path.join(projectPath, '.comet', 'config.yaml');
+  let existing: Record<string, string> = {};
+  if (await fileExists(configPath)) {
+    existing = parseProjectConfigOverrides(await readFile(configPath, 'utf-8'));
+  }
+  await ensureDir(path.dirname(configPath));
+  await writeFile(configPath, renderProjectConfig(existing), 'utf-8');
+}
+
 async function createWorkingDirs(projectPath: string): Promise<void> {
   const dirs = [
     path.join(projectPath, 'docs', 'superpowers', 'specs'),
@@ -812,22 +859,7 @@ async function createWorkingDirs(projectPath: string): Promise<void> {
     await ensureDir(dir);
   }
 
-  const configPath = path.join(projectPath, '.comet', 'config.yaml');
-  if (!(await fileExists(configPath))) {
-    await writeFile(
-      configPath,
-      [
-        '# context_compression: off | beta',
-        'context_compression: off',
-        '# review_mode: off | standard | thorough',
-        'review_mode: off',
-        '# auto_transition: true | false',
-        'auto_transition: true',
-        '',
-      ].join('\n'),
-      'utf-8',
-    );
-  }
+  await mergeProjectConfig(projectPath);
 }
 
 export {
@@ -844,5 +876,8 @@ export {
   formatRuleContent,
   isManagedHookCommand,
   planSkillDirectoryCopy,
+  mergeProjectConfig,
+  parseProjectConfigOverrides,
+  renderProjectConfig,
 };
 export type { Manifest, LanguageConfig, PlannedSkillFile, PlannedSkillSourceFile };

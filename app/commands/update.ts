@@ -11,6 +11,7 @@ import {
   copyCometRulesForPlatform,
   installCometHooksForPlatform,
   getManifestSkills,
+  mergeProjectConfig,
 } from '../../domains/skill/platform-install.js';
 import {
   PLATFORMS,
@@ -375,6 +376,12 @@ export async function updateCommand(
         );
       }
     }
+  }
+
+  const hasProjectTargets = targets.some((target) => target.scope === 'project');
+  if (hasProjectTargets) {
+    await mergeProjectConfig(projectPath);
+    log(`  ${t(lang, 'configMerged')}`);
   }
 
   let codegraphStatus: 'installed' | 'failed' | 'skipped' = 'skipped';

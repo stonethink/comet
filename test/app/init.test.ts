@@ -70,9 +70,32 @@ describe('init command helpers', () => {
       expect(config).toContain('# context_compression: off | beta');
       expect(config).toContain('context_compression: off');
       expect(config).toContain('# review_mode: off | standard | thorough');
-      expect(config).toContain('review_mode: off');
+      expect(config).toContain('review_mode: standard');
       expect(config).toContain('# auto_transition: true | false');
       expect(config).toContain('auto_transition: true');
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('preserves existing user config values and fills missing managed fields', async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'comet-init-merge-'));
+
+    try {
+      await fs.mkdir(path.join(tmpDir, '.comet'), { recursive: true });
+      await fs.writeFile(
+        path.join(tmpDir, '.comet', 'config.yaml'),
+        'context_compression: beta\ncustom_key: custom_value\n',
+        'utf-8',
+      );
+
+      await createWorkingDirs(tmpDir);
+
+      const config = await fs.readFile(path.join(tmpDir, '.comet', 'config.yaml'), 'utf-8');
+      expect(config).toContain('context_compression: beta');
+      expect(config).toContain('review_mode: standard');
+      expect(config).toContain('auto_transition: true');
+      expect(config).toContain('custom_key: custom_value');
     } finally {
       await fs.rm(tmpDir, { recursive: true, force: true });
     }

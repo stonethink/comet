@@ -9,6 +9,9 @@ import {
   createWorkingDirs,
   copyCometSkillsForPlatform,
   installCometHooksForPlatform,
+  parseProjectConfigOverrides,
+  renderProjectConfig,
+  mergeProjectConfig,
 } from '../../../domains/skill/platform-install.js';
 import type { Platform } from '../../../platform/install/platforms.js';
 
@@ -1642,6 +1645,133 @@ describe('skills', () => {
           }
         }
       }
+    });
+  });
+
+  describe('parseProjectConfigOverrides', () => {
+    it('returns empty object for empty or whitespace-only input', () => {
+      expect(parseProjectConfigOverrides('')).toEqual({});
+      expect(parseProjectConfigOverrides('   \n  ')).toEqual({});
+    });
+
+    it('returns empty object for malformed YAML', () => {
+      expect(parseProjectConfigOverrides('{{invalid')).toEqual({});
+    });
+
+    it('parses valid YAML into string-keyed record', () => {
+      const result = parseProjectConfigOverrides(
+        'context_compression: beta\nreview_mode: thorough\n',
+      );
+      expect(result).toEqual({ context_compression: 'beta', review_mode: 'thorough' });
+    });
+
+    it('converts booleans and numbers to strings', () => {
+      const result = parseProjectConfigOverrides('auto_transition: true\ncount: 42\n');
+      expect(result.auto_transition).toBe('true');
+      expect(result.count).toBe('42');
+    });
+
+    it('skips null values', () => {
+      const result = parseProjectConfigOverrides('context_compression: null\n');
+      expect(result).toEqual({});
+    });
+  });
+
+  describe('renderProjectConfig', () => {
+    it('renders all managed fields with defaults when no existing values', () => {
+      const output = renderProjectConfig({});
+      expect(output).toContain('# context_compression: off | beta');
+      expect(output).toContain('context_compression: off');
+      expect(output).toContain('# review_mode: off | standard | thorough');
+      expect(output).toContain('review_mode: standard');
+      expect(output).toContain('# auto_transition: true | false');
+      expect(output).toContain('auto_transition: true');
+    });
+
+    it('preserves existing managed field values', () => {
+      const output = renderProjectConfig({
+        context_compression: 'beta',
+        review_mode: 'thorough',
+        auto_transition: 'false',
+      });
+      expect(output).toContain('context_compression: beta');
+      expect(output).toContain('review_mode: thorough');
+      expect(output).toContain('auto_transition: false');
+    });
+
+    it('preserves extra user fields after managed fields', () => {
+      const output = renderProjectConfig({ custom_key: 'custom_value' });
+      expect(output).toContain('custom_key: custom_value');
+    });
+
+    it('trailing newline', () => {
+      const output = renderProjectConfig({});
+      expect(output.endsWith('\n')).toBe(true);
+    });
+  });
+
+  describe('mergeProjectConfig', () => {
+    it('creates config with defaults when no file exists', async () => {
+      await mergeProjectConfig(tmpDir);
+      const content = await fs.readFile(path.join(tmpDir, '.comet', 'config.yaml'), 'utf-8');
+      expect(content).toContain('context_compression: off');
+      expect(content).toContain('review_mode: standard');
+      expect(content).toContain('auto_transition: true');
+    });
+
+    it('preserves existing user values and fills missing managed fields', async () => {
+      const configDir = path.join(tmpDir, '.comet');
+      await fs.mkdir(configDir, { recursive: true });
+      await fs.writeFile(
+        path.join(configDir, 'config.yaml'),
+        'context_compression: beta\n',
+        'utf-8',
+      );
+
+      await mergeProjectConfig(tmpDir);
+      const content = await fs.readFile(path.join(configDir, 'config.yaml'), 'utf-8');
+      expect(content).toContain('context_compression: beta');
+      expect(content).toContain('review_mode: standard');
+      expect(content).toContain('auto_transition: true');
+    });
+
+    it('preserves extra user fields', async () => {
+      const configDir = path.join(tmpDir, '.comet');
+      await fs.mkdir(configDir, { recursive: true });
+      await fs.writeFile(
+        path.join(configDir, 'config.yaml'),
+        'context_compression: beta\ncustom_setting: hello\n',
+        'utf-8',
+      );
+
+      await mergeProjectConfig(tmpDir);
+      const content = await fs.readFile(path.join(configDir, 'config.yaml'), 'utf-8');
+      expect(content).toContain('custom_setting: hello');
+    });
+
+    it('overwrites review_mode default from off to standard on re-init', async () => {
+      const configDir = path.join(tmpDir, '.comet');
+      await fs.mkdir(configDir, { recursive: true });
+      await fs.writeFile(path.join(configDir, 'config.yaml'), 'review_mode: off\n', 'utf-8');
+
+      await mergeProjectConfig(tmpDir);
+      const content = await fs.readFile(path.join(configDir, 'config.yaml'), 'utf-8');
+      expect(content).toContain('review_mode: off');
+    });
+  });
+
+  describe('createWorkingDirs with config merge', () => {
+    it('merges config on second call instead of skipping', async () => {
+      await createWorkingDirs(tmpDir);
+      const configPath = path.join(tmpDir, '.comet', 'config.yaml');
+      // Simulate old config with review_mode: off
+      await fs.writeFile(configPath, 'review_mode: off\n', 'utf-8');
+
+      await createWorkingDirs(tmpDir);
+      const content = await fs.readFile(configPath, 'utf-8');
+      expect(content).toContain('review_mode: off');
+      expect(content).toContain('context_compression: off');
+      expect(content).toContain('auto_transition: true');
     });
   });
 
