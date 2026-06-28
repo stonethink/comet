@@ -27,6 +27,33 @@
   --spacing-dashboard: 1620px;
 }
 
+:root[data-theme='dark'],
+:host[data-theme='dark'] {
+  --color-bg: #0b0e13;
+  --color-surface: #181b1f;
+  --color-surface-warm: #22252e;
+  --color-fg: #d8dee9;
+  --color-fg-2: #b0b8c4;
+  --color-muted: #7b818a;
+  --color-meta: #8e939e;
+  --color-border: #343740;
+  --color-border-soft: #282b33;
+  --color-accent: #6e9fff;
+  --color-accent-active: #8bb4ff;
+  --color-accent-soft: color-mix(in oklab, #6e9fff 18%, #0b0e13);
+  --color-accent-softer: color-mix(in oklab, #6e9fff 12%, #0b0e13);
+  --color-success: #73bf69;
+  --color-warn: #ff9830;
+  --color-danger: #f2495c;
+  --color-info: #6e9fff;
+  --color-ok-soft: color-mix(in oklab, #73bf69 18%, #0b0e13);
+  --color-warn-soft: color-mix(in oklab, #ff9830 18%, #0b0e13);
+  --color-danger-soft: color-mix(in oklab, #f2495c 15%, #0b0e13);
+  --color-info-soft: color-mix(in oklab, #6e9fff 15%, #0b0e13);
+  --shadow-raised: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --shadow-card: none;
+}
+
 :root {
   --rail-w: 248px;
   font-family: Inter, 'Inter var', sans-serif;
@@ -36,9 +63,43 @@
   text-rendering: optimizeLegibility;
 }
 
+/* 主题切换过渡动画 - 短促干脆 */
+:root,
+:root * {
+  transition-property: color, background-color, border-color, box-shadow;
+  transition-duration: 0.15s;
+  transition-timing-function: ease-out;
+}
+
+/* 排除不需要过渡的元素 */
+:root button:active,
+:root input:active,
+:root .no-transition {
+  transition: none !important;
+}
+
 html {
   overflow-y: scroll;
   scrollbar-gutter: stable;
+}
+
+/* 统一滚动条宽度，避免主题切换时布局抖动 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted);
 }
 
 body {
@@ -115,6 +176,76 @@ input {
   color: #f5f5f7;
 }
 
+:root[data-theme='dark'] .artifact-markdown pre,
+:host[data-theme='dark'] .artifact-markdown pre {
+  background: #14171c;
+  color: #d8dee9;
+}
+
+:root[data-theme='dark'] .artifact-markdown code,
+:host[data-theme='dark'] .artifact-markdown code {
+  background: #282b33;
+}
+
+:root[data-theme='dark'] .artifact-markdown h1,
+:root[data-theme='dark'] .artifact-markdown h2,
+:root[data-theme='dark'] .artifact-markdown h3,
+:root[data-theme='dark'] .artifact-markdown h4,
+:host[data-theme='dark'] .artifact-markdown h1,
+:host[data-theme='dark'] .artifact-markdown h2,
+:host[data-theme='dark'] .artifact-markdown h3,
+:host[data-theme='dark'] .artifact-markdown h4 {
+  color: #e8ecf2;
+}
+
+:root[data-theme='dark'] .artifact-markdown a,
+:host[data-theme='dark'] .artifact-markdown a {
+  color: #6e9fff;
+}
+
+:root[data-theme='dark'] .artifact-markdown blockquote,
+:host[data-theme='dark'] .artifact-markdown blockquote {
+  border-left-color: #343740;
+  color: #7b818a;
+}
+
+:root[data-theme='dark'] .artifact-markdown hr,
+:host[data-theme='dark'] .artifact-markdown hr {
+  border-color: #343740;
+}
+
+:root[data-theme='dark'] ::-webkit-scrollbar,
+:host[data-theme='dark'] ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+:root[data-theme='dark'] ::-webkit-scrollbar-track,
+:host[data-theme='dark'] ::-webkit-scrollbar-track {
+  background: #0b0e13;
+}
+
+:root[data-theme='dark'] ::-webkit-scrollbar-thumb,
+:host[data-theme='dark'] ::-webkit-scrollbar-thumb {
+  background: #343740;
+  border-radius: 4px;
+}
+
+:root[data-theme='dark'] ::-webkit-scrollbar-thumb:hover,
+:host[data-theme='dark'] ::-webkit-scrollbar-thumb:hover {
+  background: #4a4d56;
+}
+
+:root[data-theme='dark'] .summary-card-glow,
+:host[data-theme='dark'] .summary-card-glow {
+  box-shadow: 0 0 0 1px rgba(108, 182, 255, 0.1);
+}
+
+:root[data-theme='dark'] .accent-glow,
+:host[data-theme='dark'] .accent-glow {
+  box-shadow: 0 0 12px rgba(108, 182, 255, 0.15);
+}
+
 .artifact-markdown pre code {
   background: transparent;
   padding: 0;
@@ -130,8 +261,8 @@ input {
   opacity: 0;
   pointer-events: none;
   border-radius: 999px;
-  background: #1d1d1f;
-  color: #fff;
+  background: var(--color-fg);
+  color: var(--color-bg);
   padding: 11px 20px;
   font-size: 14px;
   transition:

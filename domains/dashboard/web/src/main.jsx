@@ -4,6 +4,30 @@ import './styles.css';
 
 const AUTO_REFRESH_MS = 30_000;
 
+function useTheme() {
+  const [theme, setTheme] = useState(() => {
+    const stored = localStorage.getItem('comet-theme');
+    const initial =
+      stored === 'dark' || stored === 'light'
+        ? stored
+        : window.matchMedia?.('(prefers-color-scheme: dark)').matches
+          ? 'dark'
+          : 'light';
+    // 同步设置属性，避免首次渲染闪烁
+    document.documentElement.setAttribute('data-theme', initial);
+    return initial;
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('comet-theme', theme);
+  }, [theme]);
+
+  const toggle = useCallback(() => setTheme((t) => (t === 'dark' ? 'light' : 'dark')), []);
+
+  return { theme, toggle };
+}
+
 const PHASES = [
   ['open', '启动'],
   ['design', '设计'],
@@ -50,6 +74,7 @@ function App() {
   const [railOpen, setRailOpen] = useState(false);
   const [artifact, setArtifact] = useState(null);
   const refreshingRef = useRef(false);
+  const { theme, toggle: toggleTheme } = useTheme();
 
   const useDemo = new URLSearchParams(window.location.search).has('demo');
 
@@ -106,6 +131,8 @@ function App() {
           onMenu={() => setRailOpen(true)}
           onRefresh={() => refresh(true)}
           autoRefreshMs={AUTO_REFRESH_MS}
+          theme={theme}
+          onToggleTheme={toggleTheme}
         />
         <div className="px-4 pb-12 pt-5 sm:px-6 lg:px-8">
           {!snapshot ? (
@@ -163,7 +190,17 @@ function Sidebar({ open, onClose }) {
   );
 }
 
-function Topbar({ project, loading, query, onQuery, onMenu, onRefresh, autoRefreshMs }) {
+function Topbar({
+  project,
+  loading,
+  query,
+  onQuery,
+  onMenu,
+  onRefresh,
+  autoRefreshMs,
+  theme,
+  onToggleTheme,
+}) {
   const refreshSeconds = Math.round(autoRefreshMs / 1000);
 
   return (
@@ -199,7 +236,57 @@ function Topbar({ project, loading, query, onQuery, onMenu, onRefresh, autoRefre
       >
         {loading ? '刷新中' : '立即刷新'}
       </button>
+      <button
+        className="grid size-10 place-items-center rounded-xl text-fg-2 transition-colors hover:bg-bg hover:text-fg"
+        onClick={onToggleTheme}
+        aria-label={theme === 'dark' ? '切换到亮色模式' : '切换到暗色模式'}
+        title={theme === 'dark' ? '切换到亮色模式' : '切换到暗色模式'}
+      >
+        {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+      </button>
     </header>
+  );
+}
+
+function SunIcon() {
+  return (
+    <svg
+      className="size-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="5" />
+      <line x1="12" y1="1" x2="12" y2="3" />
+      <line x1="12" y1="21" x2="12" y2="23" />
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+      <line x1="1" y1="12" x2="3" y2="12" />
+      <line x1="21" y1="12" x2="23" y2="12" />
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg
+      className="size-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </svg>
   );
 }
 
@@ -302,7 +389,7 @@ function SummaryCard({ label, value, note, tag, animationKey }) {
   const animatedValue = useAnimatedNumber(value, 850, animationKey);
 
   return (
-    <article className="relative overflow-hidden rounded-lg bg-bg p-5 shadow-raised">
+    <article className="summary-card-glow relative overflow-hidden rounded-lg bg-bg p-5 shadow-raised transition-shadow duration-200 hover:shadow-lg">
       <div className="text-sm font-medium text-muted">{label}</div>
       <div className="mt-1 text-[40px] font-bold leading-none tabular-nums">
         {Math.round(animatedValue)}
@@ -371,7 +458,7 @@ function ChangeCard({ change, active, onClick }) {
     : 0;
   return (
     <button
-      className={`w-full rounded-xl border p-3 text-left transition ${active ? 'border-accent/25 bg-accent-softer' : 'border-transparent hover:bg-surface'}`}
+      className={`w-full rounded-xl border p-3 text-left transition-all duration-200 ${active ? 'border-accent/30 bg-accent-softer shadow-sm' : 'border-transparent hover:bg-surface hover:border-border-soft'}`}
       onClick={onClick}
     >
       <div className="flex items-start gap-2">
@@ -380,9 +467,9 @@ function ChangeCard({ change, active, onClick }) {
           <div className="truncate text-[13px] font-semibold">{change.displayName}</div>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-meta">
             <span>{phaseLabel(change.phase)}</span>
-            <span className="h-1 w-14 overflow-hidden rounded-full bg-border-soft">
+            <span className="h-1.5 w-16 overflow-hidden rounded-full bg-surface">
               <span
-                className="block h-full rounded-full bg-fg-2"
+                className={`block h-full rounded-full ${percent === 100 ? 'bg-success' : 'bg-accent'}`}
                 style={{ width: `${percent}%` }}
               />
             </span>
@@ -458,21 +545,21 @@ function PhaseStepper({ phase, archived, next }) {
             <div key={key} className="relative flex flex-1 flex-col items-center gap-2 text-center">
               {index > 0 && (
                 <span
-                  className={`absolute left-0 right-1/2 top-4 h-px ${index <= currentIndex || archived ? 'bg-fg-2' : 'bg-border'}`}
+                  className={`absolute left-0 right-1/2 top-4 h-px ${index <= currentIndex || archived ? 'bg-accent' : 'bg-border'}`}
                 />
               )}
               {index < PHASES.length - 1 && (
                 <span
-                  className={`absolute left-1/2 right-0 top-4 h-px ${index < currentIndex || archived ? 'bg-fg-2' : 'bg-border'}`}
+                  className={`absolute left-1/2 right-0 top-4 h-px ${index < currentIndex || archived ? 'bg-accent' : 'bg-border'}`}
                 />
               )}
               <span
-                className={`relative z-10 grid size-8 place-items-center rounded-full border text-sm font-bold ${state === 'done' ? 'border-fg-2 bg-fg-2 text-white' : state === 'current' ? 'border-accent bg-bg text-accent' : 'border-border bg-bg text-meta'}`}
+                className={`relative z-10 grid size-8 place-items-center rounded-full border text-sm font-bold ${state === 'done' ? 'border-accent bg-accent text-white' : state === 'current' ? 'border-accent bg-bg text-accent' : 'border-border bg-bg text-fg-2'}`}
               >
                 {state === 'done' ? '✓' : index + 1}
               </span>
               <span
-                className={`text-xs font-semibold ${state === 'current' ? 'text-accent' : 'text-fg-2'}`}
+                className={`text-[13px] font-semibold ${state === 'current' ? 'text-accent' : state === 'done' ? 'text-accent' : 'text-fg-2'}`}
               >
                 {label}
               </span>
@@ -498,8 +585,8 @@ function ArtifactList({ change, onPreview }) {
   return (
     <article className="rounded-xl border border-border-soft bg-bg px-5 py-4">
       <div className="mb-4 flex items-baseline justify-between">
-        <h4 className="text-[13px] font-semibold tracking-tight">关键产物</h4>
-        <span className="font-mono text-[11px] text-meta">
+        <h4 className="text-sm font-semibold tracking-tight">关键产物</h4>
+        <span className="font-mono text-[12px] text-meta">
           {ready}/{total}
         </span>
       </div>
@@ -532,7 +619,7 @@ function ArtifactGroup({ title, artifacts, previewByKey, onPreview }) {
   return (
     <div>
       <div className="mb-1.5 flex items-center gap-2">
-        <span className="text-[11px] font-medium uppercase tracking-wider text-muted">{title}</span>
+        <span className="text-[12px] font-medium uppercase tracking-wider text-muted">{title}</span>
         <span className="h-px flex-1 bg-border-soft" />
       </div>
       <div className="space-y-px">
@@ -575,8 +662,8 @@ function ArtifactRow({ artifact, preview, onPreview }) {
           <span className="h-2 w-2 rounded-full border border-border" />
         )}
       </span>
-      <span className="min-w-0 truncate text-[12px] text-fg">{artifact.key}</span>
-      <span className="whitespace-nowrap pl-4 text-right text-[11px] text-muted">
+      <span className="min-w-0 truncate text-[13px] text-fg">{artifact.key}</span>
+      <span className="whitespace-nowrap pl-4 text-right text-[12px] text-muted">
         {statusLabel}
       </span>
     </button>
@@ -639,7 +726,7 @@ function TaskProgress({ change }) {
   return (
     <article className="rounded-xl border border-border-soft bg-bg px-5 py-4">
       <div className="mb-4 flex items-baseline justify-between">
-        <h4 className="text-[13px] font-semibold tracking-tight">任务进度</h4>
+        <h4 className="text-sm font-semibold tracking-tight">任务进度</h4>
         <span
           className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${isComplete ? 'bg-ok-soft text-success' : 'bg-accent-soft text-accent'}`}
         >
@@ -723,7 +810,7 @@ function TaskProgress({ change }) {
                     {section.completed}/{section.total}
                   </span>
                 </div>
-                <div className="h-1 overflow-hidden rounded-full bg-surface">
+                <div className="h-1.5 overflow-hidden rounded-full bg-surface">
                   <div
                     className={`h-full rounded-full transition-all duration-500 ${done ? 'bg-success' : 'bg-accent'}`}
                     style={{ width: `${sp}%` }}
@@ -769,7 +856,7 @@ function SidePanel({ change, git, onPreview }) {
 function NextAction({ change }) {
   return (
     <Card title="下一步建议" tag={phaseLabel(change.phase)}>
-      <div className="rounded-xl bg-[#1d1d1f] px-4 py-3 font-mono text-[13px] text-white">
+      <div className="rounded-xl bg-fg px-4 py-3 font-mono text-[13px] text-bg">
         <span className="text-success">$ </span>
         {change.next?.command ?? '—'}
       </div>
@@ -782,7 +869,7 @@ function NextAction({ change }) {
 function ArchiveSummary({ change }) {
   return (
     <Card title="归档摘要" tag="已归档">
-      <div className="break-words rounded-xl bg-[#1d1d1f] px-4 py-3 font-mono text-[13px] text-success">
+      <div className="break-words rounded-xl bg-accent-soft px-4 py-3 font-mono text-[13px] text-accent">
         {change.archive?.archiveName ?? change.name}
       </div>
       <p className="break-words text-sm text-fg-2">
