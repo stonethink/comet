@@ -43,9 +43,25 @@ node .\bin\comet.js dashboard . --json
 - `--no-open`：只启动服务，不自动打开浏览器。
 - `--json`：只输出一次 Dashboard snapshot，适合脚本检查，不启动浏览器服务。
 
+## 产物分组
+
+Dashboard 将关键产物按来源分为三组展示：
+
+| 分组            | 产物                                                           | 说明                                                       |
+| --------------- | -------------------------------------------------------------- | ---------------------------------------------------------- |
+| **OpenSpec**    | proposal, design, tasks, deltaSpec                             | 变更目录内的规格文件                                       |
+| **Superpowers** | designDoc, plan, verifyReport                                  | 通过 `.comet.yaml` 路径指针引用的 `docs/superpowers/` 文件 |
+| **Comet**       | .comet.yaml, handoff, checkpoint, brainstorm, subagentProgress | `.comet/` 中间产物                                         |
+
+部分产物根据变更状态显示不同标记：
+
+- **已生成**：文件存在，可预览
+- **未生成**：预期产物但尚未创建
+- **无需生成**：当前模式/阶段不适用（如 subagent-progress 在 `executing-plans` 模式下）
+
 ## 开发提示
 
-Dashboard 后端仍然是 `domains/dashboard/*.ts`，前端通过 Vite 构建：
+Dashboard 后端是 `domains/dashboard/*.ts`，前端是 `web/` 下的 React 应用，通过 Vite 构建：
 
 ```powershell
 pnpm build:dashboard

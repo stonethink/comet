@@ -29,6 +29,7 @@
   "scripts": {
     "build": "node build.js",
     "build:dashboard": "vite build --config domains/dashboard/web/vite.config.mjs",
+    "dev:dashboard": "node scripts/dev-dashboard.mjs",
     "build:classic-runtime": "node scripts/build/build-classic-runtime.mjs",
     "dev": "tsc --watch",
     "test": "vitest run",

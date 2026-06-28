@@ -14,4 +14,9 @@ export default defineConfig({
     outDir: path.resolve(here, '../../../dist/domains/dashboard/web'),
     emptyOutDir: true,
   },
+  server: {
+    proxy: {
+      '/api': 'http://localhost:4399',
+    },
+  },
 });

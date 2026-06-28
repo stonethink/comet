@@ -3,6 +3,63 @@
 // dashboard populated without a real openspec/changes layout. Field names are
 // stable; see types.ts before renaming anything.
 
+function addCometArtifacts(change) {
+  const dir = change.path;
+  const phase = change.phase;
+  const hasDesignDoc = phase !== 'open' && phase !== 'unknown';
+  const superpowers = [];
+  if (hasDesignDoc && !change.artifacts?.grouped?.some((a) => a.key === 'designDoc')) {
+    superpowers.push({
+      key: 'designDoc',
+      label: '技术设计',
+      source: 'superpowers',
+      exists: true,
+      path: `docs/superpowers/specs/${change.name}-design.md`,
+    });
+  }
+  const comet = [
+    {
+      key: 'cometYaml',
+      label: '.comet.yaml',
+      source: 'comet',
+      exists: change.artifacts?.cometYaml ?? true,
+      path: `${dir}/.comet.yaml`,
+    },
+    {
+      key: 'handoff',
+      label: 'Handoff 上下文',
+      source: 'comet',
+      exists: false,
+      path: `${dir}/.comet/handoff/design-context.json`,
+    },
+    {
+      key: 'checkpoint',
+      label: 'Checkpoint',
+      source: 'comet',
+      exists: false,
+      path: `${dir}/.comet/checkpoint.json`,
+    },
+    {
+      key: 'brainstorm',
+      label: 'Brainstorm 摘要',
+      source: 'comet',
+      exists: false,
+      path: `${dir}/.comet/handoff/brainstorm-summary.md`,
+    },
+    {
+      key: 'subagentProgress',
+      label: 'Subagent 进度',
+      source: 'comet',
+      exists: false,
+      path: `${dir}/.comet/subagent-progress.md`,
+    },
+  ];
+  if (change.artifacts?.grouped) {
+    change.artifacts.grouped.push(...superpowers, ...comet);
+  }
+  return change;
+}
+
 /** @type {import('./types.js').DashboardSnapshot} */
 export const DEMO_SNAPSHOT = {
   project: {
@@ -87,6 +144,43 @@ export const DEMO_SNAPSHOT = {
           plan: true,
           verifyReport: false,
           cometYaml: true,
+          grouped: [
+            {
+              key: 'proposal',
+              label: '提案',
+              source: 'openspec',
+              exists: true,
+              path: 'openspec/changes/add-auth-rate-limiting/proposal.md',
+            },
+            {
+              key: 'design',
+              label: '设计文档',
+              source: 'openspec',
+              exists: true,
+              path: 'openspec/changes/add-auth-rate-limiting/design.md',
+            },
+            {
+              key: 'tasks',
+              label: '任务清单',
+              source: 'openspec',
+              exists: true,
+              path: 'openspec/changes/add-auth-rate-limiting/tasks.md',
+            },
+            {
+              key: 'designDoc',
+              label: '技术设计',
+              source: 'superpowers',
+              exists: true,
+              path: 'docs/superpowers/specs/2026-06-20-rate-limiting-design.md',
+            },
+            {
+              key: 'plan',
+              label: '实施计划',
+              source: 'superpowers',
+              exists: true,
+              path: 'docs/superpowers/plans/2026-06-20-rate-limiting.md',
+            },
+          ],
         },
         verify: { result: 'pending', reportExists: false },
         next: {
@@ -129,6 +223,29 @@ export const DEMO_SNAPSHOT = {
           plan: false,
           verifyReport: false,
           cometYaml: true,
+          grouped: [
+            {
+              key: 'proposal',
+              label: '提案',
+              source: 'openspec',
+              exists: true,
+              path: 'openspec/changes/dashboard-redesign/proposal.md',
+            },
+            {
+              key: 'design',
+              label: '设计文档',
+              source: 'openspec',
+              exists: true,
+              path: 'openspec/changes/dashboard-redesign/design.md',
+            },
+            {
+              key: 'tasks',
+              label: '任务清单',
+              source: 'openspec',
+              exists: true,
+              path: 'openspec/changes/dashboard-redesign/tasks.md',
+            },
+          ],
         },
         verify: { result: 'pending', reportExists: false },
         next: {
@@ -171,6 +288,50 @@ export const DEMO_SNAPSHOT = {
           plan: true,
           verifyReport: true,
           cometYaml: true,
+          grouped: [
+            {
+              key: 'proposal',
+              label: '提案',
+              source: 'openspec',
+              exists: true,
+              path: 'openspec/changes/fix-webhook-retries/proposal.md',
+            },
+            {
+              key: 'design',
+              label: '设计文档',
+              source: 'openspec',
+              exists: true,
+              path: 'openspec/changes/fix-webhook-retries/design.md',
+            },
+            {
+              key: 'tasks',
+              label: '任务清单',
+              source: 'openspec',
+              exists: true,
+              path: 'openspec/changes/fix-webhook-retries/tasks.md',
+            },
+            {
+              key: 'designDoc',
+              label: '技术设计',
+              source: 'superpowers',
+              exists: true,
+              path: 'docs/superpowers/specs/2026-06-22-webhook-retry-design.md',
+            },
+            {
+              key: 'plan',
+              label: '实施计划',
+              source: 'superpowers',
+              exists: true,
+              path: 'docs/superpowers/plans/2026-06-22-webhook-retry.md',
+            },
+            {
+              key: 'verifyReport',
+              label: '验证报告',
+              source: 'superpowers',
+              exists: true,
+              path: 'docs/superpowers/reports/2026-06-23-webhook-verify.md',
+            },
+          ],
         },
         verify: {
           result: 'fail',
@@ -217,6 +378,36 @@ export const DEMO_SNAPSHOT = {
           plan: true,
           verifyReport: false,
           cometYaml: true,
+          grouped: [
+            {
+              key: 'proposal',
+              label: '提案',
+              source: 'openspec',
+              exists: true,
+              path: 'openspec/changes/migrate-config-to-yaml/proposal.md',
+            },
+            {
+              key: 'design',
+              label: '设计文档',
+              source: 'openspec',
+              exists: true,
+              path: 'openspec/changes/migrate-config-to-yaml/design.md',
+            },
+            {
+              key: 'tasks',
+              label: '任务清单',
+              source: 'openspec',
+              exists: true,
+              path: 'openspec/changes/migrate-config-to-yaml/tasks.md',
+            },
+            {
+              key: 'plan',
+              label: '实施计划',
+              source: 'superpowers',
+              exists: true,
+              path: 'docs/superpowers/plans/2026-06-26-config-yaml.md',
+            },
+          ],
         },
         verify: { result: 'pending', reportExists: false },
         next: {
@@ -266,6 +457,43 @@ export const DEMO_SNAPSHOT = {
           plan: true,
           verifyReport: true,
           cometYaml: true,
+          grouped: [
+            {
+              key: 'proposal',
+              label: '提案',
+              source: 'openspec',
+              exists: true,
+              path: 'openspec/changes/archive/2025-11-02-add-dark-mode/proposal.md',
+            },
+            {
+              key: 'design',
+              label: '设计文档',
+              source: 'openspec',
+              exists: true,
+              path: 'openspec/changes/archive/2025-11-02-add-dark-mode/design.md',
+            },
+            {
+              key: 'tasks',
+              label: '任务清单',
+              source: 'openspec',
+              exists: true,
+              path: 'openspec/changes/archive/2025-11-02-add-dark-mode/tasks.md',
+            },
+            {
+              key: 'plan',
+              label: '实施计划',
+              source: 'superpowers',
+              exists: true,
+              path: 'docs/superpowers/plans/2025-11-01-dark-mode.md',
+            },
+            {
+              key: 'verifyReport',
+              label: '验证报告',
+              source: 'superpowers',
+              exists: true,
+              path: 'docs/superpowers/reports/2025-11-02-dark-mode-verify.md',
+            },
+          ],
         },
         verify: { result: 'pass', reportExists: true, summary: '全部断言通过' },
       },
@@ -297,6 +525,43 @@ export const DEMO_SNAPSHOT = {
           plan: true,
           verifyReport: true,
           cometYaml: true,
+          grouped: [
+            {
+              key: 'proposal',
+              label: '提案',
+              source: 'openspec',
+              exists: true,
+              path: 'openspec/changes/archive/2025-10-18-refactor-collector/proposal.md',
+            },
+            {
+              key: 'design',
+              label: '设计文档',
+              source: 'openspec',
+              exists: true,
+              path: 'openspec/changes/archive/2025-10-18-refactor-collector/design.md',
+            },
+            {
+              key: 'tasks',
+              label: '任务清单',
+              source: 'openspec',
+              exists: true,
+              path: 'openspec/changes/archive/2025-10-18-refactor-collector/tasks.md',
+            },
+            {
+              key: 'plan',
+              label: '实施计划',
+              source: 'superpowers',
+              exists: true,
+              path: 'docs/superpowers/plans/2025-10-17-refactor-collector.md',
+            },
+            {
+              key: 'verifyReport',
+              label: '验证报告',
+              source: 'superpowers',
+              exists: true,
+              path: 'docs/superpowers/reports/2025-10-18-collector-verify.md',
+            },
+          ],
         },
         verify: { result: 'pass', reportExists: true, summary: '全部断言通过' },
       },
@@ -328,12 +593,53 @@ export const DEMO_SNAPSHOT = {
           plan: true,
           verifyReport: true,
           cometYaml: true,
+          grouped: [
+            {
+              key: 'proposal',
+              label: '提案',
+              source: 'openspec',
+              exists: true,
+              path: 'openspec/changes/archive/2025-09-30-init-openspec/proposal.md',
+            },
+            {
+              key: 'design',
+              label: '设计文档',
+              source: 'openspec',
+              exists: true,
+              path: 'openspec/changes/archive/2025-09-30-init-openspec/design.md',
+            },
+            {
+              key: 'tasks',
+              label: '任务清单',
+              source: 'openspec',
+              exists: true,
+              path: 'openspec/changes/archive/2025-09-30-init-openspec/tasks.md',
+            },
+            {
+              key: 'plan',
+              label: '实施计划',
+              source: 'superpowers',
+              exists: true,
+              path: 'docs/superpowers/plans/2025-09-29-init-openspec.md',
+            },
+            {
+              key: 'verifyReport',
+              label: '验证报告',
+              source: 'superpowers',
+              exists: true,
+              path: 'docs/superpowers/reports/2025-09-30-openspec-verify.md',
+            },
+          ],
         },
         verify: { result: 'pass', reportExists: true, summary: '全部断言通过' },
       },
     ],
   },
 };
+
+// Enrich all changes with comet intermediate artifacts
+DEMO_SNAPSHOT.changes.active.forEach(addCometArtifacts);
+DEMO_SNAPSHOT.changes.archived.forEach(addCometArtifacts);
 
 // Demo-only data for sidebar visualizations that do not have a dashboard
 // collector yet. Shapes are intentionally close to BundleAuthoringState and

@@ -11,6 +11,7 @@ const SUMMARY_CHAR_BUDGET = 480;
 export interface VerifyContext {
   changeDir: string;
   yaml: Record<string, string>;
+  projectRoot?: string;
 }
 
 /**
@@ -29,7 +30,7 @@ export async function resolveVerify(ctx: VerifyContext): Promise<VerifySummary> 
   const defaultReportPath = path.join(ctx.changeDir, DEFAULT_REPORT_RELATIVE);
   const explicitReport = stripNullish(ctx.yaml.verification_report ?? ctx.yaml.verificationReport);
   const reportPath = explicitReport
-    ? (safeJoin(ctx.changeDir, explicitReport) ?? defaultReportPath)
+    ? (safeJoin(ctx.projectRoot ?? ctx.changeDir, explicitReport) ?? defaultReportPath)
     : defaultReportPath;
 
   const reportExists = await fileExists(reportPath);

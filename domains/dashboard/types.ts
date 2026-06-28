@@ -38,6 +38,17 @@ export interface TasksSummary {
   sections: TaskSectionSummary[];
 }
 
+export type ArtifactSource = 'openspec' | 'superpowers' | 'comet';
+
+export interface GroupedArtifact {
+  key: string;
+  label: string;
+  source: ArtifactSource;
+  exists: boolean;
+  path: string;
+  notApplicable?: boolean;
+}
+
 export interface ArtifactsSummary {
   proposal: boolean;
   design: boolean;
@@ -45,10 +56,11 @@ export interface ArtifactsSummary {
   plan: boolean;
   verifyReport: boolean;
   cometYaml: boolean;
+  grouped: GroupedArtifact[];
 }
 
 export interface ArtifactPreview {
-  key: keyof ArtifactsSummary;
+  key: string;
   label: string;
   path: string;
   exists: boolean;

@@ -15,6 +15,7 @@ import type {
   ChangePhase,
   DashboardRisk,
   DashboardSnapshot,
+  GroupedArtifact,
   TasksSummary,
 } from './types.js';
 
@@ -151,35 +152,122 @@ async function buildChangeItem(input: BuildChangeInput): Promise<ChangeDashboard
   const tasksPath = path.join(input.dir, 'tasks.md');
   const designPath = path.join(input.dir, 'design.md');
   const proposalPath = path.join(input.dir, 'proposal.md');
-  const planPath = path.join(input.dir, 'plan.md');
+  const localPlanPath = path.join(input.dir, 'plan.md');
 
   const yaml: CometYaml = (await readCometYaml(yamlPath)) ?? {};
 
-  const tasks = await readTasks(tasksPath);
-  const verify = await resolveVerify({ changeDir: input.dir, yaml });
+  // Resolve project root: openspec/changes/<name> → project root (3 levels up)
+  const projectRoot = path.resolve(input.dir, '..', '..', '..');
 
-  const [proposal, design, hasTasks, plan] = await Promise.all([
+  // Read yaml path-pointers for Superpowers artifacts
+  const yamlPlanPath = stripNullish(yaml.plan);
+  const yamlVerifyPath = stripNullish(yaml.verification_report ?? yaml.verificationReport);
+  const yamlDesignDocPath = stripNullish(yaml.design_doc ?? yaml.designDoc);
+
+  // Resolve Superpowers artifact paths (yaml paths are relative to project root)
+  const resolvedPlanPath = yamlPlanPath ? path.resolve(projectRoot, yamlPlanPath) : localPlanPath;
+  const resolvedVerifyPath = yamlVerifyPath
+    ? path.resolve(projectRoot, yamlVerifyPath)
+    : path.join(input.dir, '.comet', 'verify-result.md');
+  const resolvedDesignDocPath = yamlDesignDocPath
+    ? path.resolve(projectRoot, yamlDesignDocPath)
+    : '';
+
+  const tasks = await readTasks(tasksPath);
+  const verify = await resolveVerify({ changeDir: input.dir, yaml, projectRoot });
+
+  // Detect delta specs in change directory
+  const deltaSpecPath = await findDeltaSpec(input.dir);
+
+  // Comet intermediate artifacts
+  const handoffPath = path.join(input.dir, '.comet', 'handoff', 'design-context.json');
+  const checkpointPath = path.join(input.dir, '.comet', 'checkpoint.json');
+  const brainstormPath = path.join(input.dir, '.comet', 'handoff', 'brainstorm-summary.md');
+  const subagentProgressPath = path.join(input.dir, '.comet', 'subagent-progress.md');
+
+  const [
+    proposal,
+    design,
+    hasTasks,
+    localPlan,
+    plan,
+    designDocExists,
+    cometYamlExists,
+    handoffExists,
+    checkpointExists,
+    brainstormExists,
+    subagentProgressExists,
+  ] = await Promise.all([
     fileExists(proposalPath),
     fileExists(designPath),
     fileExists(tasksPath),
-    fileExists(planPath),
+    fileExists(localPlanPath),
+    fileExists(resolvedPlanPath),
+    resolvedDesignDocPath ? fileExists(resolvedDesignDocPath) : Promise.resolve(false),
+    fileExists(yamlPath),
+    fileExists(handoffPath),
+    fileExists(checkpointPath),
+    fileExists(brainstormPath),
+    fileExists(subagentProgressPath),
   ]);
 
   const artifacts: ArtifactsSummary = {
     proposal,
     design,
     tasks: hasTasks,
-    plan,
+    plan: plan || localPlan,
     verifyReport: verify.reportExists,
-    cometYaml: await fileExists(yamlPath),
+    cometYaml: cometYamlExists,
+    grouped: buildGroupedArtifacts({
+      phase: yaml.phase,
+      buildMode: yaml.build_mode ?? yaml.buildMode,
+      proposal,
+      proposalPath,
+      design,
+      designPath,
+      hasTasks,
+      tasksPath,
+      deltaSpecPath,
+      designDocExists,
+      resolvedDesignDocPath,
+      plan: plan || localPlan,
+      resolvedPlanPath: plan ? resolvedPlanPath : localPlanPath,
+      verifyReportExists: verify.reportExists,
+      resolvedVerifyPath,
+      cometYamlExists,
+      cometYamlPath: yamlPath,
+      handoffExists,
+      handoffPath,
+      checkpointExists,
+      checkpointPath,
+      brainstormExists,
+      brainstormPath,
+      subagentProgressExists,
+      subagentProgressPath,
+    }),
   };
+
   const artifactPreviews = await readArtifactPreviews([
-    ['proposal', 'proposal.md', proposalPath],
-    ['design', 'design.md', designPath],
-    ['tasks', 'tasks.md', tasksPath],
-    ['plan', 'plan.md', planPath],
-    ['verifyReport', 'verify-result.md', path.join(input.dir, '.comet', 'verify-result.md')],
-    ['cometYaml', '.comet.yaml', yamlPath],
+    ['proposal', '提案', proposalPath],
+    ['design', '设计文档', designPath],
+    ['tasks', '任务清单', tasksPath],
+    ['plan', '实施计划', plan ? resolvedPlanPath : localPlanPath],
+    [
+      'verifyReport',
+      '验证报告',
+      verify.reportExists ? resolvedVerifyPath : path.join(input.dir, '.comet', 'verify-result.md'),
+    ],
+    ['cometYaml', '变更配置', yamlPath],
+    ['handoff', 'Handoff 上下文', handoffPath],
+    ['checkpoint', 'Checkpoint', checkpointPath],
+    ['brainstorm', 'Brainstorm 摘要', brainstormPath],
+    ['subagentProgress', 'Subagent 进度', subagentProgressPath],
+    ...(designDocExists && resolvedDesignDocPath
+      ? ([['designDoc', '技术设计', resolvedDesignDocPath]] as Array<[string, string, string]>)
+      : []),
+    ...(deltaSpecPath
+      ? ([['deltaSpec', 'Delta Spec', deltaSpecPath]] as Array<[string, string, string]>)
+      : []),
   ]);
 
   const phase = parsePhase(yaml.phase);
@@ -227,7 +315,7 @@ async function buildChangeItem(input: BuildChangeInput): Promise<ChangeDashboard
 }
 
 async function readArtifactPreviews(
-  files: Array<[keyof ArtifactsSummary, string, string]>,
+  files: Array<[string, string, string]>,
 ): Promise<ArtifactPreview[]> {
   return Promise.all(
     files.map(async ([key, label, filePath]) => {
@@ -304,6 +392,157 @@ async function readMtime(target: string): Promise<string | undefined> {
   } catch {
     return undefined;
   }
+}
+
+function stripNullish(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  const value = raw.trim();
+  if (!value || value === 'null') return undefined;
+  return value;
+}
+
+async function findDeltaSpec(changeDir: string): Promise<string | undefined> {
+  const specsDir = path.join(changeDir, 'specs');
+  try {
+    const entries = await fs.readdir(specsDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const specFile = path.join(specsDir, entry.name, 'spec.md');
+      if (await fileExists(specFile)) return specFile;
+    }
+  } catch {
+    // specs/ directory doesn't exist
+  }
+  return undefined;
+}
+
+interface GroupedInput {
+  phase: string | undefined;
+  buildMode: string | undefined;
+  proposal: boolean;
+  proposalPath: string;
+  design: boolean;
+  designPath: string;
+  hasTasks: boolean;
+  tasksPath: string;
+  deltaSpecPath: string | undefined;
+  designDocExists: boolean;
+  resolvedDesignDocPath: string;
+  plan: boolean;
+  resolvedPlanPath: string;
+  verifyReportExists: boolean;
+  resolvedVerifyPath: string;
+  cometYamlExists: boolean;
+  cometYamlPath: string;
+  handoffExists: boolean;
+  handoffPath: string;
+  checkpointExists: boolean;
+  checkpointPath: string;
+  brainstormExists: boolean;
+  brainstormPath: string;
+  subagentProgressExists: boolean;
+  subagentProgressPath: string;
+}
+
+function buildGroupedArtifacts(input: GroupedInput): GroupedArtifact[] {
+  const defaultDesignDocPath = input.resolvedDesignDocPath || '';
+  const phase = input.phase ?? '';
+  const subagentNotApplicable =
+    input.buildMode === 'executing-plans' || input.buildMode === 'direct';
+  const brainstormNotApplicable = phase === 'open';
+  const handoffNotApplicable = phase === 'open' || phase === 'design';
+  const checkpointNotApplicable = phase === 'open' || phase === 'design';
+
+  return [
+    {
+      key: 'proposal',
+      label: '提案',
+      source: 'openspec',
+      exists: input.proposal,
+      path: input.proposalPath,
+    },
+    {
+      key: 'design',
+      label: '设计文档',
+      source: 'openspec',
+      exists: input.design,
+      path: input.designPath,
+    },
+    {
+      key: 'tasks',
+      label: '任务清单',
+      source: 'openspec',
+      exists: input.hasTasks,
+      path: input.tasksPath,
+    },
+    {
+      key: 'deltaSpec',
+      label: 'Delta Spec',
+      source: 'openspec',
+      exists: !!input.deltaSpecPath,
+      path: input.deltaSpecPath || '',
+    },
+    {
+      key: 'designDoc',
+      label: '技术设计',
+      source: 'superpowers',
+      exists: input.designDocExists,
+      path: defaultDesignDocPath || '',
+    },
+    {
+      key: 'plan',
+      label: '实施计划',
+      source: 'superpowers',
+      exists: input.plan,
+      path: input.resolvedPlanPath,
+    },
+    {
+      key: 'verifyReport',
+      label: '验证报告',
+      source: 'superpowers',
+      exists: input.verifyReportExists,
+      path: input.resolvedVerifyPath,
+    },
+    {
+      key: 'cometYaml',
+      label: '.comet.yaml',
+      source: 'comet',
+      exists: input.cometYamlExists,
+      path: input.cometYamlPath,
+    },
+    {
+      key: 'handoff',
+      label: 'Handoff 上下文',
+      source: 'comet',
+      exists: input.handoffExists,
+      path: input.handoffPath,
+      notApplicable: handoffNotApplicable,
+    },
+    {
+      key: 'checkpoint',
+      label: 'Checkpoint',
+      source: 'comet',
+      exists: input.checkpointExists,
+      path: input.checkpointPath,
+      notApplicable: checkpointNotApplicable,
+    },
+    {
+      key: 'brainstorm',
+      label: 'Brainstorm 摘要',
+      source: 'comet',
+      exists: input.brainstormExists,
+      path: input.brainstormPath,
+      notApplicable: brainstormNotApplicable,
+    },
+    {
+      key: 'subagentProgress',
+      label: 'Subagent 进度',
+      source: 'comet',
+      exists: input.subagentProgressExists,
+      path: input.subagentProgressPath,
+      notApplicable: subagentNotApplicable,
+    },
+  ];
 }
 
 function riskScore(item: ChangeDashboardItem): number {

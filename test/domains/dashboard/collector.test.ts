@@ -84,7 +84,7 @@ describe('collectDashboardSnapshot', () => {
     expect(snap.changes.active[0].phase).toBe('build');
     expect(snap.changes.active[0].tasks).toMatchObject({ completed: 1, total: 2 });
     expect(snap.changes.active[0].next).toMatchObject({ command: '/comet-build' });
-    expect(snap.changes.active[0].artifacts).toEqual({
+    expect(snap.changes.active[0].artifacts).toMatchObject({
       proposal: true,
       design: true,
       tasks: true,
@@ -92,17 +92,25 @@ describe('collectDashboardSnapshot', () => {
       verifyReport: false,
       cometYaml: true,
     });
+    expect(snap.changes.active[0].artifacts.grouped).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'proposal', source: 'openspec', exists: true }),
+        expect.objectContaining({ key: 'design', source: 'openspec', exists: true }),
+        expect.objectContaining({ key: 'tasks', source: 'openspec', exists: true }),
+        expect.objectContaining({ key: 'plan', source: 'superpowers', exists: true }),
+      ]),
+    );
     expect(snap.changes.active[0].artifactPreviews).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           key: 'proposal',
-          label: 'proposal.md',
+          label: '提案',
           exists: true,
           content: '# Proposal\n',
         }),
         expect.objectContaining({
           key: 'verifyReport',
-          label: 'verify-result.md',
+          label: '验证报告',
           exists: false,
         }),
       ]),
@@ -266,5 +274,86 @@ describe('collectDashboardSnapshot', () => {
     } finally {
       warn.mockRestore();
     }
+  });
+
+  it('resolves plan from yaml path-pointer in docs/superpowers/', async () => {
+    // Create plan in docs/superpowers/ (not in change dir)
+    const planDir = path.join(root, 'docs', 'superpowers', 'plans');
+    await fs.mkdir(planDir, { recursive: true });
+    await fs.writeFile(path.join(planDir, '2026-06-28-my-feature.md'), '# Plan\n');
+
+    await writeChange(root, {
+      name: 'my-feature',
+      yaml: { phase: 'build', plan: 'docs/superpowers/plans/2026-06-28-my-feature.md' },
+      tasks: '- [ ] one\n',
+      proposal: true,
+      design: true,
+    });
+
+    const snap = await collectDashboardSnapshot(root);
+    const item = snap.changes.active[0];
+
+    expect(item.artifacts.plan).toBe(true);
+    expect(item.artifacts.grouped).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'plan',
+          source: 'superpowers',
+          exists: true,
+          path: expect.stringContaining('2026-06-28-my-feature.md'),
+        }),
+      ]),
+    );
+  });
+
+  it('resolves verify report from yaml path-pointer in docs/superpowers/', async () => {
+    // Create verify report in docs/superpowers/
+    const reportDir = path.join(root, 'docs', 'superpowers', 'reports');
+    await fs.mkdir(reportDir, { recursive: true });
+    await fs.writeFile(path.join(reportDir, '2026-06-28-verify.md'), '# Verify\nAll passed.');
+
+    await writeChange(root, {
+      name: 'my-feature',
+      yaml: {
+        phase: 'verify',
+        verify_result: 'pass',
+        verification_report: 'docs/superpowers/reports/2026-06-28-verify.md',
+      },
+      tasks: '- [x] done\n',
+      proposal: true,
+      design: true,
+    });
+
+    const snap = await collectDashboardSnapshot(root);
+    const item = snap.changes.active[0];
+
+    expect(item.verify.reportExists).toBe(true);
+    expect(item.verify.result).toBe('pass');
+    expect(item.artifacts.verifyReport).toBe(true);
+  });
+
+  it('groups artifacts by source (openspec vs superpowers)', async () => {
+    const planDir = path.join(root, 'docs', 'superpowers', 'plans');
+    await fs.mkdir(planDir, { recursive: true });
+    await fs.writeFile(path.join(planDir, '2026-06-28-f.md'), '# Plan\n');
+
+    await writeChange(root, {
+      name: 'feat-x',
+      yaml: { phase: 'build', plan: 'docs/superpowers/plans/2026-06-28-f.md' },
+      tasks: '- [ ] one\n',
+      proposal: true,
+      design: true,
+    });
+
+    const snap = await collectDashboardSnapshot(root);
+    const grouped = snap.changes.active[0].artifacts.grouped;
+
+    const openspecKeys = grouped.filter((a) => a.source === 'openspec').map((a) => a.key);
+    const superpowersKeys = grouped.filter((a) => a.source === 'superpowers').map((a) => a.key);
+
+    expect(openspecKeys).toContain('proposal');
+    expect(openspecKeys).toContain('design');
+    expect(openspecKeys).toContain('tasks');
+    expect(superpowersKeys).toContain('plan');
   });
 });

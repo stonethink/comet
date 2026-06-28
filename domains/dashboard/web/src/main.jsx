@@ -21,6 +21,12 @@ const ARTIFACTS = [
   ['cometYaml', '.comet.yaml', '变更配置'],
 ];
 
+const SOURCE_LABELS = {
+  openspec: 'OpenSpec 产物',
+  superpowers: 'Superpowers 产物',
+  comet: 'Comet 中间产物',
+};
+
 const VERIFY_LABEL = {
   pass: '通过',
   fail: '验证失败',
@@ -151,7 +157,7 @@ function Sidebar({ open, onClose }) {
       <div className="mt-auto px-2 text-[11px] leading-relaxed text-meta">
         只读监控视图
         <br />
-        基于 openspec/changes 目录
+        基于 comet 流程产物
       </div>
     </aside>
   );
@@ -361,7 +367,7 @@ function ChangeCard({ change, active, onClick }) {
       <div className="flex items-start gap-2">
         <span className="mt-1 text-xs text-meta">◇</span>
         <div className="min-w-0 flex-1">
-          <div className="truncate font-mono text-[13px] font-semibold">{change.displayName}</div>
+          <div className="truncate text-[13px] font-semibold">{change.displayName}</div>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-meta">
             <span>{phaseLabel(change.phase)}</span>
             <span className="h-1 w-14 overflow-hidden rounded-full bg-border-soft">
@@ -388,7 +394,7 @@ function ChangeDetail({ change, onPreview }) {
     <section className="min-w-0 rounded-lg bg-bg shadow-raised">
       <div className="flex items-start gap-4 border-b border-border-soft px-5 py-4">
         <div className="min-w-0 flex-1">
-          <h3 className="truncate font-mono text-base font-semibold">{change.displayName}</h3>
+          <h3 className="truncate text-base font-semibold">{change.displayName}</h3>
           <div className="mt-1 flex flex-wrap gap-3 text-xs text-meta">
             <span>{change.workflow ?? '—'}</span>
             <span>更新于 {formatTimestamp(change.updatedAt)}</span>
@@ -405,11 +411,12 @@ function ChangeDetail({ change, onPreview }) {
           archived={change.status === 'archived'}
           next={change.next}
         />
-        <div className="grid items-start gap-5 2xl:grid-cols-[minmax(280px,420px)_minmax(260px,340px)] 2xl:justify-between">
+        <div className="grid gap-4 md:grid-cols-[1fr_340px]">
           <ArtifactList change={change} onPreview={onPreview} />
-          <TaskProgress change={change} />
+          <div className="flex flex-col gap-4">
+            <TaskProgress change={change} />
+          </div>
         </div>
-        <TaskSections tasks={change.tasks} />
       </div>
     </section>
   );
@@ -471,41 +478,98 @@ function ArtifactList({ change, onPreview }) {
   const previewByKey = new Map(
     (change.artifactPreviews ?? []).map((preview) => [preview.key, preview]),
   );
-  const ready = ARTIFACTS.filter(([key]) => change.artifacts[key]).length;
+  const grouped = change.artifacts?.grouped ?? [];
+  const total = grouped.length;
+  const ready = grouped.filter((a) => a.exists).length;
+  const openspecArtifacts = grouped.filter((a) => a.source === 'openspec');
+  const superpowersArtifacts = grouped.filter((a) => a.source === 'superpowers');
+  const cometArtifacts = grouped.filter((a) => a.source === 'comet');
+
   return (
-    <article>
-      <div className="mb-3 flex items-center gap-2">
-        <h4 className="text-sm font-semibold">关键产物完整性</h4>
-        <span className="ml-auto rounded-full bg-surface px-3 py-1 font-mono text-xs text-fg-2">
-          {ready}/{ARTIFACTS.length}
+    <article className="rounded-xl border border-border-soft bg-bg px-5 py-4">
+      <div className="mb-4 flex items-baseline justify-between">
+        <h4 className="text-[13px] font-semibold tracking-tight">关键产物</h4>
+        <span className="font-mono text-[11px] text-meta">
+          {ready}/{total}
         </span>
       </div>
-      <div className="space-y-1">
-        {ARTIFACTS.map(([key, name, desc]) => {
-          const exists = Boolean(change.artifacts[key]);
-          const preview = previewByKey.get(key);
+      <div className="space-y-3">
+        <ArtifactGroup
+          title="OpenSpec"
+          artifacts={openspecArtifacts}
+          previewByKey={previewByKey}
+          onPreview={onPreview}
+        />
+        <ArtifactGroup
+          title="Superpowers"
+          artifacts={superpowersArtifacts}
+          previewByKey={previewByKey}
+          onPreview={onPreview}
+        />
+        <ArtifactGroup
+          title="Comet"
+          artifacts={cometArtifacts}
+          previewByKey={previewByKey}
+          onPreview={onPreview}
+        />
+      </div>
+    </article>
+  );
+}
+
+function ArtifactGroup({ title, artifacts, previewByKey, onPreview }) {
+  if (artifacts.length === 0) return null;
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center gap-2">
+        <span className="text-[11px] font-medium uppercase tracking-wider text-muted">{title}</span>
+        <span className="h-px flex-1 bg-border-soft" />
+      </div>
+      <div className="space-y-px">
+        {artifacts.map((artifact) => {
+          const preview = previewByKey.get(artifact.key);
           return (
-            <div key={key} className="flex items-center gap-3 rounded-lg px-2 py-2">
-              <span
-                className={`grid size-5 place-items-center rounded-full text-xs ${exists ? 'bg-ok-soft text-success' : 'border border-border bg-surface text-meta'}`}
-              >
-                {exists ? '✓' : ''}
-              </span>
-              <span className="font-mono text-[13px]">{name}</span>
-              <span className="text-xs text-meta">{exists ? desc : '未生成'}</span>
-              {exists && (
-                <button
-                  className="ml-auto rounded-full border border-border-soft bg-surface px-2.5 py-1 text-xs font-semibold text-fg-2 hover:bg-accent-soft hover:text-accent-active"
-                  onClick={() => onPreview({ key, name, preview })}
-                >
-                  预览
-                </button>
-              )}
-            </div>
+            <ArtifactRow
+              key={artifact.key}
+              artifact={artifact}
+              preview={preview}
+              onPreview={onPreview}
+            />
           );
         })}
       </div>
-    </article>
+    </div>
+  );
+}
+
+function ArtifactRow({ artifact, preview, onPreview }) {
+  const exists = artifact.exists;
+  const notApplicable = artifact.notApplicable;
+  const statusLabel = exists ? artifact.label : notApplicable ? '无需生成' : '未生成';
+
+  return (
+    <button
+      className={`group grid w-full grid-cols-[16px_1fr_auto] items-center gap-x-2.5 rounded-md px-2 py-1.5 text-left transition-colors duration-100 ${
+        exists ? 'cursor-pointer hover:bg-surface' : 'cursor-default opacity-50'
+      }`}
+      disabled={!exists}
+      onClick={() => onPreview({ key: artifact.key, name: artifact.label, preview })}
+    >
+      {/* status dot */}
+      <span className="flex h-4 w-4 items-center justify-center">
+        {exists ? (
+          <span className="h-2 w-2 rounded-full bg-accent" />
+        ) : notApplicable ? (
+          <span className="h-2 w-2 rounded-full border border-border bg-surface" />
+        ) : (
+          <span className="h-2 w-2 rounded-full border border-border" />
+        )}
+      </span>
+      <span className="min-w-0 truncate text-[12px] text-fg">{artifact.key}</span>
+      <span className="whitespace-nowrap pl-4 text-right text-[11px] text-muted">
+        {statusLabel}
+      </span>
+    </button>
   );
 }
 
@@ -556,133 +620,140 @@ function TaskProgress({ change }) {
   const animatedRemaining = useAnimatedNumber(remaining, 900, change.id);
   const animatedDoneSections = useAnimatedNumber(doneSections, 900, change.id);
   const animatedRemainingValue = Math.round(animatedRemaining);
-  const circumference = 2 * Math.PI * 38;
+  const circumference = 2 * Math.PI * 54;
   const dashOffset = circumference * (1 - animatedPercent / 100);
+
+  const nextPhase = change.phase === 'verify' ? '归档' : 'Verify';
+  const isComplete = remaining === 0 && total > 0;
+
   return (
-    <article>
-      <div className="mb-3 flex items-center gap-2">
-        <h4 className="text-sm font-semibold">任务进度</h4>
-        <span className="ml-auto rounded-full bg-surface px-3 py-1 font-mono text-xs text-fg-2">
-          {Math.round(animatedPercent)}%
+    <article className="rounded-xl border border-border-soft bg-bg px-5 py-4">
+      <div className="mb-4 flex items-baseline justify-between">
+        <h4 className="text-[13px] font-semibold tracking-tight">任务进度</h4>
+        <span
+          className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${isComplete ? 'bg-ok-soft text-success' : 'bg-accent-soft text-accent'}`}
+        >
+          {isComplete ? '全部完成' : `${animatedRemainingValue} 项待办`}
         </span>
       </div>
-      <div className="flex items-center gap-4">
-        <div className="relative size-[84px] shrink-0">
+
+      {/* Donut */}
+      <div className="flex justify-center">
+        <div className="relative h-[110px] w-[110px]">
           <svg
-            className="block size-full -rotate-90 overflow-visible"
-            viewBox="0 0 84 84"
+            className="block size-full -rotate-90"
+            viewBox="0 0 120 120"
             role="img"
             aria-label={`任务完成度 ${percent}%`}
           >
             <circle
-              cx="42"
-              cy="42"
-              r="38"
+              cx="60"
+              cy="60"
+              r="54"
               fill="none"
               stroke="var(--color-border-soft)"
               strokeWidth="7"
             />
             <circle
-              cx="42"
-              cy="42"
-              r="38"
+              cx="60"
+              cy="60"
+              r="54"
               fill="none"
-              stroke="var(--color-accent)"
+              stroke={isComplete ? 'var(--color-success)' : 'var(--color-accent)'}
               strokeWidth="7"
               strokeLinecap="round"
               strokeDasharray={circumference}
               strokeDashoffset={dashOffset}
+              style={{
+                transition: 'stroke-dashoffset 0.8s cubic-bezier(0.16,1,0.3,1), stroke 0.4s ease',
+              }}
             />
           </svg>
-          <span className="absolute inset-0 grid place-items-center text-xl font-bold tabular-nums">
-            {Math.round(animatedPercent)}%
-          </span>
-        </div>
-        <div>
-          <div className="text-[28px] font-bold leading-none tabular-nums">
-            {Math.round(animatedCompleted)}
-            <span className="font-normal text-muted"> / {total} 任务</span>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-[26px] font-bold leading-none tabular-nums">
+              {Math.round(animatedPercent)}%
+            </span>
+            <span className="mt-0.5 text-[10px] text-muted">完成度</span>
           </div>
-          <div className="mt-2 text-sm text-meta">剩余 {animatedRemainingValue} 项未完成</div>
         </div>
       </div>
-      <div className="mt-4 grid grid-cols-3 gap-2">
-        <MiniMetric label="已完成" value={Math.round(animatedCompleted)} />
-        <MiniMetric label="剩余" value={animatedRemainingValue} />
-        <MiniMetric label="分组" value={`${Math.round(animatedDoneSections)}/${totalSections}`} />
+
+      {/* Stats row */}
+      <div className="mt-4 flex items-center justify-center gap-6 text-center">
+        <div>
+          <div className="text-[18px] font-bold leading-none tabular-nums">
+            {Math.round(animatedCompleted)}
+          </div>
+          <div className="mt-1 text-[11px] text-muted">已完成</div>
+        </div>
+        <div className="h-6 w-px bg-border-soft" />
+        <div>
+          <div className="text-[18px] font-bold leading-none tabular-nums">
+            {animatedRemainingValue}
+          </div>
+          <div className="mt-1 text-[11px] text-muted">剩余</div>
+        </div>
+        <div className="h-6 w-px bg-border-soft" />
+        <div>
+          <div className="text-[18px] font-bold leading-none tabular-nums">
+            {Math.round(animatedDoneSections)}/{totalSections}
+          </div>
+          <div className="mt-1 text-[11px] text-muted">分组</div>
+        </div>
       </div>
-      <div className="mt-4 flex items-center gap-2 rounded-lg bg-accent-softer px-3 py-2 text-xs text-fg-2">
-        <span className="size-2 shrink-0 rounded-full bg-accent" />
+
+      {/* Compact section bars */}
+      {change.tasks.sections.length > 0 && (
+        <div className="mt-4 space-y-2.5 border-t border-border-soft pt-4">
+          {change.tasks.sections.map((section) => {
+            const sp = section.total ? Math.round((section.completed / section.total) * 100) : 0;
+            const done = section.status === 'done';
+            return (
+              <div key={section.title}>
+                <div className="mb-1 flex items-center justify-between">
+                  <span className="truncate text-[11px] text-fg-2">{section.title}</span>
+                  <span className="shrink-0 pl-2 font-mono text-[10px] text-muted">
+                    {section.completed}/{section.total}
+                  </span>
+                </div>
+                <div className="h-1 overflow-hidden rounded-full bg-surface">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${done ? 'bg-success' : 'bg-accent'}`}
+                    style={{ width: `${sp}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Next hint */}
+      <div
+        className={`mt-4 flex items-center gap-2 rounded-lg px-3 py-2 text-[11px] ${isComplete ? 'bg-ok-soft text-success' : 'bg-accent-softer text-fg-2'}`}
+      >
+        <span
+          className={`h-1.5 w-1.5 shrink-0 rounded-full ${isComplete ? 'bg-success' : 'bg-accent'}`}
+        />
         <span>
-          剩余 {animatedRemainingValue} 项未完成，完成后进入{' '}
-          {change.phase === 'verify' ? '归档' : 'Verify'}。
+          {isComplete
+            ? `所有任务已完成，可以进入 ${nextPhase}`
+            : `剩余 ${animatedRemainingValue} 项未完成，完成后进入 ${nextPhase}`}
         </span>
       </div>
-    </article>
-  );
-}
-
-function MiniMetric({ label, value }) {
-  return (
-    <div className="min-h-[62px] rounded-lg bg-surface-warm p-3">
-      <div className="text-xs text-meta">{label}</div>
-      <div className="text-xl font-bold leading-none tabular-nums">{value}</div>
-    </div>
-  );
-}
-
-function TaskSections({ tasks }) {
-  return (
-    <article>
-      <div className="mb-3 flex items-center gap-2">
-        <h4 className="text-sm font-semibold">任务分组</h4>
-        <span className="ml-auto text-xs text-muted">未完成项会阻止进入 Verify</span>
-      </div>
-      <div className="divide-y divide-border-soft">
-        {tasks.sections.map((section) => (
-          <div key={section.title} className="flex items-center gap-3 py-2 text-sm">
-            <span className="min-w-0 flex-1 truncate">{section.title}</span>
-            <span className="font-mono text-meta">
-              {section.completed}/{section.total}
-            </span>
-            <Pill
-              tone={
-                section.status === 'done' ? 'ok' : section.status === 'active' ? 'info' : 'neutral'
-              }
-            >
-              {section.status === 'done'
-                ? '完成'
-                : section.status === 'active'
-                  ? '进行中'
-                  : '待开始'}
-            </Pill>
-          </div>
-        ))}
-      </div>
-      {tasks.incomplete.length > 0 && (
-        <ul className="mt-3 space-y-1 text-sm text-fg-2">
-          {tasks.incomplete.slice(0, 4).map((item) => (
-            <li key={item} className="flex gap-2">
-              <span className="text-warn">•</span>
-              <span>{item}</span>
-            </li>
-          ))}
-        </ul>
-      )}
     </article>
   );
 }
 
 function SidePanel({ change, git, onPreview }) {
   return (
-    <aside className="space-y-4">
+    <aside className="min-h-[480px] space-y-4">
       {change.status === 'archived' ? (
         <ArchiveSummary change={change} />
       ) : (
         <NextAction change={change} />
       )}
       <RiskCard change={change} />
-      {change.status === 'archived' && <ArtifactSnapshot change={change} onPreview={onPreview} />}
       <GitSnapshot git={git} />
     </aside>
   );
@@ -720,15 +791,16 @@ function ArchiveSummary({ change }) {
 }
 
 function RiskCard({ change }) {
+  const risks = change.risks ?? [];
   return (
-    <Card title="风险提示" tag={`${change.risks.length} 项`}>
-      {change.risks.length === 0 ? (
+    <Card title="风险提示" tag={`${risks.length} 项`}>
+      {risks.length === 0 ? (
         <div className="rounded-xl bg-surface-warm p-3 text-sm text-muted">
           当前未发现阻塞风险。
         </div>
       ) : (
         <div className="space-y-2">
-          {change.risks.map((risk) => (
+          {risks.map((risk) => (
             <div
               key={`${risk.code}-${risk.message}`}
               className="rounded-xl border border-border-soft p-3"
@@ -752,32 +824,6 @@ function RiskCard({ change }) {
           ))}
         </div>
       )}
-    </Card>
-  );
-}
-
-function ArtifactSnapshot({ change, onPreview }) {
-  const previewByKey = new Map(
-    (change.artifactPreviews ?? []).map((preview) => [preview.key, preview]),
-  );
-  return (
-    <Card title="产物快照" tag="归档">
-      {ARTIFACTS.map(([key, name]) => (
-        <button
-          key={key}
-          className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-surface"
-          disabled={!change.artifacts[key]}
-          onClick={() => onPreview({ key, name, preview: previewByKey.get(key) })}
-        >
-          <span
-            className={`size-2 rounded-full ${change.artifacts[key] ? 'bg-success' : 'bg-border'}`}
-          />
-          <span className="font-mono text-[13px]">{name}</span>
-          <span className="ml-auto text-xs text-meta">
-            {change.artifacts[key] ? '预览' : '缺失'}
-          </span>
-        </button>
-      ))}
     </Card>
   );
 }
@@ -832,8 +878,11 @@ function KeyValue({ k, v }) {
 
 function ArtifactDrawer({ artifact, onClose }) {
   useEffect(() => {
-    document.body.classList.toggle('overflow-hidden', Boolean(artifact));
-    return () => document.body.classList.remove('overflow-hidden');
+    if (!artifact) return;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [artifact]);
 
   if (!artifact) return null;
@@ -917,18 +966,19 @@ async function loadDemoSnapshot() {
 }
 
 function withDemoArtifactPreviews(snapshot) {
-  const hydrateChange = (change) => ({
-    ...change,
-    artifactPreviews: ARTIFACTS.map(([key, name, desc]) => ({
-      key,
-      label: name,
-      path: `${relativeChangePath(change)}/${name}`,
-      exists: Boolean(change.artifacts[key]),
-      content: Boolean(change.artifacts[key])
-        ? `# ${name}\n\n${desc}：${change.displayName}\n\n- 当前阶段：${phaseLabel(change.phase)}\n- 任务进度：${change.tasks.completed}/${change.tasks.total}\n- Verify：${VERIFY_LABEL[change.verify.result] ?? '未知'}\n`
+  const hydrateChange = (change) => {
+    const grouped = change.artifacts?.grouped ?? [];
+    const previews = grouped.map((artifact) => ({
+      key: artifact.key,
+      label: artifact.label,
+      path: artifact.path,
+      exists: artifact.exists,
+      content: artifact.exists
+        ? `# ${artifact.label}\n\n${artifact.label}：${change.displayName}\n\n- 当前阶段：${phaseLabel(change.phase)}\n- 任务进度：${change.tasks.completed}/${change.tasks.total}\n- Verify：${VERIFY_LABEL[change.verify.result] ?? '未知'}\n`
         : undefined,
-    })),
-  });
+    }));
+    return { ...change, artifactPreviews: previews };
+  };
 
   return {
     ...snapshot,

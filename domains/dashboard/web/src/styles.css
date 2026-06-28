@@ -36,6 +36,11 @@
   text-rendering: optimizeLegibility;
 }
 
+html {
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+}
+
 body {
   margin: 0;
   min-width: 320px;
@@ -138,3 +143,5 @@ input {
   opacity: 1;
   transform: translate(-50%, 0);
 }
+
+/* All component styling is now inline via Tailwind classes */
