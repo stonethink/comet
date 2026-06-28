@@ -876,9 +876,11 @@ function KeyValue({ k, v }) {
 function ArtifactDrawer({ artifact, onClose }) {
   useEffect(() => {
     if (!artifact) return;
-    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.inset = '0';
     return () => {
-      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.inset = '';
     };
   }, [artifact]);
 
