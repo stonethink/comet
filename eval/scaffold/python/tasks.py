@@ -78,6 +78,7 @@ class EvaluationConfig:
     required_skills: list[str] = field(default_factory=list)
     expected_artifacts: list[str] = field(default_factory=list)
     require_skill_invocation: bool = False
+    rubric_criteria: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -255,6 +256,7 @@ def load_task(name: str, tasks_dir: Path | None = None) -> Task:
         required_skills=evaluation.get("required_skills", []),
         expected_artifacts=evaluation.get("expected_artifacts", []),
         require_skill_invocation=bool(evaluation.get("require_skill_invocation", False)),
+        rubric_criteria=evaluation.get("rubric_criteria", []),
     )
 
     default_interaction_mode = "auto_user" if inferred_profile == "comet-workflow" else "none"

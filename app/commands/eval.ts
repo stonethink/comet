@@ -189,7 +189,19 @@ function printLaunchDetails(details: EvalLaunchDetails): void {
   }
 }
 
+function assertUvAvailable(): void {
+  try {
+    execFileSync('uv', ['--version'], { stdio: 'pipe' });
+  } catch {
+    throw new Error(
+      'uv is not installed or not in PATH.\n' +
+        'Install it: https://docs.astral.sh/uv/getting-started/installation/',
+    );
+  }
+}
+
 function runEval(args: string[], options: EvalCommandOptions): void {
+  assertUvAvailable();
   execFileSync('uv', args, {
     cwd: evalRoot(options),
     stdio: 'inherit',

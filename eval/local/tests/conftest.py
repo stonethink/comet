@@ -236,8 +236,10 @@ class ExperimentPlugin:
                 if treatment_name not in self.logger.results:
                     self.logger.results[treatment_name] = []
                 self.logger.results[treatment_name].append(result)
-            except Exception:
-                pass
+            except Exception as e:
+                import sys
+
+                print(f"Warning: failed to reload report {report_file.name}: {e}", file=sys.stderr)
 
     def _print_summary(self):
         """Print summary to console."""
@@ -458,11 +460,13 @@ def _snapshot_dynamic_skill_package(test_dir: Path, skill_hints: dict[str, Any])
 
 def _cleanup_experiment_coordination():
     """Remove coordination files after experiment."""
+    import sys
+
     for f in [XDIST_EXPERIMENT_FILE, XDIST_EXPERIMENT_FILE.with_suffix(".lock")]:
         try:
             f.unlink(missing_ok=True)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Warning: failed to clean up {f.name}: {e}", file=sys.stderr)
 
 
 # =============================================================================
@@ -486,12 +490,36 @@ def worker_id(request):
 
 @pytest.fixture(scope="session", autouse=True)
 def verify_environment(project_root, request):
-    """Verify Docker, Claude CLI, and API keys are available."""
+    """Verify Docker, Claude CLI, uv, bash, and API keys are available."""
     if _is_unit_tests_only(request.config):
         return
 
     load_dotenv(EVAL_ROOT / ".env")
     load_dotenv(project_root / ".env")
+
+    # Check uv (Python package manager)
+    if shutil.which("uv") is None:
+        pytest.skip(
+            "uv is not installed or not in PATH.\n"
+            "Install it: https://docs.astral.sh/uv/getting-started/installation/"
+        )
+
+    # Check bash (required for MSYS shell scripts on Windows)
+    from scaffold.python.utils import BASH_EXEC
+
+    if os.name == "nt" and BASH_EXEC == "bash":
+        # _resolve_bash() fell back to bare "bash" — verify it actually works
+        try:
+            bash_check = subprocess.run(
+                ["bash", "--version"], capture_output=True, timeout=5
+            )
+            if bash_check.returncode != 0:
+                raise FileNotFoundError
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            pytest.skip(
+                "Git Bash not found. Install Git for Windows: https://git-scm.com/download/win\n"
+                "Or set GIT_BASH env var to the full path of bash.exe"
+            )
 
     result = run_shell("docker.sh", "check", check=False)
     if result.returncode != 0:
@@ -938,8 +966,10 @@ def _save_artifacts(base_dir: Path, treatment_name: str, rep: int, test_dir: Pat
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(item, dest)
             claude_files.append(item)
-        except Exception:
-            pass
+        except Exception as e:
+            import sys
+
+            print(f"Warning: failed to save artifact {item.name}: {e}", file=sys.stderr)
 
     for py_file in claude_files:
         if py_file.suffix == ".py" and py_file.parent == test_dir:

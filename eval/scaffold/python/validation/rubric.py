@@ -493,8 +493,11 @@ def comet_rubric_validator(test_dir: Path, outputs: dict) -> tuple[list[str], li
     if os.environ.get("BENCH_LLM_JUDGE") == "1":
         try:
             from scaffold.python.llm_judge import judge_messages
-            passed.extend(judge_messages(test_dir))
-        except Exception:
-            pass  # judge is best-effort; never break the run
+
+            judge_results = judge_messages(test_dir)
+            passed.extend(judge_results)
+            passed.append("[RUBRIC-JUDGE] status: enabled_and_successful")
+        except Exception as e:
+            passed.append(f"[RUBRIC-JUDGE] status: failed - {e}")
 
     return passed, []

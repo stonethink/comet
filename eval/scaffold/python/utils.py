@@ -259,6 +259,42 @@ def read_json_file(path):
     except Exception as e:
         return None, str(e)
 
+
+def get_langsmith_client():
+    """Get LangSmith client if available.
+
+    Returns:
+        (client, None) on success, (None, error_message) on failure.
+        The client is a langsmith.Client instance configured from environment.
+    """
+    try:
+        from langsmith import Client
+    except ImportError:
+        return None, "langsmith package not installed (pip install langsmith)"
+
+    api_key = os.environ.get("LANGSMITH_API_KEY") or os.environ.get("LANGCHAIN_API_KEY")
+    if not api_key:
+        return None, "LANGSMITH_API_KEY not set"
+
+    try:
+        client = Client(api_key=api_key)
+        return client, None
+    except Exception as e:
+        return None, f"LangSmith client error: {e}"
+
+
+def safe_api_call(func, *args, **kwargs):
+    """Execute a LangSmith API call with error handling.
+
+    Returns:
+        (result, None) on success, (None, error_message) on failure.
+    """
+    try:
+        result = func(*args, **kwargs)
+        return result, None
+    except Exception as e:
+        return None, f"API error: {e}"
+
 def get_field(obj, *keys, default=None):
     if not isinstance(obj, dict):
         return default

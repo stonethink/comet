@@ -199,6 +199,7 @@ def test_task_treatment(task_name, treatment_name):
         "expected_artifacts": skill_hints.get("expected_artifacts")
         or task.config.evaluation.expected_artifacts,
         "require_skill_invocation": task.config.evaluation.require_skill_invocation,
+        "rubric_criteria": task.config.evaluation.rubric_criteria,
         "skill_package_path": skill_package_path,
         "generated_node_skills": skill_hints.get("generated_node_skills") or [],
         "route_conformance_task": skill_hints.get("route_conformance_task"),

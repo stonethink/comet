@@ -28,6 +28,10 @@ def _fmt(dim: str, score: float, reason: str) -> str:
     return f"[RUBRIC] {dim}: {score:.2f} - {reason}"
 
 
+def _fmt_na(dim: str, reason: str) -> str:
+    return f"[RUBRIC] {dim}: N/A - {reason}"
+
+
 def _package_path(test_dir: Path, outputs: dict[str, Any]) -> Path | None:
     raw = outputs.get("skill_package_path")
     if not raw:
@@ -228,7 +232,7 @@ def _check_review_gate(package: Path | None) -> tuple[float, str, list[str]]:
     return _binary_score(checks), f"review_checks={sum(checks)}/{len(checks)}", failures
 
 
-def _weighted(scores: dict[str, float]) -> float:
+def _weighted(scores: dict[str, float | None]) -> float:
     weights = {
         "completion": 1.5,
         "skill_invocation": 1.0,
@@ -242,14 +246,24 @@ def _weighted(scores: dict[str, float]) -> float:
         "review_readiness": 0.8,
         "safety_boundary": 1.2,
     }
-    return sum(scores[key] * weights[key] for key in weights) / sum(weights.values())
+    applicable = {k: v for k, v in scores.items() if v is not None and k in weights}
+    if not applicable:
+        return 0.0
+    total_weight = sum(weights[k] for k in applicable)
+    return sum(applicable[k] * weights[k] for k in applicable) / total_weight
 
 
-def _parse_generic_score(checks: list[str], name: str) -> float:
+def _parse_generic_score(checks: list[str], name: str) -> float | None:
     prefix = f"[RUBRIC] {name}:"
     for item in checks:
         if item.startswith(prefix):
-            return float(item.removeprefix(prefix).strip().split(" ", 1)[0])
+            remainder = item.removeprefix(prefix).strip()
+            if remainder.startswith("N/A"):
+                return None
+            try:
+                return float(remainder.split(" ", 1)[0])
+            except ValueError:
+                return 0.0
     return 0.0
 
 
@@ -281,10 +295,15 @@ def authoring_skill_rubric_validator(
         "review_readiness": review_score,
         "safety_boundary": _parse_generic_score(generic_passed, "safety_boundary"),
     }
+    def _fmt_dim(dim: str, score: float | None, fallback_reason: str) -> str:
+        if score is not None:
+            return _fmt(dim, score, fallback_reason)
+        return _fmt_na(dim, fallback_reason)
+
     passed = [
-        _fmt("completion", scores["completion"], "baseline completion score"),
-        _fmt("skill_invocation", scores["skill_invocation"], "required Skill invocation score"),
-        _fmt("artifact_presence", scores["artifact_presence"], "expected artifact score"),
+        _fmt_dim("completion", scores["completion"], "baseline completion score"),
+        _fmt_dim("skill_invocation", scores["skill_invocation"], "required Skill invocation score"),
+        _fmt_dim("artifact_presence", scores["artifact_presence"], "expected artifact score"),
         _fmt("generated_package", package_score, package_reason),
         _fmt("resolved_skill_evidence", evidence_score, evidence_reason),
         _fmt("engine_contract", engine_score, engine_reason),
@@ -292,7 +311,7 @@ def authoring_skill_rubric_validator(
         _fmt("authoring_lanes", lanes_score, lanes_reason),
         _fmt("review_gate", review_gate_score, review_gate_reason),
         _fmt("review_readiness", review_score, review_reason),
-        _fmt("safety_boundary", scores["safety_boundary"], "generic safety score"),
+        _fmt_dim("safety_boundary", scores["safety_boundary"], "generic safety score"),
         f"[RUBRIC] weighted_score: {_weighted(scores):.2f}",
     ]
     failed = (
