@@ -209,17 +209,3 @@ node "$COMET_ARCHIVE" <change-name>                  # 一键完成归档
 ### 文件结构
 
 按 `comet/reference/file-structure.md` 查阅完整目录结构。
-
-### 最佳实践
-
-1. **brainstorming 不可跳过** — 每次变更必须经过深度设计（hotfix 和 tweak 除外）
-2. **delta spec 是活文档** — 阶段 3 期间可自由修改，归档时同步
-3. **交接包由脚本生成** — OpenSpec → Superpowers 的上下文必须通过 `comet-handoff.mjs` 生成 compact 可追溯摘录（需要全文时用 `--full`），并由 guard 校验 source/hash/mode
-4. **保持 tasks.md 同步** — 完成一个勾一个
-5. **频繁提交** — 每个任务一次提交，message 体现设计意图
-6. **先验证再确认归档** — `/comet-verify` 通过后进入 `/comet-archive`，但运行归档脚本前必须等待用户最终确认
-7. **增量更新分级** — 小编辑、中重 brainstorming、大新 change
-8. **Plan 必须关联 change** — 文件头包含 `change:` 和 `design-doc:` 元数据
-9. **归档闭环** — design doc 和 plan 必须标注 `archived-with` 状态
-10. **修改已有功能** — 直接 open 新 change 即可
-11. **预设升级判定** — hotfix/tweak 命中质变信号或文件数 tripwire 时，暂停交用户二选一（继续预设流程 / 升级 full），升级用 `transition preset-escalate`

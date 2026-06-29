@@ -49,6 +49,7 @@ This is the first beta of the 0.4.0 line. Relative to 0.3.9, Comet becomes a Nod
 
 - **Bash-first runtime dependency**: Removes the requirement that bundled Classic workflow scripts run through Bash-compatible shell scripts; Node launchers and cross-platform runtime checks are now the default contract.
 - **Boilerplate version marker**: Removes the unused `boilerplate version: vN` annotation from the script-location block in `comet/SKILL.md`. No code or test read it, and git already tracks cross-file sync, so the marker only added noise.
+- **Best-practices section in main comet skill**: Drops the "Best Practices" / "最佳实践" appendix from `comet/SKILL.md`. Every item duplicated more precise guidance in Decision Core or the relevant sub-skill (comet-build / comet-archive / comet-hotfix / comet-tweak), so the section added repetition without agent value; the sub-skills remain the single source of truth.
 
 ### Security
 
