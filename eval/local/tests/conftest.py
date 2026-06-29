@@ -391,6 +391,14 @@ def _resolve_interaction_config(task, profile_name: str, config):
         max_turns = int(max_turns_override)
 
     simulator_prompt_override = config.getoption("--simulator-prompt")
+
+    prompt_file = os.environ.get("BENCH_SIMULATOR_PROMPT_FILE")
+    prompt_path = Path(prompt_file) if prompt_file else (EVAL_ROOT / "simulator-instruction.md")
+    if not prompt_path.is_absolute():
+        prompt_path = EVAL_ROOT / prompt_path
+    if prompt_path.exists():
+        simulator_prompt = prompt_path.read_text(encoding="utf-8")
+
     if simulator_prompt_override:
         simulator_prompt = simulator_prompt_override
 
