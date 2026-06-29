@@ -5,7 +5,8 @@ import os from 'os';
 import path from 'path';
 
 const scriptsDir = path.resolve('assets', 'skills', 'comet', 'scripts');
-const classicSkillRoot = path.resolve('assets', 'skills', 'comet-classic');
+const classicRuntimeRoot = path.resolve('assets', 'skills', 'comet', 'runtime', 'classic');
+const classicSkillRoot = classicRuntimeRoot;
 
 // Forward-slash absolute path — used for the fake OpenSpec shim (a bash script)
 // and the COMET_OPENSPEC env var it is passed through, both of which need a
@@ -24,7 +25,12 @@ function runNode(
   return spawnSync(process.execPath, [script, ...args], {
     cwd,
     encoding: 'utf-8',
-    env: { ...process.env, COMET_CLASSIC_SKILL_ROOT: classicSkillRoot, ...env },
+    env: {
+      ...process.env,
+      COMET_RUNTIME_CLASSIC_ROOT: classicRuntimeRoot,
+      COMET_CLASSIC_SKILL_ROOT: classicRuntimeRoot,
+      ...env,
+    },
     timeout,
   });
 }
@@ -39,7 +45,12 @@ function runHookGuard(cwd: string, script: string, stdin: string, env: NodeJS.Pr
     cwd,
     encoding: 'utf8',
     input: stdin,
-    env: { ...process.env, COMET_CLASSIC_SKILL_ROOT: classicSkillRoot, ...env },
+    env: {
+      ...process.env,
+      COMET_RUNTIME_CLASSIC_ROOT: classicRuntimeRoot,
+      COMET_CLASSIC_SKILL_ROOT: classicRuntimeRoot,
+      ...env,
+    },
   });
 }
 
@@ -208,6 +219,43 @@ describe('comet scripts', () => {
     expect(yaml).toContain('phase: open');
     expect(yaml).toContain('verification_report: null');
     expect(yaml).toContain('branch_status: pending');
+  }, 20_000);
+
+  it('loads the classic runtime package from COMET_RUNTIME_CLASSIC_ROOT', async () => {
+    const init = runNode(tmpDir, stateScript, ['init', 'runtime-root', 'full'], {
+      COMET_RUNTIME_CLASSIC_ROOT: classicRuntimeRoot,
+      COMET_CLASSIC_SKILL_ROOT: '',
+    });
+    const targetFile = path.join(tmpDir, 'src', 'index.ts');
+    await fs.mkdir(path.dirname(targetFile), { recursive: true });
+    const result = runHookGuard(tmpDir, hookGuardScript, hookStdin(targetFile), {
+      COMET_RUNTIME_CLASSIC_ROOT: classicRuntimeRoot,
+      COMET_CLASSIC_SKILL_ROOT: '',
+    });
+
+    expect(init.status).toBe(0);
+    expect(result.status).toBe(2);
+    const runState = await fs.readFile(
+      path.join(tmpDir, 'openspec', 'changes', 'runtime-root', '.comet', 'run-state.json'),
+      'utf8',
+    );
+    expect(JSON.parse(runState)).toMatchObject({ skill: 'comet-classic' });
+  }, 20_000);
+
+  it('keeps COMET_CLASSIC_SKILL_ROOT as a compatibility fallback', async () => {
+    const init = runNode(tmpDir, stateScript, ['init', 'legacy-root', 'full'], {
+      COMET_RUNTIME_CLASSIC_ROOT: '',
+      COMET_CLASSIC_SKILL_ROOT: classicRuntimeRoot,
+    });
+    const targetFile = path.join(tmpDir, 'src', 'legacy.ts');
+    await fs.mkdir(path.dirname(targetFile), { recursive: true });
+    const result = runHookGuard(tmpDir, hookGuardScript, hookStdin(targetFile), {
+      COMET_RUNTIME_CLASSIC_ROOT: '',
+      COMET_CLASSIC_SKILL_ROOT: classicRuntimeRoot,
+    });
+
+    expect(init.status).toBe(0);
+    expect(result.status).toBe(2);
   }, 20_000);
 
   it('rejects change names that OpenSpec cannot archive later', async () => {

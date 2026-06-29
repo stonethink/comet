@@ -974,7 +974,7 @@ describe('skills', () => {
       expect(enArchive).toContain('`node "$COMET_STATE" transition <change-name> archive-reopen`');
       expect(enVerify).toContain('Must not automatically archive just because verification passed');
       expect(enHotfix).toContain(
-        'must pause per `comet/reference/decision-point.md` and delegate the decision to the user',
+        "must pause under the `comet/reference/decision-point.md` protocol and wait for the user's explicit choice",
       );
       expect(enHotfix).toContain('Do not directly enter `/comet-design`');
       expect(enTweak).toContain(
@@ -1094,8 +1094,8 @@ describe('skills', () => {
       expect(enDesign).toContain('In beta mode, `spec-context.json` must be structurally valid');
       expect(enDesign).toContain('incrementally update `brainstorm-summary.md`');
       expect(enDesign).toContain('### 1e. Active Context Compaction Gate');
-      expect(enHotfix).toContain('Immediately use the Skill tool to load the `comet-design` skill');
-      expect(enTweak).toContain('Immediately use the Skill tool to load the `comet-design` skill');
+      expect(enHotfix).toContain('immediately use the Skill tool to load the `comet-design` skill');
+      expect(enTweak).toContain('immediately use the Skill tool to load the `comet-design` skill');
       expect(enVerify).toContain(
         'After user selects B, run `node "$COMET_STATE" transition <change-name> verify-fail`, then invoke `/comet-build`',
       );

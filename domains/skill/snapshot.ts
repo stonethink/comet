@@ -23,7 +23,12 @@ function stable(value: unknown): unknown {
 }
 
 function packageDocument(pkg: SkillPackage): unknown {
-  return stable({ definition: pkg.definition, guardrails: pkg.guardrails, evals: pkg.evals });
+  return stable({
+    ...(pkg.packageKind === 'runtime' ? { packageKind: 'runtime' } : {}),
+    definition: pkg.definition,
+    guardrails: pkg.guardrails,
+    evals: pkg.evals,
+  });
 }
 
 function normalizedRelativePath(source: string): string {
@@ -70,7 +75,8 @@ async function readPackageFile(
 
 async function snapshotFiles(pkg: SkillPackage): Promise<SnapshotFile[]> {
   const root = await fs.realpath(pkg.root);
-  const files = [await readPackageFile(root, 'SKILL.md', 'SKILL.md')];
+  const files =
+    pkg.packageKind === 'runtime' ? [] : [await readPackageFile(root, 'SKILL.md', 'SKILL.md')];
   for (const tool of pkg.definition.tools) {
     if (tool.kind !== 'script') continue;
     files.push(await readPackageFile(root, tool.source, `Script tool ${tool.id}`));

@@ -257,6 +257,34 @@ handoff_hash: null
     expect(afterSecond).toBe(afterFirst);
   });
 
+  it('accepts an existing Run whose stored hash points to its immutable old snapshot', async () => {
+    await writeClassicState(changeDir, { classic: classic(), run: null });
+    const first = await ensureClassicRun(changeDir, {
+      skillPackage: pkg,
+      runId: () => 'run-existing-snapshot',
+      now: () => new Date('2026-06-14T00:00:00.000Z'),
+    });
+
+    const runtimeRoot = path.join(projectRoot, 'runtime-package');
+    await fs.mkdir(runtimeRoot, { recursive: true });
+    const runtimePackage: SkillPackage = {
+      ...classicPackage(runtimeRoot),
+      packageKind: 'runtime',
+    };
+
+    const second = await ensureClassicRun(changeDir, {
+      skillPackage: runtimePackage,
+      now: () => new Date('2026-06-15T00:00:00.000Z'),
+    });
+
+    expect(second.migrated).toBe(false);
+    expect(second.run.runId).toBe(first.run.runId);
+    expect(second.run.skillHash).toBe(first.run.skillHash);
+    expect(second.snapshotDir).toBe(
+      path.join(changeDir, '.comet', 'skill-snapshots', first.run.skillHash),
+    );
+  });
+
   async function writeProjectFile(relativePath: string, content: string): Promise<void> {
     const file = path.join(projectRoot, relativePath);
     await fs.mkdir(path.dirname(file), { recursive: true });

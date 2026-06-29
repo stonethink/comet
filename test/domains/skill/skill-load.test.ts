@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
-import { loadSkillPackage } from '../../../domains/skill/load.js';
+import { loadRuntimePackage, loadSkillPackage } from '../../../domains/skill/load.js';
 
 const skillDefinition = `apiVersion: comet/v1alpha1
 kind: Skill
@@ -130,6 +130,68 @@ confirmationRequiredFor: []
         equals: 'completed',
       },
     ]);
+  });
+
+  it('keeps ordinary Skill packages strict about SKILL.md', async () => {
+    await fs.rm(path.join(skillRoot, 'SKILL.md'));
+
+    await expect(loadSkillPackage(skillRoot)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('loads a YAML-only runtime package from root-level control files', async () => {
+    const runtimeRoot = path.join(tmpDir, 'runtime', 'classic');
+    await fs.mkdir(runtimeRoot, { recursive: true });
+    await fs.writeFile(path.join(runtimeRoot, 'skill.yaml'), skillDefinition);
+    await fs.writeFile(
+      path.join(runtimeRoot, 'guardrails.yaml'),
+      `allowedSkills:
+  - writing-plans
+allowedAgents: []
+allowedTools: []
+maxIterations: 12
+maxRetriesPerAction: 2
+confirmationRequiredFor: []
+`,
+    );
+    await fs.writeFile(
+      path.join(runtimeRoot, 'checks.yaml'),
+      `runtime:
+  - id: completed
+    scope: completion
+    type: state_equals
+    field: status
+    equals: completed
+`,
+    );
+
+    const pkg = await loadRuntimePackage(runtimeRoot);
+
+    expect(pkg.packageKind).toBe('runtime');
+    expect(pkg.root).toBe(path.resolve(runtimeRoot));
+    expect(pkg.definition.metadata.name).toBe('demo');
+    expect(pkg.guardrails).toMatchObject({
+      allowedSkills: ['writing-plans'],
+      maxIterations: 12,
+      maxRetriesPerAction: 2,
+    });
+    expect(pkg.evals).toContainEqual({
+      id: 'completed',
+      scope: 'completion',
+      type: 'state_equals',
+      field: 'status',
+      equals: 'completed',
+    });
+  });
+
+  it('rejects legacy evals.yaml in YAML-only runtime packages', async () => {
+    const runtimeRoot = path.join(tmpDir, 'runtime-evals');
+    await fs.mkdir(runtimeRoot, { recursive: true });
+    await fs.writeFile(path.join(runtimeRoot, 'skill.yaml'), skillDefinition);
+    await fs.writeFile(path.join(runtimeRoot, 'evals.yaml'), 'runtime: []\n');
+
+    await expect(loadRuntimePackage(runtimeRoot)).rejects.toThrow(
+      /evals\.yaml is no longer supported.*checks\.yaml/,
+    );
   });
 
   it('rejects legacy comet/evals.yaml instead of loading runtime checks from it', async () => {

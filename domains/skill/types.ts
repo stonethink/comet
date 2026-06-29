@@ -1,5 +1,6 @@
 export type OrchestrationMode = 'deterministic' | 'adaptive';
 export type ActionType = 'invoke_skill' | 'call_tool' | 'handoff' | 'ask_user' | 'checkpoint';
+export type SkillPackageKind = 'skill' | 'runtime';
 
 export interface NamedContract {
   name: string;
@@ -86,6 +87,7 @@ export interface RuntimeEvalDefinition {
 
 export interface SkillPackage {
   root: string;
+  packageKind?: SkillPackageKind;
   definition: SkillDefinition;
   guardrails: GuardrailDefinition;
   evals: RuntimeEvalDefinition[];

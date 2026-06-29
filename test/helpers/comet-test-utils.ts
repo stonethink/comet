@@ -3,7 +3,8 @@ import { promises as fs } from 'fs';
 import path from 'path';
 
 export const scriptsDir = path.resolve('assets', 'skills', 'comet', 'scripts');
-export const classicSkillRoot = path.resolve('assets', 'skills', 'comet-classic');
+export const classicRuntimeRoot = path.resolve('assets', 'skills', 'comet', 'runtime', 'classic');
+export const classicSkillRoot = classicRuntimeRoot;
 
 export function posixPath(filePath: string): string {
   return path.resolve(filePath).replace(/\\/g, '/');
@@ -19,7 +20,12 @@ export function runNode(
   return spawnSync(process.execPath, [script, ...args], {
     cwd,
     encoding: 'utf-8',
-    env: { ...process.env, COMET_CLASSIC_SKILL_ROOT: classicSkillRoot, ...env },
+    env: {
+      ...process.env,
+      COMET_RUNTIME_CLASSIC_ROOT: classicRuntimeRoot,
+      COMET_CLASSIC_SKILL_ROOT: classicRuntimeRoot,
+      ...env,
+    },
     timeout,
   });
 }
@@ -39,7 +45,12 @@ export function runHookGuard(
     cwd,
     encoding: 'utf8',
     input: stdin,
-    env: { ...process.env, COMET_CLASSIC_SKILL_ROOT: classicSkillRoot, ...env },
+    env: {
+      ...process.env,
+      COMET_RUNTIME_CLASSIC_ROOT: classicRuntimeRoot,
+      COMET_CLASSIC_SKILL_ROOT: classicRuntimeRoot,
+      ...env,
+    },
   });
 }
 

@@ -468,7 +468,7 @@ Spec 处于哪个阶段。
 workflow: full
 auto_transition: true
 phase: build
-skill: comet-classic # 解析后的 Skill 包名
+skill: comet-classic # 机器维护的 Classic runtime 身份
 run_id: <uuid> # 链接到 .comet/run-state.json
 review_mode: standard # off | standard | thorough
 build_mode: subagent-driven-development

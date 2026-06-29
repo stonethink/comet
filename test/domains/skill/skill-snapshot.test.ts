@@ -32,6 +32,11 @@ const pkg = (root: string): SkillPackage => ({
   evals: [],
 });
 
+const runtimePkg = (root: string): SkillPackage => ({
+  ...pkg(root),
+  packageKind: 'runtime',
+});
+
 function withScriptTool(root: string): SkillPackage {
   const value = pkg(root);
   value.definition.tools.push({
@@ -162,6 +167,47 @@ describe('Skill snapshots', () => {
 
     await expect(createSkillSnapshot(value, changeDir)).rejects.toThrow(
       'Script tool build resolves outside the Skill package',
+    );
+  });
+
+  it('snapshots YAML-only runtime packages without SKILL.md', async () => {
+    const runtimeRoot = path.join(root, 'runtime-classic');
+    await fs.mkdir(runtimeRoot, { recursive: true });
+    const value = runtimePkg(runtimeRoot);
+
+    const snapshot = await createSkillSnapshot(value, changeDir);
+
+    expect(snapshot.hash).toMatch(/^[a-f0-9]{64}$/);
+    await expect(fs.access(path.join(snapshot.snapshotDir, 'SKILL.md'))).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
+    const document = JSON.parse(
+      await fs.readFile(path.join(snapshot.snapshotDir, 'package.json'), 'utf8'),
+    );
+    expect(document.packageKind).toBe('runtime');
+  });
+
+  it('restores runtime package snapshots without requiring SKILL.md', async () => {
+    const runtimeRoot = path.join(root, 'runtime-restore');
+    await fs.mkdir(runtimeRoot, { recursive: true });
+    const value = runtimePkg(runtimeRoot);
+    const snapshot = await createSkillSnapshot(value, changeDir);
+
+    const restored = await readSkillSnapshot(changeDir, snapshot.hash);
+
+    expect(restored.packageKind).toBe('runtime');
+    expect(restored.definition.metadata.name).toBe(value.definition.metadata.name);
+    await expect(fs.access(path.join(restored.root, 'SKILL.md'))).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
+  });
+
+  it('still rejects ordinary Skill snapshots when SKILL.md is missing', async () => {
+    const value = pkg(path.join(root, 'skill'));
+    await fs.rm(path.join(value.root, 'SKILL.md'));
+
+    await expect(createSkillSnapshot(value, changeDir)).rejects.toThrow(
+      'SKILL.md does not exist: SKILL.md',
     );
   });
 

@@ -9,7 +9,14 @@ import { parse } from 'yaml';
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const REPO_ROOT = path.resolve(path.dirname(SCRIPT_PATH), '..', '..');
 const RUNTIME = path.join(REPO_ROOT, 'assets', 'skills', 'comet', 'scripts', 'comet-runtime.mjs');
-const CLASSIC_SKILL_ROOT = path.join(REPO_ROOT, 'assets', 'skills', 'comet-classic');
+const CLASSIC_RUNTIME_ROOT = path.join(
+  REPO_ROOT,
+  'assets',
+  'skills',
+  'comet',
+  'runtime',
+  'classic',
+);
 
 function run(cwd, args, options = {}) {
   return spawnSync(process.execPath, [RUNTIME, ...args], {
@@ -18,7 +25,8 @@ function run(cwd, args, options = {}) {
     input: options.input,
     env: {
       ...process.env,
-      COMET_CLASSIC_SKILL_ROOT: CLASSIC_SKILL_ROOT,
+      COMET_RUNTIME_CLASSIC_ROOT: CLASSIC_RUNTIME_ROOT,
+      COMET_CLASSIC_SKILL_ROOT: CLASSIC_RUNTIME_ROOT,
       ...options.env,
     },
   });

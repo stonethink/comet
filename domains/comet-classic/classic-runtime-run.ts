@@ -8,7 +8,7 @@ import { readClassicState, writeClassicState } from './classic-store.js';
 import type { ClassicState } from './classic-state.js';
 import { appendTrajectory, readTrajectory } from '../../domains/engine/run-store.js';
 import type { RunState } from '../../domains/engine/types.js';
-import { loadSkillPackage } from '../../domains/skill/load.js';
+import { loadRuntimePackage, loadSkillPackage } from '../../domains/skill/load.js';
 
 async function directoryExists(directory: string): Promise<boolean> {
   try {
@@ -19,9 +19,23 @@ async function directoryExists(directory: string): Promise<boolean> {
   }
 }
 
-async function classicSkillRoot(): Promise<string> {
+async function fileExists(file: string): Promise<boolean> {
+  try {
+    return (await fs.stat(file)).isFile();
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+    throw error;
+  }
+}
+
+async function classicRuntimeRoot(): Promise<string> {
   const runtimeDirectory = path.dirname(fileURLToPath(import.meta.url));
   const candidates = [
+    process.env.COMET_RUNTIME_CLASSIC_ROOT,
+    path.resolve(runtimeDirectory, '..', 'runtime', 'classic'),
+    path.resolve(runtimeDirectory, '..', '..', 'comet', 'runtime', 'classic'),
+    path.resolve(runtimeDirectory, '..', '..', 'assets', 'skills', 'comet', 'runtime', 'classic'),
+    path.resolve('assets', 'skills', 'comet', 'runtime', 'classic'),
     process.env.COMET_CLASSIC_SKILL_ROOT,
     path.resolve(runtimeDirectory, '..', '..', 'comet-classic'),
     path.resolve(runtimeDirectory, '..', '..', 'assets', 'skills', 'comet-classic'),
@@ -31,12 +45,20 @@ async function classicSkillRoot(): Promise<string> {
   for (const candidate of candidates) {
     if (await directoryExists(candidate)) return candidate;
   }
-  throw new Error('Comet Classic internal Skill package is not installed');
+  throw new Error('Comet classic runtime package is not installed');
+}
+
+async function loadClassicRuntimePackage(root: string) {
+  if (await fileExists(path.join(root, 'skill.yaml'))) {
+    return loadRuntimePackage(root);
+  }
+  return loadSkillPackage(root);
 }
 
 export async function ensureClassicRuntimeRun(changeDir: string): Promise<ClassicRunContext> {
+  const root = await classicRuntimeRoot();
   return ensureClassicRun(changeDir, {
-    skillPackage: await loadSkillPackage(await classicSkillRoot()),
+    skillPackage: await loadClassicRuntimePackage(root),
   });
 }
 

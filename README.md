@@ -485,7 +485,7 @@ through Comet's built-in commands.
 workflow: full
 auto_transition: true
 phase: build
-skill: comet-classic # Resolved Skill package name
+skill: comet-classic # Machine-owned Classic runtime identity
 run_id: <uuid> # Links to .comet/run-state.json
 review_mode: standard # off | standard | thorough
 build_mode: subagent-driven-development

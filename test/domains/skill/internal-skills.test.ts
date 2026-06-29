@@ -10,7 +10,7 @@ import {
 const manifest: Manifest = {
   version: '1.0.0',
   skills: ['comet/SKILL.md', 'comet-open/SKILL.md', 'comet/scripts/runtime.mjs'],
-  internalSkills: ['comet-classic/SKILL.md', 'comet-classic/comet/skill.yaml'],
+  internalSkills: ['comet/runtime/classic/skill.yaml'],
 };
 
 describe('internal Skill assets', () => {
@@ -19,8 +19,7 @@ describe('internal Skill assets', () => {
       'comet/SKILL.md',
       'comet-open/SKILL.md',
       'comet/scripts/runtime.mjs',
-      'comet-classic/SKILL.md',
-      'comet-classic/comet/skill.yaml',
+      'comet/runtime/classic/skill.yaml',
     ]);
   });
 
@@ -32,12 +31,12 @@ describe('internal Skill assets', () => {
     const shipped = await readManifest();
 
     expect(shipped.internalSkills).toEqual([
-      'comet-classic/SKILL.md',
-      'comet-classic/comet/skill.yaml',
-      'comet-classic/comet/guardrails.yaml',
-      'comet-classic/comet/checks.yaml',
+      'comet/runtime/classic/skill.yaml',
+      'comet/runtime/classic/guardrails.yaml',
+      'comet/runtime/classic/checks.yaml',
     ]);
     expect(getUserFacingSkillNames(shipped)).not.toContain('comet-classic');
+    expect(getUserFacingSkillNames(shipped)).not.toContain('runtime');
     expect(await getManifestSkills()).toEqual(getManagedSkillPaths(shipped));
   });
 });

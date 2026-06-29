@@ -5,6 +5,7 @@ import type {
   GuardrailDefinition,
   RuntimeEvalDefinition,
   SkillDefinition,
+  SkillPackageKind,
   SkillPackage,
 } from './types.js';
 
@@ -307,19 +308,26 @@ async function readRuntimeChecks(cometRoot: string): Promise<{
   return { document: null };
 }
 
-export async function loadSkillPackage(root: string): Promise<SkillPackage> {
-  const packageRoot = path.resolve(root);
-  const cometRoot = path.join(packageRoot, 'comet');
+async function loadPackageFromLayout(options: {
+  root: string;
+  controlRoot: string;
+  packageKind: SkillPackageKind;
+  requireSkillMarkdown: boolean;
+}): Promise<SkillPackage> {
+  const packageRoot = path.resolve(options.root);
+  const controlRoot = path.resolve(options.controlRoot);
 
-  await fs.access(path.join(packageRoot, 'SKILL.md'));
+  if (options.requireSkillMarkdown) {
+    await fs.access(path.join(packageRoot, 'SKILL.md'));
+  }
 
-  const skillPath = path.join(cometRoot, 'skill.yaml');
-  const guardrailsPath = path.join(cometRoot, 'guardrails.yaml');
+  const skillPath = path.join(controlRoot, 'skill.yaml');
+  const guardrailsPath = path.join(controlRoot, 'guardrails.yaml');
   const definition = narrowSkillDefinition(await readYaml(skillPath), skillPath);
   const rawGuardrails = await readOptionalYaml(guardrailsPath);
   const guardrailDocument =
     rawGuardrails === null ? null : narrowGuardrails(rawGuardrails, guardrailsPath);
-  const runtimeChecks = await readRuntimeChecks(cometRoot);
+  const runtimeChecks = await readRuntimeChecks(controlRoot);
 
   const defaultGuardrails: GuardrailDefinition = {
     allowedSkills: definition.skills.map((skill) => skill.id),
@@ -334,6 +342,7 @@ export async function loadSkillPackage(root: string): Promise<SkillPackage> {
 
   return {
     root: packageRoot,
+    packageKind: options.packageKind === 'runtime' ? 'runtime' : undefined,
     definition,
     guardrails: {
       ...defaultGuardrails,
@@ -343,12 +352,33 @@ export async function loadSkillPackage(root: string): Promise<SkillPackage> {
   };
 }
 
+export async function loadSkillPackage(root: string): Promise<SkillPackage> {
+  const packageRoot = path.resolve(root);
+  return loadPackageFromLayout({
+    root: packageRoot,
+    controlRoot: path.join(packageRoot, 'comet'),
+    packageKind: 'skill',
+    requireSkillMarkdown: true,
+  });
+}
+
+export async function loadRuntimePackage(root: string): Promise<SkillPackage> {
+  const packageRoot = path.resolve(root);
+  return loadPackageFromLayout({
+    root: packageRoot,
+    controlRoot: packageRoot,
+    packageKind: 'runtime',
+    requireSkillMarkdown: false,
+  });
+}
+
 export function loadSkillPackageDocument(
   document: unknown,
   root: string,
   filePath = path.join(root, 'package.json'),
 ): SkillPackage {
   assertObject(document, filePath);
+  const packageKind = document.packageKind === 'runtime' ? 'runtime' : undefined;
   const definition = narrowSkillDefinition(document.definition, filePath);
   const guardrailDocument = narrowGuardrails(document.guardrails, filePath);
   const evals = narrowRuntimeEvals(document.evals, filePath, 'evals');
@@ -365,6 +395,7 @@ export function loadSkillPackageDocument(
 
   return {
     root: path.resolve(root),
+    packageKind,
     definition,
     guardrails: {
       ...defaultGuardrails,

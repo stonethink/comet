@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { loadSkillPackage } from '../../../domains/skill/load.js';
+import { loadRuntimePackage } from '../../../domains/skill/load.js';
 import { validateSkillPackage } from '../../../domains/skill/validate.js';
 
-const chinesePackageRoot = path.resolve('assets', 'skills-zh', 'comet-classic');
-const englishPackageRoot = path.resolve('assets', 'skills', 'comet-classic');
+const chinesePackageRoot = path.resolve('assets', 'skills-zh', 'comet', 'runtime', 'classic');
+const englishPackageRoot = path.resolve('assets', 'skills', 'comet', 'runtime', 'classic');
 const stableSteps = [
   'full.open',
   'full.design.handoff',
@@ -39,7 +39,7 @@ const stableSteps = [
 
 describe('Chinese comet-classic package', () => {
   it('loads as one deterministic internal Skill with every stable step', async () => {
-    const pkg = await loadSkillPackage(chinesePackageRoot);
+    const pkg = await loadRuntimePackage(chinesePackageRoot);
 
     expect(pkg.definition.metadata).toMatchObject({
       name: 'comet-classic',
@@ -52,7 +52,7 @@ describe('Chinese comet-classic package', () => {
   });
 
   it('declares every invoked public Skill and never invokes itself', async () => {
-    const pkg = await loadSkillPackage(chinesePackageRoot);
+    const pkg = await loadRuntimePackage(chinesePackageRoot);
     const declared = new Set(pkg.definition.skills.map((skill) => skill.id));
     const invoked = (pkg.definition.orchestration.steps ?? [])
       .filter((step) => step.action.type === 'invoke_skill')
@@ -74,7 +74,7 @@ describe('Chinese comet-classic package', () => {
   });
 
   it('defines a completion eval for completed Run state', async () => {
-    const pkg = await loadSkillPackage(chinesePackageRoot);
+    const pkg = await loadRuntimePackage(chinesePackageRoot);
 
     expect(pkg.evals).toContainEqual({
       id: 'classic-completed',
@@ -88,23 +88,18 @@ describe('Chinese comet-classic package', () => {
     ).toEqual(['classic-completed']);
   });
 
-  it('documents its internal-only and fail-closed contract in Chinese', async () => {
-    const source = await fs.readFile(path.join(chinesePackageRoot, 'SKILL.md'), 'utf8');
-
-    expect(source).toContain('name: comet-classic');
-    expect(source).toContain('Use when');
-    expect(source).toContain('内部兼容 Skill');
-    expect(source).toContain('不得作为用户命令直接调用');
-    expect(source).toContain('失败关闭');
-    expect(source).toContain('禁止手工修改 Run 字段');
+  it('is a YAML-only runtime package without a user-facing SKILL.md', async () => {
+    await expect(fs.access(path.join(chinesePackageRoot, 'SKILL.md'))).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
   });
 });
 
 describe('English comet-classic package', () => {
   it('matches the executable structure of the confirmed Chinese package', async () => {
     const [chinese, english] = await Promise.all([
-      loadSkillPackage(chinesePackageRoot),
-      loadSkillPackage(englishPackageRoot),
+      loadRuntimePackage(chinesePackageRoot),
+      loadRuntimePackage(englishPackageRoot),
     ]);
 
     expect(validateSkillPackage(english)).toEqual([]);
@@ -133,14 +128,9 @@ describe('English comet-classic package', () => {
     });
   });
 
-  it('documents its internal-only and fail-closed contract in English', async () => {
-    const source = await fs.readFile(path.join(englishPackageRoot, 'SKILL.md'), 'utf8');
-
-    expect(source).toContain('name: comet-classic');
-    expect(source).toContain('Use when');
-    expect(source).toContain('internal compatibility Skill');
-    expect(source).toContain('must not be invoked directly');
-    expect(source).toContain('fail closed');
-    expect(source).toContain('Do not edit Run fields manually');
+  it('is a YAML-only runtime package without a user-facing English SKILL.md', async () => {
+    await expect(fs.access(path.join(englishPackageRoot, 'SKILL.md'))).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
   });
 });

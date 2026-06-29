@@ -69,7 +69,7 @@ comet-env.sh    ─┘                   comet-env.mjs    ─┘
 
 - **行为可验证、可恢复**：长上下文压缩后能从 snapshot/trajectory 精确恢复到中断点，而非靠 agent 猜测
 - **诊断更安全**：`comet doctor` 能报告畸形状态，且不破坏性改写文件（0.3.x 可能半改）
-- **内部确定性化**：`comet-classic` Skill Package 用确定性 Resolver 覆盖 full/hotfix/tweak，冻结 0.3.8 行为契约做差分测试，保证升级不漂移
+- **内部确定性化**：`comet/runtime/classic` runtime package 用确定性 Resolver 覆盖 full/hotfix/tweak，冻结 0.3.8 行为契约做差分测试，保证升级不漂移
 
 ## 三、新的用户能力：Skill 创作与 Bundle 分发
 

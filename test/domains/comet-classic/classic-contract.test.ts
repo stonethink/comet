@@ -133,7 +133,14 @@ function runScript(
 ) {
   const env = {
     ...process.env,
-    COMET_CLASSIC_SKILL_ROOT: path.resolve('assets', 'skills', 'comet-classic'),
+    COMET_RUNTIME_CLASSIC_ROOT: path.resolve('assets', 'skills', 'comet', 'runtime', 'classic'),
+    COMET_CLASSIC_SKILL_ROOT: path.resolve(
+      'assets',
+      'skills',
+      'comet',
+      'runtime',
+      'classic',
+    ),
   };
   const scriptPath = path.join(scripts, name);
   if (executor === 'node') {

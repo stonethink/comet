@@ -39,10 +39,9 @@
     "comet-tweak/SKILL.md"
   ],
   "internalSkills": [
-    "comet-classic/SKILL.md",
-    "comet-classic/comet/skill.yaml",
-    "comet-classic/comet/guardrails.yaml",
-    "comet-classic/comet/checks.yaml"
+    "comet/runtime/classic/skill.yaml",
+    "comet/runtime/classic/guardrails.yaml",
+    "comet/runtime/classic/checks.yaml"
   ],
   "rules": [
     "comet/rules/comet-phase-guard.md",

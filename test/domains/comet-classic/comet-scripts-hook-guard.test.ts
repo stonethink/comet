@@ -11,7 +11,8 @@ import os from 'os';
 import path from 'path';
 
 const scriptsDir = path.resolve('assets', 'skills', 'comet', 'scripts');
-const classicSkillRoot = path.resolve('assets', 'skills', 'comet-classic');
+const classicRuntimeRoot = path.resolve('assets', 'skills', 'comet', 'runtime', 'classic');
+const classicSkillRoot = classicRuntimeRoot;
 
 function posixPath(filePath: string): string {
   return path.resolve(filePath).replace(/\\/g, '/');
@@ -21,7 +22,12 @@ function runNode(cwd: string, script: string, args: string[] = [], env: NodeJS.P
   return spawnSync(process.execPath, [script, ...args], {
     cwd,
     encoding: 'utf-8',
-    env: { ...process.env, COMET_CLASSIC_SKILL_ROOT: classicSkillRoot, ...env },
+    env: {
+      ...process.env,
+      COMET_RUNTIME_CLASSIC_ROOT: classicRuntimeRoot,
+      COMET_CLASSIC_SKILL_ROOT: classicRuntimeRoot,
+      ...env,
+    },
   });
 }
 
@@ -41,7 +47,12 @@ function runHookGuard(
     cwd,
     encoding: 'utf8',
     input: stdin,
-    env: { ...process.env, COMET_CLASSIC_SKILL_ROOT: classicSkillRoot, ...env },
+    env: {
+      ...process.env,
+      COMET_RUNTIME_CLASSIC_ROOT: classicRuntimeRoot,
+      COMET_CLASSIC_SKILL_ROOT: classicRuntimeRoot,
+      ...env,
+    },
   });
 }
 

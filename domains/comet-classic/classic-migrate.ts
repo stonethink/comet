@@ -17,7 +17,11 @@ import {
   writeContext,
 } from '../../domains/engine/run-store.js';
 import type { Checkpoint, RunState, TrajectoryEvent } from '../../domains/engine/types.js';
-import { createSkillSnapshot, hashSkillPackage } from '../../domains/skill/snapshot.js';
+import {
+  createSkillSnapshot,
+  hashSkillPackage,
+  readSkillSnapshot,
+} from '../../domains/skill/snapshot.js';
 import type { SkillPackage } from '../../domains/skill/types.js';
 
 export interface ClassicRunContext {
@@ -146,10 +150,19 @@ export async function ensureClassicRun(
         `Classic Run skill mismatch: expected ${options.skillPackage.definition.metadata.name}, got ${projection.run.skill}`,
       );
     }
-    const snapshot = await createSkillSnapshot(options.skillPackage, changeDir);
-    if (snapshot.hash !== projection.run.skillHash) {
-      throw new Error('Classic Run snapshot hash does not match the installed Skill package');
+    const installedHash = await hashSkillPackage(options.skillPackage);
+    if (installedHash !== projection.run.skillHash) {
+      await readSkillSnapshot(changeDir, projection.run.skillHash);
+      return {
+        classic,
+        run: projection.run,
+        evidence: await collectClassicEvidence(changeDir, projection),
+        migrated: false,
+        snapshotDir: path.join(changeDir, '.comet', 'skill-snapshots', projection.run.skillHash),
+      };
     }
+
+    const snapshot = await createSkillSnapshot(options.skillPackage, changeDir);
     return {
       classic,
       run: projection.run,

@@ -11,13 +11,19 @@ import os from 'os';
 import path from 'path';
 
 const scriptsDir = path.resolve('assets', 'skills', 'comet', 'scripts');
-const classicSkillRoot = path.resolve('assets', 'skills', 'comet-classic');
+const classicRuntimeRoot = path.resolve('assets', 'skills', 'comet', 'runtime', 'classic');
+const classicSkillRoot = classicRuntimeRoot;
 
 function runNode(cwd: string, script: string, args: string[] = [], env: NodeJS.ProcessEnv = {}) {
   return spawnSync(process.execPath, [script, ...args], {
     cwd,
     encoding: 'utf-8',
-    env: { ...process.env, COMET_CLASSIC_SKILL_ROOT: classicSkillRoot, ...env },
+    env: {
+      ...process.env,
+      COMET_RUNTIME_CLASSIC_ROOT: classicRuntimeRoot,
+      COMET_CLASSIC_SKILL_ROOT: classicRuntimeRoot,
+      ...env,
+    },
   });
 }
 
