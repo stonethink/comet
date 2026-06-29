@@ -230,7 +230,9 @@ export async function recordAuthoringLane(options: {
   try {
     parsed = JSON.parse(raw);
   } catch (error) {
-    throw new Error(`Authoring lane output is not valid JSON: ${(error as Error).message}`);
+    throw new Error(`Authoring lane output is not valid JSON: ${(error as Error).message}`, {
+      cause: error,
+    });
   }
   if (!parsed || typeof parsed !== 'object') {
     throw new Error('Authoring lane output must be a JSON object');

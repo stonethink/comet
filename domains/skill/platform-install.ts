@@ -90,7 +90,7 @@ function getAssetsDir(): string {
  * Project scope: <project>/.comet/skills/
  * Global scope: ~/.comet/skills/
  */
-function getCentralSkillsDir(baseDir: string, scope: InstallScope): string {
+function getCentralSkillsDir(baseDir: string, _scope: InstallScope): string {
   return path.join(baseDir, '.comet', 'skills');
 }
 

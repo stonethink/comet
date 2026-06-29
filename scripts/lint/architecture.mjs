@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { readGitignoredTopLevelEntries } from './gitignore-top-level.mjs';
 
 const root = process.cwd();
 const failures = [];
@@ -87,7 +88,9 @@ assertArrayEquals('repository-layout.sourceRoots', layout.sourceRoots, [
 assertArrayEquals('repository-layout.testRoots', layout.testRoots, ['test']);
 
 const allowedTopLevelEntries = new Set(layout.allowedTopLevelEntries ?? []);
+const gitignoredTopLevelEntries = readGitignoredTopLevelEntries(root);
 for (const entry of entryNames('.')) {
+  if (gitignoredTopLevelEntries.has(entry)) continue;
   if (!allowedTopLevelEntries.has(entry)) {
     fail(`${entry} is not an allowed top-level repository entry`);
   }

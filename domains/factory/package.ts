@@ -71,7 +71,7 @@ function workflowContractInternalSkillNames(protocol: WorkflowProtocol): string[
 
 function nodeAuthoringMode(
   protocol: WorkflowProtocol,
-  node: WorkflowNodeProtocol,
+  _node: WorkflowNodeProtocol,
 ): 'delegates' | 'substance' {
   return protocol.kind === 'comet-five-phase-overlay' ? 'delegates' : 'substance';
 }

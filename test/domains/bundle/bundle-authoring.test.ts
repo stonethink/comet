@@ -4,6 +4,7 @@ import os from 'os';
 import path from 'path';
 import { createBundleDraft, optimizeBundleDraft } from '../../../domains/bundle/draft.js';
 import { initializeBundleFactoryState } from '../../../domains/bundle/factory.js';
+import { recordAuthoringLane } from '../../../domains/bundle/authoring.js';
 import {
   readBundleAuthoringState,
   reconcileBundleAuthoringState,
@@ -407,6 +408,27 @@ describe('Bundle authoring lifecycle', () => {
         confirmedProposal: true,
       }),
     ).rejects.toThrow(/Cannot confirm blocked Factory proposal/iu);
+  });
+
+  it('preserves the JSON parse cause when an authoring lane output is malformed', async () => {
+    const malformed = path.join(root, 'malformed-authoring-output.json');
+    await fs.writeFile(malformed, '{not json\n');
+
+    let caught: unknown;
+    try {
+      await recordAuthoringLane({
+        projectRoot,
+        name: 'demo-bundle',
+        lane: 'script',
+        file: malformed,
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toContain('Authoring lane output is not valid JSON');
+    expect((caught as Error & { cause?: unknown }).cause).toBeInstanceOf(Error);
   });
 
   async function preparedReadyState(name: string): Promise<BundleAuthoringState> {
