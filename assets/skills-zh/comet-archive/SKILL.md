@@ -1,6 +1,6 @@
 ---
 name: comet-archive
-description: "Comet 阶段 5：归档。用 /comet-archive 调用。按 OpenSpec delta 语义合并主 spec，归档 change。"
+description: "Use when Comet change 验证已通过，需要用户确认归档、合并 delta spec，或恢复 archive 阶段。"
 ---
 
 # Comet 阶段 5：归档（Archive）
@@ -19,20 +19,9 @@ description: "Comet 阶段 5：归档。用 /comet-archive 调用。按 OpenSpec
 
 ### 0b. 入口状态验证（Entry Check）
 
-执行入口验证：
+按 `comet/reference/scripts.md` 定位脚本（定位 `comet-env.mjs`），然后执行入口验证；从任意入口恢复时先按 `comet/reference/context-recovery.md` 运行恢复检查：
 
 ```bash
-COMET_ENV="${COMET_ENV:-$(find . "$HOME"/.*/skills "$HOME/.config" "$HOME/.gemini" -path '*/comet/scripts/comet-env.mjs' -type f -print -quit 2>/dev/null)}"
-if [ -z "$COMET_ENV" ]; then
-  echo "ERROR: comet-env.mjs not found. Ensure the comet skill is installed." >&2
-  return 1
-fi
-COMET_SCRIPTS_DIR="$(node "$COMET_ENV")"
-COMET_STATE="$COMET_SCRIPTS_DIR/comet-state.mjs"
-COMET_GUARD="$COMET_SCRIPTS_DIR/comet-guard.mjs"
-COMET_HANDOFF="$COMET_SCRIPTS_DIR/comet-handoff.mjs"
-COMET_ARCHIVE="$COMET_SCRIPTS_DIR/comet-archive.mjs"
-COMET_RUNTIME="$COMET_SCRIPTS_DIR/comet-runtime.mjs"
 node "$COMET_STATE" check <name> archive
 ```
 

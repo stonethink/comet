@@ -1,6 +1,6 @@
 ---
 name: comet-hotfix
-description: "Comet 预设路径：Bug fix / 热修复。跳过 brainstorming，直接 open → build → verify → archive。适用于行为修复、不涉及新 capability 设计的场景。"
+description: "Use when 用户要修复已有行为 bug，且不新增 capability、不需要完整设计；也用于恢复 hotfix workflow。"
 ---
 
 # Comet 预设路径：Hotfix
@@ -24,21 +24,7 @@ description: "Comet 预设路径：Bug fix / 热修复。跳过 brainstorming，
 
 执行链路：open → build → verify → archive。Hotfix 为每个阶段提供默认决策：精简开启、直接构建、按规模验证、验证通过后进入归档前最终确认。
 
-开始前先定位 Comet 脚本：
-
-```bash
-COMET_ENV="${COMET_ENV:-$(find . "$HOME"/.*/skills "$HOME/.config" "$HOME/.gemini" -path '*/comet/scripts/comet-env.mjs' -type f -print -quit 2>/dev/null)}"
-if [ -z "$COMET_ENV" ]; then
-  echo "ERROR: comet-env.mjs not found. Ensure the comet skill is installed." >&2
-  return 1
-fi
-COMET_SCRIPTS_DIR="$(node "$COMET_ENV")"
-COMET_STATE="$COMET_SCRIPTS_DIR/comet-state.mjs"
-COMET_GUARD="$COMET_SCRIPTS_DIR/comet-guard.mjs"
-COMET_HANDOFF="$COMET_SCRIPTS_DIR/comet-handoff.mjs"
-COMET_ARCHIVE="$COMET_SCRIPTS_DIR/comet-archive.mjs"
-COMET_RUNTIME="$COMET_SCRIPTS_DIR/comet-runtime.mjs"
-```
+开始前按 `comet/reference/scripts.md` 定位 Comet 脚本（定位 `comet-env.mjs`）；从任意入口恢复时先按 `comet/reference/context-recovery.md` 确认 phase/workflow。
 
 ### 1. 快速开启（预设 open）
 
@@ -162,33 +148,11 @@ Hotfix 流程默认 **一次性连续执行**。调用 `/comet-hotfix` 后，age
 
 ## 升级判定
 
-hotfix 的范围判定采用三层分工，避免「用纯文件数当硬性升级条件」误杀正常 bug 修复（真实修复常顺带改测试、类型、调用方，轻松突破 2~4 文件），又防不住「拆成很多小文件的大重构」：
+hotfix 的升级判定只决定是否从预设流程转为 full；文件数不自动升级，`comet-state scale` 只决定验证轻重。
 
-### 1. 质变信号（agent 语义识别，命中任一即暂停）
+持续检查以下质变信号：跨模块协调修改、需要新增 capability、数据库 schema 变更、引入新的 public API、根因消除检查发现深层架构问题。命中任一信号时，agent **不得自行升级或自行判定可继续**。
 
-build 全程持续判断以下信号。命中任一时，**不得自行升级或自行判定可继续**，必须按 `comet/reference/decision-point.md` 暂停并把决策权交给用户：
-
-| 质变信号 | 说明 |
-|---------|------|
-| 跨模块协调修改 | 需要跨组件、跨层协同改动 |
-| 需要新增 capability | 修复引入了新能力 |
-| 数据库 schema 变更 | 结构性调整 |
-| 引入新的 public API | 修复产生了新的对外接口 |
-| 触及深层架构问题 | 根因消除检查发现修复需架构层面方案 |
-
-**决策点（用户二选一）**：
-- **选项 A — 继续 hotfix 流程**：用户确认范围可控、可由 hotfix 承载，继续 open → build → verify → archive
-- **选项 B — 升级为完整 `/comet`**：用户认为需要深度设计，升级到 full 流程补 Design Doc 和 Superpowers plan
-
-### 2. 文件数 tripwire（用户拍板，非自动升级）
-
-改动文件数超过提示阈值（如 > 4 个文件）时，agent **不自行升级、也不自行判定可继续**，而是暂停并交用户决定：继续 hotfix、还是升级为完整 `/comet`。文件数是提示触发器，不是硬性升级条件——文件数多不等于改动有质变。
-
-### 3. 验证级别（scale 脚本判定）
-
-`comet-state scale` 仅决定 `verify_mode`（验证轻重），不卡流程、不触发升级。走重一点的验证是安全的，不会卡住开发。
-
----
+文件数 tripwire 仅作提示：改动文件数超过提示阈值（如 > 4 个文件）时，也交给用户决定继续 hotfix 还是升级 full；文件数多不等于质变。
 
 命中质变信号或文件数 tripwire 时，**必须按 `comet/reference/decision-point.md` 的协议暂停并等待用户明确选择**。不得直接进入 `/comet-design`，不得自动补充 Design Doc。
 

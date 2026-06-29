@@ -1,6 +1,6 @@
 ---
 name: comet-open
-description: "Comet 阶段 1：开启。用 /comet-open 调用。通过 OpenSpec 探索想法、确认需求澄清，再创建 change 结构（proposal + design + tasks）。"
+description: "Use when Comet 需要创建新的 OpenSpec change，或 active change 缺少 proposal/design/tasks/.comet.yaml 初始化产物。"
 ---
 
 # Comet 阶段 1：开启（Open）
@@ -137,24 +137,9 @@ openspec/changes/<name>/
 
 创建 `.comet.yaml` 状态文件：
 
+先按 `comet/reference/scripts.md` 定位脚本（定位 `comet-env.mjs`），然后初始化状态：
+
 ```bash
-COMET_ENV="${COMET_ENV:-$(find . "$HOME"/.*/skills "$HOME/.config" "$HOME/.gemini" -path '*/comet/scripts/comet-env.mjs' -type f -print -quit 2>/dev/null)}"
-if [ -z "$COMET_ENV" ]; then
-  echo "ERROR: comet-env.mjs not found. Ensure the comet skill is installed." >&2
-  return 1
-fi
-COMET_SCRIPTS_DIR="$(node "$COMET_ENV")"
-COMET_STATE="$COMET_SCRIPTS_DIR/comet-state.mjs"
-COMET_GUARD="$COMET_SCRIPTS_DIR/comet-guard.mjs"
-COMET_HANDOFF="$COMET_SCRIPTS_DIR/comet-handoff.mjs"
-COMET_ARCHIVE="$COMET_SCRIPTS_DIR/comet-archive.mjs"
-COMET_RUNTIME="$COMET_SCRIPTS_DIR/comet-runtime.mjs"
-
-if [ -z "$COMET_SCRIPTS_DIR" ]; then
-  echo "ERROR: Comet scripts not found. Ensure the comet skill is installed." >&2
-  return 1
-fi
-
 node "$COMET_STATE" init <name> full
 ```
 

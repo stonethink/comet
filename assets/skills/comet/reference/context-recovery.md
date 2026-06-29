@@ -4,6 +4,16 @@ Canonical path: `comet/reference/context-recovery.md`
 
 This protocol is shared by all comet sub-skills that may trigger context compression. When the agent suspects context compression has occurred (previous conversation summarized, cannot find previously discussed content), follow this protocol to recover.
 
+## Any-Entry Recovery Principle
+
+The user may resume the workflow directly from `/comet-open`, `/comet-design`, `/comet-build`, `/comet-verify`, `/comet-archive`, `/comet-hotfix`, or `/comet-tweak`. On entry to any sub-skill, first locate scripts via `comet/reference/scripts.md`, then run the entry check or recovery check for that sub-skill's phase. Do not infer phase from conversation history.
+
+```bash
+node "$COMET_STATE" check <change-name> <phase> --recover
+```
+
+If the check shows the actual phase, workflow, or evidence belongs to another skill, switch according to script output and `/comet` routing rules; do not keep writing state in the wrong phase. If the worktree has uncommitted changes, attribute them first via `comet/reference/dirty-worktree.md`.
+
 ## Recovery Steps
 
 ```bash

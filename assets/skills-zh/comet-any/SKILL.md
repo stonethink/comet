@@ -1,6 +1,6 @@
 ---
 name: comet-any
-description: "当用户想基于 Comet 现有 Skill 做五阶段定制、创建全新的 workflow Skill、整理已有 Skill，或用 Workflow Node / Skill Binding / Output Schema 编排任意 Skill 时使用。"
+description: "Use when 用户想定制 Comet 五阶段 Skill、创建 workflow Skill、整理已有 Skill，或用 Workflow Node / Skill Binding / Output Schema 编排 Skill。"
 ---
 
 # Comet Any - Skill Maker

@@ -1,6 +1,6 @@
 ---
 name: comet-open
-description: "Comet Phase 1: Open. Invoke with /comet-open. Explore ideas through OpenSpec, confirm requirements clarification, then create change structure (proposal + design + tasks)."
+description: "Use when Comet needs to create a new OpenSpec change, or an active change is missing proposal/design/tasks/.comet.yaml initialization artifacts."
 ---
 
 # Comet Phase 1: Open
@@ -137,24 +137,9 @@ openspec/changes/<name>/
 
 Create `.comet.yaml` state file:
 
+First locate scripts via `comet/reference/scripts.md`, then initialize state:
+
 ```bash
-COMET_ENV="${COMET_ENV:-$(find . "$HOME"/.*/skills "$HOME/.config" "$HOME/.gemini" -path '*/comet/scripts/comet-env.mjs' -type f -print -quit 2>/dev/null)}"
-if [ -z "$COMET_ENV" ]; then
-  echo "ERROR: comet-env.mjs not found. Ensure the comet skill is installed." >&2
-  return 1
-fi
-COMET_SCRIPTS_DIR="$(node "$COMET_ENV")"
-COMET_STATE="$COMET_SCRIPTS_DIR/comet-state.mjs"
-COMET_GUARD="$COMET_SCRIPTS_DIR/comet-guard.mjs"
-COMET_HANDOFF="$COMET_SCRIPTS_DIR/comet-handoff.mjs"
-COMET_ARCHIVE="$COMET_SCRIPTS_DIR/comet-archive.mjs"
-COMET_RUNTIME="$COMET_SCRIPTS_DIR/comet-runtime.mjs"
-
-if [ -z "$COMET_SCRIPTS_DIR" ]; then
-  echo "ERROR: Comet scripts not found. Ensure the comet skill is installed." >&2
-  return 1
-fi
-
 node "$COMET_STATE" init <name> full
 ```
 

@@ -1520,27 +1520,31 @@ describe('skills', () => {
           );
           if (!content.includes('COMET_STATE') && !content.includes('COMET_GUARD')) continue;
 
-          // The main entry SKILL.md delegates the bootstrap to reference/scripts.md
-          // (progressive loading) and is not independently bootable, so it only needs
-          // to reference scripts.md; sub-skills must carry the full bootstrap inline.
+          // Skills may either carry the bootstrap inline or delegate it to
+          // reference/scripts.md for progressive loading. Inline bootstrap still
+          // needs the safe HOME glob; delegated bootstrap is validated in scripts.md.
           const isMainEntry = skillPath === 'comet/SKILL.md';
+          const delegatesBootstrap = content.includes('comet/reference/scripts.md');
+          const hasInlineBootstrap = content.includes('node "$COMET_ENV"');
 
           if (!isMainEntry) {
-            expect(content, `${languageDir}/${skillPath} should use comet-env.mjs`).toContain(
-              'comet-env.mjs',
-            );
             expect(
-              content,
-              `${languageDir}/${skillPath} should resolve COMET_ENV via node`,
-            ).toContain('node "$COMET_ENV"');
-            expect(
-              content,
-              `${languageDir}/${skillPath} should allow HOME skill glob expansion`,
-            ).toContain('"$HOME"/.*/skills');
-            expect(
-              content,
-              `${languageDir}/${skillPath} should not quote the HOME skill glob`,
-            ).not.toContain('"$HOME/.*/skills"');
+              delegatesBootstrap || hasInlineBootstrap,
+              `${languageDir}/${skillPath} should either delegate or inline Comet bootstrap`,
+            ).toBe(true);
+            if (hasInlineBootstrap) {
+              expect(content, `${languageDir}/${skillPath} should use comet-env.mjs`).toContain(
+                'comet-env.mjs',
+              );
+              expect(
+                content,
+                `${languageDir}/${skillPath} should allow HOME skill glob expansion`,
+              ).toContain('"$HOME"/.*/skills');
+              expect(
+                content,
+                `${languageDir}/${skillPath} should not quote the HOME skill glob`,
+              ).not.toContain('"$HOME/.*/skills"');
+            }
           } else {
             expect(
               content,

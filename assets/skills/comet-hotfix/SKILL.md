@@ -1,6 +1,6 @@
 ---
 name: comet-hotfix
-description: "Comet preset path: Bug fix / hotfix. Skip brainstorming, directly open → build → verify → archive. Applicable for behavior fixes, scenarios not involving new capability design."
+description: "Use when the user wants to fix an existing behavior bug without adding capability or needing full design; also use when resuming hotfix workflow."
 ---
 
 # Comet Preset Path: Hotfix
@@ -24,21 +24,7 @@ Streamlined OpenSpec artifacts must use the language of the user request that tr
 
 Execution chain: open → build → root cause check → verify → archive. Hotfix provides default decisions for each phase: streamlined open, direct build, root cause confirmation, scale-based verification, and final archive confirmation after verification passes.
 
-Locate Comet scripts before starting:
-
-```bash
-COMET_ENV="${COMET_ENV:-$(find . "$HOME"/.*/skills "$HOME/.config" "$HOME/.gemini" -path '*/comet/scripts/comet-env.mjs' -type f -print -quit 2>/dev/null)}"
-if [ -z "$COMET_ENV" ]; then
-  echo "ERROR: comet-env.mjs not found. Ensure the comet skill is installed." >&2
-  return 1
-fi
-COMET_SCRIPTS_DIR="$(node "$COMET_ENV")"
-COMET_STATE="$COMET_SCRIPTS_DIR/comet-state.mjs"
-COMET_GUARD="$COMET_SCRIPTS_DIR/comet-guard.mjs"
-COMET_HANDOFF="$COMET_SCRIPTS_DIR/comet-handoff.mjs"
-COMET_ARCHIVE="$COMET_SCRIPTS_DIR/comet-archive.mjs"
-COMET_RUNTIME="$COMET_SCRIPTS_DIR/comet-runtime.mjs"
-```
+Before starting, locate Comet scripts via `comet/reference/scripts.md`. When resuming from any entry point, first use `comet/reference/context-recovery.md` to confirm phase/workflow.
 
 ### 1. Quick Open (preset open)
 
@@ -166,45 +152,23 @@ After each step completes, immediately enter next step. Within each phase, must 
 
 ## Upgrade Assessment
 
-hotfix's scope assessment uses a three-layer division of labor, avoiding "using pure file count as a hard upgrade condition" that wrongly blocks normal bug fixes (real fixes often touch tests, types, and callers along the way, easily exceeding 2–4 files) and fails to catch "a big refactor split into many small files":
+Hotfix upgrade assessment only decides whether to move from the preset workflow to full; file count never upgrades automatically, and `comet-state scale` only decides verification weight.
 
-### 1. Qualitative-change signals (agent semantic recognition; hitting any one pauses)
+Continuously check these qualitative-change signals: cross-module coordination, needing a new capability, database schema changes, introducing a new public API, or root-cause elimination revealing a deep architecture problem. If any signal appears, the agent **must not self-upgrade or self-decide to continue**.
 
-Continuously judge the following signals throughout build. When any is hit, **do not upgrade on your own or decide to continue on your own** — must pause per `comet/reference/decision-point.md` and delegate the decision to the user:
+The file-count tripwire is only a prompt: when changed files exceed the hint threshold (for example > 4 files), ask the user whether to continue hotfix or upgrade full. More files do not necessarily mean qualitative change.
 
-| Qualitative-change signal | Explanation |
-|---------------------------|-------------|
-| Cross-module coordinated change | Requires cross-component, cross-layer coordinated edits |
-| New capability needed | The fix introduces a new capability |
-| Database schema change | Structural adjustment |
-| Introduces new public API | The fix creates a new external interface |
-| Hits deep architecture issues | Root cause check reveals the fix requires an architecture-level solution |
+When a qualitative-change signal or file-count tripwire is hit, **must pause under the `comet/reference/decision-point.md` protocol and wait for the user's explicit choice**. Do not directly enter `/comet-design`; do not automatically add a Design Doc.
 
-**Decision point (user chooses one of two)**:
-- **Option A — Continue the hotfix flow**: user confirms scope is manageable and hotfix can carry it; continue open → build → verify → archive
-- **Option B — Upgrade to full `/comet`**: user believes deep design is needed; upgrade to the full flow to supplement Design Doc and Superpowers plan
-
-### 2. File-count tripwire (user decides; not an automatic upgrade)
-
-When changed files exceed a hint threshold (e.g., > 4 files), the agent **does not upgrade on its own or decide to continue on its own**; instead it pauses and lets the user decide: continue hotfix, or upgrade to the full `/comet`. File count is a hint trigger, not a hard upgrade condition — many files do not equal a qualitative change.
-
-### 3. Verification weight (scale script decides)
-
-`comet-state scale` only decides `verify_mode` (verification weight); it does not block the flow or trigger an upgrade. Running a heavier verification is safe and will not stall development.
-
----
-
-When a qualitative-change signal or file-count tripwire is hit, **must follow the `comet/reference/decision-point.md` protocol to pause and wait for the user to explicitly choose**. Do not directly enter `/comet-design`, and do not automatically supplement Design Doc.
-
-When the user chooses to upgrade (Option B), use the state machine's legal upgrade channel — a single command completes the preset → full conversion and rewinds to the design phase:
+After the user chooses upgrade (option B), use the legal state-machine upgrade channel, a single command that converts the preset workflow to full and rolls back to design:
 
 ```bash
 node "$COMET_STATE" transition <name> preset-escalate
 ```
 
-This command atomically sets `workflow`/`classic_profile` to `full`, rewinds `phase` to `design`, and clears `design_doc` (satisfying the comet-design entry requirement). Then supplement the Design Doc on the current change basis: **Immediately use the Skill tool to load the `comet-design` skill**, and proceed normally with the full workflow.
+This command atomically sets `workflow`/`classic_profile` to `full`, rolls `phase` back to `design`, and clears `design_doc` (satisfying comet-design entry requirements). Then add the Design Doc on the current change: **immediately use the Skill tool to load the `comet-design` skill**, then proceed through the normal full workflow.
 
-When the user chooses to continue (Option A), continue the hotfix flow and record the reason the user confirmed continuing.
+When the user chooses continue (option A), continue the hotfix workflow and record the user's reason for continuing.
 
 ---
 

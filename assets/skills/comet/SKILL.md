@@ -1,6 +1,6 @@
 ---
 name: comet
-description: "Comet — OpenSpec + Superpowers dual-star development workflow. Start with /comet for automatic phase detection and dispatch to subcommands. Five phases: open → design → build → verify → archive."
+description: "Use when the user wants to start or resume a Comet workflow and route by active change, .comet.yaml, and hotfix/tweak intent."
 ---
 
 # Comet — OpenSpec + Superpowers Dual-Star Development Workflow

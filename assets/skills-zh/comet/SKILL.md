@@ -1,6 +1,6 @@
 ---
 name: comet
-description: "Comet — OpenSpec + Superpowers 双星开发流程。用 /comet 启动，自动检测阶段并分发到子命令。五阶段：开启 → 深度设计 → 计划与构建 → 验证与收尾 → 归档。"
+description: "Use when 用户要启动或恢复 Comet 工作流，需要根据 active change、.comet.yaml、hotfix/tweak 意图路由到对应阶段 Skill。"
 ---
 
 # Comet — OpenSpec + Superpowers 双星开发流程
