@@ -86,6 +86,22 @@ Spec lifecycle completes here:
 brainstorming → delta spec → implementation → verification → main spec merge → design doc annotation → archive
 ```
 
+### 4. Commit the Archive Changes
+
+The archive script only moves files and merges the spec; it does not commit. After archiving, the worktree holds these uncommitted changes:
+- The change directory moved from `openspec/changes/<name>/` to `openspec/changes/archive/YYYY-MM-DD-<name>/`
+- The main spec content merged via delta semantics
+- Archive metadata annotations on the design doc / plan
+
+**You must prompt the user to commit these archive changes**, otherwise the archived result stays in the worktree. After showing the pending files, suggest:
+
+```bash
+git add -A
+git commit -m "chore: archive <change-name>"
+```
+
+If branch handling (phase 4) chose not to merge into the main branch yet, finish up via the selected option (merge / PR / keep branch) together with this commit.
+
 ## Exit Conditions
 
 - Archive script executed successfully (exit code 0)

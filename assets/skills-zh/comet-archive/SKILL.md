@@ -86,6 +86,22 @@ Spec 生命周期在此完成：
 brainstorming → delta spec → 实施 → 验证 → 主 spec 合并 → design doc 标注 → 归档
 ```
 
+### 4. 提交归档改动
+
+归档脚本只移动文件和合并 spec，不会自动提交。归档完成后工作区会有以下未提交改动：
+- change 目录从 `openspec/changes/<name>/` 移动到 `openspec/changes/archive/YYYY-MM-DD-<name>/`
+- 主 spec 按 delta 语义合并的内容
+- design doc / plan 的归档元数据标注
+
+**必须提示用户提交这些归档改动**，否则归档成果会停留在工作区。展示待提交文件后建议执行：
+
+```bash
+git add -A
+git commit -m "chore: archive <change-name>"
+```
+
+如分支处理（阶段 4）选择尚未合并到主分支，提交后按所选方式（合并 / PR / 保持分支）一并收尾。
+
 ## 退出条件
 
 - 归档脚本执行成功（退出码 0）
