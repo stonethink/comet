@@ -5,7 +5,9 @@ import path from 'path';
 import type { ClassicCommandHandler, ClassicCommandResult } from './classic-cli.js';
 import { openSpecChangeNameError } from './classic-paths.js';
 import { ensureClassicRuntimeRun, transitionClassicRuntimeRun } from './classic-runtime-run.js';
+import { appendClassicStateEvent } from './classic-state-events.js';
 import { readClassicState, writeClassicState } from './classic-store.js';
+import { applyClassicTransition } from './classic-transitions.js';
 import {
   appendTrajectory,
   clearPendingAction,
@@ -348,11 +350,8 @@ export const classicArchiveCommand: ClassicCommandHandler = async (args) => {
       };
       await writeArtifacts(archiveDir, archivedProjection.run.artifactsRef, artifacts);
 
-      const archivedClassic = {
-        ...archivedProjection.classic,
-        phase: 'archive' as const,
-        archived: true,
-      };
+      const archiveTransition = applyClassicTransition(archivedProjection.classic, 'archived');
+      const archivedClassic = archiveTransition.classic;
       let transitionedRun = archivedProjection.run;
       if (
         archivedProjection.run.currentStep !== 'completed' ||
@@ -365,6 +364,8 @@ export const classicArchiveCommand: ClassicCommandHandler = async (args) => {
           {
             actionId,
             archiveDirectory: archiveDir,
+            event: 'archived',
+            source: 'comet-archive',
           },
         );
       }
@@ -391,6 +392,14 @@ export const classicArchiveCommand: ClassicCommandHandler = async (args) => {
         classic: archivedClassic,
         run: completedRun,
         unknownKeys: archivedProjection.unknownKeys,
+      });
+      await appendClassicStateEvent(archiveDir, {
+        change: archiveName,
+        event: 'archived',
+        source: 'comet-archive',
+        from: archivedProjection.classic,
+        to: archivedClassic,
+        effects: archiveTransition.effects,
       });
       await clearPendingAction(archiveDir, completedRun.pendingRef);
       output.stderr.push(green('  [OK] archived: true'));

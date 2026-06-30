@@ -119,18 +119,21 @@ comet skill check     # 运行 Engine Run runtime checks
 │  /build_mode...)│            │  /build_mode...)│          │ skill_hash /         │
 │                 │            │ + run_id 链接    │ ────────►│ current_step /       │
 │ 引擎字段         │            └─────────────────┘          │ iteration / pending │
-│ (run_id/skill/  │                                         │ /*_ref / status...  │
-│  skill_hash...) │                                         └─────────────────────┘
-└─────────────────┘
+│ (run_id/skill/  │                     │                   │ /*_ref / status...  │
+│  skill_hash...) │                     ▼                   └─────────────────────┘
+└─────────────────┘            .comet/state-events.jsonl
+                               (追加式状态转移审计日志)
 ```
 
 - 旧 change（含 Run 字段嵌入 `.comet.yaml`）首次读取时自动迁移
 - `comet-state set` 拒绝写 machine-owned Run 字段，防止误改
+- Classic 阶段转移由 `domains/comet-classic/classic-transitions.ts` 的 TypeScript transition table 统一定义，`comet-state transition`、`comet-guard --apply` 和归档路径共享同一份转移语义
+- `.comet/state-events.jsonl` 是追加式审计轨迹，记录 event、source、from/to 状态和实际字段 effects；它不取代 `.comet.yaml`，也不是第二个可编辑状态源
 
 ### 用户感知
 
 - `.comet.yaml` 变干净，用户只关心自己能改的字段
-- 引擎状态与用户状态分离，降低误改风险
+- 引擎状态、用户状态与审计日志分离，降低误改风险，也让一次自动推进为什么发生可追踪
 - 升级路径平滑（自动迁移，无需手工转换）
 
 ## 五、平台支持扩展
@@ -142,7 +145,7 @@ comet skill check     # 运行 Engine Run runtime checks
 Classic `/comet` 入口仍保持用户熟悉的命令形态，但内部判断正在逐步收敛到同一条
 Resolver 事实链。`status`、`doctor`、`guard` 和 runtime phase transition 共享 Classic
 Resolver 的 step/evidence 判断；`.comet.yaml` 保持用户可见投影，`.comet/run-state.json`
-持有 machine-owned Run state 与 trajectory。
+持有 machine-owned Run state 与 trajectory，`.comet/state-events.jsonl` 记录成功状态转移的追加式审计事件。
 
 这意味着：
 

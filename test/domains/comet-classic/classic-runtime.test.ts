@@ -141,6 +141,16 @@ describe('Classic runtime bundle', () => {
     expect(get).toMatchObject({ status: 0, stdout: 'open\n' });
     expect(set.status).toBe(0);
     expect(transition.status).toBe(0);
+    const eventLog = await fs.readFile(path.join(demoDir, '.comet', 'state-events.jsonl'), 'utf8');
+    expect(JSON.parse(eventLog.trim())).toMatchObject({
+      schemaVersion: 1,
+      change: 'demo',
+      event: 'open-complete',
+      source: 'comet-state',
+      from: { phase: 'open' },
+      to: { phase: 'design' },
+      effects: [{ field: 'phase', from: 'open', to: 'design' }],
+    });
     expect(next.stdout).toContain('SKILL: comet-design');
     expect(validate.status).toBe(0);
     expect(validate.stderr).toContain('validation PASSED');

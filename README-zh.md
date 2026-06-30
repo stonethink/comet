@@ -445,18 +445,21 @@ Spec 生命周期管理：propose、explore、sync、verify、archive 等。
 
 Comet 使用解耦状态架构，文件独立管理：
 
-| 文件                    | 归属     | 用途                           |
-| ----------------------- | -------- | ------------------------------ |
-| `.openspec.yaml`        | OpenSpec | Spec 生命周期、变更元数据      |
-| `.comet.yaml`           | Comet    | 工作流阶段、执行模式、验证状态 |
-| `.comet/run-state.json` | Engine   | Run 身份和执行状态（机器所有） |
+| 文件                        | 归属     | 用途                           |
+| --------------------------- | -------- | ------------------------------ |
+| `.openspec.yaml`            | OpenSpec | Spec 生命周期、变更元数据      |
+| `.comet.yaml`               | Comet    | 工作流阶段、执行模式、验证状态 |
+| `.comet/run-state.json`     | Engine   | Run 身份和执行状态（机器所有） |
+| `.comet/state-events.jsonl` | Comet    | 追加式状态转移审计日志         |
 
 `.comet.yaml` 保存所有用户可见的 Classic 工作流字段及 `run_id` 关联。Engine 将 Run 字段（`current_step`、`skill`、
 `iteration`、`run_status` 等）单独存储在 `.comet/run-state.json`（camelCase JSON）中。旧变更如果 Run 字段仍在
 `.comet.yaml` 中，首次读取时自动迁移。
 
+状态转移规则由 TypeScript transition table 统一维护；`comet-state transition`、`comet-guard --apply` 和归档路径成功推进时，会向 `.comet/state-events.jsonl` 追加事件记录，包含 event、source、from/to 状态和实际变更字段。
+
 所有状态和运行阶段都通过脚本更新，并且会在每个阶段退出前校验任务是否真实完成。相比于将复杂状态管理写在 Skill
-文本中，脚本化状态机能更稳定地保障阶段流转、YAML 正确性和断点恢复；Agent 只需要通过 Comet 内置命令读取状态，就能知道当前
+文本中，脚本化状态机能更稳定地保障阶段流转、YAML 正确性、审计追踪和断点恢复；Agent 只需要通过 Comet 内置命令读取状态，就能知道当前
 Spec 处于哪个阶段。
 
 <details>
@@ -577,7 +580,8 @@ your-project/
 │           ├── .openspec.yaml       # OpenSpec 状态
 │           ├── .comet.yaml          # Comet 工作流状态（Classic 字段 + run_id 关联）
 │           ├── .comet/
-│           │   └── run-state.json   # Engine Run 状态（机器所有，自动迁移）
+│           │   ├── run-state.json   # Engine Run 状态（机器所有，自动迁移）
+│           │   └── state-events.jsonl # 状态转移审计日志（追加式）
 │           ├── proposal.md
 │           ├── design.md
 │           ├── specs/<capability>/spec.md

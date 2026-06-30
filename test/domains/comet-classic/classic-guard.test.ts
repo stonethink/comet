@@ -75,9 +75,20 @@ describe('Classic guard command', () => {
     expect(runState!.skill).toBe('comet-classic');
     expect(runState!.currentStep).toBe('hotfix.build.complete');
     expect(runState!.iteration).toBe(1);
-    const trajectory = (
-      await fs.readFile(path.join(changeDir, runState!.trajectoryRef), 'utf8')
-    )
+    const eventLog = await fs.readFile(
+      path.join(changeDir, '.comet', 'state-events.jsonl'),
+      'utf8',
+    );
+    expect(JSON.parse(eventLog.trim())).toMatchObject({
+      schemaVersion: 1,
+      change: 'demo',
+      event: 'open-complete',
+      source: 'comet-guard',
+      from: { workflow: 'hotfix', phase: 'open' },
+      to: { workflow: 'hotfix', phase: 'build' },
+      effects: [{ field: 'phase', from: 'open', to: 'build' }],
+    });
+    const trajectory = (await fs.readFile(path.join(changeDir, runState!.trajectoryRef), 'utf8'))
       .trim()
       .split(/\r?\n/u)
       .map((line) => JSON.parse(line) as { type: string });
@@ -97,7 +108,10 @@ describe('Classic guard command', () => {
   it('returns resolver diagnostics in json mode', async () => {
     const dir = await makeProject();
     expect(run(dir, 'state', 'init', 'demo', 'full').status).toBe(0);
-    await fs.writeFile(path.join(dir, 'openspec', 'changes', 'demo', 'proposal.md'), '# Proposal\n');
+    await fs.writeFile(
+      path.join(dir, 'openspec', 'changes', 'demo', 'proposal.md'),
+      '# Proposal\n',
+    );
     await fs.writeFile(path.join(dir, 'openspec', 'changes', 'demo', 'design.md'), '# Design\n');
     await fs.writeFile(path.join(dir, 'openspec', 'changes', 'demo', 'tasks.md'), '- [ ] build\n');
 

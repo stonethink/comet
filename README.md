@@ -461,20 +461,25 @@ diagnostic path, and Bundle/Skill architecture details.
 
 Comet uses a decoupled state architecture with separate files:
 
-| File                    | Owner    | Purpose                                             |
-| ----------------------- | -------- | --------------------------------------------------- |
-| `.openspec.yaml`        | OpenSpec | Spec lifecycle, change metadata                     |
-| `.comet.yaml`           | Comet    | Workflow phase, execution mode, verification status |
-| `.comet/run-state.json` | Engine   | Run identity and execution state (machine-owned)    |
+| File                        | Owner    | Purpose                                             |
+| --------------------------- | -------- | --------------------------------------------------- |
+| `.openspec.yaml`            | OpenSpec | Spec lifecycle, change metadata                     |
+| `.comet.yaml`               | Comet    | Workflow phase, execution mode, verification status |
+| `.comet/run-state.json`     | Engine   | Run identity and execution state (machine-owned)    |
+| `.comet/state-events.jsonl` | Comet    | Append-only state transition audit log              |
 
 `.comet.yaml` holds all user-facing Classic workflow fields and a `run_id` link. The Engine stores Run fields
 (`current_step`, `skill`, `iteration`, `run_status`, etc.) separately in `.comet/run-state.json` (camelCase JSON).
 Legacy changes with Run fields embedded in `.comet.yaml` are auto-migrated on first read.
 
+State transition rules live in a TypeScript transition table. Successful `comet-state transition`, `comet-guard --apply`,
+and archive updates append records to `.comet/state-events.jsonl` with the event, source, from/to states, and actual field
+effects.
+
 All states and execution phases are updated via scripts, and each phase verifies that tasks are truly complete before
 advancing. Compared to storing complex state rules only in Skill text, this script-backed state machine gives Comet more
-reliable phase transitions, correct YAML, and easier breakpoint recovery; agents can read the current Spec situation
-through Comet's built-in commands.
+reliable phase transitions, correct YAML, transition auditability, and easier breakpoint recovery; agents can read the
+current Spec situation through Comet's built-in commands.
 
 <details>
 <summary>View key .comet.yaml fields</summary>
@@ -593,7 +598,8 @@ your-project/
 │           ├── .openspec.yaml       # OpenSpec state
 │           ├── .comet.yaml          # Comet workflow state (Classic fields + run_id link)
 │           ├── .comet/
-│           │   └── run-state.json   # Engine Run state (machine-owned, auto-migrated)
+│           │   ├── run-state.json   # Engine Run state (machine-owned, auto-migrated)
+│           │   └── state-events.jsonl # State transition audit log (append-only)
 │           ├── proposal.md
 │           ├── design.md
 │           ├── specs/<capability>/spec.md

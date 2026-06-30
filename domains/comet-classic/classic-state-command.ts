@@ -7,8 +7,20 @@ import type { ClassicCommandHandler, ClassicCommandResult } from './classic-cli.
 import { collectClassicEvidence } from './classic-evidence.js';
 import { openSpecChangeNameError, resolveClassicChangeDirectory } from './classic-paths.js';
 import { resolveClassicStepId } from './classic-resolver.js';
-import { CLASSIC_WIRE_KEYS, RUN_WIRE_KEYS, parseClassicStateDocument } from './classic-state.js';
-import { writeClassicState } from './classic-store.js';
+import { transitionClassicRuntimeRun } from './classic-runtime-run.js';
+import { appendClassicStateEvent } from './classic-state-events.js';
+import {
+  CLASSIC_WIRE_KEYS,
+  RUN_WIRE_KEYS,
+  parseClassicStateDocument,
+  type ClassicState,
+} from './classic-state.js';
+import { readClassicState, writeClassicState } from './classic-store.js';
+import {
+  CLASSIC_TRANSITION_EVENTS,
+  applyClassicTransition,
+  type ClassicTransitionEvent,
+} from './classic-transitions.js';
 import { readRunState } from '../../domains/engine/state.js';
 import { appendTrajectory, readTrajectory } from '../../domains/engine/run-store.js';
 
@@ -18,16 +30,7 @@ const YELLOW = '\u001b[33m';
 const RESET = '\u001b[0m';
 const PROFILES = ['full', 'hotfix', 'tweak'] as const;
 const PHASES = ['open', 'design', 'build', 'verify', 'archive'] as const;
-const EVENTS = [
-  'open-complete',
-  'design-complete',
-  'build-complete',
-  'verify-pass',
-  'verify-fail',
-  'archive-reopen',
-  'archived',
-  'preset-escalate',
-] as const;
+const EVENTS = CLASSIC_TRANSITION_EVENTS;
 const MACHINE_OWNED_FIELDS = new Set<string>([
   ...RUN_WIRE_KEYS,
   'classic_profile',
@@ -58,6 +61,17 @@ const FIELD_ENUMS: Record<string, readonly string[]> = {
 };
 
 const PATH_FIELDS = new Set(['design_doc', 'plan', 'verification_report', 'handoff_context']);
+const CLASSIC_FIELD_WIRE_NAMES: Partial<Record<keyof ClassicState, string>> = {
+  archived: 'archived',
+  branchStatus: 'branch_status',
+  classicProfile: 'classic_profile',
+  designDoc: 'design_doc',
+  phase: 'phase',
+  verificationReport: 'verification_report',
+  verifiedAt: 'verified_at',
+  verifyResult: 'verify_result',
+  workflow: 'workflow',
+};
 
 class CommandFailure extends Error {
   constructor(
@@ -175,6 +189,95 @@ function scalar(value: unknown): string {
   if (value === undefined) return '';
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
+}
+
+function wireField(field: keyof ClassicState): string {
+  return CLASSIC_FIELD_WIRE_NAMES[field] ?? String(field);
+}
+
+function wireValue(value: unknown): string {
+  return value === null ? 'null' : scalar(value);
+}
+
+function enumRecordValue<const T extends readonly string[]>(
+  record: Record<string, unknown>,
+  field: string,
+  values: T,
+  fallback: T[number] | null,
+): T[number] | null {
+  const value = record[field];
+  return typeof value === 'string' && values.includes(value as T[number])
+    ? (value as T[number])
+    : fallback;
+}
+
+function nullableRecordString(record: Record<string, unknown>, field: string): string | null {
+  const value = record[field];
+  if (value === null || value === undefined || value === '') return null;
+  return typeof value === 'string' ? value : String(value);
+}
+
+function nullableRecordBoolean(record: Record<string, unknown>, field: string): boolean | null {
+  const value = record[field];
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value === 'boolean') return value;
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return null;
+}
+
+function sparseClassicState(record: Record<string, unknown>): ClassicState {
+  const workflow = enumRecordValue(record, 'workflow', PROFILES, 'full')!;
+  return {
+    workflow,
+    phase: enumRecordValue(record, 'phase', PHASES, 'open')!,
+    contextCompression: enumRecordValue(
+      record,
+      'context_compression',
+      ['off', 'beta'] as const,
+      null,
+    ),
+    buildMode: enumRecordValue(
+      record,
+      'build_mode',
+      ['subagent-driven-development', 'executing-plans', 'direct'] as const,
+      null,
+    ),
+    buildPause: enumRecordValue(record, 'build_pause', ['plan-ready'] as const, null),
+    subagentDispatch: enumRecordValue(record, 'subagent_dispatch', ['confirmed'] as const, null),
+    tddMode: enumRecordValue(record, 'tdd_mode', ['tdd', 'direct'] as const, null),
+    reviewMode: enumRecordValue(
+      record,
+      'review_mode',
+      ['off', 'standard', 'thorough'] as const,
+      null,
+    ),
+    isolation: enumRecordValue(record, 'isolation', ['branch', 'worktree'] as const, null),
+    verifyMode: enumRecordValue(record, 'verify_mode', ['light', 'full'] as const, null),
+    autoTransition: nullableRecordBoolean(record, 'auto_transition'),
+    baseRef: nullableRecordString(record, 'base_ref'),
+    designDoc: nullableRecordString(record, 'design_doc'),
+    plan: nullableRecordString(record, 'plan'),
+    verifyResult: enumRecordValue(
+      record,
+      'verify_result',
+      ['pending', 'pass', 'fail'] as const,
+      'pending',
+    )!,
+    verificationReport: nullableRecordString(record, 'verification_report'),
+    branchStatus: enumRecordValue(record, 'branch_status', ['pending', 'handled'] as const, null),
+    createdAt: nullableRecordString(record, 'created_at'),
+    verifiedAt: nullableRecordString(record, 'verified_at'),
+    archived: nullableRecordBoolean(record, 'archived') ?? false,
+    directOverride: nullableRecordBoolean(record, 'direct_override'),
+    buildCommand: nullableRecordString(record, 'build_command'),
+    verifyCommand: nullableRecordString(record, 'verify_command'),
+    handoffContext: nullableRecordString(record, 'handoff_context'),
+    handoffHash: nullableRecordString(record, 'handoff_hash'),
+    classicProfile: enumRecordValue(record, 'classic_profile', PROFILES, workflow),
+    classicMigration:
+      typeof record.classic_migration === 'number' ? record.classic_migration : null,
+  };
 }
 
 async function projectConfigValue(
@@ -445,33 +548,77 @@ async function requireDesignEvidence(name: string): Promise<void> {
   }
 }
 
+async function writeSparseTransitionEffects(
+  directory: string,
+  effects: Array<{ field: keyof ClassicState; to: unknown }>,
+): Promise<void> {
+  const file = path.join(directory, '.comet.yaml');
+  const document = await readDocument(file);
+  for (const effect of effects) {
+    const field = wireField(effect.field);
+    document.set(field, parsedValue(field, wireValue(effect.to)));
+  }
+  await atomicWrite(file, document.toString());
+}
+
+async function applyTransitionEvent(
+  output: CommandOutput,
+  name: string,
+  event: ClassicTransitionEvent,
+): Promise<void> {
+  const { directory } = await stateFile(name);
+  const projection = await readClassicState(directory);
+  let classic = projection.classic;
+  let sparse = false;
+  if (!classic) {
+    if (projection.run) fail('ERROR: Classic state projection is missing');
+    const document = await readDocument(path.join(directory, '.comet.yaml'));
+    classic = sparseClassicState(document.toJS() as Record<string, unknown>);
+    sparse = true;
+  }
+
+  const result = applyClassicTransition(classic, event);
+  if (projection.run) {
+    await transitionClassicRuntimeRun(directory, result.classic, projection.run, {
+      event,
+      source: 'comet-state',
+    });
+  } else if (sparse) {
+    await writeSparseTransitionEffects(directory, result.effects);
+  } else {
+    await writeClassicState(directory, {
+      classic: result.classic,
+      run: null,
+      unknownKeys: projection.unknownKeys,
+    });
+  }
+  await appendClassicStateEvent(directory, {
+    change: name,
+    event,
+    source: 'comet-state',
+    from: classic,
+    to: result.classic,
+    effects: result.effects,
+  });
+
+  for (const effect of result.effects) {
+    output.stderr.push(green(`[SET] ${wireField(effect.field)}=${wireValue(effect.to)}`));
+  }
+  output.stderr.push(green(`[TRANSITION] ${event}`));
+}
+
 async function transition(output: CommandOutput, name: string, event: string): Promise<void> {
   validateChangeName(name);
   validateEnum(event, EVENTS);
   if (event === 'open-complete') {
     await requirePhase(name, 'open');
     await requireOpenArtifacts(name);
-    await setField(
-      output,
-      name,
-      'phase',
-      (await readField(name, 'workflow')) === 'full' ? 'design' : 'build',
-      { internal: true },
-    );
   } else if (event === 'design-complete') {
     await requirePhase(name, 'design');
     await requireDesignEvidence(name);
-    await setField(output, name, 'phase', 'build', { internal: true });
   } else if (event === 'build-complete') {
     await requirePhase(name, 'build');
     await requireBuildDecisions(name);
-    const current = await readField(name, 'verify_result');
-    await setField(output, name, 'phase', 'verify', { internal: true });
-    await setField(output, name, 'verify_result', 'pending');
-    if (current !== 'fail') {
-      await setField(output, name, 'verification_report', 'null');
-      await setField(output, name, 'branch_status', 'pending');
-    }
   } else if (event === 'verify-pass') {
     await requirePhase(name, 'verify');
     const report = await readField(name, 'verification_report');
@@ -483,13 +630,8 @@ async function transition(output: CommandOutput, name: string, event: string): P
     if ((await readField(name, 'branch_status')) !== 'handled') {
       fail(`ERROR: Cannot transition '${name}': branch_status must be handled`);
     }
-    await setField(output, name, 'verify_result', 'pass');
-    await setField(output, name, 'phase', 'archive', { internal: true });
-    await setField(output, name, 'verified_at', new Date().toISOString().slice(0, 10));
   } else if (event === 'verify-fail') {
     await requirePhase(name, 'verify');
-    await setField(output, name, 'verify_result', 'fail');
-    await setField(output, name, 'phase', 'build', { internal: true });
   } else if (event === 'preset-escalate') {
     // preset (hotfix/tweak) → full: rewind phase to design so the agent can
     // supplement a Design Doc before continuing. Unlike verify-fail /
@@ -504,29 +646,18 @@ async function transition(output: CommandOutput, name: string, event: string): P
         `ERROR: Cannot transition '${name}': preset-escalate only applies to hotfix/tweak, got workflow='${workflow}'`,
       );
     }
-    await setField(output, name, 'workflow', 'full', { internal: true });
-    await setField(output, name, 'classic_profile', 'full', {
-      internal: true,
-      machineOwned: true,
-    });
-    await setField(output, name, 'phase', 'design', { internal: true });
-    await setField(output, name, 'design_doc', 'null', { internal: true });
   } else if (event === 'archive-reopen') {
     await requirePhase(name, 'archive');
     if ((await readField(name, 'archived')) === 'true') {
       fail(`ERROR: Cannot transition '${name}': already archived`);
     }
-    await setField(output, name, 'verify_result', 'pending');
-    await setField(output, name, 'phase', 'verify', { internal: true });
-    await setField(output, name, 'verified_at', 'null');
   } else {
     await requirePhase(name, 'archive');
     if ((await readField(name, 'verify_result')) !== 'pass') {
       fail(`ERROR: Cannot transition '${name}': verify_result must be pass before archiving`);
     }
-    await setField(output, name, 'archived', 'true');
   }
-  output.stderr.push(green(`[TRANSITION] ${event}`));
+  await applyTransitionEvent(output, name, event as ClassicTransitionEvent);
 }
 
 async function next(output: CommandOutput, name: string): Promise<void> {

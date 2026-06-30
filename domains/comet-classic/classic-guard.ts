@@ -8,7 +8,9 @@ import { inspectClassicChange } from './classic-diagnostics.js';
 import { openSpecChangeNameError, resolveClassicChangeDirectory } from './classic-paths.js';
 import { ensureClassicRuntimeRun, transitionClassicRuntimeRun } from './classic-runtime-run.js';
 import type { ClassicRunContext } from './classic-migrate.js';
-import type { ClassicState } from './classic-state.js';
+import type { ClassicPhase, ClassicState } from './classic-state.js';
+import { appendClassicStateEvent } from './classic-state-events.js';
+import { CLASSIC_GUARD_TRANSITION_EVENT, applyClassicTransition } from './classic-transitions.js';
 import { classicValidateCommand } from './classic-validate-command.js';
 
 const GREEN = '\u001b[32m';
@@ -23,17 +25,18 @@ const PHASE_HEADER: Record<string, string> = {
   verify: '=== Guard: verify → archive ===',
   archive: '=== Guard: archive completeness ===',
 };
-const TRANSITION_EVENT: Record<string, string> = {
-  open: 'open-complete',
-  design: 'design-complete',
-  build: 'build-complete',
-  verify: 'verify-pass',
-};
 const APPLY_MESSAGE: Record<string, string> = {
   open: '  [APPLY] .comet.yaml updated: phase=PLACEHOLDER',
   design: '  [APPLY] .comet.yaml updated: phase=build',
   build: '  [APPLY] .comet.yaml updated: phase=verify, verify_result=pending',
   verify: '  [APPLY] .comet.yaml updated: phase=archive, verify_result=pass',
+};
+const CLASSIC_FIELD_WIRE_NAMES: Partial<Record<keyof ClassicState, string>> = {
+  branchStatus: 'branch_status',
+  phase: 'phase',
+  verificationReport: 'verification_report',
+  verifiedAt: 'verified_at',
+  verifyResult: 'verify_result',
 };
 
 function green(message: string): string {
@@ -46,6 +49,17 @@ function red(message: string): string {
 
 function yellow(message: string): string {
   return `${YELLOW}${message}${RESET}`;
+}
+
+function wireField(field: keyof ClassicState): string {
+  return CLASSIC_FIELD_WIRE_NAMES[field] ?? String(field);
+}
+
+function wireValue(value: unknown): string {
+  if (value === null) return 'null';
+  if (value === undefined) return '';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
 }
 
 class GuardFailure extends Error {
@@ -782,57 +796,36 @@ async function guardArchiveChecks(output: GuardOutput, changeDir: string): Promi
 
 async function applyStateUpdate(
   output: GuardOutput,
+  change: string,
   changeDir: string,
   phase: string,
   context: ClassicRunContext,
 ): Promise<void> {
-  const event = TRANSITION_EVENT[phase];
+  const event = CLASSIC_GUARD_TRANSITION_EVENT[phase as ClassicPhase];
   if (!event) return;
 
-  const changed: Array<[keyof ClassicState, unknown]> = [];
-  const classic: ClassicState = { ...context.classic };
-  const set = <K extends keyof ClassicState>(field: K, value: ClassicState[K]) => {
-    classic[field] = value;
-    changed.push([field, value]);
-  };
-  if (phase === 'open') {
-    set('phase', classic.workflow === 'full' ? 'design' : 'build');
-  } else if (phase === 'design') {
-    set('phase', 'build');
-  } else if (phase === 'build') {
-    const preserveEvidence = classic.verifyResult === 'fail';
-    set('phase', 'verify');
-    set('verifyResult', 'pending');
-    if (!preserveEvidence) {
-      set('verificationReport', null);
-      set('branchStatus', 'pending');
-    }
-  } else if (phase === 'verify') {
-    set('verifyResult', 'pass');
-    set('phase', 'archive');
-    set('verifiedAt', new Date().toISOString().slice(0, 10));
-  }
-
-  await transitionClassicRuntimeRun(changeDir, classic, context.run, {
+  const result = applyClassicTransition(context.classic, event);
+  await transitionClassicRuntimeRun(changeDir, result.classic, context.run, {
     event,
     phase,
+    source: 'comet-guard',
+  });
+  await appendClassicStateEvent(changeDir, {
+    change,
+    event,
+    source: 'comet-guard',
+    from: context.classic,
+    to: result.classic,
+    effects: result.effects,
   });
 
-  const wireNames: Partial<Record<keyof ClassicState, string>> = {
-    phase: 'phase',
-    verifyResult: 'verify_result',
-    verificationReport: 'verification_report',
-    branchStatus: 'branch_status',
-    verifiedAt: 'verified_at',
-  };
-  for (const [field, value] of changed) {
-    output.stderr.push(
-      green(`[SET] ${wireNames[field]}=${value === null ? 'null' : String(value)}`),
-    );
+  for (const effect of result.effects) {
+    output.stderr.push(green(`[SET] ${wireField(effect.field)}=${wireValue(effect.to)}`));
   }
   output.stderr.push(green(`[TRANSITION] ${event}`));
   const template = APPLY_MESSAGE[phase];
-  const message = phase === 'open' ? template.replace('PLACEHOLDER', classic.phase) : template;
+  const message =
+    phase === 'open' ? template.replace('PLACEHOLDER', result.classic.phase) : template;
   output.stderr.push(green(message));
 }
 
@@ -875,7 +868,7 @@ export const classicGuardCommand: ClassicCommandHandler = async (args, options) 
     output.stderr.push('');
     output.stderr.push(green('ALL CHECKS PASSED — ready for next phase'));
     if (flag === '--apply') {
-      await applyStateUpdate(output, changeDir, phase, runContext);
+      await applyStateUpdate(output, change, changeDir, phase, runContext);
     }
     return output.toResult(0);
   } catch (error) {
