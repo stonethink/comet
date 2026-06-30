@@ -17,14 +17,27 @@ function dedupe(values: string[]): string[] {
   return [...new Set(values)];
 }
 
+function defaultEnforcement(
+  operation: WorkflowSkillBinding['operation'],
+  scope: WorkflowSkillBinding['scope'],
+): WorkflowSkillBinding['enforcement'] {
+  if (scope === 'handoff') return 'handoff-guarded';
+  if (operation === 'require') return 'guarded';
+  if (operation === 'augment') return 'advisory';
+  return 'guarded';
+}
+
 function normalizeBinding(
   input: WorkflowSkillBindingInput,
   operation: WorkflowSkillBinding['operation'],
 ): WorkflowSkillBinding {
+  const scope = input.scope ?? 'main';
+  const normalizedOperation = input.operation ?? operation;
   return {
     skill: input.skill,
-    operation: input.operation ?? operation,
-    scope: input.scope ?? 'main',
+    operation: normalizedOperation,
+    scope,
+    enforcement: input.enforcement ?? defaultEnforcement(normalizedOperation, scope),
     ...(input.reason ? { reason: input.reason } : {}),
   };
 }
@@ -98,7 +111,7 @@ export function normalizeWorkflowDefinition(
     const patch = patches[template.id] ?? {};
     const implementation = patch.implementation
       ? normalizeBinding(patch.implementation, 'override')
-      : { ...template.implementation };
+      : normalizeBinding(template.implementation, 'default');
     return {
       ...template,
       implementation,

@@ -77,6 +77,34 @@ describe('workflow contract normalization', () => {
     );
   });
 
+  it('normalizes Required Skill Call and augmentation enforcement levels', () => {
+    const workflow = normalizeWorkflowDefinition({
+      ...builtinCometFivePhaseWorkflow({
+        name: 'enforced-comet',
+        goal: 'Require and augment a Comet Node.',
+      }),
+      nodes: {
+        execute: {
+          requiredSkillCalls: [{ skill: 'elementui' }],
+          augmentations: [{ skill: 'grill-me', enforcement: 'guarded' }],
+        },
+        'subagent-execute': {
+          augmentations: [{ skill: 'grill-me', scope: 'handoff' }],
+        },
+      },
+    });
+
+    expect(workflow.protocol.nodes.find((node) => node.id === 'execute')).toMatchObject({
+      requiredSkillCalls: [expect.objectContaining({ skill: 'elementui', enforcement: 'guarded' })],
+      augmentations: [expect.objectContaining({ skill: 'grill-me', enforcement: 'guarded' })],
+    });
+    expect(workflow.protocol.nodes.find((node) => node.id === 'subagent-execute')).toMatchObject({
+      augmentations: [
+        expect.objectContaining({ skill: 'grill-me', enforcement: 'handoff-guarded' }),
+      ],
+    });
+  });
+
   it('attaches custom Output Schemas through Node patches', () => {
     const workflow = normalizeWorkflowDefinition({
       ...builtinCometFivePhaseWorkflow({

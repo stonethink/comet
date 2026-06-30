@@ -122,11 +122,15 @@ function workflowContractEntryMarkdown(
         node.requiredSkillCalls.length === 0
           ? ''
           : ` Required Skills: ${node.requiredSkillCalls.map((binding) => `\`${binding.skill}\``).join(', ')}.`;
+      const augmentations =
+        node.augmentations.length === 0
+          ? ''
+          : ` Augmentations: ${node.augmentations.map((binding) => `\`${binding.skill}\` (${binding.enforcement})`).join(', ')}.`;
       const schemas =
         node.outputSchemas.length === 0
           ? ''
           : ` Output Schemas: ${node.outputSchemas.map((schema) => `\`${schema}\``).join(', ')}.`;
-      return `${index + 1}. \`${generatedNodeSkillName(protocol.name, node.id)}\` - ${node.label} (${node.kind}). Responsibility: ${node.responsibility}${required}${schemas}`;
+      return `${index + 1}. \`${generatedNodeSkillName(protocol.name, node.id)}\` - ${node.label} (${node.kind}). Responsibility: ${node.responsibility}${required}${augmentations}${schemas}`;
     })
     .join('\n');
   const bindings = workflowContractRoute(protocol)
@@ -134,6 +138,10 @@ function workflowContractEntryMarkdown(
       (node) =>
         `- \`${node.id}\`: implementation \`${node.implementation.skill}\` (${node.implementation.operation}); required calls ${
           node.requiredSkillCalls.map((binding) => `\`${binding.skill}\``).join(', ') || 'none'
+        }; augmentations ${
+          node.augmentations
+            .map((binding) => `\`${binding.skill}\` (${binding.enforcement})`)
+            .join(', ') || 'none'
         }.`,
     )
     .join('\n');
@@ -192,16 +200,35 @@ The route, Output Schemas, required Skill calls, and recovery state are defined 
 `;
 }
 
+function bindingCheckId(
+  kind: 'required-skill' | 'augmentation',
+  node: WorkflowNodeProtocol,
+  skill: string,
+): string {
+  return `${kind}:${node.id}.${skill}`;
+}
+
 function requiredSkillCallMarkdown(node: WorkflowNodeProtocol): string {
   if (node.requiredSkillCalls.length === 0) return '- This Node has no extra required Skill calls.';
   return node.requiredSkillCalls
     .map((binding) => {
-      const check = `required-skill:${node.id}.${binding.skill}`;
+      const check = bindingCheckId('required-skill', node, binding.skill);
       const reason = binding.reason ? ` Reason: ${binding.reason}` : '';
       if (binding.scope === 'handoff') {
         return `- When delegating this Node, the handoff prompt must require loading \`${binding.skill}\` and returning evidence with completed check \`${check}\`.${reason}`;
       }
       return `- Load \`${binding.skill}\` during this Node and record completed check \`${check}\`.${reason}`;
+    })
+    .join('\n');
+}
+
+function augmentationMarkdown(node: WorkflowNodeProtocol): string {
+  if (node.augmentations.length === 0) return '- This Node has no declared augmentations.';
+  return node.augmentations
+    .map((binding) => {
+      const check = bindingCheckId('augmentation', node, binding.skill);
+      const reason = binding.reason ? ` Reason: ${binding.reason}` : '';
+      return `- \`${binding.skill}\` (${binding.scope}, ${binding.enforcement}): record completed check \`${check}\`.${reason}`;
     })
     .join('\n');
 }
@@ -278,6 +305,10 @@ Load \`${node.implementation.skill}\` for this Node. Operation: \`${node.impleme
 ## Required Skill Calls
 
 ${requiredSkillCallMarkdown(node)}
+
+## Augmentations
+
+${augmentationMarkdown(node)}
 
 ## Output Schemas
 
@@ -645,6 +676,14 @@ function missingRequiredSkillChecks(node, evidence) {
     .filter((check) => !values.includes(check));
 }
 
+function missingAugmentationChecks(node, evidence) {
+  const values = Array.isArray(evidence?.completedChecks) ? evidence.completedChecks : [];
+  return (node.augmentations ?? [])
+    .filter((binding) => binding.enforcement && binding.enforcement !== 'advisory')
+    .map((binding) => 'augmentation:' + node.id + '.' + binding.skill)
+    .filter((check) => !values.includes(check));
+}
+
 function hasEvidenceField(evidence, id) {
   if (Object.prototype.hasOwnProperty.call(evidence, id)) return true;
   const schemaEvidence = evidence.schemaEvidence;
@@ -778,6 +817,11 @@ async function main() {
     console.error('BLOCKED: missing required Skill evidence: ' + missingRequired.join(', '));
     process.exit(1);
   }
+  const missingAugmentations = missingAugmentationChecks(node, evidence);
+  if (missingAugmentations.length > 0) {
+    console.error('BLOCKED: missing augmentation evidence: ' + missingAugmentations.join(', '));
+    process.exit(1);
+  }
   if (apply) {
     const completed = completedSet(state);
     completed.add(node.id);
@@ -820,6 +864,7 @@ async function main() {
       id: node.id,
       label: node.label,
       requiredSkillCalls: node.requiredSkillCalls ?? [],
+      augmentations: node.augmentations ?? [],
       outputSchemas: node.outputSchemas ?? [],
     })),
   }, null, 2));

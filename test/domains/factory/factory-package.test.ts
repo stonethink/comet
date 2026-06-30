@@ -238,6 +238,88 @@ describe('Factory skill package generation', () => {
     }
   });
 
+  it('renders augmentations into entry, node, and handoff outputs', async () => {
+    const workflow = normalizeWorkflowDefinition({
+      ...builtinCometFivePhaseWorkflow({
+        name: 'augmented-comet',
+        goal: 'Use grill-me as an enforced review augmentation.',
+      }),
+      nodes: {
+        verify: {
+          augmentations: [
+            {
+              skill: 'grill-me',
+              scope: 'review',
+              reason: 'Stress-test verification evidence.',
+              enforcement: 'guarded',
+            },
+          ],
+        },
+      },
+    });
+    const output = await generateFactorySkillPackage(
+      packagePlan({ root, name: 'augmented-comet', workflow }),
+    );
+
+    const entry = await fs.readFile(output.skillPath, 'utf8');
+    const verifySkill = await fs.readFile(
+      path.join(output.packageRoot, '..', 'augmented-comet-verify', 'SKILL.md'),
+      'utf8',
+    );
+    const handoff = await execFileAsync(
+      process.execPath,
+      [path.join(output.packageRoot, 'scripts', 'workflow-handoff.mjs')],
+      { env: { ...process.env, COMET_RUN_ROOT: root } },
+    );
+
+    expect(entry).toContain('Augmentations: `grill-me`');
+    expect(entry).toContain('guarded');
+    expect(verifySkill).toContain('## Augmentations');
+    expect(verifySkill).toContain('augmentation:verify.grill-me');
+    expect(handoff.stdout).toContain('"augmentations"');
+    expect(handoff.stdout).toContain('"grill-me"');
+
+    const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'comet-augmentation-run-'));
+    const env = { ...process.env, COMET_RUN_ROOT: runRoot };
+    const stateScript = path.join(output.packageRoot, 'scripts', 'workflow-state.mjs');
+    const guardScript = path.join(output.packageRoot, 'scripts', 'workflow-guard.mjs');
+    try {
+      await execFileAsync(process.execPath, [stateScript, 'init'], { env });
+      await execFileAsync(
+        process.execPath,
+        [
+          stateScript,
+          'record',
+          'verify',
+          '{"verification-commands":"npx vitest","verification-result":"pass"}',
+        ],
+        { env },
+      );
+      await expect(
+        execFileAsync(process.execPath, [guardScript, 'exit', 'verify', '--apply'], { env }),
+      ).rejects.toThrow(/missing augmentation evidence/iu);
+
+      await execFileAsync(
+        process.execPath,
+        [
+          stateScript,
+          'record',
+          'verify',
+          '{"verification-commands":"npx vitest","verification-result":"pass","completedChecks":["augmentation:verify.grill-me"]}',
+        ],
+        { env },
+      );
+      const exit = await execFileAsync(
+        process.execPath,
+        [guardScript, 'exit', 'verify', '--apply'],
+        { env },
+      );
+      expect(exit.stdout).toContain('ALL CHECKS PASSED');
+    } finally {
+      await fs.rm(runRoot, { recursive: true, force: true });
+    }
+  });
+
   it('does not generate engine manifests when engine mode is none', async () => {
     const workflow = normalizeWorkflowDefinition(customWorkflow('plain-workflow'));
     const output = await generateFactorySkillPackage(

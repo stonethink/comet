@@ -6,6 +6,8 @@ export type WorkflowNodeOperation = 'require' | 'augment' | 'override' | 'disabl
 
 export type WorkflowBindingOperation = 'default' | WorkflowNodeOperation;
 
+export type WorkflowEnforcementLevel = 'guarded' | 'handoff-guarded' | 'evidence-only' | 'advisory';
+
 export type OutputValidationKind =
   | 'evidence-only'
   | 'artifact-exists'
@@ -38,6 +40,7 @@ export interface WorkflowSkillBindingInput {
   operation?: WorkflowBindingOperation;
   reason?: string;
   scope?: 'main' | 'handoff' | 'review';
+  enforcement?: WorkflowEnforcementLevel;
 }
 
 export interface WorkflowSkillBinding {
@@ -45,6 +48,7 @@ export interface WorkflowSkillBinding {
   operation: WorkflowBindingOperation;
   reason?: string;
   scope: 'main' | 'handoff' | 'review';
+  enforcement: WorkflowEnforcementLevel;
 }
 
 export interface WorkflowGuardrail {
@@ -59,7 +63,10 @@ export interface WorkflowNodeTemplate {
   kind: WorkflowNodeKind;
   responsibility: string;
   optional?: boolean;
-  implementation: WorkflowSkillBinding;
+  implementation: WorkflowSkillBindingInput & {
+    operation: WorkflowBindingOperation;
+    scope: 'main' | 'handoff' | 'review';
+  };
   requiredSkillCalls?: WorkflowSkillBindingInput[];
   augmentations?: WorkflowSkillBindingInput[];
   satisfies?: string[];
