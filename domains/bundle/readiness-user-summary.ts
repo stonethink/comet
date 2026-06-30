@@ -14,6 +14,7 @@ export interface BundleReadinessUserSummaryItem {
     | 'composition'
     | 'workflow'
     | 'control-plane'
+    | 'authoring'
     | 'draft'
     | 'benchmark'
     | 'review'
@@ -73,6 +74,7 @@ function codeOf(message: string): BundleReadinessUserSummaryItem['code'] {
       'composition',
       'workflow',
       'control-plane',
+      'authoring',
       'draft',
       'benchmark',
       'review',
@@ -127,6 +129,13 @@ function advice(
         impact: 'Required scripts, rules, hooks, or checks are missing from the generated Skill.',
         label: 'Regenerate the Skill Creator package',
         command: `comet bundle factory-generate ${bundleName}`,
+      };
+    case 'authoring':
+      return {
+        impact:
+          'The generated Skill still contains scaffold content that must be authored before publishing.',
+        label: 'Complete generated Skill authoring',
+        command: `comet bundle authoring-record ${bundleName} --lane skill-core --file <authoring-output.json>, then run the skill-review lane`,
       };
     case 'draft':
       return {

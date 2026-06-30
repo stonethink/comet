@@ -74,6 +74,21 @@ async function generatedPackageContains(root: string, needle: string): Promise<b
   return false;
 }
 
+async function generatedEntrySkillContains(root: string, needle: string): Promise<boolean> {
+  try {
+    return (await fs.readFile(path.join(root, 'SKILL.md'), 'utf8')).includes(needle);
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      'code' in error &&
+      (error as NodeJS.ErrnoException).code === 'ENOENT'
+    ) {
+      return false;
+    }
+    throw error;
+  }
+}
+
 async function buildReadiness(
   state: BundleAuthoringState,
   controlPlane: Awaited<ReturnType<typeof validateStableFactoryControlPlane>>,
@@ -141,7 +156,7 @@ async function buildReadiness(
   const generatedPackage = state.factory?.generatedSkillPackage;
   const authoringReview = state.factory?.authoringReview;
   if (generatedPackage) {
-    if (generatedPackage.wrapperClassification === 'scaffold-blocked') {
+    if (await generatedEntrySkillContains(generatedPackage.packageRoot, AUTHORING_PENDING_MARKER)) {
       blockers.push('[authoring] Entry Decision Core is not authored');
     }
     if (await generatedPackageContains(generatedPackage.packageRoot, AUTHORING_PENDING_MARKER)) {

@@ -156,6 +156,22 @@ async function createFactoryStateWithGeneratedPackage(
   return generateBundleDraftFromFactoryState({ projectRoot, state: initialized });
 }
 
+async function authorGeneratedEntryDecisionCore(
+  state: BundleAuthoringState,
+): Promise<{ currentHash: string }> {
+  const generatedPackageRoot = state.factory!.generatedSkillPackage!.packageRoot;
+  const generatedEntrySkillPath = path.join(generatedPackageRoot, 'SKILL.md');
+  await fs.writeFile(
+    generatedEntrySkillPath,
+    (await fs.readFile(generatedEntrySkillPath, 'utf8')).replace(
+      '<!-- AUTHORING PENDING -->',
+      'The Decision Core has been authored for this readiness fixture.',
+    ),
+    'utf8',
+  );
+  return { currentHash: await hashBundle(await loadBundle(state.draftPath)) };
+}
+
 describe('Bundle review summary readiness', () => {
   let projectRoot: string;
 
@@ -329,6 +345,40 @@ describe('Bundle review summary readiness', () => {
       '[authoring] Generated package still contains AUTHORING PENDING markers',
     );
     expect(summary.readiness.evidence.wrapperClassification).toBe('scaffold-blocked');
+    expect(summary.userSummary.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'authoring',
+          nextAction: expect.objectContaining({
+            label: 'Complete generated Skill authoring',
+          }),
+        }),
+      ]),
+    );
+  });
+
+  it('does not report entry Decision Core blockers for partial authoring when only node content is pending', async () => {
+    const state = await createFactoryStateWithGeneratedPackage(projectRoot, 'partial-authoring');
+    const { currentHash } = await authorGeneratedEntryDecisionCore(state);
+    await writeBundleAuthoringState(projectRoot, {
+      ...state,
+      currentHash,
+    });
+
+    const summary = await buildBundleReviewSummary({
+      projectRoot,
+      name: 'partial-authoring',
+      platform: 'claude',
+    });
+
+    expect(summary.readiness.blockers).not.toContain(
+      '[authoring] Entry Decision Core is not authored',
+    );
+    expect(summary.readiness.blockers).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('[authoring] Substance nodes lack authored content'),
+      ]),
+    );
   });
 
   it('surfaces preference hash evidence and drift warnings', async () => {
@@ -631,17 +681,7 @@ prefer:
       ]),
     );
 
-    const generatedPackageRoot = blockedState.factory!.generatedSkillPackage!.packageRoot;
-    const generatedEntrySkillPath = path.join(generatedPackageRoot, 'SKILL.md');
-    await fs.writeFile(
-      generatedEntrySkillPath,
-      (await fs.readFile(generatedEntrySkillPath, 'utf8')).replace(
-        '<!-- AUTHORING PENDING -->',
-        'The Decision Core has been authored for this readiness-state fixture.',
-      ),
-      'utf8',
-    );
-    const authoredHash = await hashBundle(await loadBundle(draftPath));
+    const { currentHash: authoredHash } = await authorGeneratedEntryDecisionCore(blockedState);
     await writeBundleAuthoringState(projectRoot, {
       ...blockedState,
       status: 'eval-passed',
