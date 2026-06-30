@@ -507,6 +507,73 @@ describe('Factory skill package generation', () => {
     }
   });
 
+  it('writes overlay eval manifests with task suite, baselines, gates, and evidence requirements', async () => {
+    const workflow = normalizeWorkflowDefinition({
+      ...builtinCometFivePhaseWorkflow({
+        name: 'evaluable-comet',
+        goal: 'Evaluate a generated Comet overlay workflow contract.',
+      }),
+      nodes: {
+        design: {
+          augmentations: [
+            {
+              skill: 'grill-me',
+              scope: 'review',
+              reason: 'Stress-test the design before implementation.',
+              enforcement: 'guarded',
+            },
+          ],
+          outputSchemas: ['comet.grill-me.v1'],
+        },
+      },
+      outputSchemas: [
+        {
+          id: 'comet.grill-me.v1',
+          description: 'Grill-me review evidence.',
+          artifacts: [],
+          evidence: [{ id: 'challenge-summary', required: true }],
+        },
+      ],
+    });
+    const output = await generateFactorySkillPackage(
+      packagePlan({ root, name: 'evaluable-comet', workflow }),
+    );
+
+    const evalManifest = parse(
+      await fs.readFile(path.join(output.packageRoot, 'comet', 'eval.yaml'), 'utf8'),
+    ) as {
+      metadata?: { draftHash?: string };
+      evaluation?: {
+        recommendedTasks?: string[];
+        baselineTreatments?: string[];
+        qualityGates?: Record<string, number>;
+        requiredOutputSchemas?: string[];
+        expectedEvidence?: Array<{ node?: string; check?: string; enforcement?: string }>;
+      };
+    };
+
+    expect(evalManifest.evaluation?.recommendedTasks).toEqual(
+      expect.arrayContaining([
+        'workflow-overlay-contract',
+        'comet-full-workflow',
+        'comet-fix-median',
+      ]),
+    );
+    expect(evalManifest.evaluation?.baselineTreatments).toEqual(['CONTROL', 'COMET_FULL']);
+    expect(evalManifest.evaluation?.qualityGates).toEqual({
+      minWeightedScore: 0.8,
+      minPassAt1: 0.6,
+      maxInstabilityGap: 0.4,
+    });
+    expect(evalManifest.evaluation?.requiredOutputSchemas).toContain('comet.grill-me.v1');
+    expect(evalManifest.evaluation?.expectedEvidence).toContainEqual({
+      node: 'design',
+      check: 'augmentation:design.grill-me',
+      enforcement: 'guarded',
+    });
+    expect(evalManifest.metadata?.draftHash).toMatch(/^[a-f0-9]{64}$/u);
+  });
+
   it('does not generate engine manifests when engine mode is none', async () => {
     const workflow = normalizeWorkflowDefinition(customWorkflow('plain-workflow'));
     const output = await generateFactorySkillPackage(

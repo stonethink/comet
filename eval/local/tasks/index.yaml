@@ -66,3 +66,9 @@ tasks:
     default_treatments:
       - CONTROL
     description: Validates generated Skill route metadata against the workflow protocol and internal Node Skills.
+
+  - name: workflow-overlay-contract
+    category: generic
+    default_treatments:
+      - CONTROL
+    description: Validates generated overlay eval manifests for baselines, gates, schemas, and expected evidence.

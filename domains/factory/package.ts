@@ -1160,6 +1160,10 @@ main().catch((error) => {
 `;
 }
 
+function uniqueStrings(values: string[]): string[] {
+  return Array.from(new Set(values));
+}
+
 function workflowContractSkillDefinition(
   plan: FactorySkillPackagePlan,
   protocol: WorkflowProtocol,
@@ -1200,6 +1204,36 @@ function workflowContractEvalManifest(
   protocol: WorkflowProtocol,
 ): Record<string, unknown> {
   const route = workflowContractInternalSkillNames(protocol);
+  const isOverlay = protocol.kind === 'comet-five-phase-overlay';
+  const recommendedTasks = isOverlay
+    ? [
+        'authoring-skill-smoke',
+        'workflow-route-conformance',
+        'workflow-overlay-contract',
+        'comet-full-workflow',
+        'comet-fix-median',
+        'comet-refactor-counter',
+        'comet-api-cache-ttl',
+      ]
+    : ['generic-skill-smoke', 'authoring-skill-smoke', 'workflow-route-conformance'];
+  const evalRequiredOutputSchemas = protocol.evals[0]?.requiredOutputSchemas ?? [];
+  const requiredOutputSchemas = uniqueStrings(
+    evalRequiredOutputSchemas.length > 0
+      ? evalRequiredOutputSchemas
+      : protocol.nodes.flatMap((node) => node.outputSchemas),
+  );
+  const expectedEvidence = protocol.nodes.flatMap((node) => [
+    ...node.requiredSkillCalls.map((binding) => ({
+      node: node.id,
+      check: `required-skill:${node.id}.${binding.skill}`,
+      enforcement: binding.enforcement,
+    })),
+    ...node.augmentations.map((binding) => ({
+      node: node.id,
+      check: `augmentation:${node.id}.${binding.skill}`,
+      enforcement: binding.enforcement,
+    })),
+  ]);
   const expectedArtifacts = protocol.nodes.flatMap((node) =>
     node.outputSchemas.flatMap((schemaId) => {
       const schema = protocol.outputSchemas.find((item) => item.id === schemaId);
@@ -1216,10 +1250,22 @@ function workflowContractEvalManifest(
   return {
     apiVersion: 'comet.eval/v1alpha1',
     kind: 'SkillEvalManifest',
-    metadata: { name: plan.name, description: factoryEntryDescription(plan) },
+    metadata: {
+      name: plan.name,
+      description: factoryEntryDescription(plan),
+      draftHash: workflowProtocolHash(protocol),
+    },
     skill: { name: plan.name, source: '..', profile: 'authoring-skill' },
     evaluation: {
-      recommendedTasks: ['authoring-skill-smoke', 'workflow-route-conformance'],
+      recommendedTasks,
+      baselineTreatments: isOverlay ? ['CONTROL', 'COMET_FULL'] : ['CONTROL'],
+      qualityGates: {
+        minWeightedScore: 0.8,
+        minPassAt1: 0.6,
+        maxInstabilityGap: 0.4,
+      },
+      requiredOutputSchemas,
+      expectedEvidence,
       requiredSkills: [plan.name, ...route],
       generatedNodeSkills: route,
       expectedArtifacts,

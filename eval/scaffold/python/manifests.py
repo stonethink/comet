@@ -18,7 +18,12 @@ class SkillEvalManifest:
     skill_name: str
     skill_path: Path
     profile: str | None = None
+    draft_hash: str | None = None
     recommended_tasks: list[str] = field(default_factory=list)
+    baseline_treatments: list[str] = field(default_factory=list)
+    quality_gates: dict = field(default_factory=dict)
+    required_output_schemas: list[str] = field(default_factory=list)
+    expected_evidence: list[dict] = field(default_factory=list)
     required_skills: list[str] = field(default_factory=list)
     expected_artifacts: list[str] = field(default_factory=list)
     generated_node_skills: list[str] = field(default_factory=list)
@@ -56,7 +61,20 @@ def load_eval_manifest(path: Path | str) -> SkillEvalManifest:
         skill_name=str(skill.get("name") or metadata.get("name")),
         skill_path=(manifest_path.parent / skill_source).resolve(),
         profile=skill.get("profile"),
+        draft_hash=metadata.get("draftHash") or metadata.get("draft_hash"),
         recommended_tasks=list(evaluation.get("recommendedTasks") or []),
+        baseline_treatments=list(
+            evaluation.get("baselineTreatments") or evaluation.get("baseline_treatments") or []
+        ),
+        quality_gates=dict(evaluation.get("qualityGates") or evaluation.get("quality_gates") or {}),
+        required_output_schemas=list(
+            evaluation.get("requiredOutputSchemas")
+            or evaluation.get("required_output_schemas")
+            or []
+        ),
+        expected_evidence=list(
+            evaluation.get("expectedEvidence") or evaluation.get("expected_evidence") or []
+        ),
         required_skills=list(evaluation.get("requiredSkills") or []),
         expected_artifacts=list(evaluation.get("expectedArtifacts") or []),
         generated_node_skills=list(evaluation.get("generatedNodeSkills") or []),

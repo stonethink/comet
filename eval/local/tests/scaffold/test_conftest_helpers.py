@@ -114,6 +114,7 @@ apiVersion: comet.eval/v1alpha1
 kind: SkillEvalManifest
 metadata:
   name: manifest-skill
+  draftHash: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 skill:
   name: manifest-skill
   source: ..
@@ -122,6 +123,19 @@ evaluation:
   recommendedTasks:
     - generic-skill-smoke
     - workflow-route-conformance
+    - workflow-overlay-contract
+  baselineTreatments:
+    - CONTROL
+    - COMET_FULL
+  qualityGates:
+    minWeightedScore: 0.8
+    minPassAt1: 0.6
+    maxInstabilityGap: 0.4
+  requiredOutputSchemas:
+    - comet.grill-me.v1
+  expectedEvidence:
+    - node: design
+      check: augmentation:design.grill-me
   requiredSkills:
     - manifest-skill
   generatedNodeSkills:
@@ -148,6 +162,17 @@ interaction:
     assert cfg.skills[0]["profile"] == "generic"
     assert cfg.skills[0]["generated_node_skills"] == ["manifest-skill-open"]
     assert cfg.skills[0]["route_conformance_expected_node_order"] == ["open"]
+    assert cfg.skills[0]["baseline_treatments"] == ["CONTROL", "COMET_FULL"]
+    assert cfg.skills[0]["quality_gates"] == {
+        "minWeightedScore": 0.8,
+        "minPassAt1": 0.6,
+        "maxInstabilityGap": 0.4,
+    }
+    assert cfg.skills[0]["required_output_schemas"] == ["comet.grill-me.v1"]
+    assert cfg.skills[0]["expected_evidence"] == [
+        {"node": "design", "check": "augmentation:design.grill-me"}
+    ]
+    assert cfg.skills[0]["draft_hash"] == "a" * 64
     assert cfg.skills[1]["name"] == "manifest-skill-open"
     assert cfg.skills[1]["path"] == str(stage.resolve())
 

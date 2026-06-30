@@ -19,6 +19,7 @@ This is the first beta of the 0.4.0 line. Relative to 0.3.9, Comet becomes a Nod
 - **New platforms**: Adds ZCode, MimoCode, and Trae CN support, including project/global Skill installs, OpenCode-style command generation where appropriate, OpenSpec mirroring, and coverage in init/update and distribution paths. Trae CN uses `.trae-cn/skills` for project scope and `~/.trae-cn/skills` for global scope.
 - **Symlink installation mode**: `comet init` and `comet update` now offer two installation modes — **copy** (traditional, independent copies per platform) and **symlink** (shared central store at `.comet/skills/`, saves disk space and ensures consistency across platforms). On Windows, uses junctions which don't require admin privileges.
 - **Parallel failure investigation in Debug Gate**: The Debug Gate protocol now runs a failure-independence assessment before the four-stage flow: when ≥ 3 failures come from distinct problem domains (different test files with different root causes, independent subsystems), it loads the Superpowers `dispatching-parallel-agents` skill and dispatches one background investigation agent per failure to locate root causes concurrently, instead of debugging each sequentially. Investigation stays parallel; fixes remain serial and still go through the current `review_mode` loop, so concurrent agents never edit the same files.
+- **Generated workflow eval contracts**: Generated Skill eval manifests now publish stable draft hashes, baseline treatments, quality gates, required output schemas, and expected evidence checks, and overlay packages include a dedicated `workflow-overlay-contract` task in their recommended eval suite so generated workflow contracts can be compared and validated consistently.
 
 ### Changed
 
@@ -63,6 +64,7 @@ This is the first beta of the 0.4.0 line. Relative to 0.3.9, Comet becomes a Nod
 - **Build recovery parity coverage**: Adds regression coverage for the `/comet` entry Skill, phase-guard rule injection, and Classic recovery output so all three surfaces stay aligned on the four build decisions.
 - **Decision point UI coverage**: Adds Skill documentation regression coverage for the shared `AskUserQuestion` priority path, one-time fallback behavior, and platform-neutral phase Skill wording.
 - **Intent routing coverage**: Adds Classic intent-frame scorer, runtime command, launcher, and Skill documentation regression coverage for hotfix, tweak, full, resume, low-confidence, multi-change, and conflict fallback routes.
+- **Generated workflow eval coverage**: Adds regression coverage for generated overlay eval manifests, Python manifest parsing, dynamic manifest treatment expansion, and the new `workflow-overlay-contract` task registration.
 
 ### Removed
 

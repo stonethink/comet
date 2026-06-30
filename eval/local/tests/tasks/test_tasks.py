@@ -14,6 +14,7 @@ Usage:
     pytest local/tests/tasks/test_tasks.py --task=comet-full-workflow --treatment=COMET_FULL --count=2 -n 2 -v
 """
 
+import sys
 import uuid
 
 import pytest
@@ -24,7 +25,7 @@ from scaffold import NoiseTask, Treatment
 from scaffold.python import extract_events, parse_output
 from scaffold.python.profiles import resolve_profile_name, run_profile_rubric
 from scaffold.python.tasks import list_tasks, load_task
-from scaffold.python.treatments import build_treatment_skills, load_treatments
+from scaffold.python.treatments import TreatmentConfig, build_treatment_skills, load_treatments
 from scaffold.python.validation import run_validators
 
 # Timeouts
@@ -64,18 +65,20 @@ def generate_test_params(task_filter: str | None, treatment_filter: str | None, 
     params = []
     all_treatments = load_treatments()
     all_tasks = list_tasks()
+    dynamic = None
 
     if config is not None:
         dynamic = conftest._get_dynamic_treatment_config(config)
         if dynamic:
             all_treatments[dynamic.name] = dynamic
-            if not treatment_filter:
-                treatment_filter = dynamic.name
     manifest_tasks = None
+    manifest_baseline_treatments = []
     if config is not None and config.getoption("--eval-manifest"):
         from scaffold.python.manifests import load_eval_manifest
 
-        manifest_tasks = load_eval_manifest(config.getoption("--eval-manifest")).recommended_tasks
+        manifest = load_eval_manifest(config.getoption("--eval-manifest"))
+        manifest_tasks = manifest.recommended_tasks
+        manifest_baseline_treatments = manifest.baseline_treatments
 
     if task_filter and task_filter not in all_tasks:
         raise ValueError(f"Task not found: {task_filter}. Available: {all_tasks}")
@@ -84,6 +87,16 @@ def generate_test_params(task_filter: str | None, treatment_filter: str | None, 
     if treatment_filter:
         patterns = [t.strip() for t in treatment_filter.split(",")]
         treatment_list = expand_treatment_patterns(patterns, all_treatments)
+    elif dynamic and manifest_tasks:
+        treatment_list = [
+            treatment
+            for treatment in manifest_baseline_treatments
+            if treatment in all_treatments
+        ]
+        if dynamic.name not in treatment_list:
+            treatment_list.append(dynamic.name)
+    elif dynamic:
+        treatment_list = [dynamic.name]
 
     tasks_to_run = [task_filter] if task_filter else (manifest_tasks or all_tasks)
 
@@ -98,6 +111,57 @@ def generate_test_params(task_filter: str | None, treatment_filter: str | None, 
                     params.append((task_name, treatment_name))
 
     return params
+
+
+def test_eval_manifest_baselines_extend_dynamic_treatment_list(tmp_path, monkeypatch):
+    package = tmp_path / "manifest-skill"
+    package.mkdir()
+    (package / "SKILL.md").write_text("---\nname: manifest-skill\n---\n\nBody.", encoding="utf-8")
+    comet_dir = package / "comet"
+    comet_dir.mkdir()
+    manifest = comet_dir / "eval.yaml"
+    manifest.write_text(
+        """
+apiVersion: comet.eval/v1alpha1
+kind: SkillEvalManifest
+metadata:
+  name: manifest-skill
+skill:
+  name: manifest-skill
+  source: ..
+evaluation:
+  recommendedTasks:
+    - generic-skill-smoke
+  baselineTreatments:
+    - CONTROL
+    - COMET_FULL
+    - MISSING_BASELINE
+interaction:
+  mode: none
+""",
+        encoding="utf-8",
+    )
+
+    class Config:
+        def getoption(self, name):
+            return {"--eval-manifest": str(manifest)}.get(name)
+
+    monkeypatch.setattr(
+        sys.modules[__name__],
+        "load_treatments",
+        lambda: {
+            "CONTROL": TreatmentConfig(name="CONTROL", description="Control"),
+            "COMET_FULL": TreatmentConfig(name="COMET_FULL", description="Comet full"),
+        },
+    )
+
+    params = generate_test_params("generic-skill-smoke", None, Config())
+
+    assert params == [
+        ("generic-skill-smoke", "CONTROL"),
+        ("generic-skill-smoke", "COMET_FULL"),
+        ("generic-skill-smoke", "DYNAMIC_SKILL"),
+    ]
 
 
 def pytest_generate_tests(metafunc):
@@ -206,6 +270,11 @@ def test_task_treatment(task_name, treatment_name):
         "route_conformance_expected_node_order": (
             skill_hints.get("route_conformance_expected_node_order") or []
         ),
+        "baseline_treatments": skill_hints.get("baseline_treatments") or [],
+        "quality_gates": skill_hints.get("quality_gates") or {},
+        "required_output_schemas": skill_hints.get("required_output_schemas") or [],
+        "expected_evidence": skill_hints.get("expected_evidence") or [],
+        "draft_hash": skill_hints.get("draft_hash"),
         "interaction": {
             "mode": interaction.mode,
             "max_turns": interaction.max_turns,
