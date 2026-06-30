@@ -582,6 +582,10 @@ describe('skills', () => {
         path.resolve('assets', 'skills-zh', 'comet-tweak', 'SKILL.md'),
         'utf-8',
       );
+      const zhScripts = await fs.readFile(
+        path.resolve('assets', 'skills-zh', 'comet', 'reference', 'scripts.md'),
+        'utf-8',
+      );
       const zhCometRule = await fs.readFile(
         path.resolve('assets', 'skills', 'comet', 'rules', 'comet-phase-guard.md'),
         'utf-8',
@@ -596,6 +600,24 @@ describe('skills', () => {
       );
 
       expect(zhComet).toContain('决策点是阻塞点');
+      expect(zhComet).toContain('CometIntentFrame');
+      expect(zhComet).toContain('node "$COMET_INTENT" route --stdin');
+      expect(zhComet).toContain('**CometIntentFrame 最小骨架**');
+      expect(zhComet).toContain('"schema_version": "comet.intent.v1"');
+      expect(zhComet).toContain('"slots": {');
+      expect(zhComet).toContain('"context": {');
+      expect(zhComet).toContain('"evidence": []');
+      expect(zhComet).toContain('"route": {');
+      expect(zhComet).toContain('**意图识别槽位提取**');
+      expect(zhComet).not.toContain('字段命名采用常见 NLU / Agent Router 术语');
+      expect(zhComet).not.toContain('填槽指南');
+      expect(zhComet).toContain('`ask_user`');
+      expect(zhComet).toContain('`CometIntentFrame + runtime scorer` 是事实源');
+      expect(zhHotfix).toContain('入口传入 intent frame');
+      expect(zhHotfix).toContain('复核 `risk_signal` 和升级信号');
+      expect(zhTweak).toContain('入口传入 intent frame');
+      expect(zhTweak).toContain('复核 `risk_signal` 和升级信号');
+      expect(zhScripts).toContain('COMET_INTENT="$COMET_SCRIPTS_DIR/comet-intent.mjs"');
       expect(zhComet).toContain('`comet/reference/decision-point.md`');
       expect(zhDecisionPoint).toContain('优先使用 `AskUserQuestion`');
       expect(zhDecisionPoint).toContain('第一次调用 `AskUserQuestion` 失败');
@@ -895,6 +917,10 @@ describe('skills', () => {
         path.resolve('assets', 'skills', 'comet-tweak', 'SKILL.md'),
         'utf-8',
       );
+      const enScripts = await fs.readFile(
+        path.resolve('assets', 'skills', 'comet', 'reference', 'scripts.md'),
+        'utf-8',
+      );
       const enCometRule = await fs.readFile(
         path.resolve('assets', 'skills', 'comet', 'rules', 'comet-phase-guard.md'),
         'utf-8',
@@ -909,6 +935,24 @@ describe('skills', () => {
       );
 
       expect(enComet).toContain('Decision points are blocking points');
+      expect(enComet).toContain('CometIntentFrame');
+      expect(enComet).toContain('node "$COMET_INTENT" route --stdin');
+      expect(enComet).toContain('**Minimal CometIntentFrame Skeleton**');
+      expect(enComet).toContain('"schema_version": "comet.intent.v1"');
+      expect(enComet).toContain('"slots": {');
+      expect(enComet).toContain('"context": {');
+      expect(enComet).toContain('"evidence": []');
+      expect(enComet).toContain('"route": {');
+      expect(enComet).toContain('**Intent Recognition Slot Extraction**');
+      expect(enComet).not.toContain('Field names use common NLU / Agent Router terminology');
+      expect(enComet).not.toContain('Slot-filling guide');
+      expect(enComet).toContain('`ask_user`');
+      expect(enComet).toContain('`CometIntentFrame + runtime scorer` is the source of truth');
+      expect(enHotfix).toContain('intent frame from the entry');
+      expect(enHotfix).toContain('recheck `risk_signal` and escalation signals');
+      expect(enTweak).toContain('intent frame from the entry');
+      expect(enTweak).toContain('recheck `risk_signal` and escalation signals');
+      expect(enScripts).toContain('COMET_INTENT="$COMET_SCRIPTS_DIR/comet-intent.mjs"');
       expect(enDecisionPoint).toContain('prefer `AskUserQuestion`');
       expect(enDecisionPoint).toContain('the first `AskUserQuestion` call fails');
       expect(enDecisionPoint).toContain(
@@ -1613,6 +1657,7 @@ describe('skills', () => {
     it('ships a shared script locator helper', async () => {
       const manifest = await readManifest();
       expect(manifest.skills).toContain('comet/scripts/comet-env.mjs');
+      expect(manifest.skills).toContain('comet/scripts/comet-intent.mjs');
     });
 
     it('keeps review_mode wired through state and schema scripts', async () => {

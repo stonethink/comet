@@ -129,4 +129,3 @@ if (entry && import.meta.url === pathToFileURL(entry).href) {
     process.exitCode = exitCode;
   });
 }
-

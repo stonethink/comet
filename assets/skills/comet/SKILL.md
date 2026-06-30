@@ -26,19 +26,69 @@ Use the language of the user request that triggered this workflow as the default
 
 ### Automatic Phase Detection
 
-**Step 0: Active Change Discovery and Intent Detection**
+**Step 0: Active Change Discovery and Intent Resolution**
 
-1. Detect presets first; if hotfix/tweak matches, invoke the corresponding preset skill directly and do not enter the normal open branch
-2. When no preset matches, run `openspec list --json` to get all active changes
+1. First load script locations through `comet/reference/scripts.md` and ensure `$COMET_INTENT` is available.
+2. Run `openspec list --json` to collect active changes.
+3. Fill a `CometIntentFrame` from the user request, active change list, and necessary repository state.
+4. Prefer `node "$COMET_INTENT" route --stdin` to pass the frame JSON and get the runtime-normalized route. `CometIntentFrame + runtime scorer` is the source of truth; this prose is only for intent recognition slot extraction.
+5. Handle the runtime route:
+   - `hotfix` → invoke `/comet-hotfix`
+   - `tweak` → invoke `/comet-tweak`
+   - `full` → follow the active-change table to invoke `/comet-open` or ask for confirmation
+   - `resume` → continue to Step 1 and read the selected change `.comet.yaml`
+   - `ask_user` → pause through `comet/reference/decision-point.md` and wait for the user's choice
+   - `out_of_scope` → explain that the input is not a Comet workflow start/resume request and do not initialize a change
 
-**Preset detection has highest priority**:
-- User explicitly describes a fix for existing abnormal, regressed, or incorrect behavior and meets hotfix conditions (no new capability, no full design needed) → directly invoke `/comet-hotfix`
-- User explicitly describes a lightweight/medium change that can fit in a single OpenSpec change, should be executed through OpenSpec apply, and does not need full `/comet` deep design/plan → directly invoke `/comet-tweak`
-- No preset match → follow the table below
+**Minimal CometIntentFrame Skeleton**:
+
+```json
+{
+  "schema_version": "comet.intent.v1",
+  "utterance": "<user request>",
+  "locale": "en",
+  "intent": { "name": "start_change", "confidence": 0.8 },
+  "entities": [],
+  "slots": {
+    "requested_action": "start",
+    "workflow_candidate": "full",
+    "user_explicit_workflow": null,
+    "change_id": null,
+    "target_area": null,
+    "scope": "unknown",
+    "existing_behavior": null,
+    "new_capability": null,
+    "public_api_change": null,
+    "schema_change": null,
+    "cross_module_change": null
+  },
+  "context": {
+    "active_changes_count": 0,
+    "active_change_names": [],
+    "dirty_worktree": null
+  },
+  "evidence": [],
+  "route": {
+    "name": "ask_user",
+    "next_skill": null,
+    "confidence": 0.5,
+    "requires_confirmation": true,
+    "fallback_reason": null
+  }
+}
+```
+
+**Intent Recognition Slot Extraction**:
+- `fix_bug` + `existing_behavior: true` + no new capability/public API/schema/cross-module signal → prefer `hotfix`
+- User explicitly describes a lightweight/medium change that can fit in a single OpenSpec change, should be executed through OpenSpec apply, and does not need full `/comet` deep design/plan → prefer `tweak`
+- Copy, config, docs, prompt, or a lightweight/medium single OpenSpec change → prefer `tweak`
+- New capability, public API, schema change, cross-module coordination, or architecture work → prefer `full`
+- Multiple active changes without an explicit change → `ask_user`
+- Low confidence, missing key evidence, or explicit workflow conflicting with risk signals → `ask_user`
 
 | Active changes | User input | Behavior |
 |----------------|------------|----------|
-| None | non-preset input | → Invoke `/comet-open` |
+| None | `full` route | → Invoke `/comet-open` |
 | Exactly 1 | `/comet <description>` | → **Ask**: continue this change or create a new change |
 | Multiple | `/comet <description>` | → **Ask**: continue existing or create new; if continuing, list changes for selection |
 | Exactly 1 | `/comet` with no description | → Auto-select, enter Step 1 |

@@ -154,6 +154,8 @@ After each step completes, immediately enter next step. Within each phase, must 
 
 Hotfix upgrade assessment only decides whether to move from the preset workflow to full; file count never upgrades automatically, and `comet-state scale` only decides verification weight.
 
+If `/comet` passes an intent frame from the entry, hotfix must recheck `risk_signal` and escalation signals only before build: new capability, public API, schema change, cross-module coordination, or deep architecture work. When any signal matches, enter the existing escalation decision point; do not reimplement entry intent recognition.
+
 Continuously check these qualitative-change signals: cross-module coordination, needing a new capability, database schema changes, introducing a new public API, or root-cause elimination revealing a deep architecture problem. If any signal appears, the agent **must not self-upgrade or self-decide to continue**.
 
 The file-count tripwire is only a prompt: when changed files exceed the hint threshold (for example > 4 files), ask the user whether to continue hotfix or upgrade full. More files do not necessarily mean qualitative change.

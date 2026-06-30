@@ -45,4 +45,3 @@ export const classicIntentCommand: ClassicCommandHandler = async (args, _options
     throw error;
   }
 };
-

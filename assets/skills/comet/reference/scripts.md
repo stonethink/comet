@@ -19,6 +19,7 @@ COMET_STATE="$COMET_SCRIPTS_DIR/comet-state.mjs"
 COMET_GUARD="$COMET_SCRIPTS_DIR/comet-guard.mjs"
 COMET_HANDOFF="$COMET_SCRIPTS_DIR/comet-handoff.mjs"
 COMET_ARCHIVE="$COMET_SCRIPTS_DIR/comet-archive.mjs"
+COMET_INTENT="$COMET_SCRIPTS_DIR/comet-intent.mjs"
 COMET_RUNTIME="$COMET_SCRIPTS_DIR/comet-runtime.mjs"
 
 # Stop workflow when script location fails
@@ -28,7 +29,7 @@ if [ -z "$COMET_SCRIPTS_DIR" ]; then
 fi
 ```
 
-After loading comet, agents should run the variable assignments above once, then reuse `$COMET_GUARD`, `$COMET_STATE`, `$COMET_HANDOFF`, `$COMET_ARCHIVE` throughout the session.
+After loading comet, agents should run this bootstrap block once, then reuse `$COMET_GUARD`, `$COMET_STATE`, `$COMET_HANDOFF`, `$COMET_ARCHIVE`, and `$COMET_INTENT` throughout the session.
 
 ## Auto state update
 

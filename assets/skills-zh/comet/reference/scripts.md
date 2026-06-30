@@ -19,6 +19,7 @@ COMET_STATE="$COMET_SCRIPTS_DIR/comet-state.mjs"
 COMET_GUARD="$COMET_SCRIPTS_DIR/comet-guard.mjs"
 COMET_HANDOFF="$COMET_SCRIPTS_DIR/comet-handoff.mjs"
 COMET_ARCHIVE="$COMET_SCRIPTS_DIR/comet-archive.mjs"
+COMET_INTENT="$COMET_SCRIPTS_DIR/comet-intent.mjs"
 COMET_RUNTIME="$COMET_SCRIPTS_DIR/comet-runtime.mjs"
 
 # 脚本定位失败时停止流程
@@ -28,7 +29,7 @@ if [ -z "$COMET_SCRIPTS_DIR" ]; then
 fi
 ```
 
-加载 comet 后，agent 应执行以上变量赋值一次，后续全程复用 `$COMET_GUARD`、`$COMET_STATE`、`$COMET_HANDOFF`、`$COMET_ARCHIVE`。
+加载 comet 后，agent 应执行以上变量赋值一次，后续全程复用 `$COMET_GUARD`、`$COMET_STATE`、`$COMET_HANDOFF`、`$COMET_ARCHIVE`、`$COMET_INTENT`。
 
 ## 自动状态更新
 

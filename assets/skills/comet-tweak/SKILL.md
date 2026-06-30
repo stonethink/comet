@@ -146,6 +146,8 @@ After each phase completes, immediately enter next phase. Within each phase, mus
 
 Tweak upgrade assessment only decides whether to move from the lightweight preset to full; delta spec alone is not an upgrade reason, file count never upgrades automatically, and `comet-state scale` only decides verification weight.
 
+If `/comet` passes an intent frame from the entry, tweak must recheck `risk_signal` and escalation signals only before build: new capability, public API, schema change, cross-module coordination, or deep architecture work. When any signal matches, enter the existing escalation decision point. Delta spec remains a normal tweak artifact and must not trigger escalation by itself; do not reimplement entry intent recognition.
+
 Continuously check these qualitative-change signals: cross-module coordination, needing multiple OpenSpec changes, database schema changes, introducing a new public API, or touching a deep architecture problem. If any signal appears, the agent **must not self-upgrade or self-decide to continue**.
 
 The file-count tripwire is only a prompt: when changed files exceed the hint threshold (for example > 6 files), ask the user whether to continue tweak or upgrade full. More files do not necessarily mean qualitative change.

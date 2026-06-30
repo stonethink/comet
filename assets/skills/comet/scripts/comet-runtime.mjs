@@ -11493,7 +11493,11 @@ function validateFrame(input) {
         }
         return context.active_change_names;
       })() : [],
-      dirty_worktree: optionalBooleanValue(context.dirty_worktree, "context.dirty_worktree", issues)
+      dirty_worktree: optionalBooleanValue(
+        context.dirty_worktree,
+        "context.dirty_worktree",
+        issues
+      )
     },
     evidence: evidence.map((item, index) => {
       const record = isRecord(item) ? item : {};

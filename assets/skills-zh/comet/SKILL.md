@@ -28,17 +28,67 @@ agent 做决策只需读本节，参考附录按需查阅。
 
 **Step 0: 活跃 Change 发现与意图判定**
 
-1. 先做预设检测；命中 hotfix/tweak 时直接调用对应预设 Skill，不进入普通 open 分支
-2. 未命中预设时，运行 `openspec list --json` 获取所有活跃 change
+1. 先按 `comet/reference/scripts.md` 完成脚本定位，确保 `$COMET_INTENT` 可用。
+2. 运行 `openspec list --json` 获取所有活跃 change。
+3. 根据用户请求、active change 列表和必要仓库状态填写 `CometIntentFrame`。
+4. 优先用 `node "$COMET_INTENT" route --stdin` 传入 frame JSON，获取 runtime 规范化路由。`CometIntentFrame + runtime scorer` 是事实源；本节自然语言规则只用于意图识别槽位提取。
+5. 按 runtime route 处理：
+   - `hotfix` → 直接调用 `/comet-hotfix`
+   - `tweak` → 直接调用 `/comet-tweak`
+   - `full` → 按活跃 change 表决定 `/comet-open` 或用户确认
+   - `resume` → 进入 Step 1 读取对应 change 的 `.comet.yaml`
+   - `ask_user` → 按 `comet/reference/decision-point.md` 暂停并等待用户选择
+   - `out_of_scope` → 说明本次输入不是 Comet workflow 启动/恢复请求，不初始化 change
 
-**预设检测优先级最高**：
-- 用户明确描述为已有异常/回归/错误行为修复，且满足 hotfix 条件（不新增 capability、不需要完整设计）→ 直接 `/comet-hotfix`
-- 用户明确描述为可收敛为单一 OpenSpec change 的轻量/中等变更，需通过 OpenSpec apply 执行，且不需要完整 `/comet` 深度设计/plan → 直接 `/comet-tweak`
-- 未命中预设 → 按下表处理
+**CometIntentFrame 最小骨架**：
+
+```json
+{
+  "schema_version": "comet.intent.v1",
+  "utterance": "<用户原话>",
+  "locale": "zh",
+  "intent": { "name": "start_change", "confidence": 0.8 },
+  "entities": [],
+  "slots": {
+    "requested_action": "start",
+    "workflow_candidate": "full",
+    "user_explicit_workflow": null,
+    "change_id": null,
+    "target_area": null,
+    "scope": "unknown",
+    "existing_behavior": null,
+    "new_capability": null,
+    "public_api_change": null,
+    "schema_change": null,
+    "cross_module_change": null
+  },
+  "context": {
+    "active_changes_count": 0,
+    "active_change_names": [],
+    "dirty_worktree": null
+  },
+  "evidence": [],
+  "route": {
+    "name": "ask_user",
+    "next_skill": null,
+    "confidence": 0.5,
+    "requires_confirmation": true,
+    "fallback_reason": null
+  }
+}
+```
+
+**意图识别槽位提取**：
+- `fix_bug` + `existing_behavior: true` + 无新增 capability/public API/schema/cross-module 信号 → 倾向 `hotfix`
+- 用户明确描述为可收敛为单一 OpenSpec change 的轻量/中等变更，需通过 OpenSpec apply 执行，且不需要完整 `/comet` 深度设计/plan → 倾向 `tweak`
+- 文案、配置、文档、prompt 或单一 OpenSpec change 的轻中量修改 → 倾向 `tweak`
+- 新增 capability、public API、schema 变更、跨模块协调或架构调整 → 倾向 `full`
+- 多个 active change 且用户未明确 change → `ask_user`
+- 置信度不足、关键 evidence 缺失或用户显式 workflow 与风险信号冲突 → `ask_user`
 
 | 活跃 change | 用户输入 | 行为 |
 |-------------|---------|------|
-| 无 | 非预设输入 | → 调用 `/comet-open` |
+| 无 | `full` 路由 | → 调用 `/comet-open` |
 | 恰好 1 个 | `/comet <描述>` | → **询问**：继续该变更 or 创建新变更 |
 | 多个 | `/comet <描述>` | → **询问**：继续现有变更 or 创建新变更；若选继续 → 列出清单让用户选择 |
 | 恰好 1 个 | `/comet`（无描述） | → 自动选中，进入 Step 1 |

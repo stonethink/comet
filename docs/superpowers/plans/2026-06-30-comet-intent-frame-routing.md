@@ -4,6 +4,8 @@
 
 **Goal:** Upgrade Classic `/comet` entry routing from prompt-only preset detection to a structured, testable `CometIntentFrame` router.
 
+**Current status:** Implementation, runtime bundle, bilingual Skill sync, changelog, and verification are complete. Commit-only checkpoints remain unchecked until these changes are committed and the final clean-status check passes.
+
 **Architecture:** Agent-facing Skill prose fills a structured intent frame, while the Node Classic runtime validates that frame and deterministically resolves `full`, `hotfix`, `tweak`, `resume`, `ask_user`, or `out_of_scope`. Existing `.comet.yaml` workflow values and `classic-resolver.ts` phase routing remain unchanged after entry routing selects the workflow.
 
 **Tech Stack:** TypeScript, Node.js ESM, Vitest, esbuild classic runtime bundle, bundled Comet Skill assets, `assets/manifest.json`.
@@ -42,15 +44,17 @@
 ### Task 1: Intent Model And Deterministic Scorer
 
 **Files:**
+
 - Create: `domains/comet-classic/classic-intent.ts`
 - Create: `test/domains/comet-classic/classic-intent.test.ts`
 - Modify: `domains/comet-classic/index.ts`
 
 **Interfaces:**
+
 - Produces: `CometIntentFrame`, `CometIntentRoute`, `CometIntentValidationError`, `resolveCometIntentRoute(input: unknown): CometIntentRouteResolution`.
 - Consumes: no new project modules; this task is pure TypeScript and has no filesystem side effects.
 
-- [ ] **Step 1: Write the failing scorer tests**
+- [x] **Step 1: Write the failing scorer tests**
 
 Create `test/domains/comet-classic/classic-intent.test.ts`:
 
@@ -246,7 +250,7 @@ describe('resolveCometIntentRoute', () => {
 });
 ```
 
-- [ ] **Step 2: Run the focused test and verify it fails**
+- [x] **Step 2: Run the focused test and verify it fails**
 
 Run:
 
@@ -256,7 +260,7 @@ npx vitest run test/domains/comet-classic/classic-intent.test.ts
 
 Expected: FAIL because `domains/comet-classic/classic-intent.ts` does not exist.
 
-- [ ] **Step 3: Implement the model, validator, and scorer**
+- [x] **Step 3: Implement the model, validator, and scorer**
 
 Create `domains/comet-classic/classic-intent.ts`:
 
@@ -462,7 +466,8 @@ function validateFrame(input: unknown): CometIntentFrame {
       const record = isRecord(entity) ? entity : {};
       if (!isRecord(entity)) issues.push(`entities[${index}] must be an object`);
       return {
-        type: enumValue(record.type, ENTITY_TYPES, `entities[${index}].type`, issues) ?? 'risk_signal',
+        type:
+          enumValue(record.type, ENTITY_TYPES, `entities[${index}].type`, issues) ?? 'risk_signal',
         value: stringValue(record.value, `entities[${index}].value`, issues),
         text: stringValue(record.text, `entities[${index}].text`, issues),
       };
@@ -512,7 +517,11 @@ function validateFrame(input: unknown): CometIntentFrame {
       active_change_names: Array.isArray(context.active_change_names)
         ? context.active_change_names.filter((value): value is string => typeof value === 'string')
         : [],
-      dirty_worktree: optionalBooleanValue(context.dirty_worktree, 'context.dirty_worktree', issues),
+      dirty_worktree: optionalBooleanValue(
+        context.dirty_worktree,
+        'context.dirty_worktree',
+        issues,
+      ),
     },
     evidence: evidence.map((item, index) => {
       const record = isRecord(item) ? item : {};
@@ -590,13 +599,13 @@ function workflowRoute(workflow: CometIntentWorkflow, confidence: number): Comet
 export function resolveCometIntentRoute(input: unknown): CometIntentRouteResolution {
   const frame = validateFrame(input);
   const diagnostics: string[] = [];
-  const confidence = Math.max(frame.intent.confidence, frame.route.confidence);
+  const confidence = frame.intent.confidence;
 
   let resolved: CometIntentRoute;
   if (frame.intent.confidence < COMET_INTENT_CONFIDENCE_THRESHOLD) {
-    resolved = askUser(`intent confidence ${frame.intent.confidence} is below ${COMET_INTENT_CONFIDENCE_THRESHOLD}`);
-  } else if (frame.route.confidence < COMET_INTENT_CONFIDENCE_THRESHOLD) {
-    resolved = askUser(`route confidence ${frame.route.confidence} is below ${COMET_INTENT_CONFIDENCE_THRESHOLD}`);
+    resolved = askUser(
+      `intent confidence ${frame.intent.confidence} is below ${COMET_INTENT_CONFIDENCE_THRESHOLD}`,
+    );
   } else if (
     (frame.intent.name === 'resume_change' ||
       frame.slots.requested_action === 'resume' ||
@@ -615,13 +624,19 @@ export function resolveCometIntentRoute(input: unknown): CometIntentRouteResolut
       ? route('resume', confidence)
       : askUser(`change_id '${frame.slots.change_id}' is not in active_change_names`);
   } else if (frame.intent.name === 'ask_question' || frame.slots.requested_action === 'question') {
-    resolved = route('out_of_scope', confidence, 'user asked a question without requesting a Comet workflow');
+    resolved = route(
+      'out_of_scope',
+      confidence,
+      'user asked a question without requesting a Comet workflow',
+    );
   } else if (
     frame.slots.user_explicit_workflow &&
     frame.slots.user_explicit_workflow !== 'full' &&
     hasRiskSignal(frame)
   ) {
-    resolved = askUser(`explicit workflow '${frame.slots.user_explicit_workflow}' conflicts with risk signals`);
+    resolved = askUser(
+      `explicit workflow '${frame.slots.user_explicit_workflow}' conflicts with risk signals`,
+    );
   } else if (frame.slots.user_explicit_workflow) {
     resolved = workflowRoute(frame.slots.user_explicit_workflow, confidence);
   } else if (hasRiskSignal(frame)) {
@@ -656,7 +671,7 @@ export function resolveCometIntentRoute(input: unknown): CometIntentRouteResolut
 }
 ```
 
-- [ ] **Step 4: Export the new module**
+- [x] **Step 4: Export the new module**
 
 Add this line to `domains/comet-classic/index.ts`:
 
@@ -664,7 +679,7 @@ Add this line to `domains/comet-classic/index.ts`:
 export * from './classic-intent.js';
 ```
 
-- [ ] **Step 5: Run the focused test and verify it passes**
+- [x] **Step 5: Run the focused test and verify it passes**
 
 Run:
 
@@ -684,74 +699,76 @@ git commit -m "feat: add comet intent frame scorer"
 ### Task 2: Classic Runtime Intent Command
 
 **Files:**
+
 - Create: `domains/comet-classic/classic-intent-command.ts`
 - Modify: `domains/comet-classic/classic-cli.ts`
 - Modify: `domains/comet-classic/index.ts`
 - Modify: `test/domains/comet-classic/classic-runtime.test.ts`
 
 **Interfaces:**
+
 - Consumes: `resolveCometIntentRoute(input: unknown)` from Task 1.
 - Produces: Classic command `intent route <frame-json>` and `intent route --stdin`.
 
-- [ ] **Step 1: Add failing CLI adapter tests**
+- [x] **Step 1: Add failing CLI adapter tests**
 
 In `test/domains/comet-classic/classic-runtime.test.ts`, add these tests inside `describe('Classic runtime CLI adapter', ...)`:
 
 ```ts
-  it('routes intent frames through the Classic CLI', async () => {
-    const { runClassicCli } = await import('../../../domains/comet-classic/classic-cli.js');
-    const frame = {
-      schema_version: 'comet.intent.v1',
-      utterance: 'fix the broken guard',
-      locale: 'en',
-      intent: { name: 'fix_bug', confidence: 0.92 },
-      entities: [{ type: 'bug_signal', value: 'broken', text: 'broken' }],
-      slots: {
-        requested_action: 'fix',
-        workflow_candidate: 'hotfix',
-        user_explicit_workflow: null,
-        change_id: null,
-        target_area: 'guard',
-        scope: 'small',
-        existing_behavior: true,
-        new_capability: false,
-        public_api_change: false,
-        schema_change: false,
-        cross_module_change: false,
-      },
-      context: { active_changes_count: 0, active_change_names: [], dirty_worktree: false },
-      evidence: [
-        { field: 'intent.name', quote: 'fix', source: 'user' },
-        { field: 'slots.workflow_candidate', quote: 'broken', source: 'user' },
-      ],
-      route: {
-        name: 'hotfix',
-        next_skill: 'comet-hotfix',
-        confidence: 0.9,
-        requires_confirmation: false,
-        fallback_reason: null,
-      },
-    };
+it('routes intent frames through the Classic CLI', async () => {
+  const { runClassicCli } = await import('../../../domains/comet-classic/classic-cli.js');
+  const frame = {
+    schema_version: 'comet.intent.v1',
+    utterance: 'fix the broken guard',
+    locale: 'en',
+    intent: { name: 'fix_bug', confidence: 0.92 },
+    entities: [{ type: 'bug_signal', value: 'broken', text: 'broken' }],
+    slots: {
+      requested_action: 'fix',
+      workflow_candidate: 'hotfix',
+      user_explicit_workflow: null,
+      change_id: null,
+      target_area: 'guard',
+      scope: 'small',
+      existing_behavior: true,
+      new_capability: false,
+      public_api_change: false,
+      schema_change: false,
+      cross_module_change: false,
+    },
+    context: { active_changes_count: 0, active_change_names: [], dirty_worktree: false },
+    evidence: [
+      { field: 'intent.name', quote: 'fix', source: 'user' },
+      { field: 'slots.workflow_candidate', quote: 'broken', source: 'user' },
+    ],
+    route: {
+      name: 'hotfix',
+      next_skill: 'comet-hotfix',
+      confidence: 0.9,
+      requires_confirmation: false,
+      fallback_reason: null,
+    },
+  };
 
-    const result = await runClassicCli(['intent', 'route', JSON.stringify(frame)]);
+  const result = await runClassicCli(['intent', 'route', JSON.stringify(frame)]);
 
-    expect(result.exitCode).toBe(0);
-    expect(JSON.parse(result.stdout ?? '')).toMatchObject({
-      route: { name: 'hotfix', next_skill: 'comet-hotfix' },
-    });
+  expect(result.exitCode).toBe(0);
+  expect(JSON.parse(result.stdout ?? '')).toMatchObject({
+    route: { name: 'hotfix', next_skill: 'comet-hotfix' },
   });
+});
 
-  it('returns readable intent validation errors', async () => {
-    const { runClassicCli } = await import('../../../domains/comet-classic/classic-cli.js');
+it('returns readable intent validation errors', async () => {
+  const { runClassicCli } = await import('../../../domains/comet-classic/classic-cli.js');
 
-    const result = await runClassicCli(['intent', 'route', '{"schema_version":"wrong"}']);
+  const result = await runClassicCli(['intent', 'route', '{"schema_version":"wrong"}']);
 
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('Invalid CometIntentFrame');
-  });
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toContain('Invalid CometIntentFrame');
+});
 ```
 
-- [ ] **Step 2: Run the CLI adapter tests and verify they fail**
+- [x] **Step 2: Run the CLI adapter tests and verify they fail**
 
 Run:
 
@@ -761,7 +778,7 @@ npx vitest run test/domains/comet-classic/classic-runtime.test.ts
 
 Expected: FAIL because `intent` is an unknown Classic command.
 
-- [ ] **Step 3: Implement the intent command**
+- [x] **Step 3: Implement the intent command**
 
 Create `domains/comet-classic/classic-intent-command.ts`:
 
@@ -815,7 +832,7 @@ export const classicIntentCommand: ClassicCommandHandler = async (args) => {
 };
 ```
 
-- [ ] **Step 4: Register the command**
+- [x] **Step 4: Register the command**
 
 Modify `domains/comet-classic/classic-cli.ts`:
 
@@ -849,7 +866,7 @@ Add this line to `domains/comet-classic/index.ts`:
 export * from './classic-intent-command.js';
 ```
 
-- [ ] **Step 5: Run the CLI adapter tests and verify they pass**
+- [x] **Step 5: Run the CLI adapter tests and verify they pass**
 
 Run:
 
@@ -869,6 +886,7 @@ git commit -m "feat: add comet intent runtime command"
 ### Task 3: Launcher, Manifest, And Runtime Bundle
 
 **Files:**
+
 - Create: `assets/skills/comet/scripts/comet-intent.mjs`
 - Modify: `assets/manifest.json`
 - Modify: `assets/skills/comet/scripts/comet-runtime.mjs`
@@ -876,10 +894,11 @@ git commit -m "feat: add comet intent runtime command"
 - Modify: `test/domains/comet-classic/classic-runtime.test.ts`
 
 **Interfaces:**
-- Consumes: `intent` Classic command from Task 2.
-- Produces: shipped launcher `node "$COMET_INTENT" route <frame-json>`.
 
-- [ ] **Step 1: Add failing launcher and manifest tests**
+- Consumes: `intent` Classic command from Task 2.
+- Produces: shipped launcher supporting both `node "$COMET_INTENT" route <frame-json>` and the preferred `node "$COMET_INTENT" route --stdin`.
+
+- [x] **Step 1: Add failing launcher and manifest tests**
 
 In `test/domains/comet-classic/comet-scripts.test.ts`, update the `sources` object in `keeps all Classic launchers as runtime-only Node facades`:
 
@@ -896,11 +915,11 @@ In the `beforeEach` copy list, add:
 In `test/domains/comet-classic/classic-runtime.test.ts`, update the manifest assertion:
 
 ```ts
-    expect(manifest.skills).toContain('comet/scripts/comet-runtime.mjs');
-    expect(manifest.skills).toContain('comet/scripts/comet-intent.mjs');
+expect(manifest.skills).toContain('comet/scripts/comet-runtime.mjs');
+expect(manifest.skills).toContain('comet/scripts/comet-intent.mjs');
 ```
 
-- [ ] **Step 2: Run tests and verify they fail**
+- [x] **Step 2: Run tests and verify they fail**
 
 Run:
 
@@ -910,7 +929,7 @@ npx vitest run test/domains/comet-classic/comet-scripts.test.ts test/domains/com
 
 Expected: FAIL because `comet-intent.mjs` is missing and not listed in `assets/manifest.json`.
 
-- [ ] **Step 3: Add the thin launcher**
+- [x] **Step 3: Add the thin launcher**
 
 Create `assets/skills/comet/scripts/comet-intent.mjs`:
 
@@ -924,7 +943,7 @@ import { main } from './comet-runtime.mjs';
 process.exitCode = await main(['intent', ...process.argv.slice(2)]);
 ```
 
-- [ ] **Step 4: Ship the launcher in the manifest**
+- [x] **Step 4: Ship the launcher in the manifest**
 
 In `assets/manifest.json`, add the script entry next to the other Comet scripts:
 
@@ -932,7 +951,7 @@ In `assets/manifest.json`, add the script entry next to the other Comet scripts:
     "comet/scripts/comet-intent.mjs",
 ```
 
-- [ ] **Step 5: Rebuild the bundled runtime**
+- [x] **Step 5: Rebuild the bundled runtime**
 
 Run:
 
@@ -942,7 +961,7 @@ pnpm build:classic-runtime
 
 Expected: exit 0 and `assets/skills/comet/scripts/comet-runtime.mjs` changes to include the new `intent` command.
 
-- [ ] **Step 6: Run launcher/runtime tests**
+- [x] **Step 6: Run launcher/runtime tests**
 
 Run:
 
@@ -962,6 +981,7 @@ git commit -m "feat: ship comet intent launcher"
 ### Task 4: Chinese Skill Contract
 
 **Files:**
+
 - Modify: `assets/skills-zh/comet/SKILL.md`
 - Modify: `assets/skills-zh/comet/reference/scripts.md`
 - Modify: `assets/skills-zh/comet-hotfix/SKILL.md`
@@ -969,47 +989,54 @@ git commit -m "feat: ship comet intent launcher"
 - Modify: `test/domains/skill/skills.test.ts`
 
 **Interfaces:**
+
 - Consumes: `COMET_INTENT` launcher from Task 3.
 - Produces: Chinese Skill prose that treats `CometIntentFrame + runtime scorer` as the entry routing source of truth.
 
-- [ ] **Step 1: Add failing Chinese Skill contract tests**
+- [x] **Step 1: Add failing Chinese Skill contract tests**
 
 In `test/domains/skill/skills.test.ts`, add assertions near the existing Chinese Comet Skill consistency block:
 
 ```ts
-      expect(zhComet).toContain('CometIntentFrame');
-      expect(zhComet).toContain('node "$COMET_INTENT" route');
-      expect(zhComet).toContain('`intent`、`entities`、`slots`、`confidence`、`evidence`、`route`');
-      expect(zhComet).toContain('`ask_user`');
-      expect(zhComet).toContain('`CometIntentFrame + runtime scorer` 是事实源');
-      expect(zhHotfix).toContain('入口传入 intent frame');
-      expect(zhHotfix).toContain('复核 `risk_signal` 和升级信号');
-      expect(zhTweak).toContain('入口传入 intent frame');
-      expect(zhTweak).toContain('复核 `risk_signal` 和升级信号');
+expect(zhComet).toContain('CometIntentFrame');
+expect(zhComet).toContain('node "$COMET_INTENT" route --stdin');
+expect(zhComet).toContain('**CometIntentFrame 最小骨架**');
+expect(zhComet).toContain('"schema_version": "comet.intent.v1"');
+expect(zhComet).toContain('"slots": {');
+expect(zhComet).toContain('"context": {');
+expect(zhComet).toContain('"evidence": []');
+expect(zhComet).toContain('"route": {');
+expect(zhComet).toContain('`intent`、`entities`、`slots`、`confidence`、`evidence`、`route`');
+expect(zhComet).toContain('`ask_user`');
+expect(zhComet).toContain('`CometIntentFrame + runtime scorer` 是事实源');
+expect(zhHotfix).toContain('入口传入 intent frame');
+expect(zhHotfix).toContain('复核 `risk_signal` 和升级信号');
+expect(zhTweak).toContain('入口传入 intent frame');
+expect(zhTweak).toContain('复核 `risk_signal` 和升级信号');
 ```
 
 In the `ships a shared script locator helper` test, add:
 
 ```ts
-      expect(manifest.skills).toContain('comet/scripts/comet-intent.mjs');
+expect(manifest.skills).toContain('comet/scripts/comet-intent.mjs');
 ```
 
 In the script locator content checks, add assertions for both language script references:
 
 ```ts
-      expect(zhScripts).toContain('COMET_INTENT="$COMET_SCRIPTS_DIR/comet-intent.mjs"');
+expect(zhScripts).toContain('COMET_INTENT="$COMET_SCRIPTS_DIR/comet-intent.mjs"');
 ```
 
 If the test does not already load `zhScripts`, add this before the assertion:
 
 ```ts
-      const zhScripts = await fs.readFile(
-        path.resolve('assets', 'skills-zh', 'comet', 'reference', 'scripts.md'),
-        'utf-8',
-      );
+const zhScripts = await fs.readFile(
+  path.resolve('assets', 'skills-zh', 'comet', 'reference', 'scripts.md'),
+  'utf-8',
+);
 ```
 
-- [ ] **Step 2: Run Skill tests and verify they fail**
+- [x] **Step 2: Run Skill tests and verify they fail**
 
 Run:
 
@@ -1019,7 +1046,7 @@ npx vitest run test/domains/skill/skills.test.ts
 
 Expected: FAIL because the Chinese Skill files do not mention `CometIntentFrame` or `COMET_INTENT` yet.
 
-- [ ] **Step 3: Add `COMET_INTENT` to Chinese script locator**
+- [x] **Step 3: Add `COMET_INTENT` to Chinese script locator**
 
 In `assets/skills-zh/comet/reference/scripts.md`, add:
 
@@ -1035,7 +1062,7 @@ Update the sentence after the bootstrap block so it lists `$COMET_INTENT`:
 加载 comet 后，agent 应执行以上变量赋值一次，后续全程复用 `$COMET_GUARD`、`$COMET_STATE`、`$COMET_HANDOFF`、`$COMET_ARCHIVE`、`$COMET_INTENT`。
 ```
 
-- [ ] **Step 4: Replace `/comet` Step 0 with IntentFrame routing**
+- [x] **Step 4: Replace `/comet` Step 0 with IntentFrame routing**
 
 In `assets/skills-zh/comet/SKILL.md`, replace the existing Step 0 preset-detection prose with this structure while keeping the active-change table and later Step 1/Step 2 recovery rules:
 
@@ -1044,8 +1071,8 @@ In `assets/skills-zh/comet/SKILL.md`, replace the existing Step 0 preset-detecti
 
 1. 先按 `comet/reference/scripts.md` 完成脚本定位，确保 `$COMET_INTENT` 可用。
 2. 运行 `openspec list --json` 获取所有活跃 change。
-3. 根据用户请求、active change 列表和必要仓库状态填写 `CometIntentFrame`。字段命名采用常见 NLU / Agent Router 术语：`intent`、`entities`、`slots`、`confidence`、`evidence`、`route`。
-4. 调用 `node "$COMET_INTENT" route '<frame-json>'` 获取 runtime 规范化路由。`CometIntentFrame + runtime scorer` 是事实源；本节自然语言规则只作为填槽指南。
+3. 根据用户请求、active change 列表和必要仓库状态填写 `CometIntentFrame`。
+4. 优先用 `node "$COMET_INTENT" route --stdin` 传入 frame JSON，获取 runtime 规范化路由。`CometIntentFrame + runtime scorer` 是事实源；本节自然语言规则只用于意图识别槽位提取。
 5. 按 runtime route 处理：
    - `hotfix` → 直接调用 `/comet-hotfix`
    - `tweak` → 直接调用 `/comet-tweak`
@@ -1054,7 +1081,8 @@ In `assets/skills-zh/comet/SKILL.md`, replace the existing Step 0 preset-detecti
    - `ask_user` → 按 `comet/reference/decision-point.md` 暂停并等待用户选择
    - `out_of_scope` → 说明本次输入不是 Comet workflow 启动/恢复请求，不初始化 change
 
-**填槽指南**：
+**意图识别槽位提取**：
+
 - `fix_bug` + `existing_behavior: true` + 无新增 capability/public API/schema/cross-module 信号 → 倾向 `hotfix`
 - 文案、配置、文档、prompt 或单一 OpenSpec change 的轻中量修改 → 倾向 `tweak`
 - 新增 capability、public API、schema 变更、跨模块协调或架构调整 → 倾向 `full`
@@ -1062,7 +1090,9 @@ In `assets/skills-zh/comet/SKILL.md`, replace the existing Step 0 preset-detecti
 - 置信度不足、关键 evidence 缺失或用户显式 workflow 与风险信号冲突 → `ask_user`
 ```
 
-- [ ] **Step 5: Add minimal Chinese hotfix/tweak recheck wording**
+同一段落还必须包含 `CometIntentFrame 最小骨架`，列出 `schema_version`、`utterance`、`locale`、`intent`、`entities`、`slots`、`context`、`evidence` 和 `route`，让 agent 不需要猜 runtime schema。
+
+- [x] **Step 5: Add minimal Chinese hotfix/tweak recheck wording**
 
 In `assets/skills-zh/comet-hotfix/SKILL.md`, add this paragraph in the upgrade判定 area:
 
@@ -1076,7 +1106,7 @@ In `assets/skills-zh/comet-tweak/SKILL.md`, add:
 若由 `/comet` 入口传入 intent frame，tweak 在 build 前只复核 `risk_signal` 和升级信号：新增 capability、public API、schema 变更、跨模块协调或深层架构问题。命中时进入现有升级决策点；delta spec 仍是 tweak 的正常产物，不因存在 delta spec 自动升级；不得重新实现入口意图识别。
 ```
 
-- [ ] **Step 6: Run Chinese Skill tests**
+- [x] **Step 6: Run Chinese Skill tests**
 
 Run:
 
@@ -1086,7 +1116,7 @@ npx vitest run test/domains/skill/skills.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 7: Pause for user confirmation before English sync**
+- [x] **Step 7: Pause for user confirmation before English sync**
 
 Report:
 
@@ -1106,6 +1136,7 @@ git commit -m "feat: document comet intent frame routing zh"
 ### Task 5: English Skill Sync
 
 **Files:**
+
 - Modify: `assets/skills/comet/SKILL.md`
 - Modify: `assets/skills/comet/reference/scripts.md`
 - Modify: `assets/skills/comet-hotfix/SKILL.md`
@@ -1113,36 +1144,43 @@ git commit -m "feat: document comet intent frame routing zh"
 - Modify: `test/domains/skill/skills.test.ts`
 
 **Interfaces:**
+
 - Consumes: user-approved Chinese wording from Task 4.
 - Produces: English Skill assets with equivalent routing semantics.
 
-- [ ] **Step 1: Add English Skill assertions**
+- [x] **Step 1: Add English Skill assertions**
 
 In `test/domains/skill/skills.test.ts`, mirror the Chinese assertions:
 
 ```ts
-      expect(enComet).toContain('CometIntentFrame');
-      expect(enComet).toContain('node "$COMET_INTENT" route');
-      expect(enComet).toContain('`intent`, `entities`, `slots`, `confidence`, `evidence`, `route`');
-      expect(enComet).toContain('`ask_user`');
-      expect(enComet).toContain('`CometIntentFrame + runtime scorer` is the source of truth');
-      expect(enHotfix).toContain('intent frame from the entry');
-      expect(enHotfix).toContain('recheck `risk_signal` and escalation signals');
-      expect(enTweak).toContain('intent frame from the entry');
-      expect(enTweak).toContain('recheck `risk_signal` and escalation signals');
+expect(enComet).toContain('CometIntentFrame');
+expect(enComet).toContain('node "$COMET_INTENT" route --stdin');
+expect(enComet).toContain('**Minimal CometIntentFrame Skeleton**');
+expect(enComet).toContain('"schema_version": "comet.intent.v1"');
+expect(enComet).toContain('"slots": {');
+expect(enComet).toContain('"context": {');
+expect(enComet).toContain('"evidence": []');
+expect(enComet).toContain('"route": {');
+expect(enComet).toContain('`intent`, `entities`, `slots`, `confidence`, `evidence`, `route`');
+expect(enComet).toContain('`ask_user`');
+expect(enComet).toContain('`CometIntentFrame + runtime scorer` is the source of truth');
+expect(enHotfix).toContain('intent frame from the entry');
+expect(enHotfix).toContain('recheck `risk_signal` and escalation signals');
+expect(enTweak).toContain('intent frame from the entry');
+expect(enTweak).toContain('recheck `risk_signal` and escalation signals');
 ```
 
 Add the English scripts reference assertion:
 
 ```ts
-      const enScripts = await fs.readFile(
-        path.resolve('assets', 'skills', 'comet', 'reference', 'scripts.md'),
-        'utf-8',
-      );
-      expect(enScripts).toContain('COMET_INTENT="$COMET_SCRIPTS_DIR/comet-intent.mjs"');
+const enScripts = await fs.readFile(
+  path.resolve('assets', 'skills', 'comet', 'reference', 'scripts.md'),
+  'utf-8',
+);
+expect(enScripts).toContain('COMET_INTENT="$COMET_SCRIPTS_DIR/comet-intent.mjs"');
 ```
 
-- [ ] **Step 2: Run Skill tests and verify they fail**
+- [x] **Step 2: Run Skill tests and verify they fail**
 
 Run:
 
@@ -1152,7 +1190,7 @@ npx vitest run test/domains/skill/skills.test.ts
 
 Expected: FAIL because English Skill files are not synced yet.
 
-- [ ] **Step 3: Add `COMET_INTENT` to English script locator**
+- [x] **Step 3: Add `COMET_INTENT` to English script locator**
 
 In `assets/skills/comet/reference/scripts.md`, add:
 
@@ -1168,7 +1206,7 @@ Update the post-block sentence:
 After loading comet, agents should run this bootstrap block once, then reuse `$COMET_GUARD`, `$COMET_STATE`, `$COMET_HANDOFF`, `$COMET_ARCHIVE`, and `$COMET_INTENT` throughout the session.
 ```
 
-- [ ] **Step 4: Sync English `/comet` Step 0**
+- [x] **Step 4: Sync English `/comet` Step 0**
 
 In `assets/skills/comet/SKILL.md`, apply the English equivalent:
 
@@ -1177,8 +1215,8 @@ In `assets/skills/comet/SKILL.md`, apply the English equivalent:
 
 1. First load script locations through `comet/reference/scripts.md` and ensure `$COMET_INTENT` is available.
 2. Run `openspec list --json` to collect active changes.
-3. Fill a `CometIntentFrame` from the user request, active change list, and necessary repository state. Field names use common NLU / Agent Router terminology: `intent`, `entities`, `slots`, `confidence`, `evidence`, `route`.
-4. Run `node "$COMET_INTENT" route '<frame-json>'` to get the runtime-normalized route. `CometIntentFrame + runtime scorer` is the source of truth; this prose is only a slot-filling guide.
+3. Fill a `CometIntentFrame` from the user request, active change list, and necessary repository state.
+4. Prefer `node "$COMET_INTENT" route --stdin` to pass the frame JSON and get the runtime-normalized route. `CometIntentFrame + runtime scorer` is the source of truth; this prose is only for intent recognition slot extraction.
 5. Handle the runtime route:
    - `hotfix` → invoke `/comet-hotfix`
    - `tweak` → invoke `/comet-tweak`
@@ -1187,7 +1225,8 @@ In `assets/skills/comet/SKILL.md`, apply the English equivalent:
    - `ask_user` → pause through `comet/reference/decision-point.md` and wait for the user's choice
    - `out_of_scope` → explain that the input is not a Comet workflow start/resume request and do not initialize a change
 
-**Slot-filling guide**:
+**Intent Recognition Slot Extraction**:
+
 - `fix_bug` + `existing_behavior: true` + no new capability/public API/schema/cross-module signal → prefer `hotfix`
 - Copy, config, docs, prompt, or a lightweight/medium single OpenSpec change → prefer `tweak`
 - New capability, public API, schema change, cross-module coordination, or architecture work → prefer `full`
@@ -1195,7 +1234,9 @@ In `assets/skills/comet/SKILL.md`, apply the English equivalent:
 - Low confidence, missing key evidence, or explicit workflow conflicting with risk signals → `ask_user`
 ```
 
-- [ ] **Step 5: Sync English hotfix/tweak recheck wording**
+The same section must include a `Minimal CometIntentFrame Skeleton` listing `schema_version`, `utterance`, `locale`, `intent`, `entities`, `slots`, `context`, `evidence`, and `route`, so the agent does not have to infer the runtime schema from validation errors.
+
+- [x] **Step 5: Sync English hotfix/tweak recheck wording**
 
 In `assets/skills/comet-hotfix/SKILL.md`, add:
 
@@ -1209,7 +1250,7 @@ In `assets/skills/comet-tweak/SKILL.md`, add:
 If `/comet` passes an intent frame from the entry, tweak only rechecks `risk_signal` and escalation signals before build: new capability, public API, schema change, cross-module coordination, or deep architecture work. When any signal matches, enter the existing escalation decision point. Delta spec remains a normal tweak artifact and must not trigger escalation by itself; do not reimplement entry intent recognition.
 ```
 
-- [ ] **Step 6: Run Skill tests**
+- [x] **Step 6: Run Skill tests**
 
 Run:
 
@@ -1229,14 +1270,16 @@ git commit -m "feat: sync comet intent frame routing en"
 ### Task 6: Changelog And Final Verification
 
 **Files:**
+
 - Modify: `CHANGELOG.md`
 - Do not modify: `package.json` or `package-lock.json` unless the user explicitly approves handling their existing unstaged changes.
 
 **Interfaces:**
+
 - Consumes: all implementation tasks.
 - Produces: user-facing changelog entry and verification evidence.
 
-- [ ] **Step 1: Verify version context without staging user package changes**
+- [x] **Step 1: Verify version context without staging user package changes**
 
 Run:
 
@@ -1247,11 +1290,12 @@ git status --short
 ```
 
 Expected:
+
 - `master:package.json` reports `0.3.11`.
 - Current package version is already `0.4.0-beta.1`.
 - `package.json` and `package-lock.json` may still be unstaged pre-existing changes; do not stage them.
 
-- [ ] **Step 2: Update Changelog**
+- [x] **Step 2: Update Changelog**
 
 Under `## What's Changed [0.4.0-beta.1] - 2026-06-27`, add this item under `### Changed`:
 
@@ -1265,7 +1309,7 @@ Under `### Tests`, add:
 - **Intent routing coverage**: Adds Classic intent-frame scorer, runtime command, launcher, and Skill documentation regression coverage for hotfix, tweak, full, resume, low-confidence, multi-change, and conflict fallback routes.
 ```
 
-- [ ] **Step 3: Run focused verification**
+- [x] **Step 3: Run focused verification**
 
 Run:
 
@@ -1276,7 +1320,7 @@ pnpm build:classic-runtime --check
 
 Expected: PASS and runtime freshness check exits 0.
 
-- [ ] **Step 4: Run repository verification**
+- [x] **Step 4: Run repository verification**
 
 Run:
 
@@ -1311,4 +1355,3 @@ Expected: no uncommitted files from this implementation remain. Pre-existing `pa
 - Spec coverage: Tasks cover the structured frame, industry-aligned field names, runtime-only deterministic scoring, `ask_user` fallback, no `/comet-any`, no external dependencies, stage Skill minimal recheck, bilingual Skill sync, runtime bundle, manifest, tests, and changelog.
 - Placeholder scan: No placeholder markers, deferred implementation notes, cross-referenced duplicate steps, or unspecified test steps remain.
 - Type consistency: `CometIntentFrame`, `CometIntentRoute`, `resolveCometIntentRoute`, `classicIntentCommand`, `intent`, and `COMET_INTENT` are named consistently across tasks.
-

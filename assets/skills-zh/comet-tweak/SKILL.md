@@ -143,6 +143,8 @@ Tweak 流程默认 **一次性连续执行**。调用 `/comet-tweak` 后，agent
 
 tweak 的升级判定只决定是否从轻量预设转为 full；delta spec 本身不是升级理由，文件数不自动升级，`comet-state scale` 只决定验证轻重。
 
+若由 `/comet` 入口传入 intent frame，tweak 在 build 前只复核 `risk_signal` 和升级信号：新增 capability、public API、schema 变更、跨模块协调或深层架构问题。命中时进入现有升级决策点；delta spec 仍是 tweak 的正常产物，不因存在 delta spec 自动升级；不得重新实现入口意图识别。
+
 持续检查以下质变信号：跨模块协调修改、需要拆分为多个 OpenSpec changes、数据库 schema 变更、引入新的 public API、触及深层架构问题。命中任一信号时，agent **不得自行升级或自行判定可继续**。
 
 文件数 tripwire 仅作提示：改动文件数超过提示阈值（如 > 6 个文件）时，也交给用户决定继续 tweak 还是升级 full；文件数多不等于质变。
