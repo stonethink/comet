@@ -1278,15 +1278,25 @@ describe('skills', () => {
       expect(zhBuild).toContain('读取 `comet/reference/subagent-dispatch.md` 获取 Comet 专属扩展');
       expect(zhBuild).not.toContain('#### Subagent 调度协议');
       expect(zhDispatch).toContain('发生冲突时，以本文档中更具体的 Comet 约束为准');
+      expect(zhDispatch).toContain(
+        '派发第一个 task 前，必须完成 Superpowers `subagent-driven-development` 技能的预检计划审查',
+      );
       expect(zhDispatch).toContain('不得把多个 task 打包给同一个 agent');
       expect(zhDispatch).toContain('每个 task 派发一个全新的后台 implementer agent');
-      expect(zhDispatch).toContain('修复 agent 和 final reviewer');
+      expect(zhDispatch).toContain('task reviewer、修复 agent 和 final reviewer');
       expect(zhDispatch).toContain('Language: 使用触发本次工作流的用户请求语言输出');
       expect(zhDispatch).toContain('允许修改的文件范围');
       expect(zhDispatch).toContain('必须执行的测试命令');
       expect(zhDispatch).toContain('提交哈希');
       expect(zhDispatch).toContain('确认提交和文件在当前工作树可见');
       expect(zhDispatch).toContain('实现提交或差异以及 RED/GREEN 证据');
+      expect(zhDispatch).toContain(
+        '大型 task 文本、实现报告和审查材料必须通过已加载的 Superpowers `subagent-driven-development` 技能提供的文件交接机制传递',
+      );
+      expect(zhDispatch).toContain(
+        '不得要求 reviewer 重新运行 implementer 已经运行并报告的同一批测试',
+      );
+      expect(zhDispatch).toContain('不得在 reviewer prompt 中预判、压低或禁止报告某个发现');
       expect(zhDispatch).toContain('implementer 不得勾选 plan 或 OpenSpec task');
       expect(zhDispatch).toContain('协调者唯一允许的文件修改');
       expect(zhDispatch).toContain('plan、OpenSpec task 和 subagent 进度检查点');
@@ -1304,7 +1314,31 @@ describe('skills', () => {
       expect(zhDispatch).toContain(
         '当 `review_mode: thorough` 时，**每个 task 派发一个每任务 reviewer，同时检查 spec compliance 与 code quality**',
       );
+      expect(zhDispatch).toContain('当 reviewer 返回无法仅从审查材料验证的发现时');
+      expect(zhDispatch).toContain(
+        '若已加载的 Superpowers `subagent-driven-development` 技能通过自己的进度记录报告某个 task 已完成',
+      );
       expect(zhDispatch).toContain('当 `review_mode: off` 时');
+      expect(zhDispatch).toContain(
+        'Comet 不读取、不写入、也不要求任何 Superpowers `subagent-driven-development` 内部脚本或工作区路径',
+      );
+      for (const forbidden of [
+        'spec reviewer',
+        'code quality reviewer',
+        'spec compliance reviewer',
+        'dual-review',
+        'both reviews',
+        'task-reviewer-prompt',
+        'task-brief',
+        'review-package',
+        'sdd-workspace',
+        '.superpowers/sdd',
+        'SDD ' + '技能',
+        '当前 ' + 'SDD',
+        'Superpowers ' + 'SDD',
+      ]) {
+        expect(zhDispatch, `zh dispatch should not bind to ${forbidden}`).not.toContain(forbidden);
+      }
       expect(zhDispatch).toContain(
         'node "$COMET_STATE" task-checkoff "$PLAN_FILE" "$PLAN_TASK_TEXT"',
       );
@@ -1359,9 +1393,12 @@ describe('skills', () => {
       expect(enDispatch).toContain(
         'If the Superpowers skill conflicts with this document, the more specific Comet constraints here take precedence',
       );
+      expect(enDispatch).toContain(
+        'Before dispatching the first task, complete the Superpowers `subagent-driven-development` skill pre-flight plan review',
+      );
       expect(enDispatch).toContain('Never bundle multiple tasks into one agent');
       expect(enDispatch).toContain('fresh background implementer agent for every task');
-      expect(enDispatch).toContain('fix agents, and the final reviewer');
+      expect(enDispatch).toContain('task reviewer, fix agents, and the final reviewer');
       expect(enDispatch).toContain(
         'Language: Use the language of the user request that triggered this workflow',
       );
@@ -1369,7 +1406,16 @@ describe('skills', () => {
       expect(enDispatch).toContain('required test commands');
       expect(enDispatch).toContain('commit hash');
       expect(enDispatch).toContain('verify that the commit and changed files are visible');
-      expect(enDispatch).toContain('implementation commit or diff and the RED/GREEN evidence');
+      expect(enDispatch).toContain('implementation commit or diff, and the RED/GREEN evidence');
+      expect(enDispatch).toContain(
+        'Large task text, implementation reports, and review material must move through the file-handoff mechanism exposed by the loaded Superpowers `subagent-driven-development` skill',
+      );
+      expect(enDispatch).toContain(
+        'Do not ask a reviewer to re-run the same tests the implementer already ran and reported',
+      );
+      expect(enDispatch).toContain(
+        'Do not pre-judge, suppress, or down-rank findings in the reviewer prompt',
+      );
       expect(enDispatch).toContain('The coordinator may modify only');
       expect(enDispatch).toContain('plan, OpenSpec task, and subagent progress checkpoint');
       expect(enDispatch).toContain('openspec/changes/<name>/.comet/subagent-progress.md');
@@ -1405,6 +1451,32 @@ describe('skills', () => {
       expect(enDispatch).toContain('with review and fix flow determined by `review_mode`');
       expect(enDispatch).toContain('The selected `review_mode`');
       expect(enDispatch).toContain('After `review_mode` validation');
+      expect(enDispatch).toContain(
+        'When a reviewer returns an item that cannot be verified from review material alone',
+      );
+      expect(enDispatch).toContain(
+        'If the loaded Superpowers `subagent-driven-development` skill reports a task complete through its own progress record',
+      );
+      expect(enDispatch).toContain(
+        'Comet does not read, write, or require any Superpowers `subagent-driven-development` internal scripts or workspace paths',
+      );
+      for (const forbidden of [
+        'spec reviewer',
+        'code quality reviewer',
+        'spec compliance reviewer',
+        'dual-review',
+        'both reviews',
+        'task-reviewer-prompt',
+        'task-brief',
+        'review-package',
+        'sdd-workspace',
+        '.superpowers/sdd',
+        'SDD ' + 'skill',
+        'loaded ' + 'SDD',
+        'Superpowers ' + 'SDD',
+      ]) {
+        expect(enDispatch, `en dispatch should not bind to ${forbidden}`).not.toContain(forbidden);
+      }
       expect(enDispatch).not.toContain('After both reviews pass');
       expect(enDispatch).not.toContain('dual-review approval');
     });
