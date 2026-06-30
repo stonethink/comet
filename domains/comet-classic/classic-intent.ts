@@ -164,6 +164,15 @@ function confidenceValue(value: unknown, field: string, issues: string[]): numbe
   return value;
 }
 
+function nonNegativeIntegerValue(value: unknown, field: string, issues: string[]): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+    issues.push(`${field} must be a non-negative integer`);
+    return 0;
+  }
+
+  return value;
+}
+
 function validateFrame(input: unknown): CometIntentFrame {
   const issues: string[] = [];
   if (!isRecord(input)) throw new CometIntentValidationError(['frame must be an object']);
@@ -243,18 +252,27 @@ function validateFrame(input: unknown): CometIntentFrame {
       ),
     },
     context: {
-      active_changes_count:
-        typeof context.active_changes_count === 'number' && context.active_changes_count >= 0
-          ? context.active_changes_count
-          : 0,
-      active_change_names: Array.isArray(context.active_change_names)
-        ? context.active_change_names.filter((value): value is string => typeof value === 'string')
-        : [],
-      dirty_worktree: optionalBooleanValue(
-        context.dirty_worktree,
-        'context.dirty_worktree',
+      active_changes_count: nonNegativeIntegerValue(
+        context.active_changes_count,
+        'context.active_changes_count',
         issues,
       ),
+      active_change_names: isRecord(context)
+        ? (() => {
+            if (!Array.isArray(context.active_change_names)) {
+              issues.push('context.active_change_names must be an array');
+              return [];
+            }
+
+            if (!context.active_change_names.every((value) => typeof value === 'string')) {
+              issues.push('context.active_change_names must only contain strings');
+              return [];
+            }
+
+            return context.active_change_names;
+          })()
+        : [],
+      dirty_worktree: optionalBooleanValue(context.dirty_worktree, 'context.dirty_worktree', issues),
     },
     evidence: evidence.map((item, index) => {
       const record = isRecord(item) ? item : {};
@@ -332,16 +350,12 @@ function workflowRoute(workflow: CometIntentWorkflow, confidence: number): Comet
 export function resolveCometIntentRoute(input: unknown): CometIntentRouteResolution {
   const frame = validateFrame(input);
   const diagnostics: string[] = [];
-  const confidence = Math.max(frame.intent.confidence, frame.route.confidence);
+  const confidence = frame.intent.confidence;
 
   let resolved: CometIntentRoute;
   if (frame.intent.confidence < COMET_INTENT_CONFIDENCE_THRESHOLD) {
     resolved = askUser(
       `intent confidence ${frame.intent.confidence} is below ${COMET_INTENT_CONFIDENCE_THRESHOLD}`,
-    );
-  } else if (frame.route.confidence < COMET_INTENT_CONFIDENCE_THRESHOLD) {
-    resolved = askUser(
-      `route confidence ${frame.route.confidence} is below ${COMET_INTENT_CONFIDENCE_THRESHOLD}`,
     );
   } else if (
     (frame.intent.name === 'resume_change' ||
@@ -398,6 +412,21 @@ export function resolveCometIntentRoute(input: unknown): CometIntentRouteResolut
 
   if (resolved.name !== frame.route.name) {
     diagnostics.push(`agent route '${frame.route.name}' normalized to '${resolved.name}'`);
+  }
+  if (resolved.next_skill !== frame.route.next_skill) {
+    diagnostics.push(
+      `agent route next_skill '${frame.route.next_skill}' normalized to '${resolved.next_skill}'`,
+    );
+  }
+  if (resolved.requires_confirmation !== frame.route.requires_confirmation) {
+    diagnostics.push(
+      `agent route requires_confirmation '${frame.route.requires_confirmation}' normalized to '${resolved.requires_confirmation}'`,
+    );
+  }
+  if (resolved.fallback_reason !== frame.route.fallback_reason) {
+    diagnostics.push(
+      `agent route fallback_reason '${frame.route.fallback_reason}' normalized to '${resolved.fallback_reason}'`,
+    );
   }
 
   return {

@@ -111,6 +111,25 @@ describe('resolveCometIntentRoute', () => {
     expect(result.route).toMatchObject({ name: 'full', next_skill: 'comet-open' });
   });
 
+  it('does not ask user when route confidence is low but intent/slots/evidence is clear', () => {
+    const result = resolveCometIntentRoute(
+      frame({
+        route: {
+          name: 'ask_user',
+          next_skill: null,
+          confidence: 0.01,
+          requires_confirmation: true,
+          fallback_reason: 'low route confidence',
+        },
+      }),
+    );
+
+    expect(result.route.name).toBe('hotfix');
+    expect(result.route.fallback_reason).toBeNull();
+    expect(result.route.next_skill).toBe('comet-hotfix');
+    expect(result.diagnostics.some((diagnostic) => diagnostic.includes('ask_user'))).toBe(true);
+  });
+
   it('asks the user when explicit hotfix conflicts with risk signals', () => {
     const result = resolveCometIntentRoute(
       frame({
@@ -182,8 +201,62 @@ describe('resolveCometIntentRoute', () => {
   });
 
   it('throws a readable validation error for invalid schema', () => {
-    expect(() => resolveCometIntentRoute({ schema_version: 'wrong' })).toThrow(
-      CometIntentValidationError,
+    const action = () => resolveCometIntentRoute({ schema_version: 'wrong' });
+
+    expect(action).toThrow(CometIntentValidationError);
+    expect(action).toThrow(/schema_version must be one of/);
+  });
+
+  it('throws when context.active_changes_count is not a valid integer', () => {
+    const action = () =>
+      resolveCometIntentRoute(
+        frame({
+          context: {
+            active_changes_count: -1,
+            active_change_names: ['a'],
+          },
+        }),
+      );
+
+    expect(action).toThrow(CometIntentValidationError);
+    expect(action).toThrow(/context.active_changes_count/);
+  });
+
+  it('throws when context.active_change_names is not a string array', () => {
+    const action = () =>
+      resolveCometIntentRoute(
+        frame({
+          context: {
+            active_changes_count: 1,
+            active_change_names: ['ok', 1 as unknown as string],
+          },
+        }),
+      );
+
+    expect(action).toThrow(CometIntentValidationError);
+    expect(action).toThrow(/active_change_names must only contain strings/);
+  });
+
+  it('records diagnostics when next_skill/requires_confirmation/fallback_reason are normalized', () => {
+    const result = resolveCometIntentRoute(
+      frame({
+        route: {
+          name: 'hotfix',
+          next_skill: 'comet-open',
+          confidence: 0.92,
+          requires_confirmation: true,
+          fallback_reason: 'manual set',
+        },
+      }),
+    );
+
+    expect(result.route.name).toBe('hotfix');
+    expect(result.diagnostics).toEqual(
+      expect.arrayContaining([
+        "agent route next_skill 'comet-open' normalized to 'comet-hotfix'",
+        "agent route requires_confirmation 'true' normalized to 'false'",
+        "agent route fallback_reason 'manual set' normalized to 'null'",
+      ]),
     );
   });
 });
