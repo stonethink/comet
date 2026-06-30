@@ -382,6 +382,118 @@ main().catch((error) => {
 `;
 }
 
+function workflowContractOverlayHelperScript(): string {
+  return `
+function isCometOverlay(protocol) {
+  return protocol.kind === 'comet-five-phase-overlay';
+}
+
+function parseSimpleYaml(raw) {
+  const state = {};
+  for (const line of String(raw).split(/\\r?\\n/u)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const match = /^([^:#][^:]*):\\s*(.*)$/u.exec(line);
+    if (!match) continue;
+    const key = match[1].trim();
+    let value = match[2].trim();
+    const commentIndex = value.indexOf(' #');
+    if (commentIndex >= 0) value = value.slice(0, commentIndex).trim();
+    if (value === 'true') state[key] = true;
+    else if (value === 'false') state[key] = false;
+    else if (value === 'null') state[key] = null;
+    else if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      state[key] = value.slice(1, -1);
+    } else {
+      state[key] = value;
+    }
+  }
+  return state;
+}
+
+async function activeCometChanges() {
+  const changesRoot = path.join(runRoot, 'openspec', 'changes');
+  let entries;
+  try {
+    entries = await fs.readdir(changesRoot, { withFileTypes: true });
+  } catch (error) {
+    if (error && typeof error === 'object' && error.code === 'ENOENT') return [];
+    throw error;
+  }
+  const changes = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const statePath = path.join(changesRoot, entry.name, '.comet.yaml');
+    let state;
+    try {
+      state = parseSimpleYaml(await fs.readFile(statePath, 'utf8'));
+    } catch (error) {
+      if (error && typeof error === 'object' && error.code === 'ENOENT') continue;
+      throw error;
+    }
+    const archived = state.archived === true || String(state.archived ?? '').toLowerCase() === 'true';
+    if (!archived) changes.push({ name: entry.name, statePath, state });
+  }
+  return changes.sort((left, right) => left.name.localeCompare(right.name));
+}
+
+async function resolveCometOverlayChange() {
+  const changes = await activeCometChanges();
+  if (changes.length === 0) {
+    throw new Error('No active Comet change; use /comet-open or the original /comet entry to create one.');
+  }
+  if (changes.length > 1) {
+    throw new Error(
+      'Multiple active Comet changes: ' +
+        changes.map((change) => change.name).join(', ') +
+        '. Ask the user which change to resume.',
+    );
+  }
+  return changes[0];
+}
+
+function overlayNodeFromState(state) {
+  const phase = String(state.phase ?? '').trim();
+  if (phase === 'open') return 'open';
+  if (phase === 'design') return 'design';
+  if (phase === 'build') {
+    if (state.build_pause === 'plan-ready' || !Object.prototype.hasOwnProperty.call(state, 'plan')) {
+      return 'plan';
+    }
+    if (String(state.review_mode ?? 'off') !== 'off') return 'review';
+    return 'execute';
+  }
+  if (phase === 'verify') return 'verify';
+  if (phase === 'archive') return 'archive';
+  return null;
+}
+
+function evidencePathFor(protocol, change) {
+  const changeName = typeof change === 'string' ? change : change.name;
+  return path.join(runRoot, '.comet', 'workflow-evidence', changeName, protocol.name + '.json');
+}
+
+async function readOverlayEvidence(protocol, change) {
+  try {
+    const parsed = JSON.parse(await fs.readFile(evidencePathFor(protocol, change), 'utf8'));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch (error) {
+    if (error && typeof error === 'object' && error.code === 'ENOENT') return {};
+    throw error;
+  }
+}
+
+async function writeOverlayEvidence(protocol, change, value) {
+  const file = evidencePathFor(protocol, change);
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  await fs.writeFile(file, JSON.stringify(value, null, 2) + '\\n', 'utf8');
+}
+`;
+}
+
 function workflowContractHookGuardScript(): string {
   return `#!/usr/bin/env node
 import { promises as fs } from 'fs';
@@ -393,6 +505,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(__dirname, '..');
 const runRoot = process.env.COMET_RUN_ROOT ? path.resolve(process.env.COMET_RUN_ROOT) : process.cwd();
 const protocolPath = path.join(packageRoot, 'reference', 'workflow-protocol.json');
+${workflowContractOverlayHelperScript()}
 
 function statePath(protocol) {
   const preferred = String(protocol.state?.statePath ?? '');
@@ -426,6 +539,17 @@ async function main() {
   const nodes = route(protocol);
   if (nodes.length === 0) {
     throw new Error('workflow protocol has no enabled nodes');
+  }
+  if (isCometOverlay(protocol)) {
+    const change = await resolveCometOverlayChange();
+    const current = overlayNodeFromState(change.state);
+    if (!current || !nodes.some((node) => node.id === current)) {
+      throw new Error('active Comet change has no valid workflow Node');
+    }
+    console.log('workflow-hook-guard-ok');
+    console.log('EVENT: ' + event);
+    console.log('NODE: ' + current);
+    return;
   }
   let state;
   try {
@@ -469,6 +593,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(__dirname, '..');
 const runRoot = process.env.COMET_RUN_ROOT ? path.resolve(process.env.COMET_RUN_ROOT) : process.cwd();
 const protocolPath = path.join(packageRoot, 'reference', 'workflow-protocol.json');
+${workflowContractOverlayHelperScript()}
 
 function slug(value) {
   return String(value).toLowerCase().replace(/[^a-z0-9._-]+/gu, '-').replace(/^-+|-+$/gu, '');
@@ -543,6 +668,61 @@ async function main() {
   if (protocol.schemaVersion !== 1 || !Array.isArray(protocol.nodes)) {
     throw new Error('workflow-protocol.json must use the current schema with nodes');
   }
+  if (isCometOverlay(protocol)) {
+    if (command === 'init') {
+      throw new Error(
+        'Comet overlay state is created by /comet-open; use the original /comet entry to start a change.',
+      );
+    }
+    if (command === 'status') {
+      try {
+        const change = await resolveCometOverlayChange();
+        const currentNode = overlayNodeFromState(change.state);
+        console.log(
+          JSON.stringify(
+            {
+              status: 'running',
+              change: change.name,
+              statePath: change.statePath,
+              currentNode,
+              phase: change.state.phase ?? null,
+            },
+            null,
+            2,
+          ),
+        );
+      } catch (error) {
+        console.log(
+          JSON.stringify(
+            { status: 'blocked', reason: error instanceof Error ? error.message : String(error) },
+            null,
+            2,
+          ),
+        );
+      }
+      return;
+    }
+    if (command === 'next') {
+      const change = await resolveCometOverlayChange();
+      const nodeId = overlayNodeFromState(change.state);
+      printNext(protocol, route(protocol).find((node) => node.id === nodeId) ?? null);
+      return;
+    }
+    if (command === 'record') {
+      const nodeId = process.argv[3];
+      if (!nodeId) throw new Error('record requires a Node id.');
+      const node = route(protocol).find((item) => item.id === nodeId || generatedNodeSkillName(protocol, item.id) === nodeId);
+      if (!node) throw new Error('Unknown workflow Node: ' + nodeId);
+      const change = await resolveCometOverlayChange();
+      const evidence = await readOverlayEvidence(protocol, change);
+      evidence[node.id] = { ...parseEvidence(process.argv.slice(4).join(' ')), recordedAt: new Date().toISOString() };
+      await writeOverlayEvidence(protocol, change, evidence);
+      console.log('EVIDENCE: ' + node.id);
+      printNext(protocol, route(protocol).find((item) => item.id === overlayNodeFromState(change.state)) ?? null);
+      return;
+    }
+    throw new Error('Unknown command: ' + command);
+  }
   const file = statePath(protocol);
   if (command === 'init') {
     const node = nextNode(protocol, { completedNodes: [] });
@@ -612,6 +792,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(__dirname, '..');
 const runRoot = process.env.COMET_RUN_ROOT ? path.resolve(process.env.COMET_RUN_ROOT) : process.cwd();
 const protocolPath = path.join(packageRoot, 'reference', 'workflow-protocol.json');
+${workflowContractOverlayHelperScript()}
 
 function slug(value) {
   return String(value).toLowerCase().replace(/[^a-z0-9._-]+/gu, '-').replace(/^-+|-+$/gu, '');
@@ -784,6 +965,51 @@ async function main() {
   if (!nodeId) throw new Error(command + ' requires a Node id.');
   const node = findNode(protocol, nodeId);
   if (!node) throw new Error('Unknown workflow Node: ' + nodeId);
+  if (isCometOverlay(protocol)) {
+    const change = await resolveCometOverlayChange();
+    const current = overlayNodeFromState(change.state);
+    if (command === 'entry') {
+      if (current !== node.id) {
+        console.error('BLOCKED: current Node is ' + String(current) + ', cannot enter ' + node.id + '.');
+        process.exit(1);
+      }
+      console.log('ENTRY OK: ' + node.id);
+      return;
+    }
+    const evidenceState = { evidence: await readOverlayEvidence(protocol, change) };
+    const evidence = evidenceFor(evidenceState, node.id);
+    if (!evidence) {
+      console.error('BLOCKED: missing evidence for Node ' + node.id + '.');
+      process.exit(1);
+    }
+    const missingSchemaEvidence = missingRequiredSchemaEvidence(protocol, node, evidence);
+    if (missingSchemaEvidence.length > 0) {
+      console.error('BLOCKED: missing Output Schema evidence: ' + missingSchemaEvidence.join(', '));
+      process.exit(1);
+    }
+    const missingArtifacts = await missingRequiredArtifacts(protocol, node);
+    if (missingArtifacts.length > 0) {
+      console.error('BLOCKED: missing Output Schema artifacts: ' + missingArtifacts.join(', '));
+      process.exit(1);
+    }
+    const missingRequired = missingRequiredSkillChecks(node, evidence);
+    if (missingRequired.length > 0) {
+      console.error('BLOCKED: missing required Skill evidence: ' + missingRequired.join(', '));
+      process.exit(1);
+    }
+    const missingAugmentations = missingAugmentationChecks(node, evidence);
+    if (missingAugmentations.length > 0) {
+      console.error('BLOCKED: missing augmentation evidence: ' + missingAugmentations.join(', '));
+      process.exit(1);
+    }
+    console.log('ALL CHECKS PASSED');
+    if (apply) {
+      console.log('COMET STATE: unchanged; phase progression remains owned by the original Comet runtime.');
+      return;
+    }
+    console.log('APPLY: rerun with --apply to update workflow state');
+    return;
+  }
   const file = statePath(protocol);
   const state = await readJson(file);
   state.completedNodes = Array.isArray(state.completedNodes) ? state.completedNodes : [];

@@ -152,10 +152,19 @@ describe('Factory skill package generation', () => {
     try {
       await expect(
         execFileAsync(process.execPath, [hookGuardScript, 'before_write'], { env }),
-      ).rejects.toThrow(/workflow state is missing/iu);
+      ).rejects.toThrow(/No active Comet change/iu);
 
-      const init = await execFileAsync(process.execPath, [stateScript, 'init'], { env });
-      expect(init.stdout).toContain('NODE: open');
+      await expect(execFileAsync(process.execPath, [stateScript, 'init'], { env })).rejects.toThrow(
+        /\/comet-open|active Comet change/iu,
+      );
+      await expect(
+        fs.access(path.join(runRoot, '.comet', 'runs', 'team-comet', 'state.json')),
+      ).rejects.toMatchObject({ code: 'ENOENT' });
+      const blockedStatus = await execFileAsync(process.execPath, [stateScript, 'status'], { env });
+      expect(JSON.parse(blockedStatus.stdout)).toMatchObject({
+        status: 'blocked',
+        reason: expect.stringContaining('No active Comet change'),
+      });
 
       const changeRoot = path.join(runRoot, 'openspec', 'changes', 'contract-test');
       await fs.mkdir(path.join(changeRoot, 'specs', 'demo'), { recursive: true });
@@ -232,7 +241,58 @@ describe('Factory skill package generation', () => {
         [guardScript, 'exit', 'execute', '--apply'],
         { env },
       );
-      expect(executeExit.stdout).toContain('NODE: subagent-execute');
+      expect(executeExit.stdout).toContain('COMET STATE: unchanged');
+    } finally {
+      await fs.rm(runRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('uses .comet.yaml for comet-five-phase-overlay state routing and sidecar evidence', async () => {
+    const workflow = normalizeWorkflowDefinition(
+      builtinCometFivePhaseWorkflow({
+        name: 'overlay-state',
+        goal: 'Route from the active Comet change state.',
+      }),
+    );
+    const output = await generateFactorySkillPackage(
+      packagePlan({ root, name: 'overlay-state', workflow }),
+    );
+
+    const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'comet-overlay-state-run-'));
+    const env = { ...process.env, COMET_RUN_ROOT: runRoot };
+    const stateScript = path.join(output.packageRoot, 'scripts', 'workflow-state.mjs');
+    try {
+      const changeRoot = path.join(runRoot, 'openspec', 'changes', 'stateful-change');
+      await fs.mkdir(changeRoot, { recursive: true });
+      await fs.writeFile(
+        path.join(changeRoot, '.comet.yaml'),
+        'phase: build\nbuild_pause: plan-ready\nreview_mode: standard\n',
+        'utf8',
+      );
+
+      const next = await execFileAsync(process.execPath, [stateScript, 'next'], { env });
+      expect(next.stdout).toContain('NODE: plan');
+
+      const record = await execFileAsync(
+        process.execPath,
+        [stateScript, 'record', 'plan', '{"producer-summary":"done"}'],
+        { env },
+      );
+      expect(record.stdout).toContain('EVIDENCE: plan');
+      await expect(
+        fs.access(path.join(runRoot, '.comet', 'runs', 'overlay-state', 'state.json')),
+      ).rejects.toMatchObject({ code: 'ENOENT' });
+      await expect(
+        fs.access(
+          path.join(
+            runRoot,
+            '.comet',
+            'workflow-evidence',
+            'stateful-change',
+            'overlay-state.json',
+          ),
+        ),
+      ).resolves.toBeUndefined();
     } finally {
       await fs.rm(runRoot, { recursive: true, force: true });
     }
@@ -284,7 +344,13 @@ describe('Factory skill package generation', () => {
     const stateScript = path.join(output.packageRoot, 'scripts', 'workflow-state.mjs');
     const guardScript = path.join(output.packageRoot, 'scripts', 'workflow-guard.mjs');
     try {
-      await execFileAsync(process.execPath, [stateScript, 'init'], { env });
+      const changeRoot = path.join(runRoot, 'openspec', 'changes', 'augmentation-test');
+      await fs.mkdir(changeRoot, { recursive: true });
+      await fs.writeFile(
+        path.join(changeRoot, '.comet.yaml'),
+        'phase: verify\nreview_mode: off\n',
+        'utf8',
+      );
       await execFileAsync(
         process.execPath,
         [
