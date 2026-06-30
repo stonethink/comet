@@ -31,6 +31,7 @@ from scaffold.python.validation import run_validators
 # Timeouts
 CLAUDE_TIMEOUT = 1500  # 25 minutes for Claude to complete task (multi-turn loop)
 PYTEST_TIMEOUT = 1800  # 30 minutes total including setup/teardown
+MANIFEST_DYNAMIC_ONLY_TASKS = {"workflow-overlay-contract"}
 
 
 # =============================================================================
@@ -102,8 +103,16 @@ def generate_test_params(task_filter: str | None, treatment_filter: str | None, 
 
     for task_name in tasks_to_run:
         task = load_task(task_name)
-        if treatment_list:
-            for treatment_name in treatment_list:
+        task_treatments = treatment_list
+        if (
+            dynamic
+            and manifest_tasks
+            and not treatment_filter
+            and task_name in MANIFEST_DYNAMIC_ONLY_TASKS
+        ):
+            task_treatments = [dynamic.name]
+        if task_treatments:
+            for treatment_name in task_treatments:
                 params.append((task_name, treatment_name))
         else:
             for treatment_name in task.default_treatments:
@@ -132,6 +141,7 @@ skill:
 evaluation:
   recommendedTasks:
     - generic-skill-smoke
+    - workflow-overlay-contract
   baselineTreatments:
     - CONTROL
     - COMET_FULL
@@ -161,6 +171,16 @@ interaction:
         ("generic-skill-smoke", "CONTROL"),
         ("generic-skill-smoke", "COMET_FULL"),
         ("generic-skill-smoke", "DYNAMIC_SKILL"),
+    ]
+
+    assert generate_test_params("workflow-overlay-contract", None, Config()) == [
+        ("workflow-overlay-contract", "DYNAMIC_SKILL")
+    ]
+    assert generate_test_params(None, None, Config()) == [
+        ("generic-skill-smoke", "CONTROL"),
+        ("generic-skill-smoke", "COMET_FULL"),
+        ("generic-skill-smoke", "DYNAMIC_SKILL"),
+        ("workflow-overlay-contract", "DYNAMIC_SKILL"),
     ]
 
 

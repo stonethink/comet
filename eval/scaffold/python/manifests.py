@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
 
 from scaffold.python.tasks import InteractionConfig
+
+
+SHA256_HEX_RE = re.compile(r"^[a-f0-9]{64}$")
 
 
 @dataclass(frozen=True)
@@ -39,6 +43,42 @@ def _require_mapping(data: dict, field_name: str) -> dict:
     return value
 
 
+def _optional_string_list(data: dict, camel_name: str, snake_name: str) -> list[str]:
+    value = data.get(camel_name, data.get(snake_name))
+    if value is None:
+        return []
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise ValueError(f"Expected evaluation.{camel_name} to be a list of strings")
+    return list(value)
+
+
+def _optional_mapping(data: dict, camel_name: str, snake_name: str) -> dict:
+    value = data.get(camel_name, data.get(snake_name))
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError(f"Expected evaluation.{camel_name} to be a mapping")
+    return dict(value)
+
+
+def _optional_dict_list(data: dict, camel_name: str, snake_name: str) -> list[dict]:
+    value = data.get(camel_name, data.get(snake_name))
+    if value is None:
+        return []
+    if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
+        raise ValueError(f"Expected evaluation.{camel_name} to be a list of mappings")
+    return list(value)
+
+
+def _optional_draft_hash(metadata: dict) -> str | None:
+    value = metadata.get("draftHash") or metadata.get("draft_hash")
+    if value is None:
+        return None
+    if not isinstance(value, str) or not SHA256_HEX_RE.match(value):
+        raise ValueError("Expected metadata.draftHash to be 64 lowercase hex characters")
+    return value
+
+
 def load_eval_manifest(path: Path | str) -> SkillEvalManifest:
     manifest_path = Path(path).expanduser().resolve()
     data = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
@@ -61,19 +101,17 @@ def load_eval_manifest(path: Path | str) -> SkillEvalManifest:
         skill_name=str(skill.get("name") or metadata.get("name")),
         skill_path=(manifest_path.parent / skill_source).resolve(),
         profile=skill.get("profile"),
-        draft_hash=metadata.get("draftHash") or metadata.get("draft_hash"),
+        draft_hash=_optional_draft_hash(metadata),
         recommended_tasks=list(evaluation.get("recommendedTasks") or []),
-        baseline_treatments=list(
-            evaluation.get("baselineTreatments") or evaluation.get("baseline_treatments") or []
+        baseline_treatments=_optional_string_list(
+            evaluation, "baselineTreatments", "baseline_treatments"
         ),
-        quality_gates=dict(evaluation.get("qualityGates") or evaluation.get("quality_gates") or {}),
-        required_output_schemas=list(
-            evaluation.get("requiredOutputSchemas")
-            or evaluation.get("required_output_schemas")
-            or []
+        quality_gates=_optional_mapping(evaluation, "qualityGates", "quality_gates"),
+        required_output_schemas=_optional_string_list(
+            evaluation, "requiredOutputSchemas", "required_output_schemas"
         ),
-        expected_evidence=list(
-            evaluation.get("expectedEvidence") or evaluation.get("expected_evidence") or []
+        expected_evidence=_optional_dict_list(
+            evaluation, "expectedEvidence", "expected_evidence"
         ),
         required_skills=list(evaluation.get("requiredSkills") or []),
         expected_artifacts=list(evaluation.get("expectedArtifacts") or []),

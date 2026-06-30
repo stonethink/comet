@@ -13,7 +13,11 @@ import {
   type FactoryPackageArtifact,
   type FactoryPackageDraft,
 } from './artifacts.js';
-import type { WorkflowNodeProtocol, WorkflowProtocol } from '../workflow-contract/index.js';
+import {
+  hashWorkflowProtocol,
+  type WorkflowNodeProtocol,
+  type WorkflowProtocol,
+} from '../workflow-contract/index.js';
 
 function factoryEntryDescription(plan: FactorySkillPackagePlan): string {
   return plan.description || `Use when running the generated ${plan.name} workflow.`;
@@ -1222,6 +1226,7 @@ function workflowContractEvalManifest(
       ? evalRequiredOutputSchemas
       : protocol.nodes.flatMap((node) => node.outputSchemas),
   );
+  const schemasById = new Map(protocol.outputSchemas.map((schema) => [schema.id, schema]));
   const expectedEvidence = protocol.nodes.flatMap((node) => [
     ...node.requiredSkillCalls.map((binding) => ({
       node: node.id,
@@ -1233,6 +1238,16 @@ function workflowContractEvalManifest(
       check: `augmentation:${node.id}.${binding.skill}`,
       enforcement: binding.enforcement,
     })),
+    ...node.outputSchemas.flatMap((schemaId) =>
+      (schemasById.get(schemaId)?.evidence ?? [])
+        .filter((field) => field.required)
+        .map((field) => ({
+          node: node.id,
+          check: `output-schema:${node.id}.${schemaId}.${field.id}`,
+          schema: schemaId,
+          evidence: field.id,
+        })),
+    ),
   ]);
   const expectedArtifacts = protocol.nodes.flatMap((node) =>
     node.outputSchemas.flatMap((schemaId) => {
@@ -1253,7 +1268,7 @@ function workflowContractEvalManifest(
     metadata: {
       name: plan.name,
       description: factoryEntryDescription(plan),
-      draftHash: workflowProtocolHash(protocol),
+      draftHash: hashWorkflowProtocol(protocol),
     },
     skill: { name: plan.name, source: '..', profile: 'authoring-skill' },
     evaluation: {

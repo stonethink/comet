@@ -548,7 +548,13 @@ describe('Factory skill package generation', () => {
         baselineTreatments?: string[];
         qualityGates?: Record<string, number>;
         requiredOutputSchemas?: string[];
-        expectedEvidence?: Array<{ node?: string; check?: string; enforcement?: string }>;
+        expectedEvidence?: Array<{
+          node?: string;
+          check?: string;
+          schema?: string;
+          evidence?: string;
+          enforcement?: string;
+        }>;
       };
     };
 
@@ -570,6 +576,12 @@ describe('Factory skill package generation', () => {
       node: 'design',
       check: 'augmentation:design.grill-me',
       enforcement: 'guarded',
+    });
+    expect(evalManifest.evaluation?.expectedEvidence).toContainEqual({
+      node: 'design',
+      check: 'output-schema:design.comet.grill-me.v1.challenge-summary',
+      schema: 'comet.grill-me.v1',
+      evidence: 'challenge-summary',
     });
     expect(evalManifest.metadata?.draftHash).toMatch(/^[a-f0-9]{64}$/u);
   });

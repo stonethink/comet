@@ -29,6 +29,15 @@ evaluation:
   recommendedTasks:
     - generic-skill-smoke
     - workflow-route-conformance
+  baselineTreatments:
+    - CONTROL
+  qualityGates:
+    minWeightedScore: 0.8
+  requiredOutputSchemas:
+    - result.schema.v1
+  expectedEvidence:
+    - node: open
+      check: output-schema:open.result.schema.v1.summary
   requiredSkills:
     - my-skill
   expectedArtifacts:
@@ -56,6 +65,12 @@ interaction:
     assert manifest.skill_path == package.resolve()
     assert manifest.profile == "generic"
     assert manifest.recommended_tasks == ["generic-skill-smoke", "workflow-route-conformance"]
+    assert manifest.baseline_treatments == ["CONTROL"]
+    assert manifest.quality_gates == {"minWeightedScore": 0.8}
+    assert manifest.required_output_schemas == ["result.schema.v1"]
+    assert manifest.expected_evidence == [
+        {"node": "open", "check": "output-schema:open.result.schema.v1.summary"}
+    ]
     assert manifest.required_skills == ["my-skill"]
     assert manifest.expected_artifacts == ["result.md"]
     assert manifest.generated_node_skills == ["my-skill-open", "my-skill-build"]
@@ -74,4 +89,44 @@ def test_load_eval_manifest_rejects_wrong_kind(tmp_path: Path):
     )
 
     with pytest.raises(ValueError, match="SkillEvalManifest"):
+        load_eval_manifest(manifest_path)
+
+
+@pytest.mark.parametrize(
+    ("field_yaml", "message"),
+    [
+        (
+            "metadata:\n  name: bad\n  draftHash: not-a-hash\nskill:\n  name: bad\n",
+            "metadata.draftHash",
+        ),
+        (
+            "metadata:\n  name: bad\nskill:\n  name: bad\nevaluation:\n  baselineTreatments: CONTROL\n",
+            "evaluation.baselineTreatments",
+        ),
+        (
+            "metadata:\n  name: bad\nskill:\n  name: bad\nevaluation:\n  requiredOutputSchemas:\n    - 42\n",
+            "evaluation.requiredOutputSchemas",
+        ),
+        (
+            "metadata:\n  name: bad\nskill:\n  name: bad\nevaluation:\n  qualityGates:\n    - bad\n",
+            "evaluation.qualityGates",
+        ),
+        (
+            "metadata:\n  name: bad\nskill:\n  name: bad\nevaluation:\n  expectedEvidence:\n    - missing-node\n",
+            "evaluation.expectedEvidence",
+        ),
+    ],
+)
+def test_load_eval_manifest_rejects_malformed_structured_fields(
+    tmp_path: Path,
+    field_yaml: str,
+    message: str,
+):
+    manifest_path = tmp_path / "eval.yaml"
+    manifest_path.write_text(
+        f"apiVersion: comet.eval/v1alpha1\nkind: SkillEvalManifest\n{field_yaml}",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=message):
         load_eval_manifest(manifest_path)
