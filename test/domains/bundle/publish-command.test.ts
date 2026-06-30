@@ -10,6 +10,7 @@ import {
   publishApproveCommand,
   publishDistributeCommand,
   publishListCommand,
+  publishNextCommand,
   publishReviewCommand,
   publishRunCommand,
   publishStatusCommand,
@@ -163,6 +164,31 @@ describe('publish command facade', () => {
     expect(text).toContain('Still needed:');
     expect(text).toContain('Current step: needs-benchmark');
     expect(text).toContain('Suggested user command:');
+
+    const next = await captureJson(() =>
+      publishNextCommand('publish-facade', { project: projectRoot, json: true }),
+    );
+    expect(next).toMatchObject({
+      schemaVersion: 1,
+      name: 'publish-facade',
+      status: 'draft',
+      currentStep: 'needs-benchmark',
+      nextStep: {
+        action: 'choose-benchmark-level',
+        category: 'benchmark',
+        command: expect.stringContaining('comet eval'),
+        requiresUserConfirmation: true,
+      },
+    });
+    expect(JSON.stringify(next)).not.toContain('backendCommand');
+
+    const nextText = await captureText(() =>
+      publishNextCommand('publish-facade', { project: projectRoot }),
+    );
+    expect(nextText).toContain('Next step for publish-facade');
+    expect(nextText).toContain('Current step: needs-benchmark');
+    expect(nextText).toContain('Command: comet eval');
+    expect(nextText).not.toContain('Backend command:');
   });
 
   it('reviews, approves, publishes, and distributes through the facade', async () => {

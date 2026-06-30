@@ -15,10 +15,10 @@
 普通用户只需要记住这条主线：
 
 ```text
-/comet-any 创建 -> comet eval 验证 -> comet publish review/approve/run -> comet publish distribute --preview -> comet publish distribute
+/comet-any 创建 -> comet eval 验证 -> comet publish status/next -> comet publish review/approve/run -> comet publish distribute --preview -> comet publish distribute
 ```
 
-`comet bundle` 是高级 Bundle 后端，负责确定性状态、hash、readiness、publish 和 distribute；`comet skill` 是底层 Skill 工具，适合本地调试和 Engine Run。它们不是普通用户创建 Skill 的主入口。
+`comet publish status` / `comet publish next` 是普通用户查看 readiness 和唯一推荐下一步的入口。`comet bundle` 是高级 Bundle 后端，负责确定性状态、hash、readiness、publish 和 distribute；`comet skill run` / `comet skill continue` 是高级 Engine Run 调试入口。它们不是普通用户创建 Skill 的主入口。
 
 ## 首次建立项目级偏好
 
@@ -30,14 +30,7 @@
 
 它和 `.comet/config.yaml` 同级，表达这个项目希望 `/comet-any` 优先复用哪些 Skill，以及遇到缺失、歧义、偏离和 scripts/hooks 时怎么处理。
 
-如果文件不存在，`/comet-any` 应先扫描 Comet 支持的平台 Skill，按能力分组展示可复用能力，并询问是否保存推荐偏好。用户不需要每次在输入框里重新列一长串 Skill。
-首次使用时，`/comet-any` 的内部 guide 后端是：
-
-```bash
-comet bundle factory-guide --project . --json
-```
-
-它会返回首次使用向导需要的 `preference`、`inventory`、`resumable`、`nextQuestions` 和 `userMessage`。是否写入 `.comet/skill-preferences.yaml` 必须先询问用户。
+如果文件不存在，`/comet-any` 应先扫描 Comet 支持的平台 Skill，按能力分组展示可复用能力，并询问是否保存推荐偏好。用户不需要每次在输入框里重新列一长串 Skill。是否写入 `.comet/skill-preferences.yaml` 必须先询问用户。
 
 推荐起点：
 
@@ -132,27 +125,15 @@ policies:
 - scripts/hooks 会产生什么可执行披露。
 - 将生成哪些文件。
 
-内部 dry-run 后端是：
-
-```bash
-comet bundle factory-propose <name> --file <plan.json> --json
-```
-
-proposal 应给用户展示 `userSummary`、候选动作和 `proposalHash`。确认页至少要支持：
+proposal 应给用户展示摘要、候选动作和 `proposalHash`。确认页至少要支持：
 
 - `confirm-generate`
 - `revise-proposal`
 - `cancel`
 
-用户确认后，`/comet-any` 才会调用：
+用户确认后，`/comet-any` 才能写入 Skill Creator metadata。`proposalHash` 会由 metadata 记录并校验，不由用户作为参数传入。后端会把规范化 plan 固化到 `.comet/bundle-factory-plans/<name>/plan.json`，并记录 `planHash`、`preferenceHash`、偏好模式、策略、required Skill、resolved Skill 证据和偏离原因。
 
-```bash
-comet bundle factory-init <name> --file <plan.json> --confirmed-proposal --json
-```
-
-`proposalHash` 会由 Skill Creator metadata 记录并校验，不由用户作为参数传入。`factory-init` 会把规范化 plan 固化到 `.comet/bundle-factory-plans/<name>/plan.json`，并在 Skill Creator metadata 中记录 `planHash`、`preferenceHash`、偏好模式、策略、required Skill、resolved Skill 证据和偏离原因。
-
-如果 proposal 还有缺失、歧义或组合 blocker，`/comet-any` 不应确认生成。需要用后端状态做候选修复时，可以先不带 `--confirmed-proposal` 初始化 unresolved Skill Creator state 并运行 `factory-resolve`；候选和组合解决后，必须重新展示可生成方案并再次调用 `factory-init --confirmed-proposal`，否则 `factory-generate`、review 和 publish 都会拒绝继续。
+如果 proposal 还有缺失、歧义或组合 blocker，`/comet-any` 不应确认生成。需要用后端状态做候选修复时，可以暂存 unresolved Skill Creator state；候选和组合解决后，必须重新展示可生成方案并再次记录确认，否则生成、review 和 publish 都会拒绝继续。
 
 ## `/comet-any` 的产出
 
@@ -208,6 +189,8 @@ benchmark 结果必须绑定当前 draft hash。没有当前 hash 的 benchmark 
 发布前必须先看 readiness。普通用户可以让 `/comet-any` 推进；需要手工命令时优先用：
 
 ```bash
+comet publish status <name> --json
+comet publish next <name> --json
 comet publish review <name> --platform <reference-platform> --json
 comet publish approve <name> --reviewer <reviewer> --json
 comet publish run <name> --platform <reference-platform> --json
@@ -293,10 +276,27 @@ comet publish distribute <name> --platform <id> --scope project --json
 ```text
 恢复摘要
 Current step: review
-Suggested user command: /comet-any 继续当前 Skill 创建
+Suggested user command: comet publish next <name>
 ```
 
 如果偏好或 Skill 来源发生变化，`advisory` 模式应提示并让用户选择继续旧组合方案或重新生成；`strict` 模式应默认阻塞，要求用户确认继续或重新生成。
+
+## 高级后端参考
+
+普通用户不需要直接调用下面的命令。它们用于排查 `/comet-any` 后端状态、修复候选解析、审计 authoring lane，或在自动化里显式操作 Skill Creator 后端。
+
+```bash
+comet bundle factory-guide --project . --json
+comet bundle factory-propose <name> --file <plan.json> --json
+comet bundle factory-init <name> --file <plan.json> --json
+comet bundle factory-resolve <name> --candidate <query> --source <root-or-hash> --json
+comet bundle factory-init <name> --file <plan.json> --confirmed-proposal --json
+comet bundle factory-generate <name> --json
+comet bundle authoring-plan <name> --depth quick --json
+comet bundle authoring-record <name> --lane <lane-id> --file <lane-output.json> --json
+```
+
+`comet bundle status` 的 JSON 仍会包含后端 next action，方便 `/comet-any` 或自动化恢复；普通用户只需要看 `comet publish status` / `comet publish next` 的用户命令。
 
 ## 用户最少需要记什么
 
@@ -304,4 +304,4 @@ Suggested user command: /comet-any 继续当前 Skill 创建
 2. `.comet/skill-preferences.yaml` 是项目级偏好，可以手写，也可以由 `/comet-any` 生成。
 3. 生成前必须先看组合方案，确认后才会写 Bundle draft。
 4. Eval 是发布前证据，不是发布动作。
-5. Publish 和 distribute 复用 Comet 的 Bundle 后端，不需要用户手写内部状态。
+5. Publish 和 distribute 复用 Comet 的 Bundle 后端；用户用 `comet publish status` / `comet publish next` 看下一步，不需要手写内部状态。

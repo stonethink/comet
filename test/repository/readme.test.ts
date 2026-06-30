@@ -48,17 +48,41 @@ describe('README assets', () => {
     expect(readmeEn).toContain('`/comet-any` is the main user path');
     expect(readmeEn).toContain('`comet eval`');
     expect(readmeEn).toContain('`comet publish`');
+    expect(readmeEn).toContain('`comet publish status` / `comet publish next`');
     expect(readmeEn).toContain('`comet publish distribute --preview`');
     expect(readmeEn).toContain('stable composed Skill');
     expect(readmeEn).toContain('Advanced Bundle backend');
+    expect(readmeEn).toContain('Advanced Engine Run');
+    expect(readmeEn).toContain('`comet skill run` / `comet skill continue`');
     expect(readmeEn).toContain('Skill creation guide');
     expect(readmeZh).toContain('创建或优化可复用 Skill');
     expect(readmeZh).toContain('`/comet-any` 是普通用户主路径');
     expect(readmeZh).toContain('`comet eval`');
     expect(readmeZh).toContain('`comet publish`');
+    expect(readmeZh).toContain('`comet publish status` / `comet publish next`');
     expect(readmeZh).toContain('`comet publish distribute --preview`');
     expect(readmeZh).toContain('稳定组合 Skill');
     expect(readmeZh).toContain('高级 Bundle 后端');
+    expect(readmeZh).toContain('高级 Engine Run');
+    expect(readmeZh).toContain('`comet skill run` / `comet skill continue`');
     expect(readmeZh).toContain('Skill 创建文档');
+  });
+
+  it('keeps Skill Creator backend commands in advanced operation docs', async () => {
+    const guideEn = await fs.readFile('docs/operations/SKILL-CREATION.md', 'utf-8');
+    const guideZh = await fs.readFile('docs/operations/SKILL-CREATION-ZH.md', 'utf-8');
+    const ordinaryEn = guideEn.split('## Advanced backend reference')[0];
+    const ordinaryZh = guideZh.split('## 高级后端参考')[0];
+
+    expect(guideEn).toContain('## Advanced backend reference');
+    expect(guideZh).toContain('## 高级后端参考');
+    expect(guideEn).toContain('comet publish next <name>');
+    expect(guideZh).toContain('comet publish next <name>');
+    expect(ordinaryEn).not.toContain('comet bundle factory-guide');
+    expect(ordinaryEn).not.toContain('comet bundle factory-propose');
+    expect(ordinaryEn).not.toContain('comet bundle factory-init');
+    expect(ordinaryZh).not.toContain('comet bundle factory-guide');
+    expect(ordinaryZh).not.toContain('comet bundle factory-propose');
+    expect(ordinaryZh).not.toContain('comet bundle factory-init');
   });
 });

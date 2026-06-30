@@ -19,7 +19,7 @@ Think about the flow like this:
   -> produces comet/eval.yaml
   -> comet eval --collect performs discovery precheck
   -> comet eval --html performs the real evaluation
-  -> /comet-any or comet publish reads the result and continues into readiness / review / publish / distribute
+  -> /comet-any or comet publish status/next reads the result and continues into readiness / review / publish / distribute
 ```
 
 `comet eval` does not publish. Publishing is still handled by the Bundle backend behind
@@ -29,7 +29,7 @@ evidence.
 For ordinary users, the recommended path remains:
 
 ```text
-/comet-any -> comet eval -> comet publish review/approve/run -> comet publish distribute --preview -> comet publish distribute
+/comet-any -> comet eval -> comet publish status/next -> comet publish review/approve/run -> comet publish distribute --preview -> comet publish distribute
 ```
 
 The stable composed Skill Bundle required capability set is
@@ -74,11 +74,13 @@ The usual sequence is:
 ```bash
 comet eval ./generated-skill/comet/eval.yaml --collect
 comet eval ./generated-skill/comet/eval.yaml --html
+comet publish next <name> --json
 comet publish review <name> --platform <reference-platform> --json
 ```
 
-`comet publish review` must directly show `Publish readiness:`, `User next steps:`, `Readiness:`,
-`Blockers:`, `Warnings:`, and `Evidence:`.
+`comet publish next` prints only the single recommended user command; `comet publish review` must
+directly show `Publish readiness:`, `User next steps:`, `Readiness:`, `Blockers:`, `Warnings:`,
+and `Evidence:`.
 
 ## Why run `collect` first
 
@@ -132,7 +134,8 @@ is fixing the Skill, the eval config, or the environment.
 ## How `/comet-any` uses benchmark results
 
 From the user's point of view, after `comet eval` finishes you can hand control back to
-`/comet-any` to continue. `/comet-any` merges benchmark evidence into readiness:
+`/comet-any` or run `comet publish next <name>` to see the single recommended next step.
+`/comet-any` merges benchmark evidence into readiness:
 
 - no benchmark evidence: cannot publish
 - benchmark failed: cannot publish
@@ -243,5 +246,5 @@ Recommended commands:
 ```bash
 comet eval ./generated-skill/comet/eval.yaml --collect
 comet eval ./generated-skill/comet/eval.yaml --html
-comet publish review <name> --platform <reference-platform> --json
+comet publish next <name> --json
 ```

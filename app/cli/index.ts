@@ -18,6 +18,7 @@ import {
   publishApproveCommand,
   publishDistributeCommand,
   publishListCommand,
+  publishNextCommand,
   publishReviewCommand,
   publishRunCommand,
   publishStatusCommand,
@@ -160,7 +161,7 @@ program
 
 const skill = program
   .command('skill')
-  .description('Install, inspect, and run local Skill packages');
+  .description('Install, inspect, and debug local Skill packages');
 
 skill
   .command('add <path>')
@@ -183,7 +184,7 @@ skill
 
 skill
   .command('run <skill>')
-  .description('Start a deterministic Comet Skill Run')
+  .description('Advanced: start a deterministic Engine Skill Run')
   .option('--change <dir>', 'Change directory that owns the Run')
   .option('--run-id <id>', 'Standalone Run id stored under .comet/runs/<id>')
   .option('--project <dir>', 'Project root used for Skill discovery', '.')
@@ -195,7 +196,7 @@ skill
 
 skill
   .command('continue')
-  .description('Resume a Comet Skill Run or submit its pending action outcome')
+  .description('Advanced: resume a deterministic Engine Skill Run or submit its pending action')
   .option('--change <dir>', 'Change directory that owns the Run')
   .option('--run-id <id>', 'Standalone Run id stored under .comet/runs/<id>')
   .option('--project <dir>', 'Project root used for Skill discovery', '.')
@@ -250,6 +251,15 @@ publish
   .option('--json', 'Output as JSON')
   .action(async (name, options) => {
     await publishStatusCommand(name, options);
+  });
+
+publish
+  .command('next <name>')
+  .description('Print the single recommended next user step')
+  .option('--project <dir>', 'Project root', '.')
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await publishNextCommand(name, options);
   });
 
 publish

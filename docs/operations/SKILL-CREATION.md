@@ -21,12 +21,13 @@ published, and distributed.
 Ordinary users only need to remember this path:
 
 ```text
-/comet-any create -> comet eval -> comet publish review/approve/run -> comet publish distribute --preview -> comet publish distribute
+/comet-any create -> comet eval -> comet publish status/next -> comet publish review/approve/run -> comet publish distribute --preview -> comet publish distribute
 ```
 
+`comet publish status` / `comet publish next` is the ordinary readiness and single-next-step entry.
 `comet bundle` is the Advanced Bundle backend responsible for deterministic state, hashes,
-readiness, publish, and distribute. `comet skill` is the low-level Skill utility path for local
-debugging and Engine Runs. They are not the main entry point for ordinary users creating Skills.
+readiness, publish, and distribute. `comet skill run` / `comet skill continue` is the advanced
+Engine Run debugging path. They are not the main entry point for ordinary users creating Skills.
 
 ## First-use project preferences
 
@@ -41,17 +42,8 @@ reuse and how to handle missing, ambiguous, deviating, or executable candidates.
 
 If the file does not exist, `/comet-any` should first scan the Skills supported by Comet on the
 current platforms, group them by capability, and ask whether to save recommended preferences. The
-user does not need to retype a long Skill list every time.
-
-The internal guide backend for first use is:
-
-```bash
-comet bundle factory-guide --project . --json
-```
-
-It returns the fields needed by the first-use guide: `preference`, `inventory`, `resumable`,
-`nextQuestions`, and `userMessage`. Writing `.comet/skill-preferences.yaml` always requires user
-confirmation first.
+user does not need to retype a long Skill list every time. Writing `.comet/skill-preferences.yaml`
+always requires user confirmation first.
 
 Recommended starting point:
 
@@ -152,37 +144,24 @@ The proposal must explain at least:
 - what executable disclosures scripts/hooks introduce
 - which files will be generated
 
-The internal dry-run backend is:
-
-```bash
-comet bundle factory-propose <name> --file <plan.json> --json
-```
-
-The proposal should surface `userSummary`, candidate actions, and `proposalHash`. The confirmation
-page must support at least:
+The proposal should surface the user-facing summary, candidate actions, and `proposalHash`. The
+confirmation page must support at least:
 
 - `confirm-generate`
 - `revise-proposal`
 - `cancel`
 
-After user confirmation, `/comet-any` calls:
-
-```bash
-comet bundle factory-init <name> --file <plan.json> --confirmed-proposal --json
-```
-
-`proposalHash` is recorded and verified by Skill Creator metadata, not passed by the user as a CLI
-argument. `factory-init` persists the normalized plan to
-`.comet/bundle-factory-plans/<name>/plan.json` and records `planHash`, `preferenceHash`,
-preference mode, policies, required Skills, resolved Skill evidence, and deviation reasons in
-Skill Creator metadata.
+After user confirmation, `/comet-any` may write Skill Creator metadata. `proposalHash` is recorded
+and verified by metadata, not passed by the user as a CLI argument. The backend persists the
+normalized plan to `.comet/bundle-factory-plans/<name>/plan.json` and records `planHash`,
+`preferenceHash`, preference mode, policies, required Skills, resolved Skill evidence, and
+deviation reasons in Skill Creator metadata.
 
 If the proposal still has missing, ambiguous, or composition blockers, `/comet-any` should not
-confirm generation. When backend state is needed for candidate repair, initialize the unresolved
-Skill Creator state without `--confirmed-proposal` and run `factory-resolve`; after candidates and
-composition are resolved, show the generation-ready proposal again and call
-`factory-init --confirmed-proposal`. Without that confirmation metadata, `factory-generate`, review,
-and publish all refuse to continue.
+confirm generation. When backend state is needed for candidate repair, it may temporarily store an
+unresolved Skill Creator state; after candidates and composition are resolved, it must show the
+generation-ready proposal again and record confirmation. Without that confirmation metadata,
+generation, review, and publish all refuse to continue.
 
 ## `/comet-any` output
 
@@ -242,6 +221,8 @@ Before publishing, always review readiness. Ordinary users should let `/comet-an
 for manual commands, prefer:
 
 ```bash
+comet publish status <name> --json
+comet publish next <name> --json
 comet publish review <name> --platform <reference-platform> --json
 comet publish approve <name> --reviewer <reviewer> --json
 comet publish run <name> --platform <reference-platform> --json
@@ -330,12 +311,32 @@ Example resume copy:
 ```text
 resume summary
 Current step: review
-Suggested user command: /comet-any continue the current Skill creation
+Suggested user command: comet publish next <name>
 ```
 
 If preferences or Skill sources changed, `advisory` mode should warn and let the user choose
 between continuing the old proposal or regenerating it. `strict` mode should block by default and
 require the user to confirm whether to continue or regenerate.
+
+## Advanced backend reference
+
+Ordinary users do not need to call these commands directly. They exist for debugging `/comet-any`
+backend state, repairing candidate resolution, auditing authoring lanes, or explicit automation
+over the Skill Creator backend.
+
+```bash
+comet bundle factory-guide --project . --json
+comet bundle factory-propose <name> --file <plan.json> --json
+comet bundle factory-init <name> --file <plan.json> --json
+comet bundle factory-resolve <name> --candidate <query> --source <root-or-hash> --json
+comet bundle factory-init <name> --file <plan.json> --confirmed-proposal --json
+comet bundle factory-generate <name> --json
+comet bundle authoring-plan <name> --depth quick --json
+comet bundle authoring-record <name> --lane <lane-id> --file <lane-output.json> --json
+```
+
+`comet bundle status` JSON still includes backend next action for `/comet-any` and automation.
+Ordinary users should read `comet publish status` / `comet publish next` for the user command.
 
 ## What the user needs to remember
 
@@ -344,4 +345,5 @@ require the user to confirm whether to continue or regenerate.
    generated by `/comet-any`.
 3. The composition proposal must be reviewed before a Bundle draft is written.
 4. Eval is publish evidence, not the publish action itself.
-5. Publish and distribute reuse the Bundle backend; users do not hand-write internal state.
+5. Publish and distribute reuse the Bundle backend; use `comet publish status` /
+   `comet publish next` for the next step instead of hand-writing internal state.

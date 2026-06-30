@@ -14,11 +14,11 @@
   -> 产出 comet/eval.yaml
   -> comet eval --collect 做发现预检查
   -> comet eval --html 执行真实评估
-  -> /comet-any 或 comet publish 读取评估结果并进入 readiness / review / publish / distribute
+  -> /comet-any 或 comet publish status/next 读取评估结果并进入 readiness / review / publish / distribute
 ```
 
 `comet eval` 不负责发布。发布仍然由 `/comet-any` 背后的 Bundle 后端处理，对普通用户暴露为 `comet publish`。eval 的职责是提供发布前证据。
-对普通用户，推荐链路仍是 `/comet-any -> comet eval -> comet publish review/approve/run -> comet publish distribute --preview -> comet publish distribute`。
+对普通用户，推荐链路仍是 `/comet-any -> comet eval -> comet publish status/next -> comet publish review/approve/run -> comet publish distribute --preview -> comet publish distribute`。
 稳定组合 Skill Bundle 的 required capability set（必需能力集合）是 `skills/scripts/rules/hooks/references`；
 其中 `scripts/rules/hooks` 是 required control plane，`hooks/*.yaml` 只有在 `comet publish distribute`
 编译到目标平台后才会生效。
@@ -56,10 +56,11 @@ comet eval ./generated-skill/comet/eval.yaml --html
 ```bash
 comet eval ./generated-skill/comet/eval.yaml --collect
 comet eval ./generated-skill/comet/eval.yaml --html
+comet publish next <name> --json
 comet publish review <name> --platform <reference-platform> --json
 ```
 
-`comet publish review` 需要把 `Publish readiness:`、`User next steps:`、`Readiness:`、`Blockers:`、`Warnings:` 和 `Evidence:` 直接展示给用户。
+`comet publish next` 只输出当前推荐的一步用户命令；`comet publish review` 需要把 `Publish readiness:`、`User next steps:`、`Readiness:`、`Blockers:`、`Warnings:` 和 `Evidence:` 直接展示给用户。
 
 ## 为什么先 `collect`
 
@@ -108,7 +109,7 @@ eval/local/logs/experiments/<experiment-id>/summary.html
 
 ## `/comet-any` 如何使用 eval 结果
 
-从用户视角，eval 结束后把结果交回 `/comet-any` 继续推进即可。`/comet-any` 会把 eval 证据纳入 readiness：
+从用户视角，eval 结束后把结果交回 `/comet-any` 继续推进，或运行 `comet publish next <name>` 看唯一推荐下一步即可。`/comet-any` 会把 eval 证据纳入 readiness：
 
 - 没有 eval 证据：不能 publish
 - eval 失败：不能 publish
@@ -212,5 +213,5 @@ comet skill check --change ./changes/demo --scope completion
 ```bash
 comet eval ./generated-skill/comet/eval.yaml --collect
 comet eval ./generated-skill/comet/eval.yaml --html
-comet publish review <name> --platform <reference-platform> --json
+comet publish next <name> --json
 ```
