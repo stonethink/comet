@@ -201,6 +201,7 @@ describe('Classic runtime bundle', () => {
 
     expect(check.status, check.stderr || check.stdout).toBe(0);
     expect(manifest.skills).toContain('comet/scripts/comet-runtime.mjs');
+    expect(manifest.skills).toContain('comet/scripts/comet-intent.mjs');
   });
 
   it('executes state and validation commands from a standalone project', async () => {
@@ -346,6 +347,7 @@ describe('Classic runtime bundle', () => {
     expect(runState!.currentStep).toBe('full.build.configure');
   });
 });
+
 
 
 

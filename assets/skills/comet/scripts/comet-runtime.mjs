@@ -9965,12 +9965,12 @@ ${red2(
     if (!segment) {
       return { status: 1, output: red2("ERROR: build/verify command contains an empty && step") };
     }
-    const result2 = spawnSync2(segment, { shell: true, encoding: "utf8", timeout: 3e5 });
-    const combined = `${result2.stdout ?? ""}${result2.stderr ?? ""}`.replace(/\n+$/u, "");
+    const result3 = spawnSync2(segment, { shell: true, encoding: "utf8", timeout: 3e5 });
+    const combined = `${result3.stdout ?? ""}${result3.stderr ?? ""}`.replace(/\n+$/u, "");
     output.push(`${red2(`+ ${segment}`)}${combined ? `
 ${combined}` : ""}`);
-    if (result2.status !== 0) {
-      return { status: result2.status ?? 1, output: output.join("\n") };
+    if (result3.status !== 0) {
+      return { status: result3.status ?? 1, output: output.join("\n") };
     }
   }
   return { status: 0, output: output.join("\n") };
@@ -10039,10 +10039,10 @@ async function preflight(changeDir, name) {
   if (!await exists4(path14.join(changeDir, ".comet.yaml"))) {
     throw new GuardFailure(red2(`FATAL: .comet.yaml not found in ${changeDir}`));
   }
-  const result2 = await classicValidateCommand([name], { json: false });
-  if (result2.exitCode !== 0) {
-    if (result2.stderr)
-      process.stderr.write(result2.stderr.endsWith("\n") ? result2.stderr : `${result2.stderr}
+  const result3 = await classicValidateCommand([name], { json: false });
+  if (result3.exitCode !== 0) {
+    if (result3.stderr)
+      process.stderr.write(result3.stderr.endsWith("\n") ? result3.stderr : `${result3.stderr}
 `);
     throw new GuardFailure(red2("FATAL: .comet.yaml schema validation failed"));
   }
@@ -10060,11 +10060,11 @@ function pushCheck(output, outcome) {
 function check(description, run) {
   return async () => {
     try {
-      const result2 = await run();
+      const result3 = await run();
       return {
         description,
-        passed: result2.passed,
-        detail: ("detail" in result2 ? result2.detail : "") ?? ""
+        passed: result3.passed,
+        detail: ("detail" in result3 ? result3.detail : "") ?? ""
       };
     } catch (error) {
       return {
@@ -10091,10 +10091,10 @@ async function runChecks(output, builders) {
   return blocked2;
 }
 function runInferred(command) {
-  const result2 = spawnSync2(command, { shell: true, encoding: "utf8", timeout: 3e5 });
+  const result3 = spawnSync2(command, { shell: true, encoding: "utf8", timeout: 3e5 });
   return {
-    status: result2.status ?? 1,
-    output: `${result2.stdout ?? ""}${result2.stderr ?? ""}`.replace(/\n+$/u, "")
+    status: result3.status ?? 1,
+    output: `${result3.stdout ?? ""}${result3.stderr ?? ""}`.replace(/\n+$/u, "")
   };
 }
 async function buildPasses(changeDir) {
@@ -10517,8 +10517,8 @@ async function guardArchiveChecks(output, changeDir) {
 async function applyStateUpdate(output, change, changeDir, phase, context) {
   const event = CLASSIC_GUARD_TRANSITION_EVENT[phase];
   if (!event) return;
-  const result2 = applyClassicTransition(context.classic, event);
-  await transitionClassicRuntimeRun(changeDir, result2.classic, context.run, {
+  const result3 = applyClassicTransition(context.classic, event);
+  await transitionClassicRuntimeRun(changeDir, result3.classic, context.run, {
     event,
     phase,
     source: "comet-guard"
@@ -10528,15 +10528,15 @@ async function applyStateUpdate(output, change, changeDir, phase, context) {
     event,
     source: "comet-guard",
     from: context.classic,
-    to: result2.classic,
-    effects: result2.effects
+    to: result3.classic,
+    effects: result3.effects
   });
-  for (const effect of result2.effects) {
+  for (const effect of result3.effects) {
     output.stderr.push(green2(`[SET] ${wireField(effect.field)}=${wireValue(effect.to)}`));
   }
   output.stderr.push(green2(`[TRANSITION] ${event}`));
   const template = APPLY_MESSAGE[phase];
-  const message = phase === "open" ? template.replace("PLACEHOLDER", result2.classic.phase) : template;
+  const message = phase === "open" ? template.replace("PLACEHOLDER", result3.classic.phase) : template;
   output.stderr.push(green2(message));
 }
 var classicGuardCommand = async (args, options) => {
@@ -11300,6 +11300,357 @@ var classicHookGuardCommand = async (args) => {
   return blocked(relativePath2, phase);
 };
 
+// domains/comet-classic/classic-intent.ts
+var COMET_INTENT_SCHEMA_VERSION = "comet.intent.v1";
+var COMET_INTENT_CONFIDENCE_THRESHOLD = 0.7;
+var INTENT_NAMES = [
+  "start_change",
+  "resume_change",
+  "fix_bug",
+  "make_tweak",
+  "ask_question",
+  "unknown"
+];
+var ENTITY_TYPES = [
+  "change_id",
+  "workflow",
+  "file_path",
+  "command",
+  "capability",
+  "bug_signal",
+  "risk_signal"
+];
+var REQUESTED_ACTIONS = [
+  "start",
+  "resume",
+  "continue",
+  "fix",
+  "modify",
+  "create",
+  "verify",
+  "archive",
+  "question",
+  "unknown"
+];
+var WORKFLOWS = ["full", "hotfix", "tweak"];
+var SCOPES = ["small", "medium", "large", "unknown"];
+var ROUTES = ["full", "hotfix", "tweak", "resume", "ask_user", "out_of_scope"];
+var NEXT_SKILLS = [
+  "comet-open",
+  "comet-hotfix",
+  "comet-tweak",
+  "comet-design",
+  "comet-build",
+  "comet-verify",
+  "comet-archive"
+];
+var EVIDENCE_SOURCES = ["user", "repo", "state"];
+var CometIntentValidationError = class extends Error {
+  constructor(issues) {
+    super(`Invalid CometIntentFrame:
+${issues.map((issue) => `- ${issue}`).join("\n")}`);
+    this.issues = issues;
+  }
+  issues;
+};
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function enumValue2(value, allowed2, field2, issues) {
+  if (typeof value !== "string" || !allowed2.includes(value)) {
+    issues.push(`${field2} must be one of: ${allowed2.join(", ")}`);
+    return null;
+  }
+  return value;
+}
+function optionalEnumValue(value, allowed2, field2, issues) {
+  if (value === null) return null;
+  return enumValue2(value, allowed2, field2, issues);
+}
+function stringValue(value, field2, issues) {
+  if (typeof value !== "string" || value.trim() === "") {
+    issues.push(`${field2} must be a non-empty string`);
+    return "";
+  }
+  return value;
+}
+function optionalStringValue(value, field2, issues) {
+  if (value === null) return null;
+  if (typeof value !== "string" || value.trim() === "") {
+    issues.push(`${field2} must be a non-empty string or null`);
+    return null;
+  }
+  return value;
+}
+function optionalBooleanValue(value, field2, issues) {
+  if (value === null) return null;
+  if (typeof value !== "boolean") {
+    issues.push(`${field2} must be boolean or null`);
+    return null;
+  }
+  return value;
+}
+function confidenceValue(value, field2, issues) {
+  if (typeof value !== "number" || Number.isNaN(value) || value < 0 || value > 1) {
+    issues.push(`${field2} must be a number between 0 and 1`);
+    return 0;
+  }
+  return value;
+}
+function nonNegativeIntegerValue(value, field2, issues) {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+    issues.push(`${field2} must be a non-negative integer`);
+    return 0;
+  }
+  return value;
+}
+function validateFrame(input) {
+  const issues = [];
+  if (!isRecord(input)) throw new CometIntentValidationError(["frame must be an object"]);
+  const intent = isRecord(input.intent) ? input.intent : {};
+  if (!isRecord(input.intent)) issues.push("intent must be an object");
+  const slots = isRecord(input.slots) ? input.slots : {};
+  if (!isRecord(input.slots)) issues.push("slots must be an object");
+  const context = isRecord(input.context) ? input.context : {};
+  if (!isRecord(input.context)) issues.push("context must be an object");
+  const routeInput = isRecord(input.route) ? input.route : {};
+  if (!isRecord(input.route)) issues.push("route must be an object");
+  const entities = Array.isArray(input.entities) ? input.entities : [];
+  if (!Array.isArray(input.entities)) issues.push("entities must be an array");
+  const evidence = Array.isArray(input.evidence) ? input.evidence : [];
+  if (!Array.isArray(input.evidence)) issues.push("evidence must be an array");
+  const frame = {
+    schema_version: enumValue2(
+      input.schema_version,
+      [COMET_INTENT_SCHEMA_VERSION],
+      "schema_version",
+      issues
+    ),
+    utterance: stringValue(input.utterance, "utterance", issues),
+    locale: stringValue(input.locale, "locale", issues),
+    intent: {
+      name: enumValue2(intent.name, INTENT_NAMES, "intent.name", issues) ?? "unknown",
+      confidence: confidenceValue(intent.confidence, "intent.confidence", issues)
+    },
+    entities: entities.map((entity, index) => {
+      const record = isRecord(entity) ? entity : {};
+      if (!isRecord(entity)) issues.push(`entities[${index}] must be an object`);
+      return {
+        type: enumValue2(record.type, ENTITY_TYPES, `entities[${index}].type`, issues) ?? "risk_signal",
+        value: stringValue(record.value, `entities[${index}].value`, issues),
+        text: stringValue(record.text, `entities[${index}].text`, issues)
+      };
+    }),
+    slots: {
+      requested_action: enumValue2(slots.requested_action, REQUESTED_ACTIONS, "slots.requested_action", issues) ?? "unknown",
+      workflow_candidate: optionalEnumValue(
+        slots.workflow_candidate,
+        WORKFLOWS,
+        "slots.workflow_candidate",
+        issues
+      ),
+      user_explicit_workflow: optionalEnumValue(
+        slots.user_explicit_workflow,
+        WORKFLOWS,
+        "slots.user_explicit_workflow",
+        issues
+      ),
+      change_id: optionalStringValue(slots.change_id, "slots.change_id", issues),
+      target_area: optionalStringValue(slots.target_area, "slots.target_area", issues),
+      scope: enumValue2(slots.scope, SCOPES, "slots.scope", issues) ?? "unknown",
+      existing_behavior: optionalBooleanValue(
+        slots.existing_behavior,
+        "slots.existing_behavior",
+        issues
+      ),
+      new_capability: optionalBooleanValue(slots.new_capability, "slots.new_capability", issues),
+      public_api_change: optionalBooleanValue(
+        slots.public_api_change,
+        "slots.public_api_change",
+        issues
+      ),
+      schema_change: optionalBooleanValue(slots.schema_change, "slots.schema_change", issues),
+      cross_module_change: optionalBooleanValue(
+        slots.cross_module_change,
+        "slots.cross_module_change",
+        issues
+      )
+    },
+    context: {
+      active_changes_count: nonNegativeIntegerValue(
+        context.active_changes_count,
+        "context.active_changes_count",
+        issues
+      ),
+      active_change_names: isRecord(context) ? (() => {
+        if (!Array.isArray(context.active_change_names)) {
+          issues.push("context.active_change_names must be an array");
+          return [];
+        }
+        if (!context.active_change_names.every((value) => typeof value === "string")) {
+          issues.push("context.active_change_names must only contain strings");
+          return [];
+        }
+        return context.active_change_names;
+      })() : [],
+      dirty_worktree: optionalBooleanValue(context.dirty_worktree, "context.dirty_worktree", issues)
+    },
+    evidence: evidence.map((item, index) => {
+      const record = isRecord(item) ? item : {};
+      if (!isRecord(item)) issues.push(`evidence[${index}] must be an object`);
+      return {
+        field: stringValue(record.field, `evidence[${index}].field`, issues),
+        quote: stringValue(record.quote, `evidence[${index}].quote`, issues),
+        source: enumValue2(record.source, EVIDENCE_SOURCES, `evidence[${index}].source`, issues) ?? "user"
+      };
+    }),
+    route: {
+      name: enumValue2(routeInput.name, ROUTES, "route.name", issues) ?? "ask_user",
+      next_skill: optionalEnumValue(routeInput.next_skill, NEXT_SKILLS, "route.next_skill", issues),
+      confidence: confidenceValue(routeInput.confidence, "route.confidence", issues),
+      requires_confirmation: typeof routeInput.requires_confirmation === "boolean" ? routeInput.requires_confirmation : true,
+      fallback_reason: optionalStringValue(
+        routeInput.fallback_reason,
+        "route.fallback_reason",
+        issues
+      )
+    }
+  };
+  if (issues.length > 0) throw new CometIntentValidationError(issues);
+  return frame;
+}
+function hasEvidence(frame, field2) {
+  return frame.evidence.some((item) => item.field === field2 && item.quote.trim() !== "");
+}
+function hasRiskSignal(frame) {
+  return frame.slots.new_capability === true || frame.slots.public_api_change === true || frame.slots.schema_change === true || frame.slots.cross_module_change === true;
+}
+function route(name, confidence, fallback_reason = null) {
+  const nextSkill = {
+    full: "comet-open",
+    hotfix: "comet-hotfix",
+    tweak: "comet-tweak",
+    resume: null,
+    ask_user: null,
+    out_of_scope: null
+  };
+  return {
+    name,
+    next_skill: nextSkill[name],
+    confidence,
+    requires_confirmation: name === "ask_user" || name === "out_of_scope",
+    fallback_reason
+  };
+}
+function askUser(reason) {
+  return route("ask_user", 0.5, reason);
+}
+function workflowRoute(workflow, confidence) {
+  return route(workflow, confidence);
+}
+function resolveCometIntentRoute(input) {
+  const frame = validateFrame(input);
+  const diagnostics = [];
+  const confidence = frame.intent.confidence;
+  let resolved;
+  if (frame.intent.confidence < COMET_INTENT_CONFIDENCE_THRESHOLD) {
+    resolved = askUser(
+      `intent confidence ${frame.intent.confidence} is below ${COMET_INTENT_CONFIDENCE_THRESHOLD}`
+    );
+  } else if ((frame.intent.name === "resume_change" || frame.slots.requested_action === "resume" || frame.slots.requested_action === "continue") && !frame.slots.change_id && frame.context.active_changes_count > 1) {
+    resolved = askUser("multiple active changes require an explicit change_id");
+  } else if ((frame.intent.name === "resume_change" || frame.slots.requested_action === "resume" || frame.slots.requested_action === "continue") && frame.slots.change_id) {
+    resolved = frame.context.active_change_names.includes(frame.slots.change_id) ? route("resume", confidence) : askUser(`change_id '${frame.slots.change_id}' is not in active_change_names`);
+  } else if (frame.intent.name === "ask_question" || frame.slots.requested_action === "question") {
+    resolved = route(
+      "out_of_scope",
+      confidence,
+      "user asked a question without requesting a Comet workflow"
+    );
+  } else if (frame.slots.user_explicit_workflow && frame.slots.user_explicit_workflow !== "full" && hasRiskSignal(frame)) {
+    resolved = askUser(
+      `explicit workflow '${frame.slots.user_explicit_workflow}' conflicts with risk signals`
+    );
+  } else if (frame.slots.user_explicit_workflow) {
+    resolved = workflowRoute(frame.slots.user_explicit_workflow, confidence);
+  } else if (hasRiskSignal(frame)) {
+    resolved = route("full", confidence);
+  } else if (frame.intent.name === "fix_bug" && frame.slots.existing_behavior === true && hasEvidence(frame, "slots.workflow_candidate")) {
+    resolved = route("hotfix", confidence);
+  } else if (frame.intent.name === "make_tweak" && frame.slots.workflow_candidate === "tweak" && hasEvidence(frame, "slots.workflow_candidate")) {
+    resolved = route("tweak", confidence);
+  } else if (frame.slots.workflow_candidate && hasEvidence(frame, "slots.workflow_candidate")) {
+    resolved = workflowRoute(frame.slots.workflow_candidate, confidence);
+  } else {
+    resolved = askUser("workflow_candidate evidence is missing or route is ambiguous");
+  }
+  if (resolved.name !== frame.route.name) {
+    diagnostics.push(`agent route '${frame.route.name}' normalized to '${resolved.name}'`);
+  }
+  if (resolved.next_skill !== frame.route.next_skill) {
+    diagnostics.push(
+      `agent route next_skill '${frame.route.next_skill}' normalized to '${resolved.next_skill}'`
+    );
+  }
+  if (resolved.requires_confirmation !== frame.route.requires_confirmation) {
+    diagnostics.push(
+      `agent route requires_confirmation '${frame.route.requires_confirmation}' normalized to '${resolved.requires_confirmation}'`
+    );
+  }
+  if (resolved.fallback_reason !== frame.route.fallback_reason) {
+    diagnostics.push(
+      `agent route fallback_reason '${frame.route.fallback_reason}' normalized to '${resolved.fallback_reason}'`
+    );
+  }
+  return {
+    route: resolved,
+    diagnostics,
+    normalizedFrame: { ...frame, route: resolved }
+  };
+}
+
+// domains/comet-classic/classic-intent-command.ts
+function result2(exitCode, stdout, stderr) {
+  return {
+    exitCode,
+    ...stdout === void 0 ? {} : { stdout },
+    ...stderr === void 0 ? {} : { stderr }
+  };
+}
+function usage() {
+  return result2(
+    64,
+    void 0,
+    "Usage: comet-runtime intent route <frame-json>\nUsage: comet-runtime intent route --stdin"
+  );
+}
+async function readStdin() {
+  const chunks = [];
+  for await (const chunk of process.stdin) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+var classicIntentCommand = async (args, _options) => {
+  const [subcommand, input] = args;
+  if (subcommand !== "route") return usage();
+  const source = input === "--stdin" ? await readStdin() : input;
+  if (!source) return usage();
+  try {
+    const resolution = resolveCometIntentRoute(JSON.parse(source));
+    return result2(0, `${JSON.stringify(resolution, null, 2)}
+`);
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      return result2(1, void 0, `Invalid JSON: ${error.message}`);
+    }
+    if (error instanceof CometIntentValidationError) {
+      return result2(1, void 0, error.message);
+    }
+    throw error;
+  }
+};
+
 // domains/comet-classic/classic-state-command.ts
 var import_yaml6 = __toESM(require_dist(), 1);
 import { spawnSync as spawnSync3 } from "child_process";
@@ -11562,8 +11913,8 @@ Valid values: off, standard, thorough`);
   return value === "null" ? null : value;
 }
 function gitOutput(args) {
-  const result2 = spawnSync3("git", args, { encoding: "utf8" });
-  return result2.status === 0 ? result2.stdout.trim() : null;
+  const result3 = spawnSync3("git", args, { encoding: "utf8" });
+  return result3.status === 0 ? result3.stdout.trim() : null;
 }
 async function stateFile(name) {
   const change = await changeDirectory(name);
@@ -11781,17 +12132,17 @@ async function applyTransitionEvent(output, name, event) {
     classic = sparseClassicState(document.toJS());
     sparse = true;
   }
-  const result2 = applyClassicTransition(classic, event);
+  const result3 = applyClassicTransition(classic, event);
   if (projection.run) {
-    await transitionClassicRuntimeRun(directory, result2.classic, projection.run, {
+    await transitionClassicRuntimeRun(directory, result3.classic, projection.run, {
       event,
       source: "comet-state"
     });
   } else if (sparse) {
-    await writeSparseTransitionEffects(directory, result2.effects);
+    await writeSparseTransitionEffects(directory, result3.effects);
   } else {
     await writeClassicState(directory, {
-      classic: result2.classic,
+      classic: result3.classic,
       run: null,
       unknownKeys: projection.unknownKeys
     });
@@ -11801,10 +12152,10 @@ async function applyTransitionEvent(output, name, event) {
     event,
     source: "comet-state",
     from: classic,
-    to: result2.classic,
-    effects: result2.effects
+    to: result3.classic,
+    effects: result3.effects
   });
-  for (const effect of result2.effects) {
+  for (const effect of result3.effects) {
     output.stderr.push(green4(`[SET] ${wireField2(effect.field)}=${wireValue2(effect.to)}`));
   }
   output.stderr.push(green4(`[TRANSITION] ${event}`));
@@ -12112,18 +12463,18 @@ function resolveBuildRecoveryAction(workflow, isolation, buildMode, pause, subag
   return "Recovery action: All tasks done. Run guard to transition to verify.";
 }
 async function recoverVerify(output, name) {
-  const result2 = await readField3(name, "verify_result");
+  const result3 = await readField3(name, "verify_result");
   const mode = await readField3(name, "verify_mode");
   const report = await readField3(name, "verification_report");
   const branch = await readField3(name, "branch_status");
   output.stdout.push(
     "  Verification:",
-    fieldStatus("verify_result", result2),
+    fieldStatus("verify_result", result3),
     fieldStatus("verify_mode", mode),
     fieldStatus("verification_report", report, report),
     fieldStatus("branch_status", branch),
     "",
-    result2 === "pass" && branch === "handled" ? "Recovery action: Verification complete. Run guard to transition to archive." : result2 === "fail" ? "Recovery action: Verification failed and rolled back to build. Resume from /comet-build." : "Recovery action: Verification not yet started or in progress. Run scale assessment then verify."
+    result3 === "pass" && branch === "handled" ? "Recovery action: Verification complete. Run guard to transition to archive." : result3 === "fail" ? "Recovery action: Verification failed and rolled back to build. Resume from /comet-build." : "Recovery action: Verification not yet started or in progress. Run scale assessment then verify."
   );
 }
 async function recoverArchive(output, name) {
@@ -12189,19 +12540,19 @@ async function scale(output, name) {
     ...baseRef && baseRef !== "null" ? [`${baseRef}...HEAD`] : ["HEAD"]
   ]);
   const changedFiles = changed ? changed.split(/\r?\n/u).filter(Boolean).length : 0;
-  const result2 = taskCount > 3 || deltaSpecs > 1 || changedFiles > 8 ? "full" : "light";
-  await setField2(new CommandOutput(), name, "verify_mode", result2);
+  const result3 = taskCount > 3 || deltaSpecs > 1 || changedFiles > 8 ? "full" : "light";
+  await setField2(new CommandOutput(), name, "verify_mode", result3);
   output.stderr.push(
     `=== Scale Assessment: ${name} ===`,
     `  Tasks: ${taskCount} (threshold: 3)`,
     `  Delta specs: ${deltaSpecs} capabilities (threshold: 1)`,
     `  Changed files: ${changedFiles} (threshold: 8)`,
-    `  → Result: ${result2}`,
-    green4(`[SCALE] verify_mode=${result2}`)
+    `  → Result: ${result3}`,
+    green4(`[SCALE] verify_mode=${result3}`)
   );
 }
-function required(args, count, usage) {
-  if (args.length < count) fail2(usage);
+function required(args, count, usage2) {
+  if (args.length < count) fail2(usage2);
 }
 var classicStateCommand = async (args) => {
   const output = new CommandOutput();
@@ -12254,7 +12605,8 @@ var CLASSIC_COMMANDS = [
   "guard",
   "handoff",
   "archive",
-  "hook-guard"
+  "hook-guard",
+  "intent"
 ];
 var DEFAULT_HANDLERS = {
   state: classicStateCommand,
@@ -12262,7 +12614,8 @@ var DEFAULT_HANDLERS = {
   guard: classicGuardCommand,
   handoff: classicHandoffCommand,
   archive: classicArchiveCommand,
-  "hook-guard": classicHookGuardCommand
+  "hook-guard": classicHookGuardCommand,
+  intent: classicIntentCommand
 };
 function isClassicCommand(value) {
   return CLASSIC_COMMANDS.includes(value);
@@ -12297,14 +12650,14 @@ async function dispatch(command, args, options, handlers) {
     };
   }
 }
-function jsonResult(command, result2) {
+function jsonResult(command, result3) {
   return {
-    exitCode: result2.exitCode,
+    exitCode: result3.exitCode,
     stdout: JSON.stringify({
       command: command ?? null,
-      exitCode: result2.exitCode,
-      ...result2.stdout === void 0 ? {} : { stdout: result2.stdout },
-      ...result2.stderr === void 0 ? {} : { stderr: result2.stderr }
+      exitCode: result3.exitCode,
+      ...result3.stdout === void 0 ? {} : { stdout: result3.stdout },
+      ...result3.stderr === void 0 ? {} : { stderr: result3.stderr }
     }) + "\n"
   };
 }
@@ -12312,15 +12665,15 @@ async function runClassicCli(argv, handlers = DEFAULT_HANDLERS) {
   const json = argv.includes("--json");
   const args = argv.filter((argument) => argument !== "--json");
   const command = args.shift();
-  const result2 = await dispatch(command, args, { json }, handlers);
-  return json ? jsonResult(command, result2) : result2;
+  const result3 = await dispatch(command, args, { json }, handlers);
+  return json ? jsonResult(command, result3) : result3;
 }
 async function main(argv = process.argv.slice(2)) {
-  const result2 = await runClassicCli(argv);
-  if (result2.stdout) process.stdout.write(result2.stdout);
-  if (result2.stderr)
-    process.stderr.write(result2.stderr + (result2.stderr.endsWith("\n") ? "" : "\n"));
-  return result2.exitCode;
+  const result3 = await runClassicCli(argv);
+  if (result3.stdout) process.stdout.write(result3.stdout);
+  if (result3.stderr)
+    process.stderr.write(result3.stderr + (result3.stderr.endsWith("\n") ? "" : "\n"));
+  return result3.exitCode;
 }
 var entry = process.argv[1];
 if (entry && import.meta.url === pathToFileURL(entry).href) {

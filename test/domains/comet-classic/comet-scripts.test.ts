@@ -143,6 +143,7 @@ describe('comet script contracts', () => {
       handoff: await fs.readFile(path.join(scriptsDir, 'comet-handoff.mjs'), 'utf-8'),
       archive: await fs.readFile(path.join(scriptsDir, 'comet-archive.mjs'), 'utf-8'),
       'hook-guard': await fs.readFile(path.join(scriptsDir, 'comet-hook-guard.mjs'), 'utf-8'),
+      intent: await fs.readFile(path.join(scriptsDir, 'comet-intent.mjs'), 'utf-8'),
     };
 
     for (const [command, source] of Object.entries(sources)) {
@@ -188,6 +189,7 @@ describe('comet scripts', () => {
       'comet-guard.mjs',
       'comet-handoff.mjs',
       'comet-state.mjs',
+      'comet-intent.mjs',
       'comet-yaml-validate.mjs',
       'comet-hook-guard.mjs',
       'comet-runtime.mjs',
@@ -4777,3 +4779,4 @@ describe('comet scripts', () => {
     }, 20_000);
   });
 });
+
