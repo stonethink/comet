@@ -1,7 +1,11 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { stringify } from 'yaml';
-import type { FactorySkillPackagePlan, GeneratedFactorySkillPackage } from './types.js';
+import type {
+  FactorySkillPackagePlan,
+  GeneratedFactorySkillPackage,
+  GeneratedWrapperClassification,
+} from './types.js';
 import {
   workflowProtocolHash,
   type FactoryArtifactClaim,
@@ -109,6 +113,21 @@ export function computeUnauthoredSubstanceNodes(plan: FactorySkillPackagePlan): 
         undefined,
     )
     .map((node) => generatedNodeSkillName(protocol.name, node.id));
+}
+
+export function wrapperClassification(
+  plan: FactorySkillPackagePlan,
+): GeneratedWrapperClassification {
+  const protocol = plan.workflowProtocol;
+  if (!protocol) return 'scaffold-blocked';
+  if (plan.contentDrafts?.['SKILL.md'] === undefined) return 'scaffold-blocked';
+  if (computeUnauthoredSubstanceNodes(plan).length > 0) return 'scaffold-blocked';
+  if (protocol.kind === 'workflow-kernel') return 'kernel-authored';
+  const hasAdvisoryAugmentation = workflowContractRoute(protocol).some((node) =>
+    node.augmentations.some((binding) => binding.enforcement === 'advisory'),
+  );
+  if (hasAdvisoryAugmentation) return 'delegate-advisory';
+  return 'delegate-complete';
 }
 
 function workflowContractEntryMarkdown(
@@ -1242,6 +1261,7 @@ function workflowContractCompositionReport(
 - Nodes: ${protocol.nodes.length}
 - Required Skill Calls: ${protocol.nodes.reduce((count, node) => count + node.requiredSkillCalls.length, 0)}
 - Output Schemas: ${protocol.outputSchemas.map((schema) => schema.id).join(', ')}
+- Wrapper classification: ${wrapperClassification(plan)}
 
 ## Source Skills
 
@@ -1560,6 +1580,7 @@ export async function generateFactorySkillPackage(
     skillPath: path.join(packageRoot, 'SKILL.md'),
     internalSkills: internalSkillIds,
     unauthoredSubstanceNodes: computeUnauthoredSubstanceNodes(plan),
+    wrapperClassification: wrapperClassification(plan),
     enginePath: plan.engineMode === 'none' ? null : cometRoot,
     evalManifestPath: plan.engineMode === 'none' ? null : path.join(cometRoot, 'eval.yaml'),
     controlPlane: {

@@ -425,6 +425,7 @@ export async function generateBundleDraftFromFactoryState(options: {
         evalManifestPath: generated.evalManifestPath,
         controlPlane: generated.controlPlane,
         unauthoredSubstanceNodes: generated.unauthoredSubstanceNodes,
+        wrapperClassification: generated.wrapperClassification,
       },
     },
   };

@@ -94,6 +94,26 @@ describe('Factory skill package generation', () => {
     await fs.rm(root, { recursive: true, force: true });
   });
 
+  it('classifies scaffolded overlay packages when the Decision Core is not authored', async () => {
+    const workflow = normalizeWorkflowDefinition(
+      builtinCometFivePhaseWorkflow({
+        name: 'scaffolded-comet',
+        goal: 'Route Comet through generated workflow wrappers.',
+      }),
+    );
+
+    const output = await generateFactorySkillPackage(
+      packagePlan({ root, name: 'scaffolded-comet', workflow }),
+    );
+    const compositionReport = await fs.readFile(
+      path.join(output.packageRoot, 'reference', 'composition-report.md'),
+      'utf8',
+    );
+
+    expect(output.wrapperClassification).toBe('scaffold-blocked');
+    expect(compositionReport).toContain('Wrapper classification: scaffold-blocked');
+  });
+
   it('generates workflow contract packages from Nodes and Output Schemas', async () => {
     const workflow = normalizeWorkflowDefinition({
       ...builtinCometFivePhaseWorkflow({

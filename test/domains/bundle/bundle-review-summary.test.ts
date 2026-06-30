@@ -4,6 +4,8 @@ import os from 'os';
 import path from 'path';
 import { parse, stringify } from 'yaml';
 import { createBundleDraft } from '../../../domains/bundle/draft.js';
+import { hashBundle } from '../../../domains/bundle/hash.js';
+import { loadBundle } from '../../../domains/bundle/load.js';
 import { buildReadinessUserSummary } from '../../../domains/bundle/readiness-user-summary.js';
 import { buildBundleReviewSummary } from '../../../domains/bundle/review-summary.js';
 import {
@@ -313,6 +315,22 @@ describe('Bundle review summary readiness', () => {
     );
   });
 
+  it('blocks readiness when generated packages still contain authoring pending markers', async () => {
+    await createFactoryStateWithGeneratedPackage(projectRoot, 'pending-authoring');
+
+    const summary = await buildBundleReviewSummary({
+      projectRoot,
+      name: 'pending-authoring',
+      platform: 'claude',
+    });
+
+    expect(summary.readiness.blockers).toContain('[authoring] Entry Decision Core is not authored');
+    expect(summary.readiness.blockers).toContain(
+      '[authoring] Generated package still contains AUTHORING PENDING markers',
+    );
+    expect(summary.readiness.evidence.wrapperClassification).toBe('scaffold-blocked');
+  });
+
   it('surfaces preference hash evidence and drift warnings', async () => {
     await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
     await fs.writeFile(
@@ -613,10 +631,21 @@ prefer:
       ]),
     );
 
+    const generatedPackageRoot = blockedState.factory!.generatedSkillPackage!.packageRoot;
+    const generatedEntrySkillPath = path.join(generatedPackageRoot, 'SKILL.md');
+    await fs.writeFile(
+      generatedEntrySkillPath,
+      (await fs.readFile(generatedEntrySkillPath, 'utf8')).replace(
+        '<!-- AUTHORING PENDING -->',
+        'The Decision Core has been authored for this readiness-state fixture.',
+      ),
+      'utf8',
+    );
+    const authoredHash = await hashBundle(await loadBundle(draftPath));
     await writeBundleAuthoringState(projectRoot, {
       ...blockedState,
       status: 'eval-passed',
-      currentHash: blockedState.currentHash,
+      currentHash: authoredHash,
       factory: {
         ...blockedState.factory!,
         proposalConfirmation: {
@@ -647,11 +676,12 @@ prefer:
         generatedSkillPackage: {
           ...blockedState.factory!.generatedSkillPackage!,
           unauthoredSubstanceNodes: [],
+          wrapperClassification: 'kernel-authored',
         },
       },
       eval: {
         level: 'quick',
-        hash: blockedState.currentHash!,
+        hash: authoredHash,
         resultPath: path.join(projectRoot, 'eval.json'),
         passed: true,
       },
@@ -674,15 +704,15 @@ prefer:
     await writeBundleAuthoringState(projectRoot, {
       ...(await reconcileBundleAuthoringState(projectRoot, 'factory-classified')),
       status: 'review-approved',
-      currentHash: blockedState.currentHash,
+      currentHash: authoredHash,
       eval: {
         level: 'quick',
-        hash: blockedState.currentHash!,
+        hash: authoredHash,
         resultPath: path.join(projectRoot, 'eval.json'),
         passed: true,
       },
       review: {
-        hash: blockedState.currentHash!,
+        hash: authoredHash,
         decision: 'approved',
         reviewer: 'alice',
         at: '2026-06-23T00:00:00.000Z',
@@ -704,21 +734,21 @@ prefer:
     await writeBundleAuthoringState(projectRoot, {
       ...(await reconcileBundleAuthoringState(projectRoot, 'factory-classified')),
       status: 'ready',
-      currentHash: blockedState.currentHash,
+      currentHash: authoredHash,
       eval: {
         level: 'quick',
-        hash: blockedState.currentHash!,
+        hash: authoredHash,
         resultPath: path.join(projectRoot, 'eval.json'),
         passed: true,
       },
       review: {
-        hash: blockedState.currentHash!,
+        hash: authoredHash,
         decision: 'approved',
         reviewer: 'alice',
         at: '2026-06-23T00:00:00.000Z',
       },
       ready: {
-        hash: blockedState.currentHash!,
+        hash: authoredHash,
         path: path.join(projectRoot, '.comet', 'bundles', 'factory-classified'),
         publishedAt: '2026-06-23T00:00:00.000Z',
       },

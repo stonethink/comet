@@ -1,4 +1,6 @@
+import { promises as fs } from 'fs';
 import os from 'os';
+import path from 'path';
 import { compileBundleIr } from './compiler.js';
 import { planBundleEval, validateStableFactoryControlPlane } from './eval.js';
 import { hashBundle } from './hash.js';
@@ -39,12 +41,45 @@ export interface BundleReviewSummary {
   userSummary: BundleReadinessUserSummary;
 }
 
-function buildReadiness(
+const AUTHORING_PENDING_MARKER = '<!-- AUTHORING PENDING -->';
+
+async function generatedPackageContains(root: string, needle: string): Promise<boolean> {
+  let entries: Array<import('fs').Dirent>;
+  try {
+    entries = await fs.readdir(root, { withFileTypes: true });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      'code' in error &&
+      (error as NodeJS.ErrnoException).code === 'ENOENT'
+    ) {
+      return false;
+    }
+    throw error;
+  }
+  for (const entry of entries) {
+    const target = path.join(root, entry.name);
+    if (entry.isDirectory()) {
+      if (await generatedPackageContains(target, needle)) return true;
+      continue;
+    }
+    if (!entry.isFile()) continue;
+    try {
+      if ((await fs.readFile(target, 'utf8')).includes(needle)) return true;
+    } catch {
+      // Generated packages are expected to be text, but unreadable platform files
+      // should not hide other readiness evidence.
+    }
+  }
+  return false;
+}
+
+async function buildReadiness(
   state: BundleAuthoringState,
   controlPlane: Awaited<ReturnType<typeof validateStableFactoryControlPlane>>,
   compile?: PlatformCompileReport,
   currentPreferenceHash?: string | null,
-): BundleReviewReadiness {
+): Promise<BundleReviewReadiness> {
   const blockers: string[] = [];
   const warnings: string[] = [];
   const workflowProtocol = state.factory?.workflowProtocol;
@@ -106,6 +141,12 @@ function buildReadiness(
   const generatedPackage = state.factory?.generatedSkillPackage;
   const authoringReview = state.factory?.authoringReview;
   if (generatedPackage) {
+    if (generatedPackage.wrapperClassification === 'scaffold-blocked') {
+      blockers.push('[authoring] Entry Decision Core is not authored');
+    }
+    if (await generatedPackageContains(generatedPackage.packageRoot, AUTHORING_PENDING_MARKER)) {
+      blockers.push('[authoring] Generated package still contains AUTHORING PENDING markers');
+    }
     const unauthored = generatedPackage.unauthoredSubstanceNodes ?? [];
     if (unauthored.length > 0) {
       blockers.push(
@@ -176,6 +217,9 @@ function buildReadiness(
         : {}),
       ...(state.factory?.generatedSkillPackage?.evalManifestPath
         ? { evalManifest: state.factory.generatedSkillPackage.evalManifestPath }
+        : {}),
+      ...(generatedPackage
+        ? { wrapperClassification: generatedPackage.wrapperClassification ?? 'unknown' }
         : {}),
       ...(state.factory?.composition
         ? {
@@ -289,7 +333,12 @@ export async function buildBundleReviewSummary(options: {
         locale,
       })
     : fallbackCompileReport({ bundle, platform: target.id, scope });
-  const readiness = buildReadiness(state, controlPlane, compile, currentPreferences?.hash ?? null);
+  const readiness = await buildReadiness(
+    state,
+    controlPlane,
+    compile,
+    currentPreferences?.hash ?? null,
+  );
 
   return {
     schemaVersion: 1,

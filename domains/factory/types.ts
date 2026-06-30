@@ -118,6 +118,12 @@ export interface FactoryControlPlaneOutput {
   scripts: string[];
 }
 
+export type GeneratedWrapperClassification =
+  | 'delegate-complete'
+  | 'delegate-advisory'
+  | 'scaffold-blocked'
+  | 'kernel-authored';
+
 export interface GeneratedFactorySkillPackage {
   packageRoot: string;
   skillPath: string;
@@ -126,4 +132,5 @@ export interface GeneratedFactorySkillPackage {
   evalManifestPath: string | null;
   controlPlane: FactoryControlPlaneOutput;
   unauthoredSubstanceNodes?: string[];
+  wrapperClassification?: GeneratedWrapperClassification;
 }

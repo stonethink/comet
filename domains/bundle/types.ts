@@ -229,6 +229,12 @@ export interface BundleControlPlaneOutput {
   scripts: string[];
 }
 
+export type GeneratedWrapperClassification =
+  | 'delegate-complete'
+  | 'delegate-advisory'
+  | 'scaffold-blocked'
+  | 'kernel-authored';
+
 export interface BundleGeneratedSkillPackage {
   entrySkill: string;
   internalSkills: string[];
@@ -237,6 +243,7 @@ export interface BundleGeneratedSkillPackage {
   evalManifestPath: string | null;
   controlPlane?: BundleControlPlaneOutput;
   unauthoredSubstanceNodes?: string[];
+  wrapperClassification?: GeneratedWrapperClassification;
 }
 
 export interface BundleFactoryMetadata {
