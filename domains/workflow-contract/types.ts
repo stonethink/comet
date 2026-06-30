@@ -73,6 +73,7 @@ export interface WorkflowNodePatch {
   implementation?: WorkflowSkillBindingInput;
   requiredSkillCalls?: WorkflowSkillBindingInput[];
   augmentations?: WorkflowSkillBindingInput[];
+  outputSchemas?: string[];
   satisfies?: string[];
   disabled?: boolean;
 }
@@ -140,6 +141,7 @@ export interface WorkflowValidationFinding {
     | 'control-node-override'
     | 'producer-missing-output-schema'
     | 'missing-output-schema'
+    | 'orphan-output-schema'
     | 'duplicate-node'
     | 'disabled-required-node';
   message: string;

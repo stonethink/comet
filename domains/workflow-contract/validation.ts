@@ -157,6 +157,15 @@ export function validateWorkflowDefinition(
         label: 'augmentation',
       });
     }
+    for (const schema of patch.outputSchemas ?? []) {
+      if (!schemaIds.has(schema)) {
+        findings.push({
+          code: 'missing-output-schema',
+          nodeId,
+          message: `${nodeId}: Output Schema ${schema} is not defined`,
+        });
+      }
+    }
   }
 
   for (const template of byId.values()) {
@@ -168,6 +177,27 @@ export function validateWorkflowDefinition(
           message: `${template.id}: Output Schema ${schema} is not defined`,
         });
       }
+    }
+  }
+
+  const attachedSchemas = new Set<string>();
+  for (const template of byId.values()) {
+    for (const schema of template.outputSchemas) attachedSchemas.add(schema);
+  }
+  for (const [nodeId, patch] of Object.entries(input.nodes ?? {})) {
+    if (!byId.has(nodeId)) continue;
+    for (const schema of patch.outputSchemas ?? []) attachedSchemas.add(schema);
+  }
+  const builtinSchemas =
+    input.kind === 'comet-five-phase-overlay'
+      ? new Set(BUILTIN_COMET_OUTPUT_SCHEMAS.map((schema) => schema.id))
+      : new Set<string>();
+  for (const schema of input.outputSchemas ?? []) {
+    if (!builtinSchemas.has(schema.id) && !attachedSchemas.has(schema.id)) {
+      findings.push({
+        code: 'orphan-output-schema',
+        message: `Output Schema ${schema.id} is defined but not attached to any Workflow Node`,
+      });
     }
   }
 

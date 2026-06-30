@@ -77,6 +77,86 @@ describe('workflow contract normalization', () => {
     );
   });
 
+  it('attaches custom Output Schemas through Node patches', () => {
+    const workflow = normalizeWorkflowDefinition({
+      ...builtinCometFivePhaseWorkflow({
+        name: 'comet-grill-me',
+        goal: 'Use grill-me during design, planning, and review.',
+      }),
+      nodes: {
+        design: { outputSchemas: ['comet.grill-me.v1'] },
+        plan: { outputSchemas: ['comet.grill-me.v1'] },
+        review: { outputSchemas: ['comet.grill-me.v1'] },
+      },
+      outputSchemas: [
+        {
+          id: 'comet.grill-me.v1',
+          description: 'Grill-me critique evidence.',
+          artifacts: [],
+          evidence: [{ id: 'grill-summary', required: true }],
+        },
+      ],
+    });
+
+    expect(workflow.protocol.nodes.find((node) => node.id === 'design')?.outputSchemas).toEqual([
+      'comet.design.v1',
+      'comet.grill-me.v1',
+    ]);
+    expect(workflow.protocol.evals[0]?.requiredOutputSchemas).toEqual(
+      expect.arrayContaining(['comet.grill-me.v1']),
+    );
+  });
+
+  it('reports custom Output Schemas that are defined but not attached to any Node', () => {
+    const result = validateWorkflowDefinition({
+      ...builtinCometFivePhaseWorkflow({
+        name: 'orphan-schema',
+        goal: 'Define but do not attach a schema.',
+      }),
+      outputSchemas: [
+        {
+          id: 'orphan.schema.v1',
+          description: 'Unused schema.',
+          artifacts: [],
+          evidence: [{ id: 'summary', required: true }],
+        },
+      ],
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'orphan-output-schema',
+          message: expect.stringContaining('orphan.schema.v1'),
+        }),
+      ]),
+    );
+  });
+
+  it('rejects patch Output Schemas that are not defined', () => {
+    const result = validateWorkflowDefinition({
+      ...builtinCometFivePhaseWorkflow({
+        name: 'missing-patch-schema',
+        goal: 'Attach a missing schema.',
+      }),
+      nodes: {
+        plan: { outputSchemas: ['missing.schema.v1'] },
+      },
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'missing-output-schema',
+          nodeId: 'plan',
+          message: expect.stringContaining('missing.schema.v1'),
+        }),
+      ]),
+    );
+  });
+
   it('rejects ordinary override of Comet control Nodes', () => {
     expect(() =>
       normalizeWorkflowDefinition({

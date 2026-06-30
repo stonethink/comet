@@ -109,6 +109,7 @@ export function normalizeWorkflowDefinition(
       augmentations: [...(template.augmentations ?? []), ...(patch.augmentations ?? [])].map(
         (binding) => normalizeBinding(binding, 'augment'),
       ),
+      outputSchemas: dedupe([...(template.outputSchemas ?? []), ...(patch.outputSchemas ?? [])]),
       satisfies: dedupe([...(template.satisfies ?? []), ...(patch.satisfies ?? [])]),
       disabled: patch.disabled ?? template.disabled ?? false,
     };
