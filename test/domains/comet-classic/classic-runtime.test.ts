@@ -93,7 +93,7 @@ describe('Classic runtime CLI adapter', () => {
         { field: 'intent.name', quote: 'fix', source: 'user' },
         { field: 'slots.workflow_candidate', quote: 'broken', source: 'user' },
       ],
-      route: {
+      proposed_route: {
         name: 'hotfix',
         next_skill: 'comet-hotfix',
         confidence: 0.9,
@@ -144,7 +144,7 @@ describe('Classic runtime CLI adapter', () => {
         { field: 'intent.name', quote: 'fix', source: 'user' },
         { field: 'slots.workflow_candidate', quote: 'broken', source: 'user' },
       ],
-      route: {
+      proposed_route: {
         name: 'hotfix',
         next_skill: 'comet-hotfix',
         confidence: 0.9,
@@ -347,7 +347,3 @@ describe('Classic runtime bundle', () => {
     expect(runState!.currentStep).toBe('full.build.configure');
   });
 });
-
-
-
-

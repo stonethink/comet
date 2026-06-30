@@ -11364,7 +11364,7 @@ function enumValue2(value, allowed2, field2, issues) {
   return value;
 }
 function optionalEnumValue(value, allowed2, field2, issues) {
-  if (value === null) return null;
+  if (value === null || value === void 0) return null;
   return enumValue2(value, allowed2, field2, issues);
 }
 function stringValue(value, field2, issues) {
@@ -11375,7 +11375,7 @@ function stringValue(value, field2, issues) {
   return value;
 }
 function optionalStringValue(value, field2, issues) {
-  if (value === null) return null;
+  if (value === null || value === void 0) return null;
   if (typeof value !== "string" || value.trim() === "") {
     issues.push(`${field2} must be a non-empty string or null`);
     return null;
@@ -11383,7 +11383,7 @@ function optionalStringValue(value, field2, issues) {
   return value;
 }
 function optionalBooleanValue(value, field2, issues) {
-  if (value === null) return null;
+  if (value === null || value === void 0) return null;
   if (typeof value !== "boolean") {
     issues.push(`${field2} must be boolean or null`);
     return null;
@@ -11413,10 +11413,12 @@ function validateFrame(input) {
   if (!isRecord(input.slots)) issues.push("slots must be an object");
   const context = isRecord(input.context) ? input.context : {};
   if (!isRecord(input.context)) issues.push("context must be an object");
-  const routeInput = isRecord(input.route) ? input.route : {};
-  if (!isRecord(input.route)) issues.push("route must be an object");
-  const entities = Array.isArray(input.entities) ? input.entities : [];
-  if (!Array.isArray(input.entities)) issues.push("entities must be an array");
+  const proposedRouteInput = isRecord(input.proposed_route) ? input.proposed_route : {};
+  if (!isRecord(input.proposed_route)) issues.push("proposed_route must be an object");
+  const entities = input.entities === void 0 ? [] : Array.isArray(input.entities) ? input.entities : [];
+  if (input.entities !== void 0 && !Array.isArray(input.entities)) {
+    issues.push("entities must be an array");
+  }
   const evidence = Array.isArray(input.evidence) ? input.evidence : [];
   if (!Array.isArray(input.evidence)) issues.push("evidence must be an array");
   const frame = {
@@ -11427,7 +11429,7 @@ function validateFrame(input) {
       issues
     ),
     utterance: stringValue(input.utterance, "utterance", issues),
-    locale: stringValue(input.locale, "locale", issues),
+    locale: input.locale === void 0 ? "unknown" : stringValue(input.locale, "locale", issues),
     intent: {
       name: enumValue2(intent.name, INTENT_NAMES, "intent.name", issues) ?? "unknown",
       confidence: confidenceValue(intent.confidence, "intent.confidence", issues)
@@ -11457,7 +11459,7 @@ function validateFrame(input) {
       ),
       change_id: optionalStringValue(slots.change_id, "slots.change_id", issues),
       target_area: optionalStringValue(slots.target_area, "slots.target_area", issues),
-      scope: enumValue2(slots.scope, SCOPES, "slots.scope", issues) ?? "unknown",
+      scope: slots.scope === void 0 ? "unknown" : enumValue2(slots.scope, SCOPES, "slots.scope", issues) ?? "unknown",
       existing_behavior: optionalBooleanValue(
         slots.existing_behavior,
         "slots.existing_behavior",
@@ -11508,14 +11510,23 @@ function validateFrame(input) {
         source: enumValue2(record.source, EVIDENCE_SOURCES, `evidence[${index}].source`, issues) ?? "user"
       };
     }),
-    route: {
-      name: enumValue2(routeInput.name, ROUTES, "route.name", issues) ?? "ask_user",
-      next_skill: optionalEnumValue(routeInput.next_skill, NEXT_SKILLS, "route.next_skill", issues),
-      confidence: confidenceValue(routeInput.confidence, "route.confidence", issues),
-      requires_confirmation: typeof routeInput.requires_confirmation === "boolean" ? routeInput.requires_confirmation : true,
+    proposed_route: {
+      name: enumValue2(proposedRouteInput.name, ROUTES, "proposed_route.name", issues) ?? "ask_user",
+      next_skill: optionalEnumValue(
+        proposedRouteInput.next_skill,
+        NEXT_SKILLS,
+        "proposed_route.next_skill",
+        issues
+      ),
+      confidence: confidenceValue(
+        proposedRouteInput.confidence,
+        "proposed_route.confidence",
+        issues
+      ),
+      requires_confirmation: typeof proposedRouteInput.requires_confirmation === "boolean" ? proposedRouteInput.requires_confirmation : true,
       fallback_reason: optionalStringValue(
-        routeInput.fallback_reason,
-        "route.fallback_reason",
+        proposedRouteInput.fallback_reason,
+        "proposed_route.fallback_reason",
         issues
       )
     }
@@ -11588,22 +11599,24 @@ function resolveCometIntentRoute(input) {
   } else {
     resolved = askUser("workflow_candidate evidence is missing or route is ambiguous");
   }
-  if (resolved.name !== frame.route.name) {
-    diagnostics.push(`agent route '${frame.route.name}' normalized to '${resolved.name}'`);
-  }
-  if (resolved.next_skill !== frame.route.next_skill) {
+  if (resolved.name !== frame.proposed_route.name) {
     diagnostics.push(
-      `agent route next_skill '${frame.route.next_skill}' normalized to '${resolved.next_skill}'`
+      `agent proposed_route '${frame.proposed_route.name}' normalized to '${resolved.name}'`
     );
   }
-  if (resolved.requires_confirmation !== frame.route.requires_confirmation) {
+  if (resolved.next_skill !== frame.proposed_route.next_skill) {
     diagnostics.push(
-      `agent route requires_confirmation '${frame.route.requires_confirmation}' normalized to '${resolved.requires_confirmation}'`
+      `agent proposed_route next_skill '${frame.proposed_route.next_skill}' normalized to '${resolved.next_skill}'`
     );
   }
-  if (resolved.fallback_reason !== frame.route.fallback_reason) {
+  if (resolved.requires_confirmation !== frame.proposed_route.requires_confirmation) {
     diagnostics.push(
-      `agent route fallback_reason '${frame.route.fallback_reason}' normalized to '${resolved.fallback_reason}'`
+      `agent proposed_route requires_confirmation '${frame.proposed_route.requires_confirmation}' normalized to '${resolved.requires_confirmation}'`
+    );
+  }
+  if (resolved.fallback_reason !== frame.proposed_route.fallback_reason) {
+    diagnostics.push(
+      `agent proposed_route fallback_reason '${frame.proposed_route.fallback_reason}' normalized to '${resolved.fallback_reason}'`
     );
   }
   return {

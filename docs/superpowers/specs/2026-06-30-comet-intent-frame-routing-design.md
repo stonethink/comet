@@ -28,20 +28,22 @@ Classic `/comet` 当前入口路由主要写在 `assets/skills-zh/comet/SKILL.md
 
 ### CometIntentFrame
 
-`CometIntentFrame` 是 Classic `/comet` 入口的结构化意图载体。Agent 在读取用户请求、active changes、必要仓库状态后填写 frame，然后调用 runtime 命令进行校验和路由。
+`CometIntentFrame` 是 Classic `/comet` 入口的结构化意图载体。Agent 在读取用户请求、active changes、必要仓库状态后填写最小 frame，然后调用 runtime 命令进行校验、补默认值和路由。
+
+Agent-facing 最小输入只需要路由必需字段；runtime 归一化后会补齐 `locale`、`entities`、`slots.target_area`、`slots.scope`、`context.dirty_worktree` 以及 `proposed_route` 的派生字段。
 
 ```ts
 type CometIntentFrame = {
   schema_version: 'comet.intent.v1';
   utterance: string;
-  locale: string;
+  locale?: string;
 
   intent: {
     name: 'start_change' | 'resume_change' | 'fix_bug' | 'make_tweak' | 'ask_question' | 'unknown';
     confidence: number;
   };
 
-  entities: Array<{
+  entities?: Array<{
     type:
       | 'change_id'
       | 'workflow'
@@ -69,8 +71,8 @@ type CometIntentFrame = {
     workflow_candidate: 'full' | 'hotfix' | 'tweak' | null;
     user_explicit_workflow: 'full' | 'hotfix' | 'tweak' | null;
     change_id: string | null;
-    target_area: string | null;
-    scope: 'small' | 'medium' | 'large' | 'unknown';
+    target_area?: string | null;
+    scope?: 'small' | 'medium' | 'large' | 'unknown';
     existing_behavior: boolean | null;
     new_capability: boolean | null;
     public_api_change: boolean | null;
@@ -81,7 +83,7 @@ type CometIntentFrame = {
   context: {
     active_changes_count: number;
     active_change_names: string[];
-    dirty_worktree: boolean | null;
+    dirty_worktree?: boolean | null;
   };
 
   evidence: Array<{
@@ -90,9 +92,9 @@ type CometIntentFrame = {
     source: 'user' | 'repo' | 'state';
   }>;
 
-  route: {
+  proposed_route: {
     name: 'full' | 'hotfix' | 'tweak' | 'resume' | 'ask_user' | 'out_of_scope';
-    next_skill:
+    next_skill?:
       | 'comet-open'
       | 'comet-hotfix'
       | 'comet-tweak'
@@ -102,8 +104,8 @@ type CometIntentFrame = {
       | 'comet-archive'
       | null;
     confidence: number;
-    requires_confirmation: boolean;
-    fallback_reason: string | null;
+    requires_confirmation?: boolean;
+    fallback_reason?: string | null;
   };
 };
 ```
@@ -111,11 +113,11 @@ type CometIntentFrame = {
 ### 字段命名原则
 
 - `intent` 表示用户高层意图，取值保持通用，不直接绑定 Comet 内部阶段名。
-- `entities` 表示从原始文本或状态中抽出的实体，保留 `text` 作为源文片段。
-- `slots` 表示归一化后的业务槽位，负责承接 workflow、scope、风险信号等路由特征。
-- `context` 表示运行时上下文，例如 active change 数量和工作区状态。
+- `entities` 表示从原始文本或状态中抽出的实体，保留 `text` 作为源文片段；最小输入可省略，runtime 默认 `[]`。
+- `slots` 表示归一化后的业务槽位，负责承接 workflow 和风险信号等路由特征；`target_area`、`scope` 是解释和未来扩展字段，最小输入可省略。
+- `context` 表示运行时上下文，例如 active change 数量和工作区状态；入口路由必填 active change 数量与名称，`dirty_worktree` 由后续专门协议处理，最小输入可省略。
 - `evidence` 记录字段依据，要求关键路由结论能追溯到用户话语、仓库状态或 `.comet.yaml` 状态。
-- `route` 是 agent 提交的候选路由，runtime 会复核并覆盖为规范化结果。`route.confidence` 只用于诊断 agent 候选 route，不参与低置信度 fallback；低置信度安全判定以 `intent.confidence`、关键 evidence 和风险冲突为准。
+- `proposed_route` 是 agent 提交的候选路由；最小输入只需 `name` 和 `confidence`，runtime 会复核并输出最终 `route`。`proposed_route.confidence` 只用于诊断 agent 候选路由，不参与低置信度 fallback；低置信度安全判定以 `intent.confidence`、关键 evidence 和风险冲突为准。
 
 ### 路由规则
 
@@ -126,7 +128,7 @@ runtime scorer 基于 frame 输出唯一 `route.name`：
 3. 用户请求文案、配置、文档、prompt 或可收敛为单一 OpenSpec change 的轻中量修改，且不需要完整设计时，输出 `tweak`。
 4. 用户请求新增能力、架构调整、public API、schema 变更或跨模块协作时，输出 `full`。
 5. 多个 active change 且用户未明确 change 时，输出 `ask_user`。
-6. `intent.confidence` 低于阈值，或关键槽位缺少 evidence 时，输出 `ask_user`。`route.confidence` 是 agent 候选 route 的诊断输入，不作为 workflow 自动选择依据。
+6. `intent.confidence` 低于阈值，或关键槽位缺少 evidence 时，输出 `ask_user`。`proposed_route.confidence` 是 agent 候选路由的诊断输入，不作为 workflow 自动选择依据。
 7. 用户只是问问题且没有要求启动或恢复 Comet change 时，输出 `out_of_scope` 或 `ask_user`，由入口 Skill 解释不启动工作流。
 
 用户显式 workflow 优先级高于推断 workflow，但显式 workflow 与风险信号冲突时不得直接执行。例如用户说“走 hotfix，但要新增 public API”，runtime 应输出 `ask_user`，fallback reason 指出冲突。
@@ -161,7 +163,7 @@ launcher 继续保持薄封装，只 import 生成后的 `comet-runtime.mjs` 并
 3. 优先用 `node "$COMET_INTENT" route --stdin` 传入 frame JSON，避免用户原话里的引号破坏 shell 参数。
 4. 根据 runtime route 进入 `/comet-hotfix`、`/comet-tweak`、`/comet-open` 或用户确认点。
 
-Skill 文档保留人类可读规则，但规则只用于意图识别槽位提取，而不是最终事实源。主入口 Skill 必须包含紧凑 `CometIntentFrame` 骨架，避免 agent 只能通过 validation error 反推必填字段。
+Skill 文档保留人类可读规则，但规则只用于意图识别槽位提取，而不是最终事实源。主入口 Skill 必须包含紧凑 `CometIntentFrame` 骨架，骨架使用 `proposed_route` 表示 agent 候选路由，避免 agent 只能通过 validation error 反推必填字段。完整字段说明放在 `comet/reference/intent-frame.md`，由中英文 Skill 渐进式加载，避免主入口变成 schema reference。
 
 ### `assets/skills-zh/comet-hotfix/SKILL.md`
 

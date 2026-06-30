@@ -95,7 +95,7 @@ function frame(overrides: Partial<CometIntentFrame> = {}): CometIntentFrame {
       { field: 'intent.name', quote: 'fix', source: 'user' },
       { field: 'slots.workflow_candidate', quote: 'regression', source: 'user' },
     ],
-    route: {
+    proposed_route: {
       name: 'hotfix',
       next_skill: 'comet-hotfix',
       confidence: 0.9,
@@ -109,7 +109,7 @@ function frame(overrides: Partial<CometIntentFrame> = {}): CometIntentFrame {
     intent: { ...base.intent, ...overrides.intent },
     slots: { ...base.slots, ...overrides.slots },
     context: { ...base.context, ...overrides.context },
-    route: { ...base.route, ...overrides.route },
+    proposed_route: { ...base.proposed_route, ...overrides.proposed_route },
   };
 }
 
@@ -140,7 +140,7 @@ describe('resolveCometIntentRoute', () => {
           { field: 'intent.name', quote: 'tweak', source: 'user' },
           { field: 'slots.workflow_candidate', quote: 'prompt wording', source: 'user' },
         ],
-        route: { name: 'tweak', next_skill: 'comet-tweak', confidence: 0.88 },
+        proposed_route: { name: 'tweak', next_skill: 'comet-tweak', confidence: 0.88 },
       }),
     );
 
@@ -165,7 +165,7 @@ describe('resolveCometIntentRoute', () => {
           { field: 'intent.name', quote: 'add', source: 'user' },
           { field: 'slots.public_api_change', quote: 'public API', source: 'user' },
         ],
-        route: { name: 'full', next_skill: 'comet-open', confidence: 0.93 },
+        proposed_route: { name: 'full', next_skill: 'comet-open', confidence: 0.93 },
       }),
     );
 
@@ -347,6 +347,10 @@ export interface CometIntentFrame {
     dirty_worktree: boolean | null;
   };
   evidence: Array<{ field: string; quote: string; source: CometIntentEvidenceSource }>;
+  proposed_route: CometIntentRoute;
+}
+
+export interface CometIntentNormalizedFrame extends CometIntentFrame {
   route: CometIntentRoute;
 }
 
@@ -361,7 +365,7 @@ export interface CometIntentRoute {
 export interface CometIntentRouteResolution {
   route: CometIntentRoute;
   diagnostics: string[];
-  normalizedFrame: CometIntentFrame;
+  normalizedFrame: CometIntentNormalizedFrame;
 }
 
 export class CometIntentValidationError extends Error {
@@ -441,8 +445,8 @@ function validateFrame(input: unknown): CometIntentFrame {
   if (!isRecord(input.slots)) issues.push('slots must be an object');
   const context = isRecord(input.context) ? input.context : {};
   if (!isRecord(input.context)) issues.push('context must be an object');
-  const routeInput = isRecord(input.route) ? input.route : {};
-  if (!isRecord(input.route)) issues.push('route must be an object');
+  const proposedRouteInput = isRecord(input.proposed_route) ? input.proposed_route : {};
+  if (!isRecord(input.proposed_route)) issues.push('proposed_route must be an object');
 
   const entities = Array.isArray(input.entities) ? input.entities : [];
   if (!Array.isArray(input.entities)) issues.push('entities must be an array');
@@ -533,17 +537,26 @@ function validateFrame(input: unknown): CometIntentFrame {
           enumValue(record.source, EVIDENCE_SOURCES, `evidence[${index}].source`, issues) ?? 'user',
       };
     }),
-    route: {
-      name: enumValue(routeInput.name, ROUTES, 'route.name', issues) ?? 'ask_user',
-      next_skill: optionalEnumValue(routeInput.next_skill, NEXT_SKILLS, 'route.next_skill', issues),
-      confidence: confidenceValue(routeInput.confidence, 'route.confidence', issues),
+    proposed_route: {
+      name: enumValue(proposedRouteInput.name, ROUTES, 'proposed_route.name', issues) ?? 'ask_user',
+      next_skill: optionalEnumValue(
+        proposedRouteInput.next_skill,
+        NEXT_SKILLS,
+        'proposed_route.next_skill',
+        issues,
+      ),
+      confidence: confidenceValue(
+        proposedRouteInput.confidence,
+        'proposed_route.confidence',
+        issues,
+      ),
       requires_confirmation:
-        typeof routeInput.requires_confirmation === 'boolean'
-          ? routeInput.requires_confirmation
+        typeof proposedRouteInput.requires_confirmation === 'boolean'
+          ? proposedRouteInput.requires_confirmation
           : true,
       fallback_reason: optionalStringValue(
-        routeInput.fallback_reason,
-        'route.fallback_reason',
+        proposedRouteInput.fallback_reason,
+        'proposed_route.fallback_reason',
         issues,
       ),
     },
@@ -659,8 +672,10 @@ export function resolveCometIntentRoute(input: unknown): CometIntentRouteResolut
     resolved = askUser('workflow_candidate evidence is missing or route is ambiguous');
   }
 
-  if (resolved.name !== frame.route.name) {
-    diagnostics.push(`agent route '${frame.route.name}' normalized to '${resolved.name}'`);
+  if (resolved.name !== frame.proposed_route.name) {
+    diagnostics.push(
+      `agent proposed_route '${frame.proposed_route.name}' normalized to '${resolved.name}'`,
+    );
   }
 
   return {
@@ -689,7 +704,7 @@ npx vitest run test/domains/comet-classic/classic-intent.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit Task 1**
+- [x] **Step 6: Commit Task 1 (covered by consolidated commit)**
 
 ```bash
 git add domains/comet-classic/classic-intent.ts domains/comet-classic/index.ts test/domains/comet-classic/classic-intent.test.ts
@@ -876,7 +891,7 @@ npx vitest run test/domains/comet-classic/classic-runtime.test.ts test/domains/c
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit Task 2**
+- [x] **Step 6: Commit Task 2 (covered by consolidated commit)**
 
 ```bash
 git add domains/comet-classic/classic-intent-command.ts domains/comet-classic/classic-cli.ts domains/comet-classic/index.ts test/domains/comet-classic/classic-runtime.test.ts
@@ -971,7 +986,7 @@ npx vitest run test/domains/comet-classic/comet-scripts.test.ts test/domains/com
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit Task 3**
+- [x] **Step 7: Commit Task 3 (covered by consolidated commit)**
 
 ```bash
 git add assets/manifest.json assets/skills/comet/scripts/comet-intent.mjs assets/skills/comet/scripts/comet-runtime.mjs test/domains/comet-classic/comet-scripts.test.ts test/domains/comet-classic/classic-runtime.test.ts
@@ -1005,10 +1020,20 @@ expect(zhComet).toContain('"schema_version": "comet.intent.v1"');
 expect(zhComet).toContain('"slots": {');
 expect(zhComet).toContain('"context": {');
 expect(zhComet).toContain('"evidence": []');
-expect(zhComet).toContain('"route": {');
-expect(zhComet).toContain('`intent`、`entities`、`slots`、`confidence`、`evidence`、`route`');
+expect(zhComet).toContain('"proposed_route": {');
+expect(zhComet).not.toContain('"entities": []');
+expect(zhComet).not.toContain('"target_area":');
+expect(zhComet).not.toContain('"scope":');
+expect(zhComet).not.toContain('"dirty_worktree":');
+expect(zhComet).not.toContain('"next_skill": null');
+expect(zhComet).not.toContain('"requires_confirmation": true');
+expect(zhComet).not.toContain('"fallback_reason": null');
 expect(zhComet).toContain('`ask_user`');
 expect(zhComet).toContain('`CometIntentFrame + runtime scorer` 是事实源');
+expect(zhComet).toContain('`comet/reference/intent-frame.md`');
+expect(zhIntentFrame).toContain('`requested_action`');
+expect(zhIntentFrame).toContain('`workflow_candidate`');
+expect(zhIntentFrame).toContain('`proposed_route`');
 expect(zhHotfix).toContain('入口传入 intent frame');
 expect(zhHotfix).toContain('复核 `risk_signal` 和升级信号');
 expect(zhTweak).toContain('入口传入 intent frame');
@@ -1090,7 +1115,7 @@ In `assets/skills-zh/comet/SKILL.md`, replace the existing Step 0 preset-detecti
 - 置信度不足、关键 evidence 缺失或用户显式 workflow 与风险信号冲突 → `ask_user`
 ```
 
-同一段落还必须包含 `CometIntentFrame 最小骨架`，列出 `schema_version`、`utterance`、`locale`、`intent`、`entities`、`slots`、`context`、`evidence` 和 `route`，让 agent 不需要猜 runtime schema。
+同一段落还必须包含紧凑的 `CometIntentFrame 最小骨架`，列出 `schema_version`、`utterance`、`intent`、`slots`、`context`、`evidence` 和 `proposed_route`。不得在最小骨架中暴露 `entities`、`target_area`、`scope`、`dirty_worktree` 或 `proposed_route` 的派生字段；这些由 runtime 默认补齐。字段完整含义放在 `comet/reference/intent-frame.md`，主入口只链接该 reference，不内联完整字段表。
 
 - [x] **Step 5: Add minimal Chinese hotfix/tweak recheck wording**
 
@@ -1126,7 +1151,7 @@ Chinese Skill routing wording is updated and tests pass. Please review the Chine
 
 Do not modify `assets/skills/` until the user confirms.
 
-- [ ] **Step 8: Commit Task 4 after user confirms the Chinese-only checkpoint is acceptable**
+- [x] **Step 8: Commit Task 4 after user confirms the Chinese-only checkpoint is acceptable (covered by consolidated commit)**
 
 ```bash
 git add assets/skills-zh/comet/SKILL.md assets/skills-zh/comet/reference/scripts.md assets/skills-zh/comet-hotfix/SKILL.md assets/skills-zh/comet-tweak/SKILL.md test/domains/skill/skills.test.ts
@@ -1160,10 +1185,20 @@ expect(enComet).toContain('"schema_version": "comet.intent.v1"');
 expect(enComet).toContain('"slots": {');
 expect(enComet).toContain('"context": {');
 expect(enComet).toContain('"evidence": []');
-expect(enComet).toContain('"route": {');
-expect(enComet).toContain('`intent`, `entities`, `slots`, `confidence`, `evidence`, `route`');
+expect(enComet).toContain('"proposed_route": {');
+expect(enComet).not.toContain('"entities": []');
+expect(enComet).not.toContain('"target_area":');
+expect(enComet).not.toContain('"scope":');
+expect(enComet).not.toContain('"dirty_worktree":');
+expect(enComet).not.toContain('"next_skill": null');
+expect(enComet).not.toContain('"requires_confirmation": true');
+expect(enComet).not.toContain('"fallback_reason": null');
 expect(enComet).toContain('`ask_user`');
 expect(enComet).toContain('`CometIntentFrame + runtime scorer` is the source of truth');
+expect(enComet).toContain('`comet/reference/intent-frame.md`');
+expect(enIntentFrame).toContain('`requested_action`');
+expect(enIntentFrame).toContain('`workflow_candidate`');
+expect(enIntentFrame).toContain('`proposed_route`');
 expect(enHotfix).toContain('intent frame from the entry');
 expect(enHotfix).toContain('recheck `risk_signal` and escalation signals');
 expect(enTweak).toContain('intent frame from the entry');
@@ -1234,7 +1269,7 @@ In `assets/skills/comet/SKILL.md`, apply the English equivalent:
 - Low confidence, missing key evidence, or explicit workflow conflicting with risk signals → `ask_user`
 ```
 
-The same section must include a `Minimal CometIntentFrame Skeleton` listing `schema_version`, `utterance`, `locale`, `intent`, `entities`, `slots`, `context`, `evidence`, and `route`, so the agent does not have to infer the runtime schema from validation errors.
+The same section must include a compact `Minimal CometIntentFrame Skeleton` listing `schema_version`, `utterance`, `intent`, `slots`, `context`, `evidence`, and `proposed_route`. Do not expose `entities`, `target_area`, `scope`, `dirty_worktree`, or derived `proposed_route` fields in the minimal skeleton; the runtime fills those defaults. Complete field meanings live in `comet/reference/intent-frame.md`; the entry Skill links that reference instead of inlining the full field table.
 
 - [x] **Step 5: Sync English hotfix/tweak recheck wording**
 
@@ -1260,7 +1295,7 @@ npx vitest run test/domains/skill/skills.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit Task 5**
+- [x] **Step 7: Commit Task 5 (covered by consolidated commit)**
 
 ```bash
 git add assets/skills/comet/SKILL.md assets/skills/comet/reference/scripts.md assets/skills/comet-hotfix/SKILL.md assets/skills/comet-tweak/SKILL.md test/domains/skill/skills.test.ts
@@ -1333,14 +1368,14 @@ pnpm test
 
 Expected: all commands exit 0. If `format:check` reports unrelated CRLF-only issues in untouched old files, do not bulk rewrite; report the exact files and ask for direction.
 
-- [ ] **Step 5: Commit Task 6**
+- [x] **Step 5: Commit Task 6 (covered by consolidated commit)**
 
 ```bash
 git add CHANGELOG.md
 git commit -m "docs: note comet intent frame routing"
 ```
 
-- [ ] **Step 6: Final status check**
+- [x] **Step 6: Final status check**
 
 Run:
 

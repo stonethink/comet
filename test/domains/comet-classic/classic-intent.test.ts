@@ -34,7 +34,7 @@ function frame(overrides: Partial<CometIntentFrame> = {}): CometIntentFrame {
       { field: 'intent.name', quote: 'fix', source: 'user' },
       { field: 'slots.workflow_candidate', quote: 'regression', source: 'user' },
     ],
-    route: {
+    proposed_route: {
       name: 'hotfix',
       next_skill: 'comet-hotfix',
       confidence: 0.9,
@@ -48,7 +48,7 @@ function frame(overrides: Partial<CometIntentFrame> = {}): CometIntentFrame {
     intent: { ...base.intent, ...overrides.intent },
     slots: { ...base.slots, ...overrides.slots },
     context: { ...base.context, ...overrides.context },
-    route: { ...base.route, ...overrides.route },
+    proposed_route: { ...base.proposed_route, ...overrides.proposed_route },
   };
 }
 
@@ -60,6 +60,47 @@ describe('resolveCometIntentRoute', () => {
       name: 'hotfix',
       next_skill: 'comet-hotfix',
       requires_confirmation: false,
+    });
+  });
+
+  it('accepts compact frames and normalizes omitted optional fields', () => {
+    const result = resolveCometIntentRoute({
+      schema_version: 'comet.intent.v1',
+      utterance: 'fix the failing comet guard regression',
+      intent: { name: 'fix_bug', confidence: 0.91 },
+      slots: {
+        requested_action: 'fix',
+        workflow_candidate: 'hotfix',
+        user_explicit_workflow: null,
+        change_id: null,
+        existing_behavior: true,
+        new_capability: false,
+        public_api_change: false,
+        schema_change: false,
+        cross_module_change: false,
+      },
+      context: {
+        active_changes_count: 0,
+        active_change_names: [],
+      },
+      evidence: [
+        { field: 'intent.name', quote: 'fix', source: 'user' },
+        { field: 'slots.workflow_candidate', quote: 'regression', source: 'user' },
+      ],
+      proposed_route: { name: 'hotfix', confidence: 0.9 },
+    });
+
+    expect(result.route).toMatchObject({ name: 'hotfix', next_skill: 'comet-hotfix' });
+    expect(result.normalizedFrame).toMatchObject({
+      locale: 'unknown',
+      entities: [],
+      slots: { target_area: null, scope: 'unknown' },
+      context: { dirty_worktree: null },
+      proposed_route: {
+        next_skill: null,
+        requires_confirmation: true,
+        fallback_reason: null,
+      },
     });
   });
 
@@ -79,7 +120,7 @@ describe('resolveCometIntentRoute', () => {
           { field: 'intent.name', quote: 'tweak', source: 'user' },
           { field: 'slots.workflow_candidate', quote: 'prompt wording', source: 'user' },
         ],
-        route: { name: 'tweak', next_skill: 'comet-tweak', confidence: 0.88 },
+        proposed_route: { name: 'tweak', next_skill: 'comet-tweak', confidence: 0.88 },
       }),
     );
 
@@ -104,7 +145,7 @@ describe('resolveCometIntentRoute', () => {
           { field: 'intent.name', quote: 'add', source: 'user' },
           { field: 'slots.public_api_change', quote: 'public API', source: 'user' },
         ],
-        route: { name: 'full', next_skill: 'comet-open', confidence: 0.93 },
+        proposed_route: { name: 'full', next_skill: 'comet-open', confidence: 0.93 },
       }),
     );
 
@@ -114,7 +155,7 @@ describe('resolveCometIntentRoute', () => {
   it('does not ask user when route confidence is low but intent/slots/evidence is clear', () => {
     const result = resolveCometIntentRoute(
       frame({
-        route: {
+        proposed_route: {
           name: 'ask_user',
           next_skill: null,
           confidence: 0.01,
@@ -240,7 +281,7 @@ describe('resolveCometIntentRoute', () => {
   it('records diagnostics when next_skill/requires_confirmation/fallback_reason are normalized', () => {
     const result = resolveCometIntentRoute(
       frame({
-        route: {
+        proposed_route: {
           name: 'hotfix',
           next_skill: 'comet-open',
           confidence: 0.92,
@@ -253,9 +294,9 @@ describe('resolveCometIntentRoute', () => {
     expect(result.route.name).toBe('hotfix');
     expect(result.diagnostics).toEqual(
       expect.arrayContaining([
-        "agent route next_skill 'comet-open' normalized to 'comet-hotfix'",
-        "agent route requires_confirmation 'true' normalized to 'false'",
-        "agent route fallback_reason 'manual set' normalized to 'null'",
+        "agent proposed_route next_skill 'comet-open' normalized to 'comet-hotfix'",
+        "agent proposed_route requires_confirmation 'true' normalized to 'false'",
+        "agent proposed_route fallback_reason 'manual set' normalized to 'null'",
       ]),
     );
   });

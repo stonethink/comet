@@ -46,16 +46,12 @@ agent 做决策只需读本节，参考附录按需查阅。
 {
   "schema_version": "comet.intent.v1",
   "utterance": "<用户原话>",
-  "locale": "zh",
   "intent": { "name": "start_change", "confidence": 0.8 },
-  "entities": [],
   "slots": {
     "requested_action": "start",
     "workflow_candidate": "full",
     "user_explicit_workflow": null,
     "change_id": null,
-    "target_area": null,
-    "scope": "unknown",
     "existing_behavior": null,
     "new_capability": null,
     "public_api_change": null,
@@ -64,21 +60,19 @@ agent 做决策只需读本节，参考附录按需查阅。
   },
   "context": {
     "active_changes_count": 0,
-    "active_change_names": [],
-    "dirty_worktree": null
+    "active_change_names": []
   },
   "evidence": [],
-  "route": {
+  "proposed_route": {
     "name": "ask_user",
-    "next_skill": null,
-    "confidence": 0.5,
-    "requires_confirmation": true,
-    "fallback_reason": null
+    "confidence": 0.5
   }
 }
 ```
 
 **意图识别槽位提取**：
+字段完整含义见 `comet/reference/intent-frame.md`；正常路由只需按上方最小骨架填写。
+
 - `fix_bug` + `existing_behavior: true` + 无新增 capability/public API/schema/cross-module 信号 → 倾向 `hotfix`
 - 用户明确描述为可收敛为单一 OpenSpec change 的轻量/中等变更，需通过 OpenSpec apply 执行，且不需要完整 `/comet` 深度设计/plan → 倾向 `tweak`
 - 文案、配置、文档、prompt 或单一 OpenSpec change 的轻中量修改 → 倾向 `tweak`

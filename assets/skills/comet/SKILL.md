@@ -46,16 +46,12 @@ Use the language of the user request that triggered this workflow as the default
 {
   "schema_version": "comet.intent.v1",
   "utterance": "<user request>",
-  "locale": "en",
   "intent": { "name": "start_change", "confidence": 0.8 },
-  "entities": [],
   "slots": {
     "requested_action": "start",
     "workflow_candidate": "full",
     "user_explicit_workflow": null,
     "change_id": null,
-    "target_area": null,
-    "scope": "unknown",
     "existing_behavior": null,
     "new_capability": null,
     "public_api_change": null,
@@ -64,21 +60,19 @@ Use the language of the user request that triggered this workflow as the default
   },
   "context": {
     "active_changes_count": 0,
-    "active_change_names": [],
-    "dirty_worktree": null
+    "active_change_names": []
   },
   "evidence": [],
-  "route": {
+  "proposed_route": {
     "name": "ask_user",
-    "next_skill": null,
-    "confidence": 0.5,
-    "requires_confirmation": true,
-    "fallback_reason": null
+    "confidence": 0.5
   }
 }
 ```
 
 **Intent Recognition Slot Extraction**:
+See `comet/reference/intent-frame.md` for complete field meanings; normal routing only needs the minimal skeleton above.
+
 - `fix_bug` + `existing_behavior: true` + no new capability/public API/schema/cross-module signal → prefer `hotfix`
 - User explicitly describes a lightweight/medium change that can fit in a single OpenSpec change, should be executed through OpenSpec apply, and does not need full `/comet` deep design/plan → prefer `tweak`
 - Copy, config, docs, prompt, or a lightweight/medium single OpenSpec change → prefer `tweak`

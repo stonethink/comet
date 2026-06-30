@@ -9,6 +9,7 @@
     "comet/reference/decision-point.md",
     "comet/reference/dirty-worktree.md",
     "comet/reference/file-structure.md",
+    "comet/reference/intent-frame.md",
     "comet/reference/scripts.md",
     "comet/reference/subagent-dispatch.md",
     "comet-any/SKILL.md",
@@ -59,5 +60,4 @@
     { "id": "zh", "name": "中文", "skillsDir": "skills-zh" }
   ]
 }
-
 

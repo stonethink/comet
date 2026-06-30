@@ -586,6 +586,10 @@ describe('skills', () => {
         path.resolve('assets', 'skills-zh', 'comet', 'reference', 'scripts.md'),
         'utf-8',
       );
+      const zhIntentFrame = await fs.readFile(
+        path.resolve('assets', 'skills-zh', 'comet', 'reference', 'intent-frame.md'),
+        'utf-8',
+      );
       const zhCometRule = await fs.readFile(
         path.resolve('assets', 'skills', 'comet', 'rules', 'comet-phase-guard.md'),
         'utf-8',
@@ -607,12 +611,29 @@ describe('skills', () => {
       expect(zhComet).toContain('"slots": {');
       expect(zhComet).toContain('"context": {');
       expect(zhComet).toContain('"evidence": []');
-      expect(zhComet).toContain('"route": {');
+      expect(zhComet).toContain('"proposed_route": {');
+      expect(zhComet).not.toContain('"entities": []');
+      expect(zhComet).not.toContain('"target_area":');
+      expect(zhComet).not.toContain('"scope":');
+      expect(zhComet).not.toContain('"dirty_worktree":');
+      expect(zhComet).not.toContain('"next_skill": null');
+      expect(zhComet).not.toContain('"requires_confirmation": true');
+      expect(zhComet).not.toContain('"fallback_reason": null');
       expect(zhComet).toContain('**意图识别槽位提取**');
       expect(zhComet).not.toContain('字段命名采用常见 NLU / Agent Router 术语');
       expect(zhComet).not.toContain('填槽指南');
       expect(zhComet).toContain('`ask_user`');
       expect(zhComet).toContain('`CometIntentFrame + runtime scorer` 是事实源');
+      expect(zhComet).toContain('`comet/reference/intent-frame.md`');
+      expect(zhIntentFrame).toContain('`requested_action`');
+      expect(zhIntentFrame).toContain('`workflow_candidate`');
+      expect(zhIntentFrame).toContain('`user_explicit_workflow`');
+      expect(zhIntentFrame).toContain('`existing_behavior`');
+      expect(zhIntentFrame).toContain('`new_capability`');
+      expect(zhIntentFrame).toContain('`public_api_change`');
+      expect(zhIntentFrame).toContain('`schema_change`');
+      expect(zhIntentFrame).toContain('`cross_module_change`');
+      expect(zhIntentFrame).toContain('`proposed_route`');
       expect(zhHotfix).toContain('入口传入 intent frame');
       expect(zhHotfix).toContain('复核 `risk_signal` 和升级信号');
       expect(zhTweak).toContain('入口传入 intent frame');
@@ -921,6 +942,10 @@ describe('skills', () => {
         path.resolve('assets', 'skills', 'comet', 'reference', 'scripts.md'),
         'utf-8',
       );
+      const enIntentFrame = await fs.readFile(
+        path.resolve('assets', 'skills', 'comet', 'reference', 'intent-frame.md'),
+        'utf-8',
+      );
       const enCometRule = await fs.readFile(
         path.resolve('assets', 'skills', 'comet', 'rules', 'comet-phase-guard.md'),
         'utf-8',
@@ -942,12 +967,29 @@ describe('skills', () => {
       expect(enComet).toContain('"slots": {');
       expect(enComet).toContain('"context": {');
       expect(enComet).toContain('"evidence": []');
-      expect(enComet).toContain('"route": {');
+      expect(enComet).toContain('"proposed_route": {');
+      expect(enComet).not.toContain('"entities": []');
+      expect(enComet).not.toContain('"target_area":');
+      expect(enComet).not.toContain('"scope":');
+      expect(enComet).not.toContain('"dirty_worktree":');
+      expect(enComet).not.toContain('"next_skill": null');
+      expect(enComet).not.toContain('"requires_confirmation": true');
+      expect(enComet).not.toContain('"fallback_reason": null');
       expect(enComet).toContain('**Intent Recognition Slot Extraction**');
       expect(enComet).not.toContain('Field names use common NLU / Agent Router terminology');
       expect(enComet).not.toContain('Slot-filling guide');
       expect(enComet).toContain('`ask_user`');
       expect(enComet).toContain('`CometIntentFrame + runtime scorer` is the source of truth');
+      expect(enComet).toContain('`comet/reference/intent-frame.md`');
+      expect(enIntentFrame).toContain('`requested_action`');
+      expect(enIntentFrame).toContain('`workflow_candidate`');
+      expect(enIntentFrame).toContain('`user_explicit_workflow`');
+      expect(enIntentFrame).toContain('`existing_behavior`');
+      expect(enIntentFrame).toContain('`new_capability`');
+      expect(enIntentFrame).toContain('`public_api_change`');
+      expect(enIntentFrame).toContain('`schema_change`');
+      expect(enIntentFrame).toContain('`cross_module_change`');
+      expect(enIntentFrame).toContain('`proposed_route`');
       expect(enHotfix).toContain('intent frame from the entry');
       expect(enHotfix).toContain('recheck `risk_signal` and escalation signals');
       expect(enTweak).toContain('intent frame from the entry');
@@ -1656,6 +1698,7 @@ describe('skills', () => {
   describe('Comet script discovery helper', () => {
     it('ships a shared script locator helper', async () => {
       const manifest = await readManifest();
+      expect(manifest.skills).toContain('comet/reference/intent-frame.md');
       expect(manifest.skills).toContain('comet/scripts/comet-env.mjs');
       expect(manifest.skills).toContain('comet/scripts/comet-intent.mjs');
     });
