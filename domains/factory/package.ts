@@ -455,16 +455,44 @@ async function resolveCometOverlayChange() {
   return changes[0];
 }
 
-function overlayNodeFromState(state) {
+function hasOverlayEvidence(evidence, nodeId) {
+  const value = evidence && typeof evidence === 'object' ? evidence[nodeId] : null;
+  return !!(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function hasGeneratedPlan(state) {
+  if (!Object.prototype.hasOwnProperty.call(state, 'plan')) return false;
+  const value = state.plan;
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    return normalized !== '' && normalized !== 'null';
+  }
+  return true;
+}
+
+function overlayBuildExecutionNode(state) {
+  if (
+    state.build_mode === 'subagent-driven-development' &&
+    state.subagent_dispatch === 'confirmed'
+  ) {
+    return 'subagent-execute';
+  }
+  return 'execute';
+}
+
+function overlayNodeFromState(state, evidence = {}) {
   const phase = String(state.phase ?? '').trim();
   if (phase === 'open') return 'open';
   if (phase === 'design') return 'design';
   if (phase === 'build') {
-    if (state.build_pause === 'plan-ready' || !Object.prototype.hasOwnProperty.call(state, 'plan')) {
+    if (state.build_pause === 'plan-ready' || !hasGeneratedPlan(state)) {
       return 'plan';
     }
+    const executionNode = overlayBuildExecutionNode(state);
+    if (!hasOverlayEvidence(evidence, executionNode)) return executionNode;
     if (String(state.review_mode ?? 'off') !== 'off') return 'review';
-    return 'execute';
+    return executionNode;
   }
   if (phase === 'verify') return 'verify';
   if (phase === 'archive') return 'archive';
@@ -542,7 +570,8 @@ async function main() {
   }
   if (isCometOverlay(protocol)) {
     const change = await resolveCometOverlayChange();
-    const current = overlayNodeFromState(change.state);
+    const evidence = await readOverlayEvidence(protocol, change);
+    const current = overlayNodeFromState(change.state, evidence);
     if (!current || !nodes.some((node) => node.id === current)) {
       throw new Error('active Comet change has no valid workflow Node');
     }
@@ -677,7 +706,8 @@ async function main() {
     if (command === 'status') {
       try {
         const change = await resolveCometOverlayChange();
-        const currentNode = overlayNodeFromState(change.state);
+        const evidence = await readOverlayEvidence(protocol, change);
+        const currentNode = overlayNodeFromState(change.state, evidence);
         console.log(
           JSON.stringify(
             {
@@ -704,7 +734,8 @@ async function main() {
     }
     if (command === 'next') {
       const change = await resolveCometOverlayChange();
-      const nodeId = overlayNodeFromState(change.state);
+      const evidence = await readOverlayEvidence(protocol, change);
+      const nodeId = overlayNodeFromState(change.state, evidence);
       printNext(protocol, route(protocol).find((node) => node.id === nodeId) ?? null);
       return;
     }
@@ -718,7 +749,7 @@ async function main() {
       evidence[node.id] = { ...parseEvidence(process.argv.slice(4).join(' ')), recordedAt: new Date().toISOString() };
       await writeOverlayEvidence(protocol, change, evidence);
       console.log('EVIDENCE: ' + node.id);
-      printNext(protocol, route(protocol).find((item) => item.id === overlayNodeFromState(change.state)) ?? null);
+      printNext(protocol, route(protocol).find((item) => item.id === overlayNodeFromState(change.state, evidence)) ?? null);
       return;
     }
     throw new Error('Unknown command: ' + command);
@@ -967,7 +998,8 @@ async function main() {
   if (!node) throw new Error('Unknown workflow Node: ' + nodeId);
   if (isCometOverlay(protocol)) {
     const change = await resolveCometOverlayChange();
-    const current = overlayNodeFromState(change.state);
+    const overlayEvidence = await readOverlayEvidence(protocol, change);
+    const current = overlayNodeFromState(change.state, overlayEvidence);
     if (command === 'entry') {
       if (current !== node.id) {
         console.error('BLOCKED: current Node is ' + String(current) + ', cannot enter ' + node.id + '.');
@@ -976,7 +1008,7 @@ async function main() {
       console.log('ENTRY OK: ' + node.id);
       return;
     }
-    const evidenceState = { evidence: await readOverlayEvidence(protocol, change) };
+    const evidenceState = { evidence: overlayEvidence };
     const evidence = evidenceFor(evidenceState, node.id);
     if (!evidence) {
       console.error('BLOCKED: missing evidence for Node ' + node.id + '.');

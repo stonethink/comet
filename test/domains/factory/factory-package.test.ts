@@ -261,6 +261,7 @@ describe('Factory skill package generation', () => {
     const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'comet-overlay-state-run-'));
     const env = { ...process.env, COMET_RUN_ROOT: runRoot };
     const stateScript = path.join(output.packageRoot, 'scripts', 'workflow-state.mjs');
+    const guardScript = path.join(output.packageRoot, 'scripts', 'workflow-guard.mjs');
     try {
       const changeRoot = path.join(runRoot, 'openspec', 'changes', 'stateful-change');
       await fs.mkdir(changeRoot, { recursive: true });
@@ -296,6 +297,104 @@ describe('Factory skill package generation', () => {
     } finally {
       await fs.rm(runRoot, { recursive: true, force: true });
     }
+
+    async function createOverlayRun(changeName: string, stateYaml: string, evidence?: unknown) {
+      const caseRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'comet-overlay-state-case-'));
+      const caseEnv = { ...process.env, COMET_RUN_ROOT: caseRoot };
+      const caseChangeRoot = path.join(caseRoot, 'openspec', 'changes', changeName);
+      await fs.mkdir(caseChangeRoot, { recursive: true });
+      await fs.writeFile(path.join(caseChangeRoot, '.comet.yaml'), stateYaml, 'utf8');
+      if (evidence !== undefined) {
+        const evidencePath = path.join(
+          caseRoot,
+          '.comet',
+          'workflow-evidence',
+          changeName,
+          'overlay-state.json',
+        );
+        await fs.mkdir(path.dirname(evidencePath), { recursive: true });
+        await fs.writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, 'utf8');
+      }
+      return { caseRoot, caseEnv };
+    }
+
+    async function expectOverlayNode(
+      stateYaml: string,
+      expectedNode: string,
+      blockedNode?: string,
+      evidence?: unknown,
+    ) {
+      const { caseRoot, caseEnv } = await createOverlayRun(
+        `${expectedNode}-routing`,
+        stateYaml,
+        evidence,
+      );
+      try {
+        const next = await execFileAsync(process.execPath, [stateScript, 'next'], {
+          env: caseEnv,
+        });
+        expect(next.stdout).toContain(`NODE: ${expectedNode}`);
+
+        const entry = await execFileAsync(process.execPath, [guardScript, 'entry', expectedNode], {
+          env: caseEnv,
+        });
+        expect(entry.stdout).toContain(`ENTRY OK: ${expectedNode}`);
+
+        if (blockedNode) {
+          await expect(
+            execFileAsync(process.execPath, [guardScript, 'entry', blockedNode], {
+              env: caseEnv,
+            }),
+          ).rejects.toThrow(new RegExp(`current Node is ${expectedNode}`, 'u'));
+        }
+      } finally {
+        await fs.rm(caseRoot, { recursive: true, force: true });
+      }
+    }
+
+    await expectOverlayNode('phase: build\nplan: null\nreview_mode: standard\n', 'plan', 'review');
+    await expectOverlayNode(
+      'phase: build\nplan: docs/superpowers/plans/demo.md\nbuild_mode: executing-plans\nreview_mode: standard\n',
+      'execute',
+      'review',
+    );
+    await expectOverlayNode(
+      'phase: build\nplan: docs/superpowers/plans/demo.md\nbuild_mode: subagent-driven-development\nsubagent_dispatch: confirmed\nreview_mode: standard\n',
+      'subagent-execute',
+    );
+    await expectOverlayNode(
+      'phase: build\nplan: docs/superpowers/plans/demo.md\nbuild_mode: executing-plans\nreview_mode: standard\n',
+      'review',
+      undefined,
+      {
+        execute: {
+          'implementation-summary': 'done',
+          'test-evidence': 'done',
+        },
+      },
+    );
+    await expectOverlayNode(
+      'phase: build\nplan: docs/superpowers/plans/demo.md\nbuild_mode: subagent-driven-development\nsubagent_dispatch: confirmed\nreview_mode: standard\n',
+      'review',
+      undefined,
+      {
+        'subagent-execute': {
+          'handoff-request': 'done',
+          'handoff-result': 'done',
+        },
+      },
+    );
+    await expectOverlayNode(
+      'phase: build\nplan: docs/superpowers/plans/demo.md\nbuild_mode: executing-plans\nreview_mode: off\n',
+      'execute',
+      'review',
+      {
+        execute: {
+          'implementation-summary': 'done',
+          'test-evidence': 'done',
+        },
+      },
+    );
   });
 
   it('renders augmentations into entry, node, and handoff outputs', async () => {
