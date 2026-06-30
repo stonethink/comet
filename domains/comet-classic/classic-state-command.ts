@@ -844,7 +844,12 @@ async function recoverDesign(
   }
 }
 
-async function recoverBuild(output: CommandOutput, name: string, directory: string): Promise<void> {
+async function recoverBuild(
+  output: CommandOutput,
+  name: string,
+  directory: string,
+  workflow: string,
+): Promise<void> {
   const isolation = await readField(name, 'isolation');
   const buildMode = await readField(name, 'build_mode');
   const pause = await readField(name, 'build_pause');
@@ -895,11 +900,13 @@ async function recoverBuild(output: CommandOutput, name: string, directory: stri
   output.stdout.push('');
 
   const action = resolveBuildRecoveryAction(
+    workflow,
     isolation,
     buildMode,
     pause,
     subagentDispatch,
     tdd,
+    review,
     plan,
     pending,
     planPending,
@@ -907,23 +914,33 @@ async function recoverBuild(output: CommandOutput, name: string, directory: stri
   output.stdout.push(action);
 }
 
+function isMissingStateValue(value: string): boolean {
+  return !value || value === 'null';
+}
+
 function resolveBuildRecoveryAction(
+  workflow: string,
   isolation: string,
   buildMode: string,
   pause: string,
   subagentDispatch: string,
   tdd: string,
+  review: string,
   plan: string,
   pending: number,
   planPending: number,
 ): string {
   const planExists = plan && plan !== 'null';
+  const missingWorkflowChoices =
+    workflow === 'full' && (isMissingStateValue(tdd) || isMissingStateValue(review));
   if (
     pause === 'plan-ready' &&
     planExists &&
-    (!isolation || isolation === 'null' || !buildMode || buildMode === 'null')
+    (isMissingStateValue(isolation) || isMissingStateValue(buildMode) || missingWorkflowChoices)
   ) {
-    return 'Recovery action: Plan-ready pause detected. Ask the user whether to continue, then choose isolation and build mode without regenerating the plan.';
+    return workflow === 'full'
+      ? 'Recovery action: Plan-ready pause detected. Ask the user whether to continue, then choose isolation, build mode, TDD mode, and review mode without regenerating the plan.'
+      : 'Recovery action: Plan-ready pause detected. Ask the user whether to continue, then choose isolation and build mode without regenerating the plan.';
   }
   if (pause === 'plan-ready' && !planExists) {
     return 'Recovery action: Plan-ready pause is recorded, but the plan file is missing. Restore the plan file or rerun writing-plans before choosing execution.';
@@ -939,14 +956,17 @@ function resolveBuildRecoveryAction(
     }
     return 'Recovery action: Plan-ready pause is stale and all tasks are done. Clear build_pause to null, then run guard to transition to verify.';
   }
-  if (!isolation || isolation === 'null') {
+  if (isMissingStateValue(isolation)) {
     return "Recovery action: Isolation not selected. Use the current platform's user confirmation mechanism to ask user for branch/worktree choice.";
   }
-  if (!buildMode || buildMode === 'null') {
+  if (isMissingStateValue(buildMode)) {
     return "Recovery action: Build mode not selected. Use the current platform's user confirmation mechanism to ask user for execution method.";
   }
-  if (!tdd || tdd === 'null') {
+  if (workflow === 'full' && isMissingStateValue(tdd)) {
     return "Recovery action: TDD mode not selected. Use the current platform's user confirmation mechanism to ask user for tdd or direct.";
+  }
+  if (workflow === 'full' && isMissingStateValue(review)) {
+    return "Recovery action: Review mode not selected. Use the current platform's user confirmation mechanism to ask user for off, standard, or thorough.";
   }
   if (pending > 0) {
     if (buildMode === 'subagent-driven-development') {
@@ -1015,7 +1035,7 @@ async function recover(output: CommandOutput, name: string): Promise<void> {
   } else if (phase === 'design') {
     await recoverDesign(output, name, directory);
   } else if (phase === 'build') {
-    await recoverBuild(output, name, directory);
+    await recoverBuild(output, name, directory, workflow);
   } else if (phase === 'verify') {
     await recoverVerify(output, name);
   } else if (phase === 'archive') {

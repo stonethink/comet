@@ -60,7 +60,7 @@ The following decision points must pause to wait for explicit user selection; do
 
 - **open**: Requirements clarification completion confirmation, artifact review confirmation
 - **design**: brainstorming proposal confirmation (Design Doc cannot be created before confirmation)
-- **build**: plan-ready pause, isolation/build_mode/tdd_mode selection, spec large-scale change confirmation, preset (hotfix/tweak) upgrade-assessment two-choice (when a qualitative-change signal or file-count tripwire is hit, let the user decide whether to continue the preset or upgrade to full)
+- **build**: plan-ready pause, four choices: `isolation` / `build_mode` / `tdd_mode` / `review_mode` (workspace isolation, execution method, TDD mode, code review mode), spec large-scale change confirmation, preset (hotfix/tweak) upgrade-assessment two-choice (when a qualitative-change signal or file-count tripwire is hit, let the user decide whether to continue the preset or upgrade to full)
 - **verify**: Verification failure handling strategy, branch handling selection
 - **archive**: Final confirmation before archiving
 

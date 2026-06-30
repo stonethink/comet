@@ -3475,7 +3475,41 @@ describe('comet scripts', () => {
       expect(result.status).toBe(0);
       expect(result.stdout).toContain('build_pause: DONE (plan-ready)');
       expect(result.stdout).toContain('Plan-ready pause');
-      expect(result.stdout).toContain('choose isolation and build mode');
+      expect(result.stdout).toContain('choose isolation, build mode, TDD mode, and review mode');
+    });
+
+    it('outputs review mode selection guidance when recovering build phase', async () => {
+      await createChange(
+        tmpDir,
+        'recover-review-mode',
+        [
+          'workflow: full',
+          'phase: build',
+          'build_mode: executing-plans',
+          'build_pause: null',
+          'review_mode: null',
+          'tdd_mode: tdd',
+          'isolation: branch',
+          'verify_mode: null',
+          'design_doc: null',
+          'plan: docs/superpowers/plans/review-mode-plan.md',
+          'verify_result: pending',
+          'archived: false',
+          '',
+        ].join('\n'),
+      );
+
+      const result = runNode(tmpDir, stateScript, [
+        'check',
+        'recover-review-mode',
+        'build',
+        '--recover',
+      ]);
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain('review_mode: PENDING');
+      expect(result.stdout).toContain('Review mode not selected');
+      expect(result.stdout).toContain('ask user for off, standard, or thorough');
     });
 
     it('outputs subagent dispatch guidance when recovering build phase with pending tasks', async () => {
@@ -3489,6 +3523,7 @@ describe('comet scripts', () => {
           'build_pause: null',
           'subagent_dispatch: confirmed',
           'tdd_mode: tdd',
+          'review_mode: standard',
           'isolation: branch',
           'verify_mode: null',
           'design_doc: null',
@@ -3542,6 +3577,7 @@ describe('comet scripts', () => {
           'build_pause: null',
           'subagent_dispatch: confirmed',
           'tdd_mode: tdd',
+          'review_mode: standard',
           'isolation: branch',
           'verify_mode: null',
           'design_doc: null',
@@ -3618,7 +3654,8 @@ describe('comet scripts', () => {
           'build_mode: subagent-driven-development',
           'build_pause: plan-ready',
           'subagent_dispatch: confirmed',
-          'tdd_mode: null',
+          'tdd_mode: tdd',
+          'review_mode: standard',
           'isolation: branch',
           'verify_mode: null',
           'design_doc: null',
@@ -3659,7 +3696,8 @@ describe('comet scripts', () => {
           'build_mode: executing-plans',
           'build_pause: plan-ready',
           'subagent_dispatch: null',
-          'tdd_mode: null',
+          'tdd_mode: direct',
+          'review_mode: standard',
           'isolation: branch',
           'verify_mode: null',
           'design_doc: null',
@@ -3817,6 +3855,7 @@ describe('comet scripts', () => {
           'build_mode: executing-plans',
           'build_pause: null',
           'tdd_mode: direct',
+          'review_mode: standard',
           'isolation: branch',
           'verify_mode: null',
           'design_doc: null',

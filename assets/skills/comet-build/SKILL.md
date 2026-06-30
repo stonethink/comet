@@ -78,7 +78,7 @@ After the plan is recorded, immediately provide a new user decision point:
 
 | Option | Behavior | Description |
 |--------|----------|-------------|
-| A | Continue execution | Stay in the current model and proceed to Step 3 to choose workspace isolation and execution method |
+| A | Continue execution | Stay in the current model and proceed to Step 3 to choose workspace isolation, execution method, TDD mode, and code review mode |
 | B | Pause to switch model | Record `build_pause: plan-ready`, stop this `/comet-build` invocation, and allow the user to resume later from `/comet` or `/comet-build` |
 
 This is a user decision point. **Must follow the `comet/reference/decision-point.md` protocol to pause and wait for the user to explicitly choose**. Must not auto-continue and must not write the pause into `build_mode`.
@@ -105,9 +105,9 @@ If resuming with `build_pause: plan-ready` and the `plan` file exists, do not re
 node "$COMET_STATE" set <name> build_pause null
 ```
 
-Then continue this step to choose workspace isolation and execution method.
+Then continue this step to choose workspace isolation, execution method, TDD mode, and code review mode.
 
-Plan has been written to the current branch. Before starting execution, **ask the user to choose both workspace isolation and execution method in a single interaction**:
+Plan has been written to the current branch. Before starting execution, **ask the user to choose workspace isolation, execution method, TDD mode, and code review mode in a single interaction**:
 
 **Workspace Isolation**:
 
@@ -132,9 +132,9 @@ Plan has been written to the current branch. Before starting execution, **ask th
 - Task count ≤ 2 and no cross-module dependencies → Recommend B
 - From hotfix path → Recommend B
 
-This is a user decision point. **Must follow the `comet/reference/decision-point.md` protocol to pause and wait for the user to explicitly choose isolation method, execution method, and TDD mode**. Must not choose `branch` or `worktree` based on recommendation rules, and must not choose the execution method or TDD mode based on recommendation rules. Recommendation rules are for suggestion only, not a substitute for user confirmation.
+This is a user decision point. **Must follow the `comet/reference/decision-point.md` protocol to pause and wait for the user to explicitly choose isolation method, execution method, TDD mode, and code review mode**. Must not choose `branch` or `worktree` based on recommendation rules, and must not choose the execution method, TDD mode, or code review mode based on recommendation rules. Recommendation rules are for suggestion only, not a substitute for user confirmation.
 
-After user selection, update `isolation`, execution method, and TDD mode fields:
+After user selection, update `isolation`, execution method, TDD mode, and code review mode fields:
 
 ```bash
 node "$COMET_STATE" set <name> isolation <branch|worktree>

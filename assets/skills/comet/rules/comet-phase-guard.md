@@ -62,7 +62,7 @@
 
 - **open**: 需求澄清完成确认、artifact 评审确认
 - **design**: brainstorming 方案确认（确认前不得创建 Design Doc）
-- **build**: plan-ready 暂停、isolation/build_mode/tdd_mode 选择、spec 大规模变更确认、预设（hotfix/tweak）升级判定二选一（命中质变信号或文件数 tripwire 时，交用户决定继续预设流程还是升级 full）
+- **build**: plan-ready 暂停、`isolation` / `build_mode` / `tdd_mode` / `review_mode` 四项选择（工作区隔离、执行方式、TDD 模式、代码审查模式）、spec 大规模变更确认、预设（hotfix/tweak）升级判定二选一（命中质变信号或文件数 tripwire 时，交用户决定继续预设流程还是升级 full）
 - **verify**: 验证失败处理策略、branch handling 选择
 - **archive**: 归档前最终确认
 

@@ -47,6 +47,7 @@ const FULL_YAML = [
   'build_mode: null',
   'build_pause: null',
   'tdd_mode: null',
+  'review_mode: null',
   'isolation: null',
   'verify_mode: null',
   'design_doc: null',
@@ -130,6 +131,7 @@ describe('check --recover', () => {
         'build_mode: null',
         'build_pause: plan-ready',
         'tdd_mode: null',
+        'review_mode: null',
         'isolation: null',
         'verify_mode: null',
         'design_doc: null',
@@ -150,7 +152,7 @@ describe('check --recover', () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('build_pause: DONE (plan-ready)');
     expect(result.stdout).toContain('Plan-ready pause');
-    expect(result.stdout).toContain('choose isolation and build mode');
+    expect(result.stdout).toContain('choose isolation, build mode, TDD mode, and review mode');
   });
 
   it('outputs subagent dispatch guidance when recovering build phase with pending tasks', async () => {
@@ -164,6 +166,7 @@ describe('check --recover', () => {
         'build_pause: null',
         'subagent_dispatch: confirmed',
         'tdd_mode: tdd',
+        'review_mode: standard',
         'isolation: branch',
         'verify_mode: null',
         'design_doc: null',

@@ -45,6 +45,8 @@ This is the first beta of the 0.4.0 line. Relative to 0.3.9, Comet becomes a Nod
 
 ### Fixed
 
+- **Comet/Superpowers dispatch wording**: Clarifies that Superpowers `subagent-driven-development` provides the base continuous dispatch loop while Comet's `review_mode` owns reviewer selection and review-fix budgets, and keeps the English `comet-build` decision point aligned with Chinese by requiring code review mode selection alongside isolation, execution method, and TDD mode.
+- **Build recovery decision sync**: Aligns the main `/comet` entry, injected phase-guard rules, and Classic recovery guidance with the full four build decisions — workspace isolation, execution method, TDD mode, and code review mode — so interrupted full workflows do not skip `review_mode` selection before execution or verification.
 - **Windows path handling**: Fixes OpenSpec init/update path quoting for directories with spaces on Windows, so `comet init` no longer fails when the project path contains spaces.
 - **Partial init failure summary**: `comet init` now keeps platforms with any failed component out of `Installed` and names the failed component (e.g. `OpenCode (OpenSpec failed)`) in `Failed`, instead of showing a partial setup as both installed and failed.
 - **Skill doc sync (EN/ZH)**: Restores the missing `review_mode` selection table and review-gate conditions in the English `comet-build` skill, backfills the verify "retry limit" paragraph in the Chinese skill, and reconciles the `comet-any` eval-provider reference back to the publish/distribute model so the English bundle matches the Chinese source of truth.
@@ -56,6 +58,7 @@ This is the first beta of the 0.4.0 line. Relative to 0.3.9, Comet becomes a Nod
 
 - **Skill bootstrap coverage**: Updated the Skill documentation tests to accept either inline Comet bootstrap blocks or delegated comet/reference/scripts.md references, while still checking the safe comet-env.mjs lookup and HOME glob behavior when a Skill keeps the bootstrap inline.
 - **Superpowers `subagent-driven-development` contract coverage**: Added skill-content regression coverage that the Comet subagent dispatch extension uses task reviewer terminology and does not bind shipped Skill prose to Superpowers `subagent-driven-development` internal script or workspace names.
+- **Build recovery parity coverage**: Adds regression coverage for the `/comet` entry Skill, phase-guard rule injection, and Classic recovery output so all three surfaces stay aligned on the four build decisions.
 
 ### Removed
 

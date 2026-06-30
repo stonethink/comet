@@ -57,11 +57,11 @@ Prefer reading `openspec/changes/<name>/.comet.yaml`. If not available, fall bac
 **Resume rules**:
 - On every context resume, rerun Step 0 and Step 1; do not trust conversation history for phase detection
 - If there is an active change and the worktree has uncommitted changes, handle them through `comet/reference/dirty-worktree.md`. That protocol defines checks, attribution, and prohibitions; this file does not repeat them
-- If `phase: build`, first check `build_pause`, `plan`, `build_mode`, and `isolation` (see details below):
-  - If `build_pause: plan-ready` but `isolation` and `build_mode` are already set, treat as stale pause: first output `[COMET] Detected stale pause (build_pause=plan-ready but isolation/build_mode already set), auto-clearing and continuing`, then run `node "$COMET_STATE" set <name> build_pause null`, then read the next unchecked task from tasks.md and resume execution per `build_mode`
-  - If `build_pause: plan-ready` and the plan file exists, but `isolation` or `build_mode` is not yet set, return to the `/comet-build` plan-ready resume point, prompt the user to choose isolation and execution method, and do not regenerate the plan
+- If `phase: build`, first check `build_pause`, `plan`, `isolation`, `build_mode`, `tdd_mode`, and `review_mode` (see details below):
+  - If `build_pause: plan-ready` but `isolation`, `build_mode`, `tdd_mode`, and `review_mode` are all already set, treat as stale pause: first output `[COMET] Detected stale pause (build_pause=plan-ready but isolation/build_mode/tdd_mode/review_mode are set), auto-clearing and continuing`, then run `node "$COMET_STATE" set <name> build_pause null`, then read the next unchecked task from tasks.md and resume execution per `build_mode`
+  - If `build_pause: plan-ready` and the plan file exists, but `isolation`, `build_mode`, `tdd_mode`, or `review_mode` is not yet set, return to the `/comet-build` plan-ready resume point, prompt the user to complete/confirm workspace isolation, execution method, TDD mode, and code review mode, and do not regenerate the plan
   - If `build_pause: plan-ready` but the plan file is missing, return to `/comet-build` to handle corrupted state or regenerate the plan
-  - If `build_mode`, `isolation`, or `tdd_mode` is unset, return to the corresponding `/comet-build` step to supplement before executing
+  - If `isolation`, `build_mode`, `tdd_mode`, or `review_mode` is unset, return to the corresponding `/comet-build` step to supplement before executing
   - If all are set, read the next unchecked task from tasks.md and continue:
     - If `build_mode: subagent-driven-development`, do not execute tasks directly in the main window; return to `/comet-build`'s background subagent dispatch rules, main window only coordinates
     - Other execution modes follow `/comet-build`'s corresponding rules
@@ -122,7 +122,7 @@ Flow chain: open → design → build → verify → archive
 Nodes requiring user participation (pause only at these nodes):
 1. Open phase proposal/design/tasks review and confirmation
 2. Confirm design approach during brainstorming
-3. Plan-ready pause choice during build phase, followed by workflow configuration selection (isolation + execution method + TDD mode)
+3. Plan-ready pause choice during build phase, followed by workflow configuration selection (workspace isolation + execution method + TDD mode + code review mode)
 4. Decide to fix or accept deviation when verify fails (including Spec drift handling)
 5. Choose branch handling method for finishing-branch
 6. Archive phase final confirmation before running the archive script

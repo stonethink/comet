@@ -683,13 +683,16 @@ describe('skills', () => {
         '必须使用当前平台可用的用户输入/确认机制以单选题形式暂停并等待用户选择处理方式',
       );
 
-      // MEDIUM: comet/SKILL.md build phase resume recognizes plan-ready pause before build decisions
-      expect(zhComet).toContain('先检查 `build_pause`、`plan`、`build_mode` 和 `isolation`');
+      // MEDIUM: comet/SKILL.md build phase resume recognizes plan-ready pause before all build decisions
+      expect(zhComet).toContain(
+        '先检查 `build_pause`、`plan`、`isolation`、`build_mode`、`tdd_mode` 和 `review_mode`',
+      );
       expect(zhComet).toContain('`build_pause: plan-ready` 且 plan 文件存在');
       expect(zhComet).toContain('`build_pause` 不是执行方式，不得写入 `build_mode`');
       expect(zhComet).toContain(
-        '若 `build_pause: plan-ready` 但 `isolation` 和 `build_mode` 已经设置，则视为 stale pause',
+        '若 `build_pause: plan-ready` 但 `isolation`、`build_mode`、`tdd_mode` 和 `review_mode` 都已经设置，则视为 stale pause',
       );
+      expect(zhComet).toContain('工作区隔离、执行方式、TDD 模式和代码审查模式');
       expect(zhBuild).toContain('提供 plan-ready 暂停点');
       expect(zhBuild).toContain('不得自动继续，也不得把暂停写入 `build_mode`');
       expect(zhBuild).toContain('在 `executing-plans` 下，主会话直接执行任务');
@@ -940,10 +943,16 @@ describe('skills', () => {
       );
       expect(enDesign).not.toContain('Skip redundant context exploration');
       expect(enBuild).toContain(
+        'proceed to Step 3 to choose workspace isolation, execution method, TDD mode, and code review mode',
+      );
+      expect(enBuild).toContain(
+        'Then continue this step to choose workspace isolation, execution method, TDD mode, and code review mode',
+      );
+      expect(enBuild).toContain(
         'Must not choose `branch` or `worktree` based on recommendation rules',
       );
       expect(enBuild).toContain(
-        'must not choose the execution method or TDD mode based on recommendation rules',
+        'must not choose the execution method, TDD mode, or code review mode based on recommendation rules',
       );
       expect(enBuild).toContain('`comet/reference/decision-point.md`');
       expect(enVerify).toContain(
@@ -1003,10 +1012,18 @@ describe('skills', () => {
       expect(enVerify).toContain(
         "must use the current platform's available user input/confirmation mechanism as a single-select question to pause and wait for the user to choose the handling method",
       );
-      expect(enComet).toContain('first check `build_pause`, `plan`, `build_mode`, and `isolation`');
+      expect(enComet).toContain(
+        'first check `build_pause`, `plan`, `isolation`, `build_mode`, `tdd_mode`, and `review_mode`',
+      );
       expect(enComet).toContain('`build_pause: plan-ready` and the plan file exists');
       expect(enComet).toContain(
         '`build_pause` is not an execution method and must not be written to `build_mode`',
+      );
+      expect(enComet).toContain(
+        '`build_pause: plan-ready` but `isolation`, `build_mode`, `tdd_mode`, and `review_mode` are all already set',
+      );
+      expect(enComet).toContain(
+        'workspace isolation, execution method, TDD mode, and code review mode',
       );
       expect(enBuild).toContain('Provide Plan-Ready Pause Point');
       expect(enBuild).toContain(
@@ -1275,9 +1292,15 @@ describe('skills', () => {
       expect(zhBuild).toContain(
         '使用 Skill 工具加载 Superpowers `subagent-driven-development` 技能',
       );
+      expect(zhBuild).toContain('选择工作区隔离、执行方式、TDD 模式和代码审查模式');
       expect(zhBuild).toContain('读取 `comet/reference/subagent-dispatch.md` 获取 Comet 专属扩展');
       expect(zhBuild).not.toContain('#### Subagent 调度协议');
       expect(zhDispatch).toContain('发生冲突时，以本文档中更具体的 Comet 约束为准');
+      expect(zhDispatch).toContain(
+        'Superpowers `subagent-driven-development` 技能提供基础连续派发循环',
+      );
+      expect(zhDispatch).toContain('Comet 的 `review_mode` 接管 reviewer 阶段');
+      expect(zhDispatch).not.toContain('按 `review_mode` 决定所需审查与修复流程');
       expect(zhDispatch).toContain(
         '派发第一个 task 前，必须完成 Superpowers `subagent-driven-development` 技能的预检计划审查',
       );
@@ -1386,6 +1409,18 @@ describe('skills', () => {
       expect(enBuild).toContain(
         'TDD constraints and evidence thresholds are defined in `comet/reference/subagent-dispatch.md`',
       );
+      expect(enBuild).toContain(
+        'workspace isolation, execution method, TDD mode, and code review mode',
+      );
+      expect(enBuild).toContain(
+        'explicitly choose isolation method, execution method, TDD mode, and code review mode',
+      );
+      expect(enBuild).toContain(
+        'update `isolation`, execution method, TDD mode, and code review mode fields',
+      );
+      expect(enBuild).not.toContain(
+        'ask the user to choose both workspace isolation ' + 'and execution method',
+      );
       expect(enBuild).toContain('current execution branch and `review_mode`');
       expect(enBuild).toContain('dispatches no per-task reviewer under `off`');
       expect(enBuild).toContain('every task gets a per-task reviewer');
@@ -1448,7 +1483,11 @@ describe('skills', () => {
       expect(enGuard).not.toContain('wait for both spec compliance and code quality reviews');
       expect(enGuard).not.toContain('passed both reviews');
       expect(enGuard).not.toContain('After dual review');
-      expect(enDispatch).toContain('with review and fix flow determined by `review_mode`');
+      expect(enDispatch).toContain(
+        'Superpowers `subagent-driven-development` skill provides the base continuous dispatch loop',
+      );
+      expect(enDispatch).toContain("Comet's `review_mode` takes over the reviewer stage");
+      expect(enDispatch).not.toContain('with review and fix flow determined by `review_mode`');
       expect(enDispatch).toContain('The selected `review_mode`');
       expect(enDispatch).toContain('After `review_mode` validation');
       expect(enDispatch).toContain(
@@ -1525,6 +1564,22 @@ describe('skills', () => {
       expect(enSection).toContain('NEXT: done');
       expect(enSection).not.toContain("must invoke the next phase's skill");
       expect(enSection).not.toContain('open → `comet-design`');
+    });
+
+    it('keeps build decision rules aligned with the four build choices', async () => {
+      const zhGuard = await fs.readFile(
+        path.resolve('assets', 'skills', 'comet', 'rules', 'comet-phase-guard.md'),
+        'utf-8',
+      );
+      const enGuard = await fs.readFile(
+        path.resolve('assets', 'skills', 'comet', 'rules', 'comet-phase-guard.en.md'),
+        'utf-8',
+      );
+
+      expect(zhGuard).toContain('`isolation` / `build_mode` / `tdd_mode` / `review_mode` 四项选择');
+      expect(enGuard).toContain(
+        'four choices: `isolation` / `build_mode` / `tdd_mode` / `review_mode`',
+      );
     });
   });
 
