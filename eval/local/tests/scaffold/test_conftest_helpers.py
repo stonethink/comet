@@ -206,18 +206,49 @@ def test_snapshot_dynamic_skill_package_copies_package_and_node_skills(tmp_path:
     assert (test_dir / "_eval_target_skills" / "manifest-skill-open" / "SKILL.md").exists()
 
 
-def test_workflow_overlay_contract_validator_rejects_missing_contract_files(tmp_path: Path):
-    package = tmp_path / "overlay-skill"
-    package.mkdir()
+def _workflow_overlay_validator():
+    validator_path = (
+        Path(__file__).parents[2]
+        / "tasks"
+        / "workflow-overlay-contract"
+        / "validation"
+        / "test_workflow_overlay_contract.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "workflow_overlay_contract_validator",
+        validator_path,
+    )
+    validator = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(validator)
+    return validator
+
+
+def _run_workflow_overlay_validator(workspace: Path, context: dict) -> dict:
+    (workspace / "_test_context.json").write_text(
+        json.dumps(context),
+        encoding="utf-8",
+    )
+    validator = _workflow_overlay_validator()
+    old_cwd = Path.cwd()
+    try:
+        os.chdir(workspace)
+        validator.main()
+        return json.loads((workspace / "_test_results.json").read_text(encoding="utf-8"))
+    finally:
+        os.chdir(old_cwd)
+
+
+def _write_overlay_eval_manifest(package: Path, draft_hash: str = "c" * 64) -> None:
     comet_dir = package / "comet"
-    comet_dir.mkdir()
+    comet_dir.mkdir(parents=True, exist_ok=True)
     (comet_dir / "eval.yaml").write_text(
         """
 apiVersion: comet.eval/v1alpha1
 kind: SkillEvalManifest
 metadata:
   name: overlay-skill
-  draftHash: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+  draftHash: {draft_hash}
 skill:
   name: overlay-skill
   source: ..
@@ -240,61 +271,94 @@ evaluation:
     - node: design
       check: augmentation:design.grill-me
       enforcement: guarded
-""",
+    - node: design
+      check: output-schema:design.comet.grill-me.v1.challenge-summary
+      schema: comet.grill-me.v1
+      evidence: challenge-summary
+""".format(draft_hash=draft_hash),
         encoding="utf-8",
     )
+
+
+def _overlay_validator_context(package: Path, draft_hash: str = "c" * 64) -> dict:
+    return {
+        "skill_package_path": str(package),
+        "baseline_treatments": ["CONTROL", "COMET_FULL"],
+        "quality_gates": {
+            "minWeightedScore": 0.8,
+            "minPassAt1": 0.6,
+            "maxInstabilityGap": 0.4,
+        },
+        "required_output_schemas": ["comet.grill-me.v1"],
+        "expected_evidence": [
+            {
+                "node": "design",
+                "check": "augmentation:design.grill-me",
+                "enforcement": "guarded",
+            },
+            {
+                "node": "design",
+                "check": "output-schema:design.comet.grill-me.v1.challenge-summary",
+                "schema": "comet.grill-me.v1",
+                "evidence": "challenge-summary",
+            },
+        ],
+        "draft_hash": draft_hash,
+    }
+
+
+def test_workflow_overlay_contract_validator_rejects_missing_contract_files(tmp_path: Path):
+    package = tmp_path / "overlay-skill"
+    package.mkdir()
+    _write_overlay_eval_manifest(package)
 
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    (workspace / "_test_context.json").write_text(
-        json.dumps(
-            {
-                "skill_package_path": str(package),
-                "baseline_treatments": ["CONTROL", "COMET_FULL"],
-                "quality_gates": {
-                    "minWeightedScore": 0.8,
-                    "minPassAt1": 0.6,
-                    "maxInstabilityGap": 0.4,
-                },
-                "required_output_schemas": ["comet.grill-me.v1"],
-                "expected_evidence": [
-                    {
-                        "node": "design",
-                        "check": "augmentation:design.grill-me",
-                        "enforcement": "guarded",
-                    }
-                ],
-                "draft_hash": "c" * 64,
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    validator_path = (
-        Path(__file__).parents[2]
-        / "tasks"
-        / "workflow-overlay-contract"
-        / "validation"
-        / "test_workflow_overlay_contract.py"
-    )
-    spec = importlib.util.spec_from_file_location(
-        "workflow_overlay_contract_validator",
-        validator_path,
-    )
-    validator = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
-    spec.loader.exec_module(validator)
-
-    old_cwd = Path.cwd()
-    try:
-        os.chdir(workspace)
-        validator.main()
-        results = json.loads((workspace / "_test_results.json").read_text(encoding="utf-8"))
-    finally:
-        os.chdir(old_cwd)
+    results = _run_workflow_overlay_validator(workspace, _overlay_validator_context(package))
 
     failures = "\n".join(results["failed"])
     assert "reference/workflow-protocol.json missing" in failures
     assert "scripts/workflow-state.mjs missing" in failures
     assert "scripts/workflow-guard.mjs missing" in failures
     assert "scripts/workflow-handoff.mjs missing" in failures
+
+
+def test_workflow_overlay_contract_validator_accepts_minimal_contract_package(tmp_path: Path):
+    package = tmp_path / "overlay-skill"
+    package.mkdir()
+    (package / "reference").mkdir()
+    (package / "scripts").mkdir()
+    (package / "reference" / "workflow-protocol.json").write_text(
+        json.dumps(
+            {
+                "schemaVersion": 1,
+                "kind": "comet-five-phase-overlay",
+                "name": "overlay-skill",
+                "goal": "Validate overlay contracts.",
+                "nodes": [{"id": "design", "label": "Design"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (package / "scripts" / "workflow-state.mjs").write_text(
+        "activeCometChanges resolveCometOverlayChange workflow-evidence "
+        "isCometOverlay(protocol) command === 'init' /comet-open",
+        encoding="utf-8",
+    )
+    (package / "scripts" / "workflow-guard.mjs").write_text(
+        "readOverlayEvidence workflow-evidence missing augmentation evidence "
+        "COMET STATE: unchanged",
+        encoding="utf-8",
+    )
+    (package / "scripts" / "workflow-handoff.mjs").write_text(
+        "workflow-protocol.json workflow: protocol.name protocol.nodes.map "
+        "requiredSkillCalls augmentations outputSchemas",
+        encoding="utf-8",
+    )
+    _write_overlay_eval_manifest(package)
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    results = _run_workflow_overlay_validator(workspace, _overlay_validator_context(package))
+
+    assert results["failed"] == []

@@ -525,6 +525,23 @@ describe('Factory skill package generation', () => {
           ],
           outputSchemas: ['comet.grill-me.v1'],
         },
+        review: {
+          disabled: true,
+          requiredSkillCalls: [
+            {
+              skill: 'disabled-review-required',
+              reason: 'This disabled Node must not leak into eval evidence.',
+            },
+          ],
+          augmentations: [
+            {
+              skill: 'disabled-review-augment',
+              reason: 'This disabled augmentation must not leak into eval evidence.',
+              enforcement: 'guarded',
+            },
+          ],
+          outputSchemas: ['disabled.review.v1'],
+        },
       },
       outputSchemas: [
         {
@@ -532,6 +549,20 @@ describe('Factory skill package generation', () => {
           description: 'Grill-me review evidence.',
           artifacts: [],
           evidence: [{ id: 'challenge-summary', required: true }],
+        },
+        {
+          id: 'disabled.review.v1',
+          description: 'Disabled review evidence.',
+          artifacts: [
+            {
+              id: 'disabled-review-report',
+              kind: 'file',
+              required: true,
+              paths: ['disabled-review.md'],
+              validations: ['artifact-exists'],
+            },
+          ],
+          evidence: [{ id: 'disabled-summary', required: true }],
         },
       ],
     });
@@ -555,6 +586,7 @@ describe('Factory skill package generation', () => {
           evidence?: string;
           enforcement?: string;
         }>;
+        expectedArtifacts?: Array<{ node?: string; schema?: string; artifact?: string }>;
       };
     };
 
@@ -572,6 +604,8 @@ describe('Factory skill package generation', () => {
       maxInstabilityGap: 0.4,
     });
     expect(evalManifest.evaluation?.requiredOutputSchemas).toContain('comet.grill-me.v1');
+    expect(evalManifest.evaluation?.requiredOutputSchemas).not.toContain('comet.review.v1');
+    expect(evalManifest.evaluation?.requiredOutputSchemas).not.toContain('disabled.review.v1');
     expect(evalManifest.evaluation?.expectedEvidence).toContainEqual({
       node: 'design',
       check: 'augmentation:design.grill-me',
@@ -583,6 +617,23 @@ describe('Factory skill package generation', () => {
       schema: 'comet.grill-me.v1',
       evidence: 'challenge-summary',
     });
+    expect(evalManifest.evaluation?.expectedEvidence).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ node: 'review' }),
+        expect.objectContaining({ check: 'required-skill:review.disabled-review-required' }),
+        expect.objectContaining({ check: 'augmentation:review.disabled-review-augment' }),
+        expect.objectContaining({
+          check: 'output-schema:review.disabled.review.v1.disabled-summary',
+        }),
+      ]),
+    );
+    expect(evalManifest.evaluation?.expectedArtifacts).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ node: 'review' }),
+        expect.objectContaining({ schema: 'disabled.review.v1' }),
+        expect.objectContaining({ artifact: 'disabled-review-report' }),
+      ]),
+    );
     expect(evalManifest.metadata?.draftHash).toMatch(/^[a-f0-9]{64}$/u);
   });
 

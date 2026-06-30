@@ -1168,6 +1168,21 @@ function uniqueStrings(values: string[]): string[] {
   return Array.from(new Set(values));
 }
 
+function sortedUniqueRecords<T extends Record<string, unknown>>(records: T[]): T[] {
+  const byKey = new Map<string, T>();
+  for (const record of records) {
+    const key = JSON.stringify(
+      Object.fromEntries(
+        Object.entries(record).sort(([left], [right]) => left.localeCompare(right)),
+      ),
+    );
+    byKey.set(key, record);
+  }
+  return [...byKey.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([, record]) => record);
+}
+
 function workflowContractSkillDefinition(
   plan: FactorySkillPackagePlan,
   protocol: WorkflowProtocol,
@@ -1207,7 +1222,8 @@ function workflowContractEvalManifest(
   plan: FactorySkillPackagePlan,
   protocol: WorkflowProtocol,
 ): Record<string, unknown> {
-  const route = workflowContractInternalSkillNames(protocol);
+  const activeNodes = workflowContractRoute(protocol);
+  const route = activeNodes.map((node) => generatedNodeSkillName(protocol.name, node.id));
   const isOverlay = protocol.kind === 'comet-five-phase-overlay';
   const recommendedTasks = isOverlay
     ? [
@@ -1220,36 +1236,41 @@ function workflowContractEvalManifest(
         'comet-api-cache-ttl',
       ]
     : ['generic-skill-smoke', 'authoring-skill-smoke', 'workflow-route-conformance'];
+  const activeOutputSchemas = uniqueStrings(activeNodes.flatMap((node) => node.outputSchemas));
+  const activeOutputSchemaSet = new Set(activeOutputSchemas);
   const evalRequiredOutputSchemas = protocol.evals[0]?.requiredOutputSchemas ?? [];
+  const activeEvalRequiredOutputSchemas = evalRequiredOutputSchemas.filter((schemaId) =>
+    activeOutputSchemaSet.has(schemaId),
+  );
   const requiredOutputSchemas = uniqueStrings(
-    evalRequiredOutputSchemas.length > 0
-      ? evalRequiredOutputSchemas
-      : protocol.nodes.flatMap((node) => node.outputSchemas),
+    evalRequiredOutputSchemas.length > 0 ? activeEvalRequiredOutputSchemas : activeOutputSchemas,
   );
   const schemasById = new Map(protocol.outputSchemas.map((schema) => [schema.id, schema]));
-  const expectedEvidence = protocol.nodes.flatMap((node) => [
-    ...node.requiredSkillCalls.map((binding) => ({
-      node: node.id,
-      check: `required-skill:${node.id}.${binding.skill}`,
-      enforcement: binding.enforcement,
-    })),
-    ...node.augmentations.map((binding) => ({
-      node: node.id,
-      check: `augmentation:${node.id}.${binding.skill}`,
-      enforcement: binding.enforcement,
-    })),
-    ...node.outputSchemas.flatMap((schemaId) =>
-      (schemasById.get(schemaId)?.evidence ?? [])
-        .filter((field) => field.required)
-        .map((field) => ({
-          node: node.id,
-          check: `output-schema:${node.id}.${schemaId}.${field.id}`,
-          schema: schemaId,
-          evidence: field.id,
-        })),
-    ),
-  ]);
-  const expectedArtifacts = protocol.nodes.flatMap((node) =>
+  const expectedEvidence = sortedUniqueRecords(
+    activeNodes.flatMap((node) => [
+      ...node.requiredSkillCalls.map((binding) => ({
+        node: node.id,
+        check: `required-skill:${node.id}.${binding.skill}`,
+        enforcement: binding.enforcement,
+      })),
+      ...node.augmentations.map((binding) => ({
+        node: node.id,
+        check: `augmentation:${node.id}.${binding.skill}`,
+        enforcement: binding.enforcement,
+      })),
+      ...node.outputSchemas.flatMap((schemaId) =>
+        (schemasById.get(schemaId)?.evidence ?? [])
+          .filter((field) => field.required)
+          .map((field) => ({
+            node: node.id,
+            check: `output-schema:${node.id}.${schemaId}.${field.id}`,
+            schema: schemaId,
+            evidence: field.id,
+          })),
+      ),
+    ]),
+  );
+  const expectedArtifacts = activeNodes.flatMap((node) =>
     node.outputSchemas.flatMap((schemaId) => {
       const schema = protocol.outputSchemas.find((item) => item.id === schemaId);
       return (schema?.artifacts ?? [])
@@ -1286,8 +1307,9 @@ function workflowContractEvalManifest(
       expectedArtifacts,
       routeConformance: {
         task: 'workflow-route-conformance',
-        expectedNodeOrder:
-          protocol.evals[0]?.expectedNodeOrder ?? protocol.nodes.map((node) => node.id),
+        expectedNodeOrder: (
+          protocol.evals[0]?.expectedNodeOrder ?? activeNodes.map((node) => node.id)
+        ).filter((nodeId) => activeNodes.some((node) => node.id === nodeId)),
       },
     },
     interaction: { mode: 'none', maxTurns: 8 },
