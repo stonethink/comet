@@ -264,13 +264,13 @@ prefer:
       bundleStatusCommand('optimized-bundle', { project: projectRoot }),
     );
     expect(text).toContain('Current step: needs-benchmark');
-    expect(text).toContain('User next step: Run a benchmark for the generated Skill');
+    expect(text).toContain('User next step: Run repository eval for the generated Skill');
     expect(text).toContain('Suggested user command:');
     expect(text).toContain(
       'Backend command: comet bundle benchmark-plan optimized-bundle --level quick',
     );
     expect(text).toContain('Still missing:');
-    expect(text).toContain('- Passing benchmark evidence for the current draft');
+    expect(text).toContain('- Passing eval evidence for the current draft');
   });
 
   it('lists recoverable Bundle authoring states with next actions', async () => {
@@ -2036,7 +2036,7 @@ prefer:
     expect(ignored.factory).not.toHaveProperty('composition');
   });
 
-  it('builds a factory review summary with compile and benchmark workload evidence', async () => {
+  it('builds a factory review summary with compile and eval workload evidence', async () => {
     const skillRoot = path.join(projectRoot, '.claude', 'skills', 'factory-alpha');
     await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
     await fs.mkdir(skillRoot, { recursive: true });
@@ -2117,7 +2117,7 @@ prefer:
     );
     expect(text).toContain('Validate this Skill:');
     expect(text).toContain('Next steps:');
-    expect(text).not.toContain('Readiness: blocked\nBlockers:\n- [benchmark]');
+    expect(text).not.toContain('Readiness: blocked\nBlockers:\n- [eval]');
   });
 
   it('points composition-blocked factory states away from factory-generate as the next action', async () => {

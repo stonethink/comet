@@ -141,7 +141,7 @@ describe('Bundle next action', () => {
       },
     });
     expect(summary.completed).toContain('Skill Creator metadata initialized');
-    expect(summary.missing).toContain('Passing benchmark evidence for the current draft');
+    expect(summary.missing).toContain('Passing eval evidence for the current draft');
   });
 
   it('marks preference drift when the stored hash exists and the current hash is null', () => {

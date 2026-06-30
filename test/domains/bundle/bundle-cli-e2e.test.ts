@@ -121,6 +121,31 @@ async function authorSubstanceNodes(
   if (unauthored.length > 0) {
     runJson('bundle', 'factory-generate', name, '--project', projectRoot);
   }
+  const updated = runJson('bundle', 'status', name, '--project', projectRoot);
+  const packageRoot = updated.factory?.generatedSkillPackage?.packageRoot;
+  if (typeof packageRoot === 'string') {
+    await authorGeneratedMarkers(packageRoot);
+  }
+}
+
+async function authorGeneratedMarkers(root: string): Promise<void> {
+  const entries = await fs.readdir(root, { withFileTypes: true });
+  for (const entry of entries) {
+    const target = path.join(root, entry.name);
+    if (entry.isDirectory()) {
+      await authorGeneratedMarkers(target);
+    } else if (entry.isFile() && entry.name === 'SKILL.md') {
+      const source = await fs.readFile(target, 'utf8');
+      await fs.writeFile(
+        target,
+        source.replaceAll(
+          '<!-- AUTHORING PENDING -->',
+          'The generated Skill content has been authored for this CLI fixture.',
+        ),
+        'utf8',
+      );
+    }
+  }
 }
 
 function passingResult(hash: string, entrySkills: string[] = ['alpha', 'beta']): BundleEvalResult {
@@ -726,9 +751,9 @@ prefer:
         entrySkill: 'factory-missing',
       },
     });
-    expect(summary.readiness).toMatchObject({
-      blockers: ['[benchmark] Benchmark evidence for the current draft hash is missing'],
-    });
+    expect(summary.readiness.blockers).toEqual(
+      expect.arrayContaining(['[eval] Eval evidence for the current draft hash is missing']),
+    );
   });
 
   it('prints readiness blockers and evidence in review-summary text mode', async () => {
@@ -815,9 +840,7 @@ prefer:
     expect(reviewSummary.status, reviewSummary.stderr).toBe(0);
     expect(reviewSummary.stdout).toContain('Readiness: blocked');
     expect(reviewSummary.stdout).toContain('Blockers:');
-    expect(reviewSummary.stdout).toContain(
-      'Benchmark evidence for the current draft hash is missing',
-    );
+    expect(reviewSummary.stdout).toContain('Eval evidence for the current draft hash is missing');
     expect(reviewSummary.stdout).toContain('Evidence:');
   });
 
@@ -993,7 +1016,7 @@ prefer:
     expect(bundleStatus.stdout).toContain('Status: draft');
     expect(bundleStatus.stdout).toContain('Skill Creator package:');
     expect(bundleStatus.stdout).toContain(
-      'Benchmark: missing; run comet bundle benchmark-plan and comet bundle benchmark-record',
+      'Eval: missing; run comet eval <generated-skill>/comet/eval.yaml --quick --html, then comet bundle benchmark-record',
     );
     expect(bundleStatus.stdout).toContain(
       'Review: missing; run comet bundle review-summary before approval',

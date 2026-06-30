@@ -206,7 +206,7 @@ describe('Bundle review summary readiness', () => {
     await fs.rm(projectRoot, { recursive: true, force: true });
   });
 
-  it('blocks unresolved Skill Creator candidates and missing benchmark evidence', async () => {
+  it('blocks unresolved Skill Creator candidates and missing eval evidence', async () => {
     const state = await createBundleDraft({
       projectRoot,
       name: 'factory-demo',
@@ -240,7 +240,127 @@ describe('Bundle review summary readiness', () => {
       '[candidate] Unresolved Skill Creator candidates: missing-skill (missing)',
     );
     expect(summary.readiness.blockers).toContain(
-      '[benchmark] Benchmark evidence for the current draft hash is missing',
+      '[eval] Eval evidence for the current draft hash is missing',
+    );
+  });
+
+  it('blocks readiness when repository eval evidence is below quality gates', async () => {
+    await createBundleDraft({
+      projectRoot,
+      name: 'repo-eval-failed',
+      candidates: [],
+      creator: 'native',
+      defaultLocale: 'en',
+      locales: ['en'],
+      engineEnabled: true,
+    });
+    const draftPath = path.join(projectRoot, '.comet', 'bundle-drafts', 'repo-eval-failed');
+    await writeMinimalBundle(draftPath, 'repo-eval-failed');
+    const state = await reconcileBundleAuthoringState(projectRoot, 'repo-eval-failed');
+    const evalResult = path.join(projectRoot, 'repo-eval-failed-result.json');
+    await fs.writeFile(
+      evalResult,
+      JSON.stringify(
+        {
+          schemaVersion: 2,
+          provider: 'comet-eval',
+          level: 'full',
+          draftHash: state.currentHash,
+          evalManifestHash: 'c'.repeat(64),
+          tasks: ['entry-smoke'],
+          treatments: ['generated-skill'],
+          passAtK: { '1': 0 },
+          weightedScore: { overall: 0.42 },
+          instabilityGap: { overall: 0.2 },
+          failures: ['entry-smoke failed'],
+          reports: ['eval-report.html'],
+          passed: false,
+          summary: 'Repository eval failed entry smoke.',
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    await writeBundleAuthoringState(projectRoot, {
+      ...state,
+      eval: {
+        level: 'full',
+        hash: state.currentHash!,
+        resultPath: evalResult,
+        passed: false,
+      },
+    });
+
+    const summary = await buildBundleReviewSummary({
+      projectRoot,
+      name: 'repo-eval-failed',
+      platform: 'claude',
+    });
+
+    expect(summary.readiness.blockers).toContain(
+      '[eval] Eval evidence is below publish quality gates: Repository eval failed entry smoke.',
+    );
+    expect(summary.readiness.evidence.evalResult).toBe(evalResult);
+  });
+
+  it('blocks readiness when repository eval result failures conflict with state', async () => {
+    await createBundleDraft({
+      projectRoot,
+      name: 'repo-eval-conflict',
+      candidates: [],
+      creator: 'native',
+      defaultLocale: 'en',
+      locales: ['en'],
+      engineEnabled: true,
+    });
+    const draftPath = path.join(projectRoot, '.comet', 'bundle-drafts', 'repo-eval-conflict');
+    await writeMinimalBundle(draftPath, 'repo-eval-conflict');
+    const state = await reconcileBundleAuthoringState(projectRoot, 'repo-eval-conflict');
+    const evalResult = path.join(projectRoot, 'repo-eval-conflict-result.json');
+    await fs.writeFile(
+      evalResult,
+      JSON.stringify(
+        {
+          schemaVersion: 2,
+          provider: 'comet-eval',
+          level: 'full',
+          draftHash: state.currentHash,
+          evalManifestHash: 'd'.repeat(64),
+          tasks: ['entry-smoke'],
+          treatments: ['generated-skill'],
+          passAtK: { '1': 1 },
+          weightedScore: { overall: 0.91 },
+          instabilityGap: { overall: 0.03 },
+          failures: ['quality gate failed after retry'],
+          reports: ['eval-report.html'],
+          passed: true,
+          summary: 'Repository eval reported a quality gate failure.',
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    await writeBundleAuthoringState(projectRoot, {
+      ...state,
+      status: 'eval-passed',
+      eval: {
+        level: 'full',
+        hash: state.currentHash!,
+        resultPath: evalResult,
+        passed: true,
+      },
+    });
+
+    const summary = await buildBundleReviewSummary({
+      projectRoot,
+      name: 'repo-eval-conflict',
+      platform: 'claude',
+    });
+
+    expect(summary.readiness.blockers).toContain(
+      '[eval] Eval evidence is below publish quality gates: Repository eval reported a quality gate failure.',
     );
   });
 
@@ -707,7 +827,7 @@ prefer:
     expect(blocked.readiness.blockers).toEqual(
       expect.arrayContaining([
         expect.stringContaining('[candidate]'),
-        expect.stringContaining('[benchmark]'),
+        expect.stringContaining('[eval]'),
       ]),
     );
     expect(blocked.userSummary).toMatchObject({
@@ -724,7 +844,7 @@ prefer:
           }),
         }),
         expect.objectContaining({
-          code: 'benchmark',
+          code: 'eval',
           severity: 'blocker',
           nextAction: expect.objectContaining({
             command: expect.stringContaining('comet eval '),

@@ -230,6 +230,35 @@ describe('Bundle benchmark planning and evidence', () => {
     await expect(fs.access(state.eval!.resultPath)).resolves.toBeUndefined();
   });
 
+  it('records repository eval evidence for the current draft hash', async () => {
+    const current = await reconcileBundleAuthoringState(projectRoot, 'eval-bundle');
+    const repositoryEvalResult = {
+      schemaVersion: 2,
+      provider: 'comet-eval',
+      level: 'full',
+      draftHash: current.currentHash,
+      evalManifestHash: 'b'.repeat(64),
+      tasks: ['entry-smoke'],
+      treatments: ['generated-skill'],
+      passAtK: { '1': 1 },
+      weightedScore: { overall: 0.97 },
+      instabilityGap: { overall: 0.01 },
+      failures: [],
+      reports: ['eval-report.html'],
+      passed: true,
+      summary: 'Repository eval gates passed.',
+    };
+    const resultFile = await writeUnknownResult(repositoryEvalResult, 'repository-eval.json');
+
+    const updated = await recordBundleEval(projectRoot, 'eval-bundle', resultFile);
+
+    expect(updated.eval).toMatchObject({
+      level: 'full',
+      hash: current.currentHash,
+      passed: true,
+    });
+  });
+
   it('requires one result for every entry Skill and Bundle compile/safety evidence', async () => {
     const missingEntry = await writeResult(
       result(stateHash, { entries: [] }),
@@ -543,6 +572,13 @@ requiresConfirmation: false
 
   async function writeResult(
     value: BundleEvalResult,
+    fileName = 'result-input.json',
+  ): Promise<string> {
+    return writeUnknownResult(value, fileName);
+  }
+
+  async function writeUnknownResult(
+    value: unknown,
     fileName = 'result-input.json',
   ): Promise<string> {
     const file = path.join(root, fileName);

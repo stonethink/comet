@@ -92,8 +92,8 @@ function formatStateEval(
     | undefined,
 ): string {
   if (!evalState)
-    return 'Benchmark: missing; run comet bundle benchmark-plan and comet bundle benchmark-record';
-  return `Benchmark: ${evalState.passed ? 'passed' : 'failed'} (${evalState.level}) @ ${evalState.hash}`;
+    return 'Eval: missing; run comet eval <generated-skill>/comet/eval.yaml --quick --html, then comet bundle benchmark-record';
+  return `Eval: ${evalState.passed ? 'passed' : 'failed'} (${evalState.level}) @ ${evalState.hash}`;
 }
 
 function formatStateReview(

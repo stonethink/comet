@@ -16,7 +16,7 @@ export interface BundleReadinessUserSummaryItem {
     | 'control-plane'
     | 'authoring'
     | 'draft'
-    | 'benchmark'
+    | 'eval'
     | 'review'
     | 'publish'
     | 'capability'
@@ -76,7 +76,7 @@ function codeOf(message: string): BundleReadinessUserSummaryItem['code'] {
       'control-plane',
       'authoring',
       'draft',
-      'benchmark',
+      'eval',
       'review',
       'publish',
       'capability',
@@ -143,10 +143,10 @@ function advice(
         label: 'Reconcile the Bundle status',
         command: `comet publish status ${bundleName}`,
       };
-    case 'benchmark':
+    case 'eval':
       return {
-        impact: 'There is no passing benchmark evidence for the current draft.',
-        label: 'Run a benchmark for the generated Skill',
+        impact: 'There is no passing eval evidence for the current generated Skill draft.',
+        label: 'Run repository eval for the generated Skill',
         command: 'comet eval <generated-skill>/comet/eval.yaml --quick --html',
       };
     case 'review':
@@ -232,7 +232,7 @@ export function buildReadinessUserSummary(
         : conclusion === 'needs-confirmation'
           ? 'No blockers remain, but human review approval is still required.'
           : conclusion === 'can-publish'
-            ? 'Benchmark and review evidence match the current draft.'
+            ? 'Eval and review evidence match the current draft.'
             : 'The published Bundle is bound to the current hash.',
     items,
     nextSteps:

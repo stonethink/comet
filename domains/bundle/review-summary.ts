@@ -2,7 +2,12 @@ import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
 import { compileBundleIr } from './compiler.js';
-import { planBundleEval, validateStableFactoryControlPlane } from './eval.js';
+import {
+  isRepositoryEvalResult,
+  planBundleEval,
+  readBundleEvalResult,
+  validateStableFactoryControlPlane,
+} from './eval.js';
 import { hashBundle } from './hash.js';
 import { loadBundle } from './load.js';
 import { compileBundleForPlatform, type PlatformCompileReport } from './platform.js';
@@ -114,6 +119,21 @@ async function generatedSkillPackageContains(
   return false;
 }
 
+async function repositoryEvalFailureSummary(state: BundleAuthoringState): Promise<string | null> {
+  if (!state.eval?.resultPath || state.eval.hash !== state.currentHash) {
+    return null;
+  }
+  try {
+    const result = await readBundleEvalResult(state.eval.resultPath);
+    if (isRepositoryEvalResult(result) && (!result.passed || result.failures.length > 0)) {
+      return result.summary;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 async function buildReadiness(
   state: BundleAuthoringState,
   controlPlane: Awaited<ReturnType<typeof validateStableFactoryControlPlane>>,
@@ -172,8 +192,11 @@ async function buildReadiness(
     blockers.push(`[control-plane] ${error}`);
   }
   if (!state.currentHash) blockers.push('[draft] Current draft hash is missing');
-  if (!state.eval || state.eval.hash !== state.currentHash || !state.eval.passed) {
-    blockers.push('[benchmark] Benchmark evidence for the current draft hash is missing');
+  const repoEvalFailure = await repositoryEvalFailureSummary(state);
+  if (repoEvalFailure) {
+    blockers.push(`[eval] Eval evidence is below publish quality gates: ${repoEvalFailure}`);
+  } else if (!state.eval || state.eval.hash !== state.currentHash || !state.eval.passed) {
+    blockers.push('[eval] Eval evidence for the current draft hash is missing');
   }
   if (state.eval?.passed && (!state.review || state.review.hash !== state.currentHash)) {
     warnings.push('[review] Review approval for the current draft hash is missing');
