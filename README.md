@@ -321,7 +321,7 @@ comet bundle distribute my-bundle --platform claude --scope project --confirm-ex
 
 `/comet-any` is the Comet Skill creation guide: users describe the workflow they want to create or optimize, and Comet
 reads project-level preferences from `.comet/skill-preferences.yaml`, scans real local Skills, shows a composition
-proposal for confirmation, then turns the request into a reviewable stable composed Skill Bundle draft. Factory metadata
+proposal for confirmation, then turns the request into a reviewable stable composed Skill Bundle draft. Skill Creator metadata
 records `preferenceHash`, resolved Skill evidence, and deviation reasons before CLI backends handle validation, Eval,
 publishing, and optional distribution; see the Skill creation guide for the detailed control-plane contract. Missing or ambiguous candidates pause for `factory-resolve` first, review and
 publish stay gated by structured evidence, and distribution supports both `project` and `global` scopes. `comet bundle list`
@@ -389,7 +389,7 @@ After `comet init`, three groups of skills are installed to the selected platfor
 | `/comet-archive` | Phase 5: Archive (delta spec sync, status annotation)                                                 |
 | `/comet-hotfix`  | Preset: Quick bug fix (skips brainstorming)                                                           |
 | `/comet-tweak`   | Preset: OpenSpec-chained medium change (delta spec is first-class, skips brainstorming and full plan) |
-| `/comet-any`     | Comet Skill Factory — create/optimize distributable Comet-native Skills                               |
+| `/comet-any`     | Comet Skill Creator — create/optimize distributable Comet-native Skills                               |
 
 </details>
 

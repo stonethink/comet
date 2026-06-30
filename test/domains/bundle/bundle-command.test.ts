@@ -312,7 +312,7 @@ prefer:
     expect(text).toContain('optimized-bundle: draft');
   });
 
-  it('initializes factory metadata from a structured plan file', async () => {
+  it('initializes Skill Creator metadata from a structured plan file', async () => {
     const skillRoot = path.join(projectRoot, '.claude', 'skills', 'brainstorming');
     await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
     await fs.mkdir(skillRoot, { recursive: true });
@@ -408,7 +408,7 @@ prefer:
       ),
     ).resolves.toContain('"schemaVersion": 1');
   });
-  it('persists project Skill preference metadata in Factory state', async () => {
+  it('persists project Skill preference metadata in Skill Creator state', async () => {
     await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
     await fs.writeFile(
       path.join(projectRoot, '.comet', 'skill-preferences.yaml'),
@@ -500,7 +500,7 @@ policies:
     ).rejects.toThrow(/preference policy denies scripts/iu);
   });
 
-  it('builds a Factory proposal without writing Bundle authoring state', async () => {
+  it('builds a Skill Creator proposal without writing Bundle authoring state', async () => {
     await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
     await fs.writeFile(
       path.join(projectRoot, '.comet', 'skill-preferences.yaml'),
@@ -548,7 +548,7 @@ prefer:
     });
   });
 
-  it('prints a user-decision Factory proposal before initialization', async () => {
+  it('prints a user-decision Skill Creator proposal before initialization', async () => {
     await writeFactorySkill(projectRoot, 'task3-guided-brainstorming', {
       description: 'Explore intent before implementation.',
     });
@@ -615,7 +615,7 @@ prefer:
     expect(text).toContain('Install/enable:');
     expect(text).toContain('Actions:');
   });
-  it('does not offer confirm-generate on blocked Factory proposals', async () => {
+  it('does not offer confirm-generate on blocked Skill Creator proposals', async () => {
     const planFile = path.join(root, 'factory-blocked-proposal-plan.json');
     await fs.writeFile(
       planFile,
@@ -747,7 +747,7 @@ prefer:
         project: projectRoot,
         json: true,
       }),
-    ).rejects.toThrow(/Factory proposal confirmation/iu);
+    ).rejects.toThrow(/Skill Creator proposal confirmation/iu);
   });
 
   it('blocks Factory generation until the user confirms the proposal', async () => {
@@ -781,10 +781,10 @@ prefer:
         project: projectRoot,
         json: true,
       }),
-    ).rejects.toThrow(/Factory proposal confirmation/iu);
+    ).rejects.toThrow(/Skill Creator proposal confirmation/iu);
   });
 
-  it('rejects confirming a resolved Factory state with a different plan', async () => {
+  it('rejects confirming a resolved Skill Creator state with a different plan', async () => {
     await writeFactorySkill(projectRoot, 'task3-plan-match-alpha', {
       description: 'Plan match test skill.',
     });
@@ -833,10 +833,10 @@ prefer:
         confirmedProposal: true,
         json: true,
       }),
-    ).rejects.toThrow(/does not match current Factory plan/iu);
+    ).rejects.toThrow(/does not match current Skill Creator plan/iu);
   });
 
-  it('blocks publishing legacy Factory states that lack proposal confirmation', async () => {
+  it('blocks publishing legacy Skill Creator states that lack proposal confirmation', async () => {
     await writeFactorySkill(projectRoot, 'task3-unconfirmed-publish', {
       description: 'Unconfirmed publish test skill.',
     });
@@ -894,10 +894,10 @@ prefer:
         project: projectRoot,
         platform: 'claude',
       }),
-    ).rejects.toThrow(/Factory proposal confirmation/iu);
+    ).rejects.toThrow(/Skill Creator proposal confirmation/iu);
   });
 
-  it('blocks reviewing legacy Factory states that lack proposal confirmation', async () => {
+  it('blocks reviewing legacy Skill Creator states that lack proposal confirmation', async () => {
     await writeFactorySkill(projectRoot, 'task3-unconfirmed-review', {
       description: 'Unconfirmed review test skill.',
     });
@@ -951,7 +951,7 @@ prefer:
         approve: true,
         reviewer: 'alice',
       }),
-    ).rejects.toThrow(/Factory proposal confirmation/iu);
+    ).rejects.toThrow(/Skill Creator proposal confirmation/iu);
   });
 
   it('stores composed flow metadata and uses it as the factory call chain', async () => {
@@ -1228,7 +1228,7 @@ prefer:
     ).resolves.toMatch(/task3-entry-brainstorming[\s\S]*task3-entry-writing-plans/u);
   });
 
-  it('generates a draft bundle source from stored factory metadata', async () => {
+  it('generates a draft bundle source from stored Skill Creator metadata', async () => {
     const workflow = normalizeWorkflowDefinition(workflowFor('factory-bundle', ['brainstorming']));
     await createBundleDraft({
       projectRoot,
@@ -2218,7 +2218,7 @@ prefer:
       bundleStatusCommand('factory-composition-action', { project: projectRoot }),
     );
     expect(text).toContain('Already done:');
-    expect(text).toContain('- Factory metadata initialized');
+    expect(text).toContain('- Skill Creator metadata initialized');
     expect(text).toContain('Still missing:');
   });
 

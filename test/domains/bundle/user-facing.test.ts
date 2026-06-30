@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildSkillMakerInstallText,
-  buildSkillMakerPlanSummary,
-  buildSkillMakerResumeText,
-  formatSkillMakerPlanSummary,
+  buildSkillCreatorInstallText,
+  buildSkillCreatorPlanSummary,
+  buildSkillCreatorResumeText,
+  formatSkillCreatorPlanSummary,
 } from '../../../domains/bundle/user-facing.js';
 
-describe('Skill Maker user-facing summaries', () => {
+describe('Skill Creator user-facing summaries', () => {
   it('formats a Comet-based workflow contract', () => {
-    const summary = buildSkillMakerPlanSummary({
+    const summary = buildSkillCreatorPlanSummary({
       intent: 'customize-comet',
       skillName: 'team-comet',
       goal: 'Use project component and review Skills inside the Comet workflow.',
@@ -45,7 +45,7 @@ describe('Skill Maker user-facing summaries', () => {
       advanced: ['Workflow Contract hash will be recorded after confirmation'],
     });
 
-    const text = formatSkillMakerPlanSummary(summary);
+    const text = formatSkillCreatorPlanSummary(summary);
 
     expect(text).toContain('You are making: Customize existing Comet Skills');
     expect(text).toContain('Workflow contract:');
@@ -55,7 +55,7 @@ describe('Skill Maker user-facing summaries', () => {
   });
 
   it('formats resume text around user progress and next action', () => {
-    const text = buildSkillMakerResumeText({
+    const text = buildSkillCreatorResumeText({
       title: 'Found an unfinished Skill creation',
       completed: ['Plan confirmed', 'Skill files generated'],
       missing: ['Validate this Skill'],
@@ -67,11 +67,11 @@ describe('Skill Maker user-facing summaries', () => {
     expect(text).toContain('Completed:');
     expect(text).toContain('Still needed:');
     expect(text).toContain('Next step: Continue validation');
-    expect(text).not.toContain('Factory state is draft');
+    expect(text).not.toContain('Skill Creator state is draft');
   });
 
   it('formats install preview without forcing publish/distribute vocabulary', () => {
-    const text = buildSkillMakerInstallText({
+    const text = buildSkillCreatorInstallText({
       preview: true,
       skillName: 'team-comet',
       platforms: ['claude'],

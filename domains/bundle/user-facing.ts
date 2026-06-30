@@ -1,7 +1,7 @@
-export type SkillMakerIntent = 'customize-comet' | 'new-skill' | 'upgrade-existing';
+export type SkillCreatorIntent = 'customize-comet' | 'new-skill' | 'upgrade-existing';
 
-export interface SkillMakerPlanSummary {
-  intent: SkillMakerIntent;
+export interface SkillCreatorPlanSummary {
+  intent: SkillCreatorIntent;
   intentLabel: string;
   skillName: string;
   goal: string;
@@ -28,7 +28,7 @@ export interface SkillMakerPlanSummary {
   advanced: string[];
 }
 
-export interface SkillMakerResumeTextInput {
+export interface SkillCreatorResumeTextInput {
   title: string;
   completed: string[];
   missing: string[];
@@ -36,7 +36,7 @@ export interface SkillMakerResumeTextInput {
   choices: string[];
 }
 
-export interface SkillMakerInstallTextInput {
+export interface SkillCreatorInstallTextInput {
   preview: boolean;
   skillName: string;
   platforms: string[];
@@ -44,7 +44,7 @@ export interface SkillMakerInstallTextInput {
   disclosures: string[];
 }
 
-export function skillMakerIntentLabel(intent: SkillMakerIntent): string {
+export function skillCreatorIntentLabel(intent: SkillCreatorIntent): string {
   switch (intent) {
     case 'customize-comet':
       return 'Customize existing Comet Skills';
@@ -55,12 +55,12 @@ export function skillMakerIntentLabel(intent: SkillMakerIntent): string {
   }
 }
 
-export function buildSkillMakerPlanSummary(
-  options: Omit<SkillMakerPlanSummary, 'intentLabel'>,
-): SkillMakerPlanSummary {
+export function buildSkillCreatorPlanSummary(
+  options: Omit<SkillCreatorPlanSummary, 'intentLabel'>,
+): SkillCreatorPlanSummary {
   return {
     ...options,
-    intentLabel: skillMakerIntentLabel(options.intent),
+    intentLabel: skillCreatorIntentLabel(options.intent),
   };
 }
 
@@ -71,7 +71,7 @@ function section(title: string, values: string[]): string[] {
   return [`${title}:`, ...values.map((value) => `- ${value}`)];
 }
 
-function workflowContractSection(summary: SkillMakerPlanSummary): string[] {
+function workflowContractSection(summary: SkillCreatorPlanSummary): string[] {
   if (!summary.workflow) return ['Workflow contract: None'];
   return [
     'Workflow contract:',
@@ -85,7 +85,7 @@ function workflowContractSection(summary: SkillMakerPlanSummary): string[] {
   ];
 }
 
-export function formatSkillMakerPlanSummary(summary: SkillMakerPlanSummary): string {
+export function formatSkillCreatorPlanSummary(summary: SkillCreatorPlanSummary): string {
   return [
     `You are making: ${summary.intentLabel}`,
     `Skill: ${summary.skillName}`,
@@ -103,7 +103,7 @@ export function formatSkillMakerPlanSummary(summary: SkillMakerPlanSummary): str
   ].join('\n');
 }
 
-export function buildSkillMakerResumeText(input: SkillMakerResumeTextInput): string {
+export function buildSkillCreatorResumeText(input: SkillCreatorResumeTextInput): string {
   return [
     input.title,
     ...section('Completed', input.completed),
@@ -113,7 +113,7 @@ export function buildSkillMakerResumeText(input: SkillMakerResumeTextInput): str
   ].join('\n');
 }
 
-export function buildSkillMakerInstallText(input: SkillMakerInstallTextInput): string {
+export function buildSkillCreatorInstallText(input: SkillCreatorInstallTextInput): string {
   return [
     input.preview ? 'Install preview' : 'Install result',
     `Skill: ${input.skillName}`,

@@ -675,7 +675,7 @@ export const DEMO_SKILL_VISUALS = {
           'scripts/comet-check.mjs',
         ],
         requiredConfirmations: [
-          { label: 'Factory proposal confirmed', required: true, confirmed: true },
+          { label: 'Skill Creator proposal confirmed', required: true, confirmed: true },
           { label: 'Benchmark result attached', required: true, confirmed: true },
           { label: 'Review approved', required: true, confirmed: true },
           { label: 'Executable disclosure reviewed', required: false, confirmed: false },

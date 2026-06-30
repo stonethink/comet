@@ -18,7 +18,7 @@ Read the common input from the main session, especially:
 
 - `reference/workflow-protocol.json`
 - `workflow.kind`, `workflow.nodes`, `engineMode`, and `runnerMode` from `plan.json`, plus the
-  derived internal `callChain` source inventory from Factory metadata
+  derived internal `callChain` source inventory from Skill Creator metadata
 - `reference/resolved-skills.json`
 - Protected `.comet.yaml` semantics when users customize existing Comet Skills
 

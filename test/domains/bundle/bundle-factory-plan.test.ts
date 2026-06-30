@@ -22,7 +22,7 @@ describe('bundle factory plan normalization', () => {
     const normalized = normalizeBundleFactoryPlan({
       plan: {
         goal: 'Customize existing Comet Skills with team execution requirements.',
-        skillMakerIntent: 'customize-comet',
+        skillCreatorIntent: 'customize-comet',
         workflow: {
           kind: 'comet-five-phase-overlay',
           name: 'team-comet',
@@ -103,12 +103,29 @@ describe('bundle factory plan normalization', () => {
       },
     });
 
-    expect(normalized.skillMakerIntent).toBe('new-skill');
+    expect(normalized.skillCreatorIntent).toBe('new-skill');
     expect(normalized.workflowProtocol.nodes.map((node) => node.id)).toEqual(['research']);
     expect(normalized.callChain.map((item) => item.skill)).toEqual([
       'research-skill',
       'domain-design',
     ]);
+  });
+
+  it('rejects the pre-release creator intent field name', () => {
+    expect(() =>
+      normalizeBundleFactoryPlan({
+        plan: {
+          goal: 'Customize existing Comet Skills with team execution requirements.',
+          [`skill${'Maker'}Intent`]: 'customize-comet',
+          workflow: {
+            kind: 'comet-five-phase-overlay',
+            name: 'team-comet',
+            goal: 'Require component Skills without replacing Comet control nodes.',
+            nodes: {},
+          },
+        },
+      }),
+    ).toThrow(/unknown fields.*skillMakerIntent/iu);
   });
 
   it('rejects unknown factory plan fields', async () => {

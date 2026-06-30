@@ -165,7 +165,7 @@ describe('Bundle review summary readiness', () => {
     await fs.rm(projectRoot, { recursive: true, force: true });
   });
 
-  it('blocks unresolved Factory candidates and missing benchmark evidence', async () => {
+  it('blocks unresolved Skill Creator candidates and missing benchmark evidence', async () => {
     const state = await createBundleDraft({
       projectRoot,
       name: 'factory-demo',
@@ -196,14 +196,14 @@ describe('Bundle review summary readiness', () => {
 
     expect(summary.readiness.state).toBe('blocked');
     expect(summary.readiness.blockers).toContain(
-      '[candidate] Unresolved Factory candidates: missing-skill (missing)',
+      '[candidate] Unresolved Skill Creator candidates: missing-skill (missing)',
     );
     expect(summary.readiness.blockers).toContain(
       '[benchmark] Benchmark evidence for the current draft hash is missing',
     );
   });
 
-  it('surfaces Factory composition issues as readiness blockers', async () => {
+  it('surfaces Skill Creator composition issues as readiness blockers', async () => {
     const state = await createBundleDraft({
       projectRoot,
       name: 'factory-composition-blocked',
@@ -262,7 +262,7 @@ describe('Bundle review summary readiness', () => {
     expect(summary.readiness.evidence).not.toHaveProperty('composition');
   });
 
-  it('blocks publish readiness when Factory proposal confirmation is missing', async () => {
+  it('blocks publish readiness when Skill Creator proposal confirmation is missing', async () => {
     const generated = await createFactoryStateWithGeneratedPackage(
       projectRoot,
       'missing-proposal-confirmation',
@@ -298,7 +298,7 @@ describe('Bundle review summary readiness', () => {
 
     expect(summary.readiness.state).toBe('blocked');
     expect(summary.readiness.blockers).toContain(
-      '[proposal] Factory proposal confirmation is missing',
+      '[proposal] Skill Creator proposal confirmation is missing',
     );
     expect(summary.userSummary.items).toEqual(
       expect.arrayContaining([

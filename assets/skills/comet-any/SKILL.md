@@ -3,7 +3,7 @@ name: comet-any
 description: "Use when the user wants to customize Comet five-phase skills, create a workflow skill, organize an existing skill, or compose skills with Workflow Node / Skill Binding / Output Schema."
 ---
 
-# Comet Any - Skill Maker
+# Comet Any - Skill Creator
 
 `/comet-any` is the Comet Skill creation guide. The user describes the workflow they want; this Skill resolves real Skills, proposes a plan, waits for confirmation, generates a verifiable Comet-native Skill Bundle, and internally drives eval, review, publish readiness, and install preview.
 
@@ -58,7 +58,7 @@ Component-library and whitebox-review requirements should produce a plan like:
 ```json
 {
   "goal": "Customize existing Comet Skills with component and whitebox review requirements.",
-  "skillMakerIntent": "customize-comet",
+  "skillCreatorIntent": "customize-comet",
   "workflow": {
     "kind": "comet-five-phase-overlay",
     "name": "team-comet",

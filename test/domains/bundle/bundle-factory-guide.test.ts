@@ -55,7 +55,7 @@ engine:
   );
 }
 
-describe('Bundle Factory first-use guide', () => {
+describe('Skill Creator first-use guide', () => {
   let root: string;
   let projectRoot: string;
   let homeDir: string;
@@ -131,7 +131,7 @@ prefer:
     });
   });
 
-  it('surfaces resumable Factory flows before starting a new one', async () => {
+  it('surfaces resumable Skill Creator flows before starting a new one', async () => {
     await createBundleDraft({
       projectRoot,
       name: 'half-built',
@@ -190,15 +190,13 @@ prefer:
       'read-only-guide',
       'bundle.yaml',
     );
-    const statePath = path.join(
-      projectRoot,
-      '.comet',
-      'bundle-authoring',
-      'read-only-guide.json',
-    );
+    const statePath = path.join(projectRoot, '.comet', 'bundle-authoring', 'read-only-guide.json');
     await fs.writeFile(
       draftBundlePath,
-      (await fs.readFile(draftBundlePath, 'utf8')).replace('description: Command fixture', 'description: Drifted fixture'),
+      (await fs.readFile(draftBundlePath, 'utf8')).replace(
+        'description: Command fixture',
+        'description: Drifted fixture',
+      ),
     );
 
     const before = await fs.readFile(statePath, 'utf8');

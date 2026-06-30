@@ -86,7 +86,7 @@ export interface FactorySkillPackagePlan {
   callChain: FactoryCallChainItem[];
   workflowDefinition?: WorkflowDefinitionInput;
   workflowProtocol?: WorkflowProtocol;
-  skillMaker?: {
+  skillCreator?: {
     intent: 'customize-comet' | 'new-skill' | 'upgrade-existing';
   };
   composition?: FactoryComposition;

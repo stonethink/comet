@@ -5,7 +5,7 @@ import type {
   SkillPreferenceWarning,
 } from '../skill/preferences.js';
 import type { WorkflowDefinitionInput, WorkflowProtocol } from '../workflow-contract/index.js';
-import type { SkillMakerIntent } from './user-facing.js';
+import type { SkillCreatorIntent } from './user-facing.js';
 
 export type BundleSkillVisibility = 'entry' | 'internal';
 export type BundleCapability = 'skills' | 'rules' | 'hooks' | 'scripts' | 'references' | 'assets';
@@ -243,7 +243,7 @@ export interface BundleFactoryMetadata {
   goal: string;
   preferredSkills: string[];
   requiredSkills?: string[];
-  skillMakerIntent?: SkillMakerIntent;
+  skillCreatorIntent?: SkillCreatorIntent;
   workflowDefinition?: WorkflowDefinitionInput;
   workflowProtocol?: WorkflowProtocol;
   preferenceMode?: NormalizedSkillPreferences['mode'];

@@ -54,7 +54,7 @@ function buildReadiness(
     ) ?? [];
   if (unresolved.length > 0) {
     blockers.push(
-      `[candidate] Unresolved Factory candidates: ${unresolved
+      `[candidate] Unresolved Skill Creator candidates: ${unresolved
         .map((skill) => `${skill.query} (${skill.status})`)
         .join(', ')}`,
     );
@@ -69,7 +69,7 @@ function buildReadiness(
     );
   }
   if (state.factory && state.factory.proposalConfirmation?.confirmed !== true) {
-    blockers.push('[proposal] Factory proposal confirmation is missing');
+    blockers.push('[proposal] Skill Creator proposal confirmation is missing');
   }
   const storedPreferenceHash = state.factory?.preferenceHash ?? null;
   if (storedPreferenceHash && currentPreferenceHash !== storedPreferenceHash) {

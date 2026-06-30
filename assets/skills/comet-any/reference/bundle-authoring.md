@@ -1,6 +1,6 @@
 # Bundle Authoring Reference
 
-`comet bundle` is `/comet-any`'s internal deterministic backend. Ordinary users should not memorize subcommands; Skill Maker turns the confirmed Workflow Contract into a plan and uses the CLI to maintain state.
+`comet bundle` is `/comet-any`'s internal deterministic backend. Ordinary users should not memorize subcommands; Skill Creator turns the confirmed Workflow Contract into a plan and uses the CLI to maintain state.
 
 ## Workflow Contract Input
 
@@ -9,7 +9,7 @@ The new `plan.json` uses `workflow` as the primary input:
 ```json
 {
   "goal": "Customize existing Comet Skills with component and whitebox review requirements.",
-  "skillMakerIntent": "customize-comet",
+  "skillCreatorIntent": "customize-comet",
   "workflow": {
     "kind": "comet-five-phase-overlay",
     "name": "team-comet",

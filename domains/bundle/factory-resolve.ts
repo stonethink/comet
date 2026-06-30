@@ -60,10 +60,10 @@ export async function resolveBundleFactoryCandidate(
   }
 
   const state = await reconcileBundleAuthoringState(projectRoot, options.name);
-  if (!state.factory) throw new Error(`Bundle ${state.name} does not have factory metadata`);
+  if (!state.factory) throw new Error(`Bundle ${state.name} does not have Skill Creator metadata`);
 
   const target = state.factory.resolvedSkills.find((skill) => skill.query === options.candidate);
-  if (!target) throw new Error(`Factory candidate not found: ${options.candidate}`);
+  if (!target) throw new Error(`Skill Creator candidate not found: ${options.candidate}`);
 
   let updated = invalidateGeneratedFactoryState(state);
   const factory = updated.factory!;

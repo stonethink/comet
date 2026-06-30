@@ -3,7 +3,7 @@ name: comet-any
 description: "Use when 用户想定制 Comet 五阶段 Skill、创建 workflow Skill、整理已有 Skill，或用 Workflow Node / Skill Binding / Output Schema 编排 Skill。"
 ---
 
-# Comet Any - Skill Maker
+# Comet Any - Skill Creator
 
 `/comet-any` 是 Comet 的 Skill 创建向导。用户只需要描述想要的工作流；本 Skill 负责读取真实 Skill、提出方案、等待确认、生成可验证的 Comet-native Skill Bundle，并通过内部 CLI 完成 eval、review、publish readiness 和安装预览。
 
@@ -58,7 +58,7 @@ description: "Use when 用户想定制 Comet 五阶段 Skill、创建 workflow S
 ```json
 {
   "goal": "基于 Comet 现有 Skill 的五阶段定制，要求组件库和白盒审查。",
-  "skillMakerIntent": "customize-comet",
+  "skillCreatorIntent": "customize-comet",
   "workflow": {
     "kind": "comet-five-phase-overlay",
     "name": "team-comet",

@@ -14,7 +14,7 @@
 
 读取主会话提供的通用输入，尤其关注：
 
-- Skill Maker 方案确认页中的 `confirm-generate`、`revise-proposal`、`cancel`。
+- Skill Creator 方案确认页中的 `confirm-generate`、`revise-proposal`、`cancel`。
 - benchmark 工作量选择 `skip / quick / full benchmark`。
 - 安装前人工批准。
 - unresolved、ambiguous、capability gap、executable disclosure 等阻塞点。

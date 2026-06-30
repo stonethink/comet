@@ -13,7 +13,7 @@ Must cover:
 
 Read the common input from the main session, especially:
 
-- `confirm-generate`, `revise-proposal`, and `cancel` from the Skill Maker confirmation page.
+- `confirm-generate`, `revise-proposal`, and `cancel` from the Skill Creator confirmation page.
 - Benchmark workload choice: `skip / quick / full benchmark`.
 - Human approval before installation.
 - Blockers such as unresolved candidates, ambiguity, capability gaps, and executable disclosures.

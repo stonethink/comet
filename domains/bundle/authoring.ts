@@ -252,7 +252,7 @@ export async function recordAuthoringLane(options: {
 
   const state = await reconcileBundleAuthoringState(options.projectRoot, options.name);
   if (!state.factory) {
-    throw new Error(`Bundle ${options.name} has no factory metadata; run factory-init first`);
+    throw new Error(`Bundle ${options.name} has no Skill Creator metadata; run factory-init first`);
   }
 
   const factory = { ...state.factory };

@@ -5,7 +5,7 @@ import type { BundleCandidate, BundleCandidateSource } from './candidates.js';
 import { composeBundleFactoryPlan } from './factory-compose.js';
 import { normalizeBundleFactoryPlan, readBundleFactoryPlan } from './factory-plan.js';
 import { readBundleSkillPreferences } from './preferences.js';
-import { buildSkillMakerPlanSummary, type SkillMakerPlanSummary } from './user-facing.js';
+import { buildSkillCreatorPlanSummary, type SkillCreatorPlanSummary } from './user-facing.js';
 import type {
   BundleFactoryCallChainItem,
   BundleFactoryComposition,
@@ -34,7 +34,7 @@ export interface BundleFactoryProposal {
   warnings: string[];
   canGenerate: boolean;
   userSummary: BundleFactoryProposalSummary;
-  skillMakerSummary: SkillMakerPlanSummary;
+  skillCreatorSummary: SkillCreatorPlanSummary;
   actions: BundleFactoryProposalAction[];
   proposalHash: string;
 }
@@ -196,8 +196,8 @@ export async function buildBundleFactoryProposal(options: {
       ...blockers.filter((item) => item.startsWith('[policy]')),
     ],
   };
-  const skillMakerSummary = buildSkillMakerPlanSummary({
-    intent: plan.skillMakerIntent,
+  const skillCreatorSummary = buildSkillCreatorPlanSummary({
+    intent: plan.skillCreatorIntent,
     skillName: options.name,
     goal: plan.goal,
     workflow: {
@@ -228,7 +228,7 @@ export async function buildBundleFactoryProposal(options: {
     install: ['Install/enable into the current Agent after validation and preview.'],
     advanced: [
       `Preference mode: ${projectPreferences?.preferences.mode ?? 'advisory'}`,
-      'Factory proposal hash will be recorded after confirmation.',
+      'Skill Creator proposal hash will be recorded after confirmation.',
     ],
   });
   const canGenerate = blockers.length === 0;
@@ -275,7 +275,7 @@ export async function buildBundleFactoryProposal(options: {
     warnings: plan.deviations.map((item) => `[deviation] ${item.skill}: ${item.reason}`),
     canGenerate,
     userSummary,
-    skillMakerSummary,
+    skillCreatorSummary,
     actions,
   };
   return { ...proposal, proposalHash: proposalHash(proposal) };

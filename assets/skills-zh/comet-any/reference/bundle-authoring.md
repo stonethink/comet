@@ -1,6 +1,6 @@
 # Bundle Authoring 参考
 
-`comet bundle` 是 `/comet-any` 的内部确定性后端。普通用户不需要记忆子命令；Skill Maker 负责把用户确认的 Workflow Contract 写成 plan，再调用 CLI 维护状态。
+`comet bundle` 是 `/comet-any` 的内部确定性后端。普通用户不需要记忆子命令；Skill Creator 负责把用户确认的 Workflow Contract 写成 plan，再调用 CLI 维护状态。
 
 ## Workflow Contract 输入
 
@@ -9,7 +9,7 @@
 ```json
 {
   "goal": "基于 Comet 现有 Skill 的五阶段定制，要求组件库和白盒审查。",
-  "skillMakerIntent": "customize-comet",
+  "skillCreatorIntent": "customize-comet",
   "workflow": {
     "kind": "comet-five-phase-overlay",
     "name": "team-comet",

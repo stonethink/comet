@@ -121,7 +121,7 @@ describe('Bundle authoring lifecycle', () => {
     ]);
   });
 
-  it('persists factory metadata with ordered preferences and deviation reasons', async () => {
+  it('persists Skill Creator metadata with ordered preferences and deviation reasons', async () => {
     const resolvedSource = {
       name: 'brainstorming',
       preferenceIndex: 0,
@@ -383,7 +383,7 @@ describe('Bundle authoring lifecycle', () => {
     expect(state.factory?.proposalConfirmation?.confirmedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/u);
   });
 
-  it('rejects confirming a blocked Factory proposal', async () => {
+  it('rejects confirming a blocked Skill Creator proposal', async () => {
     const planFile = path.join(root, 'blocked-confirmed-plan.json');
     await fs.writeFile(
       planFile,
@@ -407,7 +407,7 @@ describe('Bundle authoring lifecycle', () => {
         filePath: planFile,
         confirmedProposal: true,
       }),
-    ).rejects.toThrow(/Cannot confirm blocked Factory proposal/iu);
+    ).rejects.toThrow(/Cannot confirm blocked Skill Creator proposal/iu);
   });
 
   it('preserves the JSON parse cause when an authoring lane output is malformed', async () => {

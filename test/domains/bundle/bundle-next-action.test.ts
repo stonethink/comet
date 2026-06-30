@@ -140,7 +140,7 @@ describe('Bundle next action', () => {
         action: 'choose-benchmark-level',
       },
     });
-    expect(summary.completed).toContain('Factory metadata initialized');
+    expect(summary.completed).toContain('Skill Creator metadata initialized');
     expect(summary.missing).toContain('Passing benchmark evidence for the current draft');
   });
 

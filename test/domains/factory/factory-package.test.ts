@@ -35,7 +35,7 @@ function packagePlan(options: {
     })),
     workflowDefinition: options.workflow.input,
     workflowProtocol: options.workflow.protocol,
-    skillMaker: {
+    skillCreator: {
       intent:
         options.workflow.protocol.kind === 'comet-five-phase-overlay'
           ? 'customize-comet'

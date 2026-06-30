@@ -163,7 +163,7 @@ Resolver 的 step/evidence 判断；`.comet.yaml` 保持用户可见投影，`.c
 
 ## 七、`/comet-any` 的当前定位
 
-`/comet-any` 在 0.4.0 里的真实定位不是“再一个自动化入口”，而是 **Comet Skill Factory**：
+`/comet-any` 在 0.4.0 里的真实定位不是“再一个自动化入口”，而是 **Comet Skill Creator**：
 
 - 输入是用户描述的目标工作流、项目级 Skill 偏好，以及统一的 Workflow Contract。
 - 中间态是带真实 Skill 证据、Workflow Node、Skill Binding、Output Schema、Guardrail、Handoff、Eval 规划、review readiness 的 Bundle 草稿。

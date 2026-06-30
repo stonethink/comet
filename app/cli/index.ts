@@ -236,7 +236,7 @@ const publish = program
 
 publish
   .command('list')
-  .description('List Skill Maker candidates that can be resumed')
+  .description('List Skill Creator candidates that can be resumed')
   .option('--project <dir>', 'Project root', '.')
   .option('--json', 'Output as JSON')
   .action(async (options) => {
@@ -245,7 +245,7 @@ publish
 
 publish
   .command('status <name>')
-  .description('Show validation readiness and next action for one Skill Maker candidate')
+  .description('Show validation readiness and next action for one Skill Creator candidate')
   .option('--project <dir>', 'Project root', '.')
   .option('--json', 'Output as JSON')
   .action(async (name, options) => {
@@ -266,7 +266,7 @@ publish
 
 publish
   .command('approve <name>')
-  .description('Approve a Skill Maker candidate after validation')
+  .description('Approve a Skill Creator candidate after validation')
   .option('--project <dir>', 'Project root', '.')
   .requiredOption('--reviewer <name>', 'Reviewer name')
   .option('--json', 'Output as JSON')
@@ -287,7 +287,7 @@ publish
 
 publish
   .command('distribute <name>')
-  .description('Preview or install a generated Skill Maker candidate')
+  .description('Preview or install a generated Skill Creator candidate')
   .option('--project <dir>', 'Project root', '.')
   .option('--platform <id>', 'Platform id', collect, [])
   .addOption(new Option('--scope <scope>', 'Install scope').choices(['global', 'project']))
@@ -308,7 +308,7 @@ publish
 
 const bundle = program
   .command('bundle')
-  .description('Advanced Bundle backend for /comet-any Skill Maker state and audits');
+  .description('Advanced Bundle backend for /comet-any Skill Creator state and audits');
 
 bundle
   .command('candidates')
@@ -386,7 +386,7 @@ bundle
 
 bundle
   .command('factory-guide')
-  .description('Summarize /comet-any first-use, preferences, and resumable Factory flows')
+  .description('Summarize /comet-any first-use, preferences, and resumable Skill Creator flows')
   .option('--project <dir>', 'Project root', '.')
   .option('--json', 'Output as JSON')
   .action(async (options) => {
@@ -395,9 +395,9 @@ bundle
 
 bundle
   .command('factory-propose <name>')
-  .description('Preview a /comet-any Factory proposal without writing Bundle state')
+  .description('Preview a /comet-any Skill Creator proposal without writing Bundle state')
   .option('--project <dir>', 'Project root', '.')
-  .requiredOption('--file <path>', 'Factory plan JSON file')
+  .requiredOption('--file <path>', 'Skill Creator plan JSON file')
   .option('--json', 'Output as JSON')
   .action(async (name, options) => {
     await bundleFactoryProposeCommand(name, options);
@@ -405,10 +405,10 @@ bundle
 
 bundle
   .command('factory-init <name>')
-  .description('Initialize or update Bundle factory metadata from a structured plan file')
+  .description('Initialize or update Skill Creator metadata from a structured plan file')
   .option('--project <dir>', 'Project root', '.')
-  .requiredOption('--file <path>', 'Factory plan JSON file')
-  .option('--confirmed-proposal', 'Record that the user approved the Factory proposal')
+  .requiredOption('--file <path>', 'Skill Creator plan JSON file')
+  .option('--confirmed-proposal', 'Record that the user approved the Skill Creator proposal')
   .option('--json', 'Output as JSON')
   .action(async (name, options) => {
     await bundleFactoryInitCommand(name, options);
@@ -416,7 +416,7 @@ bundle
 
 bundle
   .command('factory-generate <name>')
-  .description('Generate Bundle draft source from stored factory metadata')
+  .description('Generate Bundle draft source from stored Skill Creator metadata')
   .option('--project <dir>', 'Project root', '.')
   .option('--json', 'Output as JSON')
   .action(async (name, options) => {
@@ -425,9 +425,9 @@ bundle
 
 bundle
   .command('factory-resolve <name>')
-  .description('Resolve a missing or ambiguous Bundle factory Skill candidate')
+  .description('Resolve a missing or ambiguous Skill Creator candidate')
   .option('--project <dir>', 'Project root', '.')
-  .requiredOption('--candidate <query>', 'Factory candidate query')
+  .requiredOption('--candidate <query>', 'Skill Creator candidate query')
   .option('--source <root-or-hash>', 'Selected source root or exact source hash')
   .option('--ignore-missing', 'Ignore a missing preference and remove it from the call chain')
   .option('--reason <text>', 'Reason for ignoring a missing preference')

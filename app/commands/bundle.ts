@@ -35,9 +35,9 @@ import {
 import { readProjectSkillPreferences } from '../../domains/skill/preferences.js';
 import type { BundleCapability } from '../../domains/bundle/types.js';
 import {
-  buildSkillMakerInstallText,
-  buildSkillMakerResumeText,
-  formatSkillMakerPlanSummary,
+  buildSkillCreatorInstallText,
+  buildSkillCreatorResumeText,
+  formatSkillCreatorPlanSummary,
 } from '../../domains/bundle/user-facing.js';
 
 interface BundleCommandOptions {
@@ -109,7 +109,7 @@ function formatStatusText(
   state: Awaited<ReturnType<typeof reconcileBundleAuthoringState>>,
   resumeSummary: ReturnType<typeof buildBundleResumeSummary>,
 ): string {
-  const userText = buildSkillMakerResumeText({
+  const userText = buildSkillCreatorResumeText({
     title: 'Found an unfinished Skill creation',
     completed: resumeSummary.completed,
     missing: resumeSummary.missing,
@@ -128,7 +128,7 @@ function formatStatusText(
     `Status: ${state.status}`,
     `Hash: ${state.currentHash ?? '(invalid)'}`,
     `Draft: ${state.draftPath}`,
-    `Factory package: ${factoryPackage}`,
+    `Skill Creator package: ${factoryPackage}`,
     formatStateEval(state.eval),
     formatStateReview(state.review),
     `Next action: ${resumeSummary.recommendedNextStep.action}`,
@@ -236,7 +236,7 @@ function formatReviewSummaryText(
 }
 
 function formatDistributionText(result: Awaited<ReturnType<typeof distributeBundle>>): string {
-  return buildSkillMakerInstallText({
+  return buildSkillCreatorInstallText({
     preview: result.preview,
     skillName: result.bundle,
     platforms: result.platforms.map((platform) => `${platform.platform}: ${platform.status}`),
@@ -367,7 +367,7 @@ export async function bundleFactoryGenerateCommand(
   emit(
     updated,
     options.json,
-    `Generated factory Bundle draft ${updated.name}\nDraft: ${updated.draftPath}`,
+    `Generated Skill Creator Bundle draft ${updated.name}\nDraft: ${updated.draftPath}`,
   );
 }
 
@@ -385,7 +385,7 @@ export async function bundleFactoryInitCommand(
   emit(
     updated,
     options.json,
-    `Initialized factory Bundle state ${updated.name}\nDraft: ${updated.draftPath}`,
+    `Initialized Skill Creator state ${updated.name}\nDraft: ${updated.draftPath}`,
   );
 }
 
@@ -403,9 +403,9 @@ export async function bundleFactoryProposeCommand(
     proposal,
     options.json,
     [
-      formatSkillMakerPlanSummary(proposal.skillMakerSummary),
+      formatSkillCreatorPlanSummary(proposal.skillCreatorSummary),
       'Advanced details:',
-      `Factory proposal ${proposal.name}`,
+      `Skill Creator proposal ${proposal.name}`,
       `Preference mode: ${proposal.preference.mode}`,
       `Can generate: ${proposal.canGenerate ? 'yes' : 'no'}`,
       ...formatOptionalSection(

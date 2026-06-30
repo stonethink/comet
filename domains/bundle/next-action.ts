@@ -75,7 +75,7 @@ export function determineBundleNextAction(state: BundleAuthoringState): BundleNe
       action: 'resolve-candidates',
       category: 'factory',
       userLabel: 'Resolve missing or ambiguous Skill candidates',
-      reason: `${unresolved.length} unresolved Factory candidate(s) remain`,
+      reason: `${unresolved.length} unresolved Skill Creator candidate(s) remain`,
       backendCommand: `comet bundle factory-resolve ${state.name} --candidate ${first.query}`,
       userCommand: `Ask /comet-any to resolve ${first.query}`,
       requiresUserConfirmation: true,
@@ -89,7 +89,7 @@ export function determineBundleNextAction(state: BundleAuthoringState): BundleNe
       action: 'fix-composition',
       category: 'factory',
       userLabel: 'Fix the composition plan',
-      reason: `Factory composition has ${compositionIssues.length} issue(s): ${first.message}`,
+      reason: `Skill Creator composition has ${compositionIssues.length} issue(s): ${first.message}`,
       backendCommand: `comet bundle review-summary ${state.name} --platform <reference-platform>`,
       userCommand: 'Ask /comet-any to revise the composition proposal',
       requiresUserConfirmation: true,
@@ -103,7 +103,7 @@ export function determineBundleNextAction(state: BundleAuthoringState): BundleNe
       category: 'factory',
       userLabel: 'Confirm the resolved composition proposal',
       reason:
-        'Factory candidates and composition are resolved but proposal confirmation is missing',
+        'Skill Creator candidates and composition are resolved but proposal confirmation is missing',
       backendCommand: `comet bundle factory-init ${state.name} --file ${planPath} --confirmed-proposal`,
       userCommand: 'Ask /comet-any to show and confirm the resolved composition proposal',
       requiresUserConfirmation: true,
@@ -115,7 +115,7 @@ export function determineBundleNextAction(state: BundleAuthoringState): BundleNe
       action: 'generate-factory-package',
       category: 'factory',
       userLabel: 'Generate the Comet-native Skill package',
-      reason: 'Factory metadata exists but no generated Skill package is recorded yet',
+      reason: 'Skill Creator metadata exists but no generated Skill package is recorded yet',
       backendCommand: `comet bundle factory-generate ${state.name}`,
       userCommand: 'Ask /comet-any to continue generation',
       requiresUserConfirmation: false,
@@ -208,8 +208,8 @@ export function buildBundleResumeSummary(
 
   const completed: string[] = [];
   const missing: string[] = [];
-  if (state.factory) completed.push('Factory metadata initialized');
-  else missing.push('Factory metadata');
+  if (state.factory) completed.push('Skill Creator metadata initialized');
+  else missing.push('Skill Creator metadata');
   if (state.factory?.generatedSkillPackage) completed.push('Generated Skill package recorded');
   else if (state.factory) missing.push('Generated Skill package');
   if (state.eval?.hash === state.currentHash && state.eval.passed)

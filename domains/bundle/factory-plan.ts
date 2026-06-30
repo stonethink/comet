@@ -7,7 +7,7 @@ import type {
   BundleFactoryMetadata,
   BundleFactoryOrderDeviation,
 } from './types.js';
-import type { SkillMakerIntent } from './user-facing.js';
+import type { SkillCreatorIntent } from './user-facing.js';
 import {
   normalizeWorkflowDefinition,
   type WorkflowDefinitionInput,
@@ -17,7 +17,7 @@ import {
 export interface BundleFactoryPlanFile {
   goal: string;
   preferredSkills?: string[];
-  skillMakerIntent?: SkillMakerIntent;
+  skillCreatorIntent?: SkillCreatorIntent;
   workflow: WorkflowDefinitionInput;
   deviations?: BundleFactoryOrderDeviation[];
   engineMode?: BundleFactoryMetadata['engineMode'];
@@ -32,7 +32,7 @@ export interface BundleFactoryPlanFile {
 
 export interface NormalizedBundleFactoryPlan {
   goal: string;
-  skillMakerIntent: SkillMakerIntent;
+  skillCreatorIntent: SkillCreatorIntent;
   preferredSkills: string[];
   callChain: BundleFactoryCallChainItem[];
   workflowDefinition: WorkflowDefinitionInput;
@@ -56,7 +56,7 @@ interface PersistedBundleFactoryPlan extends Omit<NormalizedBundleFactoryPlan, '
 const FACTORY_PLAN_FIELDS = new Set([
   'goal',
   'preferredSkills',
-  'skillMakerIntent',
+  'skillCreatorIntent',
   'workflow',
   'deviations',
   'engineMode',
@@ -73,7 +73,7 @@ function persistedFactoryPlan(plan: NormalizedBundleFactoryPlan): PersistedBundl
   return {
     schemaVersion: 1,
     goal: plan.goal,
-    skillMakerIntent: plan.skillMakerIntent,
+    skillCreatorIntent: plan.skillCreatorIntent,
     preferredSkills: plan.preferredSkills,
     workflow: plan.workflowDefinition,
     workflowDefinition: plan.workflowDefinition,
@@ -196,8 +196,8 @@ export function normalizeBundleFactoryPlan(options: {
   if (planMode === 'optimize' && !plan.sourceRoot) {
     throw new Error('factory plan sourceRoot is required for optimize mode');
   }
-  const skillMakerIntent =
-    plan.skillMakerIntent ??
+  const skillCreatorIntent =
+    plan.skillCreatorIntent ??
     (workflow.protocol.kind === 'comet-five-phase-overlay'
       ? 'customize-comet'
       : planMode === 'optimize'
@@ -209,7 +209,7 @@ export function normalizeBundleFactoryPlan(options: {
 
   return {
     goal: plan.goal,
-    skillMakerIntent,
+    skillCreatorIntent,
     preferredSkills,
     callChain: normalizeCallChain(workflow.requiredSkills, preferredSkills),
     workflowDefinition: workflow.input,

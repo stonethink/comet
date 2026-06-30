@@ -12,7 +12,7 @@ All subagents only return Markdown outputs and structured review findings. They 
 
 ## Role Briefs
 
-After the user confirms the Skill Maker proposal, and before `factory-generate` or source generation, the main session reads and dispatches these briefs in order:
+After the user confirms the Skill Creator proposal, and before `factory-generate` or source generation, the main session reads and dispatches these briefs in order:
 
 1. Script author subagent: `comet-any/reference/subagents/script-author.md`
 2. Reference author subagent: `comet-any/reference/subagents/reference-author.md`
@@ -53,7 +53,7 @@ Every subagent must receive the same common context:
 
 - The user-confirmed goal, starting point, and language.
 - `goal`, `workflow.kind`, `workflow.nodes`, `engineMode`, and `runnerMode` from `plan.json`, plus
-  the derived internal `callChain` source inventory from Factory metadata.
+  the derived internal `callChain` source inventory from Skill Creator metadata.
 - `reference/resolved-skills.json` or an equivalent real Skill source summary.
 - `reference/workflow-protocol.json` or the workflow protocol that will be written there.
 - For customize existing Comet Skills, the protected boundary: `open / design / build / verify / archive`, `.comet.yaml`, decision point, verify-result-transition, and archive-delta-sync.

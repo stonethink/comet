@@ -125,7 +125,7 @@ function advice(
     case 'control-plane':
       return {
         impact: 'Required scripts, rules, hooks, or checks are missing from the generated Skill.',
-        label: 'Regenerate the Factory package',
+        label: 'Regenerate the Skill Creator package',
         command: `comet bundle factory-generate ${bundleName}`,
       };
     case 'draft':

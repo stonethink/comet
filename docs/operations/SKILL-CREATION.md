@@ -171,15 +171,15 @@ After user confirmation, `/comet-any` calls:
 comet bundle factory-init <name> --file <plan.json> --confirmed-proposal --json
 ```
 
-`proposalHash` is recorded and verified by Factory metadata, not passed by the user as a CLI
+`proposalHash` is recorded and verified by Skill Creator metadata, not passed by the user as a CLI
 argument. `factory-init` persists the normalized plan to
 `.comet/bundle-factory-plans/<name>/plan.json` and records `planHash`, `preferenceHash`,
 preference mode, policies, required Skills, resolved Skill evidence, and deviation reasons in
-Factory metadata.
+Skill Creator metadata.
 
 If the proposal still has missing, ambiguous, or composition blockers, `/comet-any` should not
 confirm generation. When backend state is needed for candidate repair, initialize the unresolved
-Factory state without `--confirmed-proposal` and run `factory-resolve`; after candidates and
+Skill Creator state without `--confirmed-proposal` and run `factory-resolve`; after candidates and
 composition are resolved, show the generation-ready proposal again and call
 `factory-init --confirmed-proposal`. Without that confirmation metadata, `factory-generate`, review,
 and publish all refuse to continue.
@@ -318,7 +318,7 @@ Continue the previous Skill creation
 `/comet-any` should first scan resumable state and show the name, status, next action, blockers,
 and the last confirmed proposal summary. Resume checks include:
 
-- whether Bundle Factory state exists
+- whether Skill Creator state exists
 - whether the draft hash changed
 - whether `.comet/skill-preferences.yaml` `preferenceHash` changed
 - whether resolved Skill hashes changed

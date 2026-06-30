@@ -315,7 +315,7 @@ describe('comet bundle CLI end to end', () => {
     });
   });
 
-  it('prints a JSON Factory proposal before draft creation', async () => {
+  it('prints a JSON Skill Creator proposal before draft creation', async () => {
     await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
     await fs.mkdir(path.join(projectRoot, '.comet', 'skills', 'factory-alpha'), {
       recursive: true,
@@ -367,7 +367,7 @@ prefer:
     });
   });
 
-  it('shows Skill Maker language before backend details in factory proposal text', async () => {
+  it('shows Skill Creator language before backend details in factory proposal text', async () => {
     await fs.mkdir(path.join(projectRoot, '.comet', 'skills', 'factory-alpha'), {
       recursive: true,
     });
@@ -611,7 +611,7 @@ prefer:
     ).resolves.toContain('Alpha factory step.');
   });
 
-  it('recovers missing Factory candidates through factory-resolve and keeps generated state invalidated', async () => {
+  it('recovers missing Skill Creator candidates through factory-resolve and keeps generated state invalidated', async () => {
     await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
     await fs.writeFile(
       path.join(projectRoot, '.comet', 'skill-preferences.yaml'),
@@ -991,7 +991,7 @@ prefer:
 
     expect(bundleStatus.status, bundleStatus.stderr).toBe(0);
     expect(bundleStatus.stdout).toContain('Status: draft');
-    expect(bundleStatus.stdout).toContain('Factory package:');
+    expect(bundleStatus.stdout).toContain('Skill Creator package:');
     expect(bundleStatus.stdout).toContain(
       'Benchmark: missing; run comet bundle benchmark-plan and comet bundle benchmark-record',
     );
