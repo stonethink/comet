@@ -3,6 +3,7 @@ import { classicArchiveCommand } from './classic-archive.js';
 import { classicGuardCommand } from './classic-guard.js';
 import { classicHandoffCommand } from './classic-handoff.js';
 import { classicHookGuardCommand } from './classic-hook-guard.js';
+import { classicIntentCommand } from './classic-intent-command.js';
 import { classicStateCommand } from './classic-state-command.js';
 import { classicValidateCommand } from './classic-validate-command.js';
 
@@ -30,6 +31,7 @@ export const CLASSIC_COMMANDS = [
   'handoff',
   'archive',
   'hook-guard',
+  'intent',
 ] as const;
 
 export type ClassicCommandName = (typeof CLASSIC_COMMANDS)[number];
@@ -41,6 +43,7 @@ const DEFAULT_HANDLERS: ClassicCommandHandlers = {
   handoff: classicHandoffCommand,
   archive: classicArchiveCommand,
   'hook-guard': classicHookGuardCommand,
+  intent: classicIntentCommand,
 };
 
 function isClassicCommand(value: string): value is ClassicCommandName {
@@ -126,3 +129,4 @@ if (entry && import.meta.url === pathToFileURL(entry).href) {
     process.exitCode = exitCode;
   });
 }
+

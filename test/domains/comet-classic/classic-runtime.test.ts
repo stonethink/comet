@@ -65,6 +65,58 @@ describe('Classic runtime CLI adapter', () => {
       stderr: expect.stringContaining('Unknown Classic command'),
     });
   });
+
+  it('routes intent frames through the Classic CLI', async () => {
+    const { runClassicCli } = await import('../../../domains/comet-classic/classic-cli.js');
+    const frame = {
+      schema_version: 'comet.intent.v1',
+      utterance: 'fix the broken guard',
+      locale: 'en',
+      intent: { name: 'fix_bug', confidence: 0.92 },
+      entities: [{ type: 'bug_signal', value: 'broken', text: 'broken' }],
+      slots: {
+        requested_action: 'fix',
+        workflow_candidate: 'hotfix',
+        user_explicit_workflow: null,
+        change_id: null,
+        target_area: 'guard',
+        scope: 'small',
+        existing_behavior: true,
+        new_capability: false,
+        public_api_change: false,
+        schema_change: false,
+        cross_module_change: false,
+      },
+      context: { active_changes_count: 0, active_change_names: [], dirty_worktree: false },
+      evidence: [
+        { field: 'intent.name', quote: 'fix', source: 'user' },
+        { field: 'slots.workflow_candidate', quote: 'broken', source: 'user' },
+      ],
+      route: {
+        name: 'hotfix',
+        next_skill: 'comet-hotfix',
+        confidence: 0.9,
+        requires_confirmation: false,
+        fallback_reason: null,
+      },
+    };
+
+    const result = await runClassicCli(['intent', 'route', JSON.stringify(frame)]);
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout ?? '')).toMatchObject({
+      route: { name: 'hotfix', next_skill: 'comet-hotfix' },
+    });
+  });
+
+  it('returns readable intent validation errors', async () => {
+    const { runClassicCli } = await import('../../../domains/comet-classic/classic-cli.js');
+
+    const result = await runClassicCli(['intent', 'route', '{"schema_version":"wrong"}']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Invalid CometIntentFrame');
+  });
 });
 
 describe('Classic runtime bundle', () => {

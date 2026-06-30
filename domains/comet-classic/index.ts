@@ -9,6 +9,7 @@ export * from './classic-runtime-evals.js';
 export * from './classic-runtime-run.js';
 export * from './classic-state-events.js';
 export * from './classic-intent.js';
+export * from './classic-intent-command.js';
 export * from './classic-state-command.js';
 export * from './classic-validate-command.js';
 export * from './classic-migrate.js';
@@ -16,3 +17,4 @@ export * from './classic-resolver.js';
 export * from './classic-state.js';
 export * from './classic-store.js';
 export * from './classic-transitions.js';
+
