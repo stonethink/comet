@@ -597,6 +597,9 @@ describe('skills', () => {
 
       expect(zhComet).toContain('决策点是阻塞点');
       expect(zhComet).toContain('`comet/reference/decision-point.md`');
+      expect(zhDecisionPoint).toContain('优先使用 `AskUserQuestion`');
+      expect(zhDecisionPoint).toContain('第一次调用 `AskUserQuestion` 失败');
+      expect(zhDecisionPoint).toContain('本会话后续决策点不得反复重试 `AskUserQuestion`');
       expect(zhDecisionPoint).toContain(
         '若当前平台没有结构化提问工具，则必须在对话中提出明确选项并停止流程',
       );
@@ -814,7 +817,7 @@ describe('skills', () => {
         '不得通过另起一个“写测试用例”的 change 来替代当前 change 的验证闭环',
       );
 
-      // CRITICAL: user-confirmation gates must not hardcode a platform-specific tool name.
+      // CRITICAL: phase skills stay platform-neutral; the shared decision-point protocol owns AskUserQuestion fallback.
       expect(
         [zhComet, zhDesign, zhBuild, zhVerify, zhArchive, zhHotfix, zhTweak].join('\n'),
       ).not.toContain('AskUserQuestion');
@@ -906,6 +909,11 @@ describe('skills', () => {
       );
 
       expect(enComet).toContain('Decision points are blocking points');
+      expect(enDecisionPoint).toContain('prefer `AskUserQuestion`');
+      expect(enDecisionPoint).toContain('the first `AskUserQuestion` call fails');
+      expect(enDecisionPoint).toContain(
+        'do not repeatedly retry `AskUserQuestion` for later decision points in the same session',
+      );
       expect(enDecisionPoint).toContain(
         'If the current platform has no structured question tool, ask clear options in the conversation and stop until the user replies',
       );
@@ -1143,6 +1151,7 @@ describe('skills', () => {
         'do not replace the current change verification loop by starting a separate “write test cases” change',
       );
 
+      // Phase skills stay platform-neutral; the shared decision-point protocol owns AskUserQuestion fallback.
       expect(
         [enComet, enOpen, enDesign, enBuild, enVerify, enArchive, enHotfix, enTweak].join('\n'),
       ).not.toContain('AskUserQuestion');

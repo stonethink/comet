@@ -42,6 +42,7 @@ This is the first beta of the 0.4.0 line. Relative to 0.3.9, Comet becomes a Nod
 - **Skill Creator user path**: Documentation and CLI help now route ordinary Skill creation through `/comet-any`, `comet eval`, and `comet publish status/next`; `bundle factory-*` and authoring commands are documented as advanced backend references, while `comet skill run/continue` is labeled as advanced Engine Run debugging.
 - **`review_mode` default changed to `standard`**: The default `review_mode` for `full` workflow initialization and the runtime fallback are now `standard` instead of `null` (disabled). This applies to the init template, `classic-state-command.ts` runtime fallback, and the frozen 0.3.9 contract fixture.
 - **Archive commit prompt**: The archive skill now ends with an explicit "commit the archive changes" step. The archive script only moves files and merges specs — it does not auto-commit — so the new step prompts the user to `git add -A && git commit` and finish phase 4 branch handling, preventing archived results from sitting uncommitted in the worktree.
+- **Decision point questions**: Comet decision points now prefer Claude Code's structured `AskUserQuestion` UI for single-select and multi-select choices, while falling back to numbered text options when the tool is missing or fails once in the current session. This restores clickable choice UX on Claude Code without breaking platforms that do not expose that tool.
 
 ### Fixed
 
@@ -59,6 +60,7 @@ This is the first beta of the 0.4.0 line. Relative to 0.3.9, Comet becomes a Nod
 - **Skill bootstrap coverage**: Updated the Skill documentation tests to accept either inline Comet bootstrap blocks or delegated comet/reference/scripts.md references, while still checking the safe comet-env.mjs lookup and HOME glob behavior when a Skill keeps the bootstrap inline.
 - **Superpowers `subagent-driven-development` contract coverage**: Added skill-content regression coverage that the Comet subagent dispatch extension uses task reviewer terminology and does not bind shipped Skill prose to Superpowers `subagent-driven-development` internal script or workspace names.
 - **Build recovery parity coverage**: Adds regression coverage for the `/comet` entry Skill, phase-guard rule injection, and Classic recovery output so all three surfaces stay aligned on the four build decisions.
+- **Decision point UI coverage**: Adds Skill documentation regression coverage for the shared `AskUserQuestion` priority path, one-time fallback behavior, and platform-neutral phase Skill wording.
 
 ### Removed
 
