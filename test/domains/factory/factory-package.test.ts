@@ -142,6 +142,8 @@ describe('Factory skill package generation', () => {
     });
     expect(entry).toContain('## Workflow Nodes');
     expect(entry).toContain('Output Schemas');
+    expect(entry).not.toContain('workflow-state.mjs init');
+    expect(entry).toContain('/comet-open');
     expect(skillYaml.orchestration?.steps?.[0]?.action?.ref).toBe('team-comet-open');
 
     const runRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'comet-workflow-contract-run-'));
@@ -490,7 +492,9 @@ describe('Factory skill package generation', () => {
     const output = await generateFactorySkillPackage(
       packagePlan({ root, name: 'plain-workflow', workflow, engineMode: 'none' }),
     );
+    const entry = await fs.readFile(output.skillPath, 'utf8');
 
+    expect(entry).toContain('workflow-state.mjs init');
     expect(output.enginePath).toBeNull();
     expect(output.evalManifestPath).toBeNull();
     await expect(

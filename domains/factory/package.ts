@@ -153,6 +153,14 @@ function workflowContractEntryMarkdown(
       ),
     )
     .join('\n');
+  const startupProtocol =
+    protocol.kind === 'comet-five-phase-overlay'
+      ? `1. Run \`node ${plan.name}/scripts/workflow-state.mjs status\` to read the active Comet change state.
+2. If there is no active Comet change, use \`/comet-open\` or the original \`/comet\` entry to create or resume one.
+3. Run \`node ${plan.name}/scripts/workflow-state.mjs next\` and load **only** the returned Skill. Do not load multiple Skills at once.`
+      : `1. Run \`node ${plan.name}/scripts/workflow-state.mjs status\` to read current state.
+2. If the workflow is not started, confirm scope with the user, then run \`node ${plan.name}/scripts/workflow-state.mjs init\`.
+3. Run \`node ${plan.name}/scripts/workflow-state.mjs next\` and load **only** the returned Skill. Do not load multiple Skills at once.`;
   return `---
 name: ${plan.name}
 description: ${factoryEntryDescription(plan)}
@@ -180,9 +188,7 @@ ${guardrails || '- No explicit guardrails.'}
 
 ### Startup Protocol
 
-1. Run \`node ${plan.name}/scripts/workflow-state.mjs status\` to read current state.
-2. If the workflow is not started, confirm scope with the user, then run \`node ${plan.name}/scripts/workflow-state.mjs init\`.
-3. Run \`node ${plan.name}/scripts/workflow-state.mjs next\` and load **only** the returned Skill. Do not load multiple Skills at once.
+${startupProtocol}
 
 ### Resume Rules (every context resume)
 
