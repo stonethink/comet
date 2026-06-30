@@ -7,7 +7,12 @@ import { hashBundle } from './hash.js';
 import { loadBundle } from './load.js';
 import { compileBundleForPlatform, type PlatformCompileReport } from './platform.js';
 import { reconcileBundleAuthoringState } from './state.js';
-import type { BundleAuthoringState, BundleCompilerIr, SkillBundle } from './types.js';
+import type {
+  BundleAuthoringState,
+  BundleCompilerIr,
+  BundleGeneratedSkillPackage,
+  SkillBundle,
+} from './types.js';
 import { listBundlePlatformTargets } from './bundle-platform.js';
 import { readProjectSkillPreferences } from '../skill/preferences.js';
 import {
@@ -89,6 +94,26 @@ async function generatedEntrySkillContains(root: string, needle: string): Promis
   }
 }
 
+function generatedPackageRoots(generatedPackage: BundleGeneratedSkillPackage): string[] {
+  const skillsRoot = path.dirname(generatedPackage.packageRoot);
+  return Array.from(
+    new Set([
+      path.resolve(generatedPackage.packageRoot),
+      ...generatedPackage.internalSkills.map((skill) => path.resolve(skillsRoot, skill)),
+    ]),
+  );
+}
+
+async function generatedSkillPackageContains(
+  generatedPackage: BundleGeneratedSkillPackage,
+  needle: string,
+): Promise<boolean> {
+  for (const root of generatedPackageRoots(generatedPackage)) {
+    if (await generatedPackageContains(root, needle)) return true;
+  }
+  return false;
+}
+
 async function buildReadiness(
   state: BundleAuthoringState,
   controlPlane: Awaited<ReturnType<typeof validateStableFactoryControlPlane>>,
@@ -159,7 +184,7 @@ async function buildReadiness(
     if (await generatedEntrySkillContains(generatedPackage.packageRoot, AUTHORING_PENDING_MARKER)) {
       blockers.push('[authoring] Entry Decision Core is not authored');
     }
-    if (await generatedPackageContains(generatedPackage.packageRoot, AUTHORING_PENDING_MARKER)) {
+    if (await generatedSkillPackageContains(generatedPackage, AUTHORING_PENDING_MARKER)) {
       blockers.push('[authoring] Generated package still contains AUTHORING PENDING markers');
     }
     const unauthored = generatedPackage.unauthoredSubstanceNodes ?? [];

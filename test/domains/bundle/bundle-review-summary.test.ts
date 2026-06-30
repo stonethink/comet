@@ -172,6 +172,29 @@ async function authorGeneratedEntryDecisionCore(
   return { currentHash: await hashBundle(await loadBundle(state.draftPath)) };
 }
 
+async function authorAllGeneratedSkillMarkers(
+  state: BundleAuthoringState,
+): Promise<{ currentHash: string }> {
+  const generatedPackage = state.factory!.generatedSkillPackage!;
+  const skillsRoot = path.dirname(generatedPackage.packageRoot);
+  const skillRoots = [
+    generatedPackage.packageRoot,
+    ...generatedPackage.internalSkills.map((skill) => path.join(skillsRoot, skill)),
+  ];
+  for (const skillRoot of skillRoots) {
+    const skillPath = path.join(skillRoot, 'SKILL.md');
+    await fs.writeFile(
+      skillPath,
+      (await fs.readFile(skillPath, 'utf8')).replace(
+        '<!-- AUTHORING PENDING -->',
+        'The generated Skill content has been authored for this readiness fixture.',
+      ),
+      'utf8',
+    );
+  }
+  return { currentHash: await hashBundle(await loadBundle(state.draftPath)) };
+}
+
 describe('Bundle review summary readiness', () => {
   let projectRoot: string;
 
@@ -378,6 +401,35 @@ describe('Bundle review summary readiness', () => {
       expect.arrayContaining([
         expect.stringContaining('[authoring] Substance nodes lack authored content'),
       ]),
+    );
+  });
+
+  it('detects authoring pending markers in sibling generated node skill roots', async () => {
+    const state = await createFactoryStateWithGeneratedPackage(projectRoot, 'sibling-authoring');
+    const { currentHash } = await authorGeneratedEntryDecisionCore(state);
+    await writeBundleAuthoringState(projectRoot, {
+      ...state,
+      currentHash,
+      factory: {
+        ...state.factory!,
+        generatedSkillPackage: {
+          ...state.factory!.generatedSkillPackage!,
+          unauthoredSubstanceNodes: [],
+        },
+      },
+    });
+
+    const summary = await buildBundleReviewSummary({
+      projectRoot,
+      name: 'sibling-authoring',
+      platform: 'claude',
+    });
+
+    expect(summary.readiness.blockers).not.toContain(
+      '[authoring] Entry Decision Core is not authored',
+    );
+    expect(summary.readiness.blockers).toContain(
+      '[authoring] Generated package still contains AUTHORING PENDING markers',
     );
   });
 
@@ -681,7 +733,7 @@ prefer:
       ]),
     );
 
-    const { currentHash: authoredHash } = await authorGeneratedEntryDecisionCore(blockedState);
+    const { currentHash: authoredHash } = await authorAllGeneratedSkillMarkers(blockedState);
     await writeBundleAuthoringState(projectRoot, {
       ...blockedState,
       status: 'eval-passed',
