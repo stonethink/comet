@@ -1,10 +1,10 @@
-# Comet Any Overlay Quality Hardening Design
+# Comet Any Workflow Skill Production Readiness Design
 
 日期：2026-06-30
 
 状态：设计稿，待实现。
 
-范围：本文是对既有 `comet-any` / Skill Factory 设计的质量加固增补。它不取代 `2026-06-27-comet-any-agent-workflow-contract-design.md`、`2026-06-28-comet-any-authoring-protocol-design.md` 或 `2026-06-28-comet-any-authored-content-zone-design.md`，而是基于 `comet-grill-me` 生成实测，补齐 Comet overlay 生成物在状态、证据、augmentation 和 readiness 上的断层。
+范围：本文是对既有 `comet-any` / Skill Factory 设计的质量加固增补。它不取代 `2026-06-27-comet-any-agent-workflow-contract-design.md`、`2026-06-28-comet-any-authoring-protocol-design.md` 或 `2026-06-28-comet-any-authored-content-zone-design.md`，而是基于 `comet-grill-me` 生成实测，补齐 Comet overlay 生成物在状态、证据、augmentation、eval 和 readiness 上的断层。
 
 ## 背景
 
@@ -12,13 +12,16 @@
 
 问题不在于 Skill 薄。对于 `comet-five-phase-overlay`，薄 delegate wrapper 是合理的，因为每个节点实际委托给已有的 `comet-open`、`comet-design`、`comet-build`、`comet-verify` 和 `comet-archive`。真正的问题是薄 wrapper 背后的协议、状态机、证据和 readiness 没有完全接住新增行为。
 
-本次实测暴露了五个断层：
+本次实测暴露了八个断层：
 
 1. 自定义 Output Schema 可以进入 protocol，但当前 node patch 不能把它挂到具体 node，导致 guard/eval/readiness 不会强制它。
 2. `augmentations` 会进入 protocol，但生成的 node Skill、handoff 脚本、guard 和 eval 主要只消费 `requiredSkillCalls`。
 3. `comet-five-phase-overlay` 在 protocol 里声明 `.comet.yaml`，但生成脚本遇到 wildcard state path 会 fallback 到 `.comet/runs/<workflow>/state.json`，形成旁路状态机。
 4. entry `Decision Core` 缺 authored 内容时只留下 placeholder，readiness 没有把它作为 blocker。
 5. 生成物没有明确区分“薄但可靠的 delegate wrapper”和“不完整 scaffold”，用户容易把未完成的 scaffold 当成可发布 workflow。
+6. 生成的 `comet/eval.yaml` 已能被仓库 `eval/` 系统读取，但当前推荐任务偏 authoring smoke / route conformance；组合 Skill 还没有系统性映射到现有 task suite、baseline treatment、pass@k 报告和 readiness 回写。
+7. `comet-any` Skill 文档仍保留旧 benchmark provider 语义，尤其是 `reference/eval-provider.md`、`bundle-authoring.md` 和部分 subagent brief 仍提到 `skill-creator` provider、`benchmark-plan` / `benchmark-record` 或 `benchmark evidence`，与新的仓库 `eval/` 主路径不一致。
+8. `reference/subagents/*.md` 当前只是 Comet-any authoring lane 的 portable role brief，不是 Claude Code 可自动发现的 custom agent 定义；它们缺少 `name` / `description` 等 agent frontmatter，也没有位于 `.claude/agents/`、用户 agents 目录或插件 `agents/` 目录中，容易让实现者误以为已经提供了平台原生 subagent。
 
 ## 目标
 
@@ -27,6 +30,11 @@
 - 让 `comet-five-phase-overlay` 保留真实 Comet `.comet.yaml` 状态语义，不创建旁路状态机。
 - 让 entry Decision Core 和 authored content 缺失成为 readiness blocker。
 - 让生成包明确区分“薄但可靠的 delegate wrapper”和“不完整 scaffold”。
+- 让 `comet-any` 生成包通过仓库 `eval/` 系统评估，而不是维护独立的内部 benchmark。
+- 让组合 Skill 能作为动态 treatment 跑现有 Comet / generic task suite，并与 `CONTROL`、原生 Comet 等 baseline 对比。
+- 让 eval 结果绑定当前 draft hash，并被 review summary 消费用于 readiness 判断。
+- 清理 `comet-any` Skill 文档中的旧 benchmark provider 语义，统一改成仓库 `eval/` 主路径。
+- 明确区分 portable authoring lane brief 与平台原生 custom agent；为 Claude Code 输出符合其 agent schema 和目录约定的可安装 agent 定义。
 - 为上述行为补回归测试，防止再次生成看似完整但约束未生效的 Bundle。
 
 ## 非目标
@@ -37,6 +45,10 @@
 - 不重写整个 `comet-any` authoring pipeline。
 - 不改变 `workflow-kernel` 的基础状态模型。
 - 不把普通用户暴露到内部 factory/composition 术语中。
+- 不新增一套与 `eval/` 平行的评测系统。
+- 不直接搬运 `skill-creator` benchmark 目录结构；如需借鉴，只通过仓库 eval profile、task、report 抽象承接。
+- 不在本轮直接删除 `eval-provider.md`；先在中文 Skill 中改写或重命名，确认后再同步英文版本。
+- 不把 `reference/subagents/*.md` 直接冒充为 Claude Code custom agents；它们可以继续作为跨平台 role brief，但平台原生 agent 必须单独生成。
 
 ## 核心判断
 
@@ -198,7 +210,96 @@ Readiness 增加 deterministic scan：
 [workflow] verify: augmentation grill-me is advisory only; no evidence contract will enforce it
 ```
 
-### 6. Overlay-Specific Eval
+### 6. Eval System Integration
+
+`comet-any` 的验证必须接入仓库现有 `eval/` 系统。`comet-any` 只负责生成被测对象和 manifest；`eval/` 负责隔离执行、task/treatment 编排、rubric、pass@k、报告和失败归因；`review-summary` 负责读取结构化结果并决定 readiness。
+
+职责边界：
+
+- `comet-any` 生成 `comet/eval.yaml`，声明 entry Skill、generated node skills、recommended tasks、required skills、expected artifacts、interaction、profile、baseline treatments 和 quality gates。
+- `eval/` 通过 `uv run pytest local/tests/tasks/test_tasks.py --eval-manifest <path>` 把生成包作为 `DYNAMIC_SKILL` treatment 注入，复制 entry Skill 与 generated node skills 到隔离工作区。
+- `eval/` 对同一批 task 同时运行 `CONTROL`、原生 Comet treatment 和动态组合 Skill treatment，产出 pass@k / pass^k / weighted rubric / failure attribution / report paths。
+- `comet-any` 或 bundle CLI 把 eval 结果记录回 draft state，必须包含 draft hash、eval manifest hash、任务列表、treatment 列表、profile、count、通过率、rubric 分、失败原因和报告路径。
+- `review-summary` 只消费当前 draft hash 对应的 eval 结果；hash 不匹配、缺失、失败或低于阈值时阻塞 ready。
+
+Manifest 扩展方向：
+
+```yaml
+evaluation:
+  recommendedTasks:
+    - authoring-skill-smoke
+    - workflow-route-conformance
+    - comet-full-workflow
+    - comet-fix-median
+  baselineTreatments:
+    - CONTROL
+    - COMET_FULL
+  requiredSkills:
+    - comet-grill-me
+    - grill-me
+  qualityGates:
+    minWeightedScore: 0.80
+    minPassAt1: 0.60
+    maxInstabilityGap: 0.40
+```
+
+Task selection rules：
+
+- `workflow-kernel` 默认推荐 `generic-skill-smoke`、`authoring-skill-smoke`、`workflow-route-conformance`，并允许用户显式绑定 domain task。
+- `comet-five-phase-overlay` 默认推荐 authoring smoke、route conformance 和一组现有 Comet workflow tasks，例如 `comet-full-workflow`、`comet-fix-median`、`comet-refactor-counter`、`comet-api-cache-ttl`。
+- 如果 overlay 引入 required skill call 或 augmentation，manifest 必须追加至少一个能观察该行为的 task 或 rubric criterion。例如 `grill-me` overlay 需要验证相关 node 是否调用 `grill-me` 并把结论写入 evidence / artifact。
+- quick eval 可以只跑 authoring smoke + route conformance；ready/publish eval 必须跑 workflow/domain task suite 和 baseline 对比。
+
+Readiness rules：
+
+- 当前 draft hash 没有 eval evidence → blocker。
+- 只有 quick eval，没有 ready/publish 所需 task suite → blocker 或 explicit warning，由 publish mode 决定。
+- `DYNAMIC_SKILL` 低于 quality gates → blocker。
+- 组合 Skill 相对原生 baseline 明显退化，且用户目标不是实验性探索 → blocker。
+- eval runner 自身失败且无法归因到 task/model → blocker，避免把 harness 失败误判为 Skill 质量。
+
+### 7. Subagent Role Briefs vs Claude Code Agents
+
+`reference/subagents/*.md` 是跨平台 authoring lane role brief，不是平台原生 custom agent。它们可以继续作为 Skill 内部参考资料，但不能被当作 Claude Code custom subagent 包发布。
+
+结构分层：
+
+- `reference/subagents/*.md`：保留为 portable role brief，描述 lane 职责、输入、输出、claim、阻塞条件和 fallback 语义。
+- 平台原生 agent 产物：由 factory / publish distribute 针对目标平台生成，例如 Claude Code 输出到 `.claude/agents/`、用户 agents 目录或插件 `agents/` 目录。
+- `reference/authoring-lanes.json`：记录某个 lane 实际使用 `subagent`、`inline` 还是 `platform-agent` dispatch mode，以及使用的 agent id / model / tools。
+
+Claude Code agent definition 必须包含平台 schema，而不是只有 brief 正文：
+
+```markdown
+---
+name: comet-any-script-author
+description: Use when authoring workflow script contracts for a confirmed comet-any bundle draft.
+tools: Read, Write, Glob, Grep
+model: inherit
+---
+
+# Script Author Agent
+
+You author the script contract for one comet-any authoring lane...
+```
+
+生成规则：
+
+- `name` 必须稳定、唯一、可 slug 化，建议前缀 `comet-any-`。
+- `description` 必须说明何时调用该 agent，不能只写角色名称。
+- `tools` 必须最小化；authoring agent 默认只读/写指定报告路径，不得拥有 publish、install 或 destructive 权限。
+- `model` 必须显式记录；如果平台不支持选择，`authoring-lanes.json` 记录为 `platform-default`。
+- 正文可以引用 portable role brief，但必须把关键职责内联到 agent prompt，避免目标平台只看到一个路径而无法执行。
+- 生成目录由 platform compiler 决定；Skill reference 目录不得伪装为 `.claude/agents/`。
+
+Readiness 规则：
+
+- 如果 proposal 声称使用 Claude Code custom agents，但 package 里没有生成对应 agent definitions → blocker。
+- 如果 generated agent 缺少 `name`、`description` 或正文 prompt → blocker。
+- 如果 agent tools 超出 lane 职责，例如允许 publish/distribute/install → blocker 或 executable disclosure。
+- 如果只存在 `reference/subagents/*.md`，则只能标记为 portable brief / inline fallback，不能声称已经提供 platform-native agent。
+
+### 8. Overlay-Specific Eval
 
 为 `comet-five-phase-overlay` 增加 eval 检查项：
 
@@ -209,7 +310,7 @@ Readiness 增加 deterministic scan：
 - entry Skill 不含 `AUTHORING PENDING`。
 - `review` 节点如果受 `review_mode` 影响，eval 覆盖 `off`、`standard`、`thorough` 三种路径的说明一致性。
 
-### 7. Confirmation Page Enforcement Column
+### 9. Confirmation Page Enforcement Column
 
 `/comet-any` 展示确认页时，每个新增 binding 或 schema 必须显示 enforcement 级别：
 
@@ -220,7 +321,7 @@ Readiness 增加 deterministic scan：
 
 如果用户的目标语义是“必须”，但生成方案只能做到 `advisory`，必须暂停并说明风险，不能直接生成。
 
-### 8. Thin Wrapper Classification
+### 10. Thin Wrapper Classification
 
 生成包在 `composition-report.md` 和 review summary 中标注 wrapper 质量：
 
@@ -232,6 +333,14 @@ Readiness 增加 deterministic scan：
 `scaffold-blocked` 不能进入 ready。
 
 ## 模块改动
+
+### `eval/`
+
+- `eval/scaffold/python/manifests.py`：扩展 manifest 字段，支持 baseline treatments、quality gates、task suite hints 和 draft hash metadata。
+- `eval/local/tests/conftest.py`：确保 `--eval-manifest` 动态 treatment 同时注入 entry Skill、generated node skills、required skill hints、expected artifacts 和 interaction 配置。
+- `eval/local/tasks/`：新增 overlay 行为任务，覆盖 required skill call / augmentation 是否真实发生。
+- `eval/scaffold/python/validation/authoring_rubric.py`：把 authoring smoke 从结构检查扩展到组合 Skill contract 检查。
+- `eval/scaffold/python/report_outputs.py` 或实验日志层：输出可被 `review-summary` 消费的结构化 eval evidence。
 
 ### `domains/workflow-contract`
 
@@ -246,12 +355,17 @@ Readiness 增加 deterministic scan：
 - `package.ts`：`workflow-handoff.mjs` 输出 augmentations。
 - `package.ts`：overlay state script 使用 Comet state adapter，不 fallback 到 `.comet/runs`。
 - `package.ts`：eval manifest 记录 required evidence，不只记录 artifacts。
+- `package.ts`：eval manifest 为 `comet-five-phase-overlay` 选择现有 Comet task suite、baseline treatments 和 publish quality gates。
+- platform compiler：为 Claude Code 目标生成真正的 custom agent definitions，而不是只复制 `reference/subagents/*.md`。
+- package/review metadata：记录每个 authoring lane 是 portable brief、inline fallback 还是 platform agent dispatch。
 - `factory-package.test.ts`：覆盖 augmentation 渲染、handoff 输出、pending marker readiness 相关产物。
 
 ### `domains/bundle`
 
 - `review-summary.ts`：增加 pending marker scan、orphan schema blocker、advisory augmentation warning。
-- `eval.ts`：增加 overlay-specific eval plan components。
+- `review-summary.ts`：读取当前 draft hash 对应的 eval evidence，展示 task/treatment/pass@k/rubric/report，并在缺失或低于阈值时阻塞 readiness。
+- `review-summary.ts`：如果 package 声称支持 Claude Code custom agents，但缺少 agent frontmatter、description、prompt 或目录输出，阻塞 readiness。
+- `eval.ts`：把 bundle eval plan 映射为仓库 `eval/` runner 命令和 manifest 参数，不再只生成内部 smoke 说明。
 - `authoring.ts`：确保 workflow-entry lane 对 overlay entry Decision Core 是必需内容。
 
 ### `assets/skills-zh/comet-any` 与 `assets/skills/comet-any`
@@ -276,6 +390,7 @@ npx vitest run test/domains/factory/factory-package.test.ts
 npx vitest run test/domains/bundle/bundle-review-summary.test.ts
 npx vitest run test/domains/bundle/comet-any-skill.test.ts
 npx vitest run test/domains/bundle/comet-any-skill-contract.test.ts
+cd eval && uv run pytest local/tests/tasks/test_tasks.py --eval-manifest <generated>/comet/eval.yaml --count=2 -v
 ```
 
 新增或更新测试场景：
@@ -290,6 +405,12 @@ npx vitest run test/domains/bundle/comet-any-skill-contract.test.ts
 8. overlay state adapter 在无 active change 时阻塞。
 9. 生成包含 `AUTHORING PENDING` 时 readiness blocked。
 10. `comet-any` 中英文文档都说明 enforcement 级别和 node-attached Output Schema。
+11. `--eval-manifest` 能把生成包作为 `DYNAMIC_SKILL` treatment 注入 eval runner。
+12. `comet-five-phase-overlay` manifest 默认包含 Comet workflow task suite 和 baseline treatments。
+13. review summary 能读取结构化 eval evidence，并因 hash mismatch、缺失结果或低于 quality gate 阻塞。
+14. `comet-any` 中文 Skill 文档不再把 `skill-creator` provider 或 bundle benchmark 命令描述为主验证路径。
+15. Claude Code target package 生成带 `name`、`description`、正文 prompt 的 agent definitions，而不是把 `reference/subagents/*.md` 当成可发现 agent。
+16. readiness 能区分 portable role brief、inline fallback 和 platform-native custom agent。
 
 ## 验收标准
 
@@ -300,6 +421,10 @@ npx vitest run test/domains/bundle/comet-any-skill-contract.test.ts
 - 重新生成 `comet-grill-me` 后，node Skills 可以保持薄 delegate 形式，但新增约束必须可见、可验证、可恢复。
 - 用户确认页能区分 `guarded`、`handoff-guarded`、`evidence-only` 和 `advisory`。
 - readiness 能清楚告诉用户生成包是 `delegate-complete`、`delegate-advisory` 还是 `scaffold-blocked`。
+- `comet-any` 生成包可以通过 `eval/` 的 `--eval-manifest` 路径作为任意 Skill treatment 被评估。
+- ready/publish 判断使用当前 draft hash 的 eval evidence，包含 pass@k、weighted rubric、baseline comparison 和报告路径。
+- `comet-grill-me` 这类组合 Skill 至少能与 `CONTROL` 和原生 `COMET_FULL` 在相同任务上对比，不能只依赖 authoring smoke。
+- Claude Code 分发预览能展示 planned agent files；缺少 `description` 或 prompt 的 agent 不能进入 ready。
 
 ## 开放问题
 
@@ -307,12 +432,18 @@ npx vitest run test/domains/bundle/comet-any-skill-contract.test.ts
 2. overlay state adapter 是否直接复用 classic runtime 的 state 命令，还是新增轻量 wrapper？
 3. `augmentations` 是否需要新增 `requiredEvidence` 字段，还是统一通过 `outputSchemas` 表达？
 4. `reference/decision-points.md` 的默认泛化内容在 overlay 中是否一律 blocker，还是允许 authoring review 降级为 warning？
+5. ready/publish 的默认 quality gates 应该按 workflow kind 固定，还是允许项目级 `.comet/skill-preferences.yaml` 覆盖？
+6. baseline regression 阈值如何定义：要求组合 Skill 优于原生 Comet，还是只要求不显著退化且新增约束生效？
+7. Claude Code custom agent 是作为 project `.claude/agents/` 产物分发，还是作为插件 `agents/` 产物分发，是否需要两种 target compiler？
+8. portable role brief 与 platform-native agent 是否一一对应，还是允许多个 lane 共用一个 agent definition？
 
 ## 推荐实施顺序
 
 1. 扩展 workflow contract：node patch output schemas、orphan schema validation、eval required schemas。
 2. 扩展 factory 渲染：augmentations、handoff、eval manifest。
-3. 增加 readiness blockers：pending marker、entry Decision Core、orphan schema、advisory augmentation。
-4. 实现 overlay state adapter，移除 overlay 主路径中的 fallback state。
-5. 更新 `comet-any` 中文 Skill 文档，确认后同步英文。
-6. 重新生成 `comet-grill-me` 作为回归样例，并运行 quick readiness/eval。
+3. 打通仓库 `eval/`：manifest 扩展、动态 treatment、task suite、baseline comparison、结构化 evidence 输出。
+4. 设计并生成平台原生 authoring agents：保留 portable role brief，同时为 Claude Code target 输出符合 custom agent schema 的 agent definitions。
+5. 增加 readiness blockers：pending marker、entry Decision Core、orphan schema、advisory augmentation、缺失或失败 eval evidence、缺失或无效 platform agent definition。
+6. 实现 overlay state adapter，移除 overlay 主路径中的 fallback state。
+7. 更新 `comet-any` 中文 Skill 文档，清理旧 benchmark provider 语义和 subagent/custom agent 边界，确认后同步英文。
+8. 重新生成 `comet-grill-me` 作为回归样例，并运行 quick eval、ready eval 和 baseline comparison。
