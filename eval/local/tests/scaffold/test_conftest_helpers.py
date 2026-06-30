@@ -1,5 +1,8 @@
 """Tests for pytest fixture helper behavior."""
 
+import importlib.util
+import json
+import os
 from pathlib import Path
 
 import conftest
@@ -201,3 +204,97 @@ def test_snapshot_dynamic_skill_package_copies_package_and_node_skills(tmp_path:
     assert relative_package == "_eval_target_skills/manifest-skill"
     assert (test_dir / relative_package / "SKILL.md").exists()
     assert (test_dir / "_eval_target_skills" / "manifest-skill-open" / "SKILL.md").exists()
+
+
+def test_workflow_overlay_contract_validator_rejects_missing_contract_files(tmp_path: Path):
+    package = tmp_path / "overlay-skill"
+    package.mkdir()
+    comet_dir = package / "comet"
+    comet_dir.mkdir()
+    (comet_dir / "eval.yaml").write_text(
+        """
+apiVersion: comet.eval/v1alpha1
+kind: SkillEvalManifest
+metadata:
+  name: overlay-skill
+  draftHash: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+skill:
+  name: overlay-skill
+  source: ..
+  profile: authoring-skill
+evaluation:
+  recommendedTasks:
+    - workflow-overlay-contract
+    - comet-full-workflow
+    - comet-fix-median
+  baselineTreatments:
+    - CONTROL
+    - COMET_FULL
+  qualityGates:
+    minWeightedScore: 0.8
+    minPassAt1: 0.6
+    maxInstabilityGap: 0.4
+  requiredOutputSchemas:
+    - comet.grill-me.v1
+  expectedEvidence:
+    - node: design
+      check: augmentation:design.grill-me
+      enforcement: guarded
+""",
+        encoding="utf-8",
+    )
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "_test_context.json").write_text(
+        json.dumps(
+            {
+                "skill_package_path": str(package),
+                "baseline_treatments": ["CONTROL", "COMET_FULL"],
+                "quality_gates": {
+                    "minWeightedScore": 0.8,
+                    "minPassAt1": 0.6,
+                    "maxInstabilityGap": 0.4,
+                },
+                "required_output_schemas": ["comet.grill-me.v1"],
+                "expected_evidence": [
+                    {
+                        "node": "design",
+                        "check": "augmentation:design.grill-me",
+                        "enforcement": "guarded",
+                    }
+                ],
+                "draft_hash": "c" * 64,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    validator_path = (
+        Path(__file__).parents[2]
+        / "tasks"
+        / "workflow-overlay-contract"
+        / "validation"
+        / "test_workflow_overlay_contract.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "workflow_overlay_contract_validator",
+        validator_path,
+    )
+    validator = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(validator)
+
+    old_cwd = Path.cwd()
+    try:
+        os.chdir(workspace)
+        validator.main()
+        results = json.loads((workspace / "_test_results.json").read_text(encoding="utf-8"))
+    finally:
+        os.chdir(old_cwd)
+
+    failures = "\n".join(results["failed"])
+    assert "reference/workflow-protocol.json missing" in failures
+    assert "scripts/workflow-state.mjs missing" in failures
+    assert "scripts/workflow-guard.mjs missing" in failures
+    assert "scripts/workflow-handoff.mjs missing" in failures
