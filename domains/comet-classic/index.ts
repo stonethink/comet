@@ -8,6 +8,7 @@ export * from './classic-hook-guard.js';
 export * from './classic-runtime-evals.js';
 export * from './classic-runtime-run.js';
 export * from './classic-state-events.js';
+export * from './classic-intent.js';
 export * from './classic-state-command.js';
 export * from './classic-validate-command.js';
 export * from './classic-migrate.js';
