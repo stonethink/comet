@@ -7,6 +7,7 @@ from pathlib import Path
 
 import conftest
 from scaffold.python.tasks import load_task
+from scaffold.python.treatments import build_treatment_skills, load_treatments
 
 
 def test_file_lock_context_manager_allows_exclusive_writes(tmp_path: Path):
@@ -101,6 +102,133 @@ def test_resolve_interaction_config_uses_profile_default_prompt():
     assert interaction.simulator_prompt is not None
 
 
+def test_build_eval_claude_md_injects_comet_workflow_contract():
+    claude_md = conftest._build_eval_claude_md("comet-workflow")
+
+    assert claude_md is not None
+    assert "invoking the `/comet` Skill/slash command" in claude_md
+    assert "nested Comet stage Skill" in claude_md
+    assert "OpenSpec or Superpowers dependency Skill" in claude_md
+    assert "Do not simulate the Comet workflow" in claude_md
+    assert conftest.COMET_WORKFLOW_CLAUDE_MD_PATH.exists()
+
+
+def test_build_eval_claude_md_preserves_treatment_guidance():
+    claude_md = conftest._build_eval_claude_md("comet-workflow", "Extra guidance.")
+
+    assert claude_md is not None
+    assert "Extra guidance." in claude_md
+
+
+def test_build_eval_claude_md_skips_generic_profile_without_treatment_guidance():
+    assert conftest._build_eval_claude_md("generic") is None
+
+
+def test_setup_test_context_copies_full_skill_package_and_configures_040_hook(
+    tmp_path: Path, setup_test_context
+):
+    source_dir = tmp_path / "comet-source"
+    source_dir.mkdir()
+    (source_dir / "SKILL.md").write_text("---\nname: comet\n---\n\nOriginal.", encoding="utf-8")
+    (source_dir / "rules").mkdir()
+    (source_dir / "rules" / "comet-phase-guard.md").write_text("rule", encoding="utf-8")
+    (source_dir / "reference").mkdir()
+    (source_dir / "reference" / "scripts.md").write_text("ref", encoding="utf-8")
+    (source_dir / "runtime" / "classic").mkdir(parents=True)
+    (source_dir / "runtime" / "classic" / "skill.yaml").write_text("runtime", encoding="utf-8")
+    scripts_dir = source_dir / "scripts"
+    scripts_dir.mkdir()
+    (scripts_dir / "comet-hook-guard.mjs").write_text("process.exit(0);", encoding="utf-8")
+
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir()
+    (claude_dir / "settings.json").write_text(
+        json.dumps({"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "stop"}]}]}}),
+        encoding="utf-8",
+    )
+
+    setup_test_context(
+        skills={
+            "comet": {
+                "sections": ["---\nname: comet\n---\n\nGenerated."],
+                "scripts_dir": scripts_dir,
+                "source_dir": source_dir,
+            }
+        }
+    )
+
+    installed = tmp_path / ".claude" / "skills" / "comet"
+    assert (installed / "rules" / "comet-phase-guard.md").exists()
+    assert (installed / "reference" / "scripts.md").exists()
+    assert (installed / "runtime" / "classic" / "skill.yaml").exists()
+    assert "Generated." in (installed / "SKILL.md").read_text(encoding="utf-8")
+
+    settings = json.loads((tmp_path / ".claude" / "settings.json").read_text(encoding="utf-8"))
+    assert "Stop" in settings["hooks"]
+    pre_tool_use = settings["hooks"]["PreToolUse"]
+    assert pre_tool_use == [
+        {
+            "matcher": "Write|Edit|MultiEdit",
+            "hooks": [
+                {
+                    "type": "command",
+                    "command": "node /workspace/.claude/skills/comet/scripts/comet-hook-guard.mjs",
+                }
+            ],
+        }
+    ]
+
+
+def test_setup_test_context_configures_039_shell_hook(tmp_path: Path, setup_test_context):
+    source_dir = tmp_path / "comet-source"
+    source_dir.mkdir()
+    (source_dir / "SKILL.md").write_text("---\nname: comet\n---\n\nBody.", encoding="utf-8")
+    scripts_dir = source_dir / "scripts"
+    scripts_dir.mkdir()
+    (scripts_dir / "comet-hook-guard.sh").write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+
+    setup_test_context(
+        skills={
+            "comet": {
+                "sections": ["---\nname: comet\n---\n\nBody."],
+                "scripts_dir": scripts_dir,
+                "source_dir": source_dir,
+            }
+        }
+    )
+
+    settings = json.loads((tmp_path / ".claude" / "settings.json").read_text(encoding="utf-8"))
+    command = settings["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
+    assert command == "bash /workspace/.claude/skills/comet/scripts/comet-hook-guard.sh"
+
+
+def test_setup_test_context_copies_dependency_skill_packages_with_scripts(
+    tmp_path: Path, setup_test_context
+):
+    skills = build_treatment_skills(load_treatments()["COMET_FULL_040_BETA"].skills)
+    setup_test_context(
+        skills={
+            name: skills[name]
+            for name in [
+                "brainstorming",
+                "subagent-driven-development",
+                "writing-skills",
+                "openspec-new-change",
+            ]
+        }
+    )
+
+    installed = tmp_path / ".claude" / "skills"
+    assert (installed / "brainstorming" / "scripts" / "helper.js").exists()
+    assert (installed / "brainstorming" / "visual-companion.md").exists()
+    assert (installed / "subagent-driven-development" / "scripts" / "review-package").exists()
+    assert (
+        installed / "subagent-driven-development" / "task-reviewer-prompt.md"
+    ).exists()
+    assert (installed / "writing-skills" / "examples" / "CLAUDE_MD_TESTING.md").exists()
+    assert (installed / "openspec-new-change" / "SKILL.md").exists()
+
+
 def test_dynamic_treatment_config_from_eval_manifest(tmp_path: Path):
     package = tmp_path / "manifest-skill"
     package.mkdir()
@@ -129,7 +257,7 @@ evaluation:
     - workflow-overlay-contract
   baselineTreatments:
     - CONTROL
-    - COMET_FULL
+    - COMET_FULL_040_BETA
   qualityGates:
     minWeightedScore: 0.8
     minPassAt1: 0.6
@@ -165,7 +293,7 @@ interaction:
     assert cfg.skills[0]["profile"] == "generic"
     assert cfg.skills[0]["generated_node_skills"] == ["manifest-skill-open"]
     assert cfg.skills[0]["route_conformance_expected_node_order"] == ["open"]
-    assert cfg.skills[0]["baseline_treatments"] == ["CONTROL", "COMET_FULL"]
+    assert cfg.skills[0]["baseline_treatments"] == ["CONTROL", "COMET_FULL_040_BETA"]
     assert cfg.skills[0]["quality_gates"] == {
         "minWeightedScore": 0.8,
         "minPassAt1": 0.6,
@@ -260,7 +388,7 @@ evaluation:
     - comet-fix-median
   baselineTreatments:
     - CONTROL
-    - COMET_FULL
+    - COMET_FULL_040_BETA
   qualityGates:
     minWeightedScore: 0.8
     minPassAt1: 0.6
@@ -283,7 +411,7 @@ evaluation:
 def _overlay_validator_context(package: Path, draft_hash: str = "c" * 64) -> dict:
     return {
         "skill_package_path": str(package),
-        "baseline_treatments": ["CONTROL", "COMET_FULL"],
+        "baseline_treatments": ["CONTROL", "COMET_FULL_040_BETA"],
         "quality_gates": {
             "minWeightedScore": 0.8,
             "minPassAt1": 0.6,

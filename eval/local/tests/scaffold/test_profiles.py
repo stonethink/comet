@@ -46,6 +46,79 @@ def test_resolve_profile_name_uses_task_profile_by_default():
     assert resolve_profile_name(task) == "comet-workflow"
 
 
+def test_comet_profile_requires_comet_skill_invocation(tmp_path: Path):
+    outputs = {
+        "completion": {"passed": ["median fixed"], "failed": []},
+        "events": {
+            "skills_invoked": [],
+            "num_turns": 1,
+            "tool_calls": [],
+            "duration_seconds": 5,
+            "commands_run": [],
+        },
+        "interaction": {"mode": "auto_user", "max_turns": 3},
+    }
+
+    passed, failed = run_profile_rubric("comet-workflow", tmp_path, outputs)
+
+    assert "Required skill not invoked: comet" in failed
+    assert any("[RUBRIC] skill_invocation: 0.00" in msg for msg in passed)
+
+
+def test_comet_profile_requires_nested_and_dependency_skill_invocations(tmp_path: Path):
+    outputs = {
+        "completion": {"passed": ["median fixed"], "failed": []},
+        "events": {
+            "skills_invoked": ["comet"],
+            "num_turns": 1,
+            "tool_calls": [],
+            "duration_seconds": 5,
+            "commands_run": [],
+        },
+        "interaction": {"mode": "auto_user", "max_turns": 3},
+    }
+
+    passed, failed = run_profile_rubric("comet-workflow", tmp_path, outputs)
+
+    assert "Required nested Comet stage skill not invoked" in failed
+    assert "Required OpenSpec dependency skill not invoked" in failed
+    assert "Required Superpowers dependency skill not invoked" in failed
+    assert any("[RUBRIC] skill_invocation: 0.20" in msg for msg in passed)
+    assert any("comet_stage=missing" in msg for msg in passed)
+
+
+def test_comet_profile_scores_observed_nested_and_dependency_skill_invocations(
+    tmp_path: Path,
+):
+    outputs = {
+        "completion": {"passed": ["median fixed"], "failed": []},
+        "events": {
+            "skills_invoked": [
+                "comet",
+                "comet-hotfix",
+                "openspec-new-change",
+                "comet-verify",
+                "verification-before-completion",
+            ],
+            "num_turns": 1,
+            "tool_calls": [],
+            "duration_seconds": 5,
+            "commands_run": [],
+        },
+        "interaction": {"mode": "auto_user", "max_turns": 3},
+    }
+
+    passed, failed = run_profile_rubric("comet-workflow", tmp_path, outputs)
+
+    assert "Required nested Comet stage skill not invoked" not in failed
+    assert "Required OpenSpec dependency skill not invoked" not in failed
+    assert "Required Superpowers dependency skill not invoked" not in failed
+    assert any("[RUBRIC] skill_invocation: 1.00" in msg for msg in passed)
+    assert any("comet_stage=comet-hotfix, comet-verify" in msg for msg in passed)
+    assert any("openspec=openspec-new-change" in msg for msg in passed)
+    assert any("superpowers=verification-before-completion" in msg for msg in passed)
+
+
 def test_generic_profile_scores_completion_skill_artifact_and_efficiency(tmp_path: Path):
     (tmp_path / "result.md").write_text("done")
     outputs = {

@@ -6,7 +6,7 @@
 #   ./setup.sh verify <env_dir> [required_files...]
 #   ./setup.sh create-temp [prefix]
 #   ./setup.sh cleanup <temp_dir>
-#   ./setup.sh write-skill <test_dir> <skill_name> <content_file> [scripts_dir]
+#   ./setup.sh write-skill <test_dir> <skill_name> <content_file> [scripts_dir] [source_dir]
 #   ./setup.sh write-claude-md <test_dir> <content_file>
 #   ./setup.sh copy-env <test_dir> <env_dir>
 
@@ -107,9 +107,15 @@ write_skill() {
     local skill_name="$2"
     local content_file="$3"
     local scripts_dir="${4:-}"
+    local source_dir="${5:-}"
 
     local skill_dir="$test_dir/.claude/skills/$skill_name"
     mkdir -p "$skill_dir"
+
+    if [[ -n "$source_dir" && -d "$source_dir" ]]; then
+        cp -r "$source_dir"/. "$skill_dir"/
+        log_info "Copied skill package to $skill_name/"
+    fi
 
     # Write SKILL.md
     if [[ -f "$content_file" ]]; then
@@ -121,7 +127,9 @@ write_skill() {
 
     # Copy scripts if provided
     if [[ -n "$scripts_dir" && -d "$scripts_dir" ]]; then
+        rm -rf "$skill_dir/scripts"
         cp -r "$scripts_dir" "$skill_dir/scripts"
+        chmod -R u+x "$skill_dir/scripts" 2>/dev/null || true
         log_info "Copied scripts to $skill_name/scripts/"
     fi
 
@@ -137,9 +145,11 @@ write_claude_md() {
 
     if [[ -f "$content_file" ]]; then
         cp "$content_file" "$claude_dir/CLAUDE.md"
+        cp "$content_file" "$test_dir/CLAUDE.md"
     else
         # Content passed as string
         echo "$content_file" > "$claude_dir/CLAUDE.md"
+        echo "$content_file" > "$test_dir/CLAUDE.md"
     fi
 
     local size
@@ -256,10 +266,11 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
             skill_name="${2:-}"
             content="${3:-}"
             scripts_dir="${4:-}"
+            source_dir="${5:-}"
             if [[ -z "$test_dir" || -z "$skill_name" || -z "$content" ]]; then
-                die "Usage: $0 write-skill <test_dir> <skill_name> <content_file> [scripts_dir]"
+                die "Usage: $0 write-skill <test_dir> <skill_name> <content_file> [scripts_dir] [source_dir]"
             fi
-            write_skill "$test_dir" "$skill_name" "$content" "$scripts_dir"
+            write_skill "$test_dir" "$skill_name" "$content" "$scripts_dir" "$source_dir"
             ;;
         write-claude-md)
             test_dir="${1:-}"
@@ -292,7 +303,7 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
             echo "  verify <env_dir> [files...]     Verify environment (Docker, Claude, keys)"
             echo "  create-temp [prefix]            Create temp directory"
             echo "  cleanup <temp_dir>              Remove temp directory"
-            echo "  write-skill <dir> <name> <file> [scripts]  Write skill to .claude/skills/"
+            echo "  write-skill <dir> <name> <file> [scripts] [source]  Write skill to .claude/skills/"
             echo "  write-claude-md <dir> <file>    Write CLAUDE.md"
             echo "  copy-env <dir> <env_dir>        Copy environment files"
             ;;

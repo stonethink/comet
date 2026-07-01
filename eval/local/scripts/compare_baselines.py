@@ -35,8 +35,8 @@ RUBRIC_DERIVED_METRICS = ("weighted_score",)
 
 # Treatments we compare. CONTROL is included for context but not used in the
 # pass/fail decision.
-TREATMENTS = ("CONTROL", "COMET_FULL", "COMET_FULL_039")
-WORKFLOW = "COMET_FULL"
+TREATMENTS = ("CONTROL", "COMET_FULL_040_BETA", "COMET_FULL_039")
+WORKFLOW = "COMET_FULL_040_BETA"
 BASELINE = "COMET_FULL_039"
 
 
@@ -66,8 +66,8 @@ def _load_reports(experiment_dir: Path) -> dict[str, list[dict]]:
     """Group report JSON files by treatment name.
 
     Report ``name`` fields carry the ``<task>-<TREATMENT>`` form (e.g.
-    ``comet-full-workflow-COMET_FULL``); we key by the canonical treatment id
-    (``COMET_FULL``) so the rest of the script can use the short names.
+    ``comet-full-workflow-COMET_FULL_040_BETA``); we key by the canonical treatment id
+    (``COMET_FULL_040_BETA``) so the rest of the script can use the short names.
     """
     reports_dir = experiment_dir / "reports"
     by_treatment: dict[str, list[dict]] = defaultdict(list)

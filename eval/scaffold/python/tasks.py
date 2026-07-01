@@ -28,6 +28,15 @@ except ImportError:
 from scaffold.python.paths import get_tasks_dir
 
 
+COMET_WORKFLOW_INVOCATION_CONTRACT = """\
+## Eval harness requirement
+
+You must begin by invoking the `/comet` Skill/slash command with this task request.
+Do not simulate the Comet workflow in plain prose. The run is invalid unless the
+Comet Skill is invoked and leaves real OpenSpec/Comet workflow artifacts.
+"""
+
+
 @dataclass
 class DataHandler:
     """A data handler triggered by file pattern match."""
@@ -171,7 +180,10 @@ class Task:
         missing = set(self.config.template_required) - set(kwargs.keys())
         if missing:
             raise KeyError(f"Missing required template variables: {missing}")
-        return self.instruction_template.format(**kwargs)
+        prompt = self.instruction_template.format(**kwargs)
+        if self.config.evaluation.profile == "comet-workflow":
+            return f"{COMET_WORKFLOW_INVOCATION_CONTRACT}\n\n{prompt}"
+        return prompt
 
     def load_validators(self) -> list:
         """Build validator from task.toml [validation] config.

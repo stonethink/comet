@@ -9,7 +9,7 @@ from typing import Any
 import yaml
 
 from scaffold.python.skill_parser import load_skill_variant, skill_config
-from scaffold.python.paths import get_skills_dir, get_treatments_dir
+from scaffold.python.paths import EVAL_ROOT, get_skills_dir, get_treatments_dir
 
 # Only comet-relevant categories
 TREATMENT_CATEGORIES = {
@@ -75,12 +75,16 @@ def _hash_skill_dir(skill_path: Path) -> str:
 
 
 def _build_path_skill_config(name: str, path_value: str) -> dict:
-    source_path = Path(path_value).expanduser().resolve()
+    raw_path = Path(path_value).expanduser()
+    source_path = raw_path.resolve()
+    if not source_path.exists() and not raw_path.is_absolute():
+        source_path = (EVAL_ROOT / raw_path).resolve()
     skill_md = _find_skill_md(source_path)
     skill_dir = skill_md.parent
     scripts_dir = skill_dir / "scripts"
     content = skill_md.read_text(encoding="utf-8")
     cfg = skill_config([content], scripts_dir if scripts_dir.exists() else None, None)
+    cfg["source_dir"] = skill_dir
     cfg["source"] = {
         "name": name,
         "source_type": "path",
@@ -111,7 +115,7 @@ def _build_skill_config(
         for filename in ["SKILL.md", "skill.md"]:
             skill_md = noise_path / filename
             if skill_md.exists():
-                return skill_config([skill_md.read_text()], None, None)
+                return skill_config([skill_md.read_text(encoding="utf-8")], None, None)
         return None
 
     variant_path = skill_path / f"skill_{variant}.md" if variant else skill_path / "skill.md"
@@ -162,7 +166,7 @@ def _build_skill_config(
             sections = sections + extra_sections
         content = "\n\n".join(sections)
     else:
-        content = resolved_md_path.read_text()
+        content = resolved_md_path.read_text(encoding="utf-8")
         if not include_related:
             content = re.sub(
                 r"<related_skills>.*?</related_skills>\s*",
@@ -176,7 +180,9 @@ def _build_skill_config(
     if suffix and variant in ("py", "ts"):
         content = _add_language_suffix(content, variant)
 
-    return skill_config([content], skill["scripts_dir"], skill.get("script_filter"))
+    cfg = skill_config([content], skill["scripts_dir"], skill.get("script_filter"))
+    cfg["source_dir"] = skill_path
+    return cfg
 
 
 def build_treatment_skills(skill_configs: list[dict[str, Any]]) -> dict[str, dict]:

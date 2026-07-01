@@ -59,6 +59,16 @@ _plugin: "ExperimentPlugin | None" = None
 # Cache discovered scripts (computed once on first call)
 _KNOWN_SCRIPTS: list[str] | None = None
 
+COMET_WORKFLOW_CLAUDE_MD_PATH = (
+    PROJECT_ROOT
+    / "skills"
+    / "benchmarks"
+    / "dependency"
+    / "claude-md"
+    / "comet-workflow"
+    / "CLAUDE.md"
+)
+
 
 # =============================================================================
 # PYTEST HOOKS
@@ -77,7 +87,7 @@ def pytest_addoption(parser):
         "--treatment",
         action="store",
         default=None,
-        help="Run specific treatment (e.g., --treatment=COMET_FULL)",
+        help="Run specific treatment (e.g., --treatment=COMET_FULL_040_BETA)",
     )
     parser.addoption(
         "--count",
@@ -416,6 +426,52 @@ def _resolve_interaction_config(task, profile_name: str, config):
     )
 
 
+def _read_required_text(path: Path) -> str:
+    if not path.exists():
+        raise FileNotFoundError(f"Required eval instruction file not found: {path}")
+    return path.read_text(encoding="utf-8")
+
+
+def _build_eval_claude_md(profile_name: str, treatment_claude_md: str | None = None) -> str | None:
+    sections: list[str] = []
+    if profile_name == "comet-workflow":
+        sections.append(_read_required_text(COMET_WORKFLOW_CLAUDE_MD_PATH))
+    if treatment_claude_md:
+        sections.append(treatment_claude_md.strip())
+    return "\n\n".join(section for section in sections if section.strip()) or None
+
+
+def _comet_hook_command(test_dir: Path) -> str | None:
+    scripts_dir = test_dir / ".claude" / "skills" / "comet" / "scripts"
+    mjs_hook = scripts_dir / "comet-hook-guard.mjs"
+    shell_hook = scripts_dir / "comet-hook-guard.sh"
+    if mjs_hook.exists():
+        return "node /workspace/.claude/skills/comet/scripts/comet-hook-guard.mjs"
+    if shell_hook.exists():
+        return "bash /workspace/.claude/skills/comet/scripts/comet-hook-guard.sh"
+    return None
+
+
+def _ensure_claude_pre_tool_hook(test_dir: Path, command: str | None) -> None:
+    if not command:
+        return
+    settings_path = test_dir / ".claude" / "settings.json"
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    if settings_path.exists():
+        settings = json.loads(settings_path.read_text(encoding="utf-8"))
+    else:
+        settings = {}
+    hooks = settings.setdefault("hooks", {})
+    pre_tool_use = hooks.setdefault("PreToolUse", [])
+    hook_entry = {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [{"type": "command", "command": command}],
+    }
+    if not any(entry == hook_entry for entry in pre_tool_use):
+        pre_tool_use.append(hook_entry)
+    settings_path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+
+
 def _get_or_create_experiment_id(name: str, use_coordination: bool) -> str:
     """Get shared experiment ID or create new one."""
     if not use_coordination:
@@ -592,15 +648,6 @@ def setup_test_context(test_dir):
     """Factory fixture to set up test context with skills and CLAUDE.md."""
 
     def _setup(skills: dict = None, claude_md: str = None, environment_dir: Path = None):
-        if claude_md:
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
-                f.write(claude_md)
-                temp_file = f.name
-            try:
-                run_shell("setup.sh", "write-claude-md", str(test_dir), temp_file)
-            finally:
-                os.unlink(temp_file)
-
         for skill_name, cfg in (skills or {}).items():
             if not cfg:
                 continue
@@ -609,14 +656,17 @@ def setup_test_context(test_dir):
                 sections = cfg.get("sections") or cfg.get("all", [])
                 scripts_dir = cfg.get("scripts_dir")
                 script_filter = cfg.get("script_filter")
+                source_dir = cfg.get("source_dir")
             else:
-                sections, scripts_dir, script_filter = cfg, None, None
+                sections, scripts_dir, script_filter, source_dir = cfg, None, None, None
 
             if not sections:
                 continue
 
             content = "\n\n".join(s for s in sections if s and s.strip())
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".md", delete=False, encoding="utf-8"
+            ) as f:
                 f.write(content)
                 skill_file = f.name
 
@@ -627,6 +677,10 @@ def setup_test_context(test_dir):
                 args = ["write-skill", str(test_dir), skill_name, skill_file]
                 if filtered_dir:
                     args.append(str(filtered_dir))
+                elif source_dir:
+                    args.append("")
+                if source_dir:
+                    args.append(str(source_dir))
                 run_shell("setup.sh", *args)
             finally:
                 os.unlink(skill_file)
@@ -635,6 +689,19 @@ def setup_test_context(test_dir):
 
         if environment_dir and environment_dir.exists():
             run_shell("setup.sh", "copy-env", str(test_dir), str(environment_dir))
+
+        if claude_md:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".md", delete=False, encoding="utf-8"
+            ) as f:
+                f.write(claude_md)
+                temp_file = f.name
+            try:
+                run_shell("setup.sh", "write-claude-md", str(test_dir), temp_file)
+            finally:
+                os.unlink(temp_file)
+
+        _ensure_claude_pre_tool_hook(test_dir, _comet_hook_command(test_dir))
 
         return test_dir
 
@@ -657,10 +724,12 @@ def run_claude(test_dir, experiment_logger, request):
         if not use_loop:
             result = run_claude_in_docker(test_dir, prompt, timeout=timeout, model=mdl)
         else:
+            task_prompt_file = test_dir / ".eval-task-prompt.txt"
+            task_prompt_file.write_text(prompt, encoding="utf-8")
             loop_args = [
                 "run-claude-loop",
                 test_dir,
-                prompt,
+                "@/workspace/.eval-task-prompt.txt",
                 "--max-turns",
                 str(interaction.max_turns),
             ]
@@ -676,9 +745,10 @@ def run_claude(test_dir, experiment_logger, request):
                 if interaction.simulator_prompt:
                     prompt_file = test_dir / ".eval-simulator-prompt.txt"
                     prompt_file.write_text(interaction.simulator_prompt, encoding="utf-8")
-                    loop_args += ["--simulator-prompt-file", str(prompt_file)]
+                    loop_args += ["--simulator-prompt-file", "/workspace/.eval-simulator-prompt.txt"]
                 result = run_shell("docker.sh", *loop_args, timeout=timeout + 60, check=False)
             finally:
+                task_prompt_file.unlink(missing_ok=True)
                 if prompt_file and prompt_file.exists():
                     prompt_file.unlink()
 
@@ -954,6 +1024,7 @@ def _save_artifacts(base_dir: Path, treatment_name: str, rep: int, test_dir: Pat
         "data",
     }
     exclude_files = {
+        "CLAUDE.md",
         "Dockerfile",
         "requirements.txt",
         "package.json",

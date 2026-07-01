@@ -39,22 +39,72 @@ def _resolve_bash() -> str:
 
 
 BASH_EXEC = _resolve_bash()
+WSL_ENV_KEYS = (
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "LANGSMITH_API_KEY",
+    "LANGSMITH_PROJECT",
+    "LANGSMITH_TRACING",
+    "LANGSMITH_ENDPOINT",
+    "TAVILY_API_KEY",
+    "TRACE_TO_LANGSMITH",
+    "CC_LANGSMITH_API_KEY",
+    "CC_LANGSMITH_PROJECT",
+    "CC_LANGSMITH_DEBUG",
+    "CC_LS_TRACE_ID",
+    "CC_LS_PARENT_RUN_ID",
+    "CC_LS_DOTTED_ORDER",
+    "BENCH_EVAL_LANGSMITH_TRACE",
+    "BENCH_EVAL_BAGGAGE",
+    "ANTHROPIC_AUTH_TOKEN",
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_NAME",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME",
+    "CLAUDE_CODE_SUBAGENT_MODEL",
+    "BENCH_CC_VERSION",
+    "BENCH_CC_MODEL",
+)
 
 
 def _to_bash_path(value) -> str:
-    """Normalise a path argument for git-bash (MSYS) on Windows.
+    """Normalise a path argument for bash on Windows.
 
-    MSYS bash only resolves script paths in POSIX form (``/d/...``). Windows
-    backslash paths get their separators eaten as escapes, and ``D:/...``
-    drive-letter form is rejected when passed as argv (no shell parsing).
-    Convert ``D:\\foo\\bar`` -> ``/d/foo/bar``. On non-Windows, pass through.
+    Git Bash/MSYS resolves script paths in ``/d/...`` form, while WSL bash
+    resolves Windows drives under ``/mnt/d/...``. Windows backslash paths get
+    their separators eaten as escapes, and ``D:/...`` drive-letter form is
+    rejected when passed as argv (no shell parsing). On non-Windows, pass
+    through.
     """
     s = str(value)
     if os.name == "nt":
         s = s.replace("\\", "/")
         if len(s) >= 2 and s[1] == ":" and s[0].isalpha():
-            s = "/" + s[0].lower() + s[2:]
+            drive = s[0].lower()
+            prefix = f"/mnt/{drive}" if _uses_wsl_bash(BASH_EXEC) else f"/{drive}"
+            s = prefix + s[2:]
     return s
+
+
+def _uses_wsl_bash(bash_exec: str) -> bool:
+    normalized = bash_exec.replace("\\", "/").lower()
+    return normalized.endswith("/windowsapps/bash.exe") or normalized.endswith("/system32/bash.exe")
+
+
+def _bash_env() -> dict[str, str]:
+    env = os.environ.copy()
+    if os.name != "nt" or not _uses_wsl_bash(BASH_EXEC):
+        return env
+
+    existing = [item for item in env.get("WSLENV", "").split(":") if item]
+    exported = [key for key in WSL_ENV_KEYS if env.get(key)]
+    merged = list(dict.fromkeys(existing + exported))
+    if merged:
+        env["WSLENV"] = ":".join(merged)
+    return env
 
 
 def run_shell(script, *args, timeout=None, check=True):
@@ -67,7 +117,7 @@ def run_shell(script, *args, timeout=None, check=True):
         errors="replace",
         timeout=timeout,
         check=check,
-        env=os.environ.copy(),
+        env=_bash_env(),
     )
 
 def check_docker_available():

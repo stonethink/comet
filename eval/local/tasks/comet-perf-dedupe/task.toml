@@ -6,7 +6,7 @@ category = "comet"
 tags = ["comet", "workflow", "performance", "algorithm"]
 default_treatments = [
     "CONTROL",
-    "COMET_FULL",
+    "COMET_FULL_040_BETA",
     "COMET_FULL_039",
 ]
 

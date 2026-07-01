@@ -183,7 +183,7 @@ def main():
         passed.append("recommendedTasks includes overlay contract suite")
 
     baseline_treatments = evaluation.get("baselineTreatments") or []
-    expected_baselines = context.get("baseline_treatments") or ["CONTROL", "COMET_FULL"]
+    expected_baselines = context.get("baseline_treatments") or ["CONTROL", "COMET_FULL_040_BETA"]
     if baseline_treatments == expected_baselines:
         passed.append("baselineTreatments match expected overlay baselines")
     else:

@@ -17,8 +17,8 @@ The LangSmith suite intentionally reuses `local/tasks`, `local/treatments`, and
 ## Running Local Eval
 
 ```bash
-uv run pytest local/tests/tasks/test_tasks.py --task=comet-hotfix --treatment=COMET_FULL -v
-uv run pytest local/tests/tasks/test_tasks.py --task=comet-full-workflow --treatment=CONTROL,COMET_FULL -v
+uv run pytest local/tests/tasks/test_tasks.py --task=comet-hotfix --treatment=COMET_FULL_040_BETA -v
+uv run pytest local/tests/tasks/test_tasks.py --task=comet-full-workflow --treatment=CONTROL,COMET_FULL_040_BETA -v
 uv run pytest local/tests/tasks/test_tasks.py -v
 ```
 
@@ -27,7 +27,7 @@ Local logs are written to `local/logs/experiments/`.
 ## Running LangSmith Eval
 
 ```bash
-uv run pytest langsmith/tests/tasks/test_tasks.py --task=comet-hotfix --treatment=COMET_FULL -v
+uv run pytest langsmith/tests/tasks/test_tasks.py --task=comet-hotfix --treatment=COMET_FULL_040_BETA -v
 ```
 
 LangSmith runs require `LANGSMITH_API_KEY` and write local reports to

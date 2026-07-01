@@ -1,30 +1,30 @@
-# LangSmith Eval Suite
+# LangSmith 评估套件
 
-This suite runs the Comet and generic Skill task corpus with LangSmith tracing enabled.
+这个套件在启用 LangSmith tracing 的情况下运行 Comet 和通用 Skill 任务集。
 
-By default it reuses:
+默认复用：
 
 - `../local/tasks`
 - `../local/treatments`
 - `../local/skills`
 
-Reports and artifacts are written to:
+报告和产物写入：
 
 ```text
 logs/experiments/
 ```
 
-Run from `eval/`:
+从 `eval/` 目录运行：
 
 ```bash
-uv run pytest langsmith/tests/tasks/test_tasks.py --task=comet-fix-median --treatment=COMET_FULL -v
+uv run pytest langsmith/tests/tasks/test_tasks.py --task=comet-fix-median --treatment=COMET_FULL_040_BETA -v
 ```
 
-Generated Skill manifest example:
+生成 Skill manifest 示例：
 
 ```bash
 uv run pytest langsmith/tests/tasks/test_tasks.py \
   --eval-manifest=/path/to/my-skill/comet/eval.yaml -v
 ```
 
-Set `LANGSMITH_API_KEY` in `eval/.env` or `eval/langsmith/.env`.
+在 `eval/.env` 或 `eval/langsmith/.env` 中设置 `LANGSMITH_API_KEY`。

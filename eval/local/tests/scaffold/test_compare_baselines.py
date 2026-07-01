@@ -34,14 +34,14 @@ def test_compare_report_includes_spend_summary(tmp_path: Path):
     reports = experiment / "reports"
     reports.mkdir(parents=True)
     _write_report(reports, "CONTROL", 100, 0.01)
-    _write_report(reports, "COMET_FULL", 200, 0.02)
+    _write_report(reports, "COMET_FULL_040_BETA", 200, 0.02)
     _write_report(reports, "COMET_FULL_039", 300, 0.03)
 
     report = build_report(experiment)
 
     assert "## Spend summary" in report
     assert "| Treatment | Runs | Tokens | Cost | Avg Tokens/Run | Avg Cost/Run |" in report
-    assert "| COMET_FULL | 1 | 200 | $0.0200 | 200 | $0.0200 |" in report
+    assert "| COMET_FULL_040_BETA | 1 | 200 | $0.0200 | 200 | $0.0200 |" in report
 
 
 def test_compare_report_honors_html_report_output_config(monkeypatch, tmp_path: Path):
@@ -50,7 +50,7 @@ def test_compare_report_honors_html_report_output_config(monkeypatch, tmp_path: 
     reports = experiment / "reports"
     reports.mkdir(parents=True)
     _write_report(reports, "CONTROL", 100, 0.01)
-    _write_report(reports, "COMET_FULL", 200, 0.02)
+    _write_report(reports, "COMET_FULL_040_BETA", 200, 0.02)
     _write_report(reports, "COMET_FULL_039", 300, 0.03)
     config = tmp_path / "report-config.json"
     config.write_text(json.dumps({"report_outputs": {"markdown": False, "html": True}}))
@@ -71,7 +71,7 @@ def test_compare_report_uses_structured_failure_attribution(tmp_path: Path):
     _write_report(reports, "CONTROL", 100, 0.01)
     _write_report(reports, "COMET_FULL_039", 300, 0.03)
     workflow = {
-        "name": "comet-full-workflow-COMET_FULL",
+        "name": "comet-full-workflow-COMET_FULL_040_BETA",
         "passed": False,
         "checks_passed": [],
         "checks_failed": ["Required skill not invoked: comet"],
@@ -87,7 +87,7 @@ def test_compare_report_uses_structured_failure_attribution(tmp_path: Path):
             ],
         },
     }
-    (reports / "comet_full_report.json").write_text(json.dumps(workflow))
+    (reports / "COMET_FULL_040_BETA_report.json").write_text(json.dumps(workflow))
 
     report = build_report(experiment)
 
@@ -102,7 +102,7 @@ def test_compare_report_lists_source_evidence(tmp_path: Path):
     _write_report(reports, "CONTROL", 100, 0.01)
     _write_report(reports, "COMET_FULL_039", 300, 0.03)
     workflow = {
-        "name": "comet-full-workflow-COMET_FULL",
+        "name": "comet-full-workflow-COMET_FULL_040_BETA",
         "passed": True,
         "run_id": "run-123",
         "checks_passed": ["[RUBRIC] weighted_score: 1.00 - ok"],
@@ -111,12 +111,12 @@ def test_compare_report_lists_source_evidence(tmp_path: Path):
             "profile": "comet-workflow",
             "skill_sources": [{"name": "comet", "hash": "sha256:abc"}],
             "eval_manifest": "demo/comet/eval.yaml",
-            "artifact_references": {"report": "reports/comet_full_report.json"},
+            "artifact_references": {"report": "reports/COMET_FULL_040_BETA_report.json"},
             "total_tokens": 200,
             "total_cost_usd": 0.02,
         },
     }
-    (reports / "comet_full_report.json").write_text(json.dumps(workflow))
+    (reports / "COMET_FULL_040_BETA_report.json").write_text(json.dumps(workflow))
 
     report = build_report(experiment)
 
@@ -124,7 +124,7 @@ def test_compare_report_lists_source_evidence(tmp_path: Path):
     assert "`run-123`" in report
     assert "comet-workflow" in report
     assert "sha256:abc" in report
-    assert "reports/comet_full_report.json" in report
+    assert "reports/COMET_FULL_040_BETA_report.json" in report
 
 
 def test_compare_report_overall_uses_weighted_score(tmp_path: Path):
@@ -133,7 +133,7 @@ def test_compare_report_overall_uses_weighted_score(tmp_path: Path):
     reports.mkdir(parents=True)
 
     workflow = {
-        "name": "comet-full-workflow-COMET_FULL",
+        "name": "comet-full-workflow-COMET_FULL_040_BETA",
         "passed": True,
         "checks_passed": [
             "[RUBRIC] main_flow: 1.00 - ok",

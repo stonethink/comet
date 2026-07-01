@@ -9,6 +9,7 @@ from scaffold.python.logging import (
     extract_events,
     parse_output,
     rubric_columns,
+    save_raw,
 )
 from scaffold.python.report_outputs import ReportOutputConfig
 
@@ -58,9 +59,9 @@ def test_experiment_summary_includes_token_and_cost_columns(monkeypatch, tmp_pat
     monkeypatch.setenv("BENCH_LOGS_DIR", str(tmp_path))
     logger = ExperimentLogger(experiment_name="token-cost")
     logger.add_result(
-        "COMET_FULL",
+        "COMET_FULL_040_BETA",
         TreatmentResult(
-            name="COMET_FULL",
+            name="COMET_FULL_040_BETA",
             passed=True,
             checks_passed=["baseline"],
             checks_failed=[],
@@ -79,7 +80,7 @@ def test_experiment_summary_includes_token_and_cost_columns(monkeypatch, tmp_pat
     assert "| Treatment | Checks |" in summary
     assert "Tokens" in summary
     assert "Cost" in summary
-    assert "| COMET_FULL | 1/1 (100%) |" in summary
+    assert "| COMET_FULL_040_BETA | 1/1 (100%) |" in summary
     assert "475" in summary
     assert "$0.1235" in summary
 
@@ -91,9 +92,9 @@ def test_experiment_finalize_honors_html_report_output_config(monkeypatch, tmp_p
         report_outputs=ReportOutputConfig(markdown=False, html=True),
     )
     logger.add_result(
-        "COMET_FULL",
+        "COMET_FULL_040_BETA",
         TreatmentResult(
-            name="COMET_FULL",
+            name="COMET_FULL_040_BETA",
             passed=True,
             checks_passed=["baseline"],
             checks_failed=[],
@@ -113,6 +114,16 @@ def test_experiment_finalize_honors_html_report_output_config(monkeypatch, tmp_p
     assert "markdown" not in metadata["report_outputs"]
 
 
+def test_save_raw_writes_utf8_output(tmp_path: Path):
+    save_raw(tmp_path, "COMET_FULL_040_BETA", 1, '{"text":"中文 �"}\n', "stderr 中文")
+
+    stdout_path = tmp_path / "raw" / "COMET_FULL_040_BETA_rep1_stdout.json"
+    stderr_path = tmp_path / "raw" / "COMET_FULL_040_BETA_rep1_stderr.txt"
+
+    assert "中文" in stdout_path.read_text(encoding="utf-8")
+    assert "stderr 中文" == stderr_path.read_text(encoding="utf-8")
+
+
 def test_rubric_columns_accept_profile_dimensions():
     columns = rubric_columns(("completion", "skill_invocation", "weighted_score"))
 
@@ -128,7 +139,7 @@ def test_rubric_average_excludes_weighted_score():
     columns = rubric_columns(("completion", "skill_invocation", "weighted_score"))
     avg_column = next(column for column in columns if column.name == "RubricAvg")
     result = TreatmentResult(
-        name="COMET_FULL",
+        name="COMET_FULL_040_BETA",
         passed=True,
         checks_passed=[
             "[RUBRIC] completion: 0.00 - failed",

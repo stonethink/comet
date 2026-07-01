@@ -21,7 +21,7 @@ Dimensions
 ----------
 1. main_flow              - how many of the 5 phases (open→design→build→verify→archive) left evidence (weight 1.5)
 2. gate_guard             - whether comet-guard / comet-state transition / --apply were used (weight 1.5)
-3. skill_invocation       - whether the comet main entry and sub-skills were invoked in order (weight 1.0)
+3. skill_invocation       - whether the comet entry, nested stage skills, and dependency skills were invoked (weight 1.0)
 4. spec_drift             - whether delta specs created during build were reconciled before archive (weight 1.0)
 5. completion             - fraction of the task's baseline validators that passed (weight 2.0)
 6. efficiency             - normalised cost (turns / tool calls / duration; lower is better) (weight 0.8)
@@ -67,14 +67,30 @@ _DIMENSION_WEIGHTS: dict[str, float] = {
     "efficiency": 0.8,               # Nice-to-have, not critical
 }
 
-# Comet sub-skills that should appear (in roughly this order) during a full run.
-_EXPECTED_SKILL_ORDER = (
-    "comet",
+# Comet stage skills and dependency skills that should be observable as real
+# Skill tool invocations, not inferred from generated artifacts.
+_COMET_STAGE_SKILLS = (
     "comet-open",
     "comet-design",
     "comet-build",
     "comet-verify",
     "comet-archive",
+    "comet-hotfix",
+    "comet-tweak",
+)
+
+_SUPERPOWERS_DEPENDENCY_SKILLS = (
+    "brainstorming",
+    "dispatching-parallel-agents",
+    "executing-plans",
+    "finishing-a-development-branch",
+    "requesting-code-review",
+    "subagent-driven-development",
+    "systematic-debugging",
+    "test-driven-development",
+    "using-git-worktrees",
+    "verification-before-completion",
+    "writing-plans",
 )
 
 # Decision-point state mutations that must be preceded by an explicit user
@@ -202,28 +218,43 @@ def _score_gate_guard(events: dict[str, Any]) -> tuple[float, str]:
 
 
 def _score_skill_invocation(events: dict[str, Any]) -> tuple[float, str]:
-    """Check if core skills were invoked in order. Binary checks per skill."""
+    """Check real Skill tool usage across Comet stage and dependency layers."""
     invoked = events.get("skills_invoked", []) or []
     if not invoked:
         return 0.0, "no skills invoked"
 
-    # Binary check per expected skill: was it invoked?
-    skill_checks: list[bool] = []
-    present: list[str] = []
-    for skill in _EXPECTED_SKILL_ORDER:
-        found = skill in invoked
-        skill_checks.append(found)
-        if found:
-            present.append(skill)
+    comet_entry = "comet" in invoked
+    comet_stage_invoked = [skill for skill in invoked if skill in _COMET_STAGE_SKILLS]
+    openspec_invoked = [skill for skill in invoked if skill.startswith("openspec-")]
+    superpowers_invoked = [
+        skill for skill in invoked if skill in _SUPERPOWERS_DEPENDENCY_SKILLS
+    ]
+    if comet_stage_invoked:
+        first_stage_index = min(invoked.index(skill) for skill in comet_stage_invoked)
+    else:
+        first_stage_index = -1
+    entry_before_stage = comet_entry and first_stage_index > invoked.index("comet")
 
-    dispatcher_first = bool(invoked) and invoked[0] in {"comet", "brainstorming"}
+    checks = [
+        comet_entry,
+        bool(comet_stage_invoked),
+        bool(openspec_invoked),
+        bool(superpowers_invoked),
+        entry_before_stage,
+    ]
+    score, _ = _binary_score(checks)
 
-    score, _ = _binary_score(skill_checks)
-    # Bonus: dispatcher invoked first adds 0.1 (capped at 1.0)
-    if dispatcher_first:
-        score = min(1.0, score + 0.1)
-
-    return score, f"{len(present)}/6 core skills ({', '.join(present) if present else 'none'})"
+    return (
+        score,
+        "entry={entry} comet_stage={stage} openspec={openspec} "
+        "superpowers={superpowers} order={order}".format(
+            entry="comet" if comet_entry else "missing",
+            stage=", ".join(comet_stage_invoked) if comet_stage_invoked else "missing",
+            openspec=", ".join(openspec_invoked) if openspec_invoked else "missing",
+            superpowers=", ".join(superpowers_invoked) if superpowers_invoked else "missing",
+            order="entry-before-stage" if entry_before_stage else "missing",
+        ),
+    )
 
 
 def _score_spec_drift(events: dict[str, Any], test_dir: Path) -> tuple[float, str]:
@@ -477,6 +508,7 @@ def comet_rubric_validator(test_dir: Path, outputs: dict) -> tuple[list[str], li
     # Build dimension scores dict for weighted computation
     dimension_scores: dict[str, float] = {}
     passed: list[str] = []
+    failed: list[str] = []
     for dim, score, reason in scored:
         dimension_scores[dim] = score
         passed.append(_fmt(dim, score, reason))
@@ -484,6 +516,17 @@ def comet_rubric_validator(test_dir: Path, outputs: dict) -> tuple[list[str], li
     # Add weighted overall score
     weighted = _compute_weighted_score(dimension_scores)
     passed.append(_fmt_weighted(weighted))
+
+    invoked = events.get("skills_invoked", []) or []
+    if "comet" not in invoked:
+        failed.append("Required skill not invoked: comet")
+    else:
+        if not any(skill in invoked for skill in _COMET_STAGE_SKILLS):
+            failed.append("Required nested Comet stage skill not invoked")
+        if not any(skill.startswith("openspec-") for skill in invoked):
+            failed.append("Required OpenSpec dependency skill not invoked")
+        if not any(skill in invoked for skill in _SUPERPOWERS_DEPENDENCY_SKILLS):
+            failed.append("Required Superpowers dependency skill not invoked")
 
     # Optional LLM-as-judge overlay: when BENCH_LLM_JUDGE=1, a judge model
     # re-scores the three qualitative dimensions (artifact_quality, spec_drift,
@@ -500,4 +543,4 @@ def comet_rubric_validator(test_dir: Path, outputs: dict) -> tuple[list[str], li
         except Exception as e:
             passed.append(f"[RUBRIC-JUDGE] status: failed - {e}")
 
-    return passed, []
+    return passed, failed

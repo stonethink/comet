@@ -106,7 +106,7 @@ def parse_skill_md(skill_md_path: Path, keep_tags: bool = True) -> dict[str, str
         >>> print(sections["overview"])
         '<overview>\\nBuild RAG systems...\\n</overview>'
     """
-    content = skill_md_path.read_text()
+    content = skill_md_path.read_text(encoding="utf-8")
     sections = {}
 
     # Extract frontmatter using --- delimiters
@@ -150,7 +150,7 @@ def parse_skill_md_ordered(skill_md_path: Path, keep_tags: bool = True) -> list[
         overview: 500 chars
         ex-basic: 1200 chars
     """
-    content = skill_md_path.read_text()
+    content = skill_md_path.read_text(encoding="utf-8")
     sections = []
 
     # Extract frontmatter using --- delimiters (always first)
@@ -189,7 +189,7 @@ def load_skill_content(skill_md_path: Path) -> str:
         >>> content = load_skill_content(Path("skill_all.md"))
         >>> py_only = strip_lang_tags(content, exclude=["typescript"])
     """
-    return skill_md_path.read_text()
+    return skill_md_path.read_text(encoding="utf-8")
 
 
 def get_section_list(

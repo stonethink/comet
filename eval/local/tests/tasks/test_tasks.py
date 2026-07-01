@@ -5,13 +5,13 @@ Usage:
     pytest local/tests/tasks/test_tasks.py -v
 
     # Run specific task with specific treatment
-    pytest local/tests/tasks/test_tasks.py --task=comet-full-workflow --treatment=COMET_FULL -v
+    pytest local/tests/tasks/test_tasks.py --task=comet-full-workflow --treatment=COMET_FULL_040_BETA -v
 
     # Run specific task with multiple treatments (comma-separated)
-    pytest local/tests/tasks/test_tasks.py --task=comet-full-workflow --treatment=COMET_FULL,CONTROL -v
+    pytest local/tests/tasks/test_tasks.py --task=comet-full-workflow --treatment=COMET_FULL_040_BETA,CONTROL -v
 
     # Run with repetitions and parallel workers
-    pytest local/tests/tasks/test_tasks.py --task=comet-full-workflow --treatment=COMET_FULL --count=2 -n 2 -v
+    pytest local/tests/tasks/test_tasks.py --task=comet-full-workflow --treatment=COMET_FULL_040_BETA --count=2 -n 2 -v
 """
 
 import sys
@@ -144,7 +144,7 @@ evaluation:
     - workflow-overlay-contract
   baselineTreatments:
     - CONTROL
-    - COMET_FULL
+    - COMET_FULL_040_BETA
     - MISSING_BASELINE
 interaction:
   mode: none
@@ -161,7 +161,7 @@ interaction:
         "load_treatments",
         lambda: {
             "CONTROL": TreatmentConfig(name="CONTROL", description="Control"),
-            "COMET_FULL": TreatmentConfig(name="COMET_FULL", description="Comet full"),
+            "COMET_FULL_040_BETA": TreatmentConfig(name="COMET_FULL_040_BETA", description="Comet full"),
         },
     )
 
@@ -169,7 +169,7 @@ interaction:
 
     assert params == [
         ("generic-skill-smoke", "CONTROL"),
-        ("generic-skill-smoke", "COMET_FULL"),
+        ("generic-skill-smoke", "COMET_FULL_040_BETA"),
         ("generic-skill-smoke", "DYNAMIC_SKILL"),
     ]
 
@@ -178,7 +178,7 @@ interaction:
     ]
     assert generate_test_params(None, None, Config()) == [
         ("generic-skill-smoke", "CONTROL"),
-        ("generic-skill-smoke", "COMET_FULL"),
+        ("generic-skill-smoke", "COMET_FULL_040_BETA"),
         ("generic-skill-smoke", "DYNAMIC_SKILL"),
         ("workflow-overlay-contract", "DYNAMIC_SKILL"),
     ]
@@ -241,12 +241,6 @@ def test_task_treatment(task_name, treatment_name):
         claude_md=treatment_cfg.claude_md if treatment_cfg.claude_md else None,
     )
 
-    fixtures.setup_test_context(
-        skills=treatment.skills,
-        claude_md=treatment.claude_md,
-        environment_dir=task.environment_dir,
-    )
-
     run_id = str(uuid.uuid4())
 
     template_vars = {"run_id": run_id}
@@ -261,6 +255,11 @@ def test_task_treatment(task_name, treatment_name):
         task,
         override=fixtures.request_config.getoption("--profile"),
         target_profile=target_profile,
+    )
+    fixtures.setup_test_context(
+        skills=treatment.skills,
+        claude_md=conftest._build_eval_claude_md(profile_name, treatment.claude_md),
+        environment_dir=task.environment_dir,
     )
     interaction = conftest._resolve_interaction_config(task, profile_name, fixtures.request_config)
     skill_package_path = (

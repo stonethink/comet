@@ -6,7 +6,7 @@
 # "user-simulator" turn to answer, feeding the answer back via --resume.
 # Both calls share the same container HOME so session state persists.
 #
-# Usage: run-claude-loop.sh <prompt> [--max-turns N] [--model MODEL]
+# Usage: run-claude-loop.sh <prompt|@prompt-file> [--max-turns N] [--model MODEL]
 #   --max-turns N             Maximum number of subject<->simulator round trips (default 12)
 #   --model MODEL             Model for both subject and simulator
 #   --simulator-prompt-file   File containing the simulator system prompt
@@ -19,8 +19,14 @@
 
 set -uo pipefail
 
-PROMPT="${1:?usage: run-claude-loop.sh <prompt> [--max-turns N]}"
+PROMPT_ARG="${1:?usage: run-claude-loop.sh <prompt|@prompt-file> [--max-turns N]}"
 shift || true
+
+if [[ "$PROMPT_ARG" == @* ]]; then
+    PROMPT="$(cat "${PROMPT_ARG#@}")"
+else
+    PROMPT="$PROMPT_ARG"
+fi
 
 MAX_TURNS=12
 MODEL="${ANTHROPIC_MODEL:-}"

@@ -644,7 +644,7 @@ class ExperimentLogger:
         self.metadata["report_outputs"] = {name: str(path) for name, path in written.items()}
 
         metadata_path = self.base_dir / "metadata.json"
-        metadata_path.write_text(json.dumps(self.metadata, indent=2))
+        metadata_path.write_text(json.dumps(self.metadata, indent=2), encoding="utf-8")
 
         print(f"\nExperiment results saved to: {self.base_dir}")
         if written:
@@ -665,7 +665,7 @@ def save_events(base_dir: Path, treatment_name: str, rep: int, events: dict[str,
     events_dir = base_dir / "events"
     events_dir.mkdir(parents=True, exist_ok=True)
     save_path = events_dir / f"{treatment_name.lower()}_rep{rep}.json"
-    save_path.write_text(json.dumps(events, indent=2))
+    save_path.write_text(json.dumps(events, indent=2), encoding="utf-8")
     return save_path
 
 
@@ -674,11 +674,11 @@ def save_raw(base_dir: Path, treatment_name: str, rep: int, stdout: str, stderr:
     raw_dir = base_dir / "raw"
     raw_dir.mkdir(parents=True, exist_ok=True)
     stdout_path = raw_dir / f"{treatment_name.lower()}_rep{rep}_stdout.json"
-    stdout_path.write_text(stdout)
+    stdout_path.write_text(stdout, encoding="utf-8")
 
     if stderr:
         stderr_path = raw_dir / f"{treatment_name.lower()}_rep{rep}_stderr.txt"
-        stderr_path.write_text(stderr)
+        stderr_path.write_text(stderr, encoding="utf-8")
 
 
 def save_report(base_dir: Path, treatment_name: str, rep: int, report: dict[str, Any]):
@@ -686,5 +686,5 @@ def save_report(base_dir: Path, treatment_name: str, rep: int, report: dict[str,
     reports_dir = base_dir / "reports"
     reports_dir.mkdir(parents=True, exist_ok=True)
     save_path = reports_dir / f"{treatment_name.lower()}_rep{rep}_report.json"
-    save_path.write_text(json.dumps(report, indent=2))
+    save_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
     return save_path

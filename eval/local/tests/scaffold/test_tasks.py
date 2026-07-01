@@ -16,7 +16,7 @@ description = "A basic test task"
 difficulty = "easy"
 category = "testing"
 tags = ["test", "basic"]
-default_treatments = ["CONTROL", "COMET_FULL"]
+default_treatments = ["CONTROL", "COMET_FULL_040_BETA"]
 
 [template]
 required = ["run_id"]
@@ -106,6 +106,16 @@ def test_comet_tasks_default_to_comet_workflow_profile():
     assert task.config.interaction.mode == "auto_user"
 
 
+def test_comet_task_prompt_requires_real_comet_invocation():
+    task = load_task("comet-fix-median")
+
+    prompt = task.render_prompt()
+
+    assert prompt.startswith("## Eval harness requirement")
+    assert "must begin by invoking the `/comet` Skill/slash command" in prompt
+    assert "Do not simulate the Comet workflow in plain prose" in prompt
+
+
 def test_render_prompt_requires_declared_template_variables(mock_tasks_dir: Path):
     task = load_task("test-basic", mock_tasks_dir)
 
@@ -142,5 +152,6 @@ def test_comet_task_index_lists_real_tasks():
         "comet-refactor-counter",
         "comet-robust-config",
         "generic-skill-smoke",
+        "workflow-overlay-contract",
         "workflow-route-conformance",
     }

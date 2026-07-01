@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from scaffold.python import utils
+from scaffold.python.skill_parser import load_skill_content, parse_skill_md
 
 
 def test_execution_validator_converts_structured_checks(monkeypatch, tmp_path: Path):
@@ -45,3 +46,55 @@ def test_run_shell_decodes_subprocess_output_as_utf8(monkeypatch):
 
     assert captured["kwargs"]["encoding"] == "utf-8"
     assert captured["kwargs"]["errors"] == "replace"
+
+
+def test_to_bash_path_uses_msys_drive_prefix_for_git_bash(monkeypatch):
+    monkeypatch.setattr(utils.os, "name", "nt")
+    monkeypatch.setattr(utils, "BASH_EXEC", r"C:\Program Files\Git\bin\bash.exe")
+
+    assert utils._to_bash_path(r"D:\Project\Comet\eval") == "/d/Project/Comet/eval"
+
+
+def test_to_bash_path_uses_wsl_mount_prefix_for_windowsapps_bash(monkeypatch):
+    monkeypatch.setattr(utils.os, "name", "nt")
+    monkeypatch.setattr(
+        utils,
+        "BASH_EXEC",
+        r"C:\Users\BENYM\AppData\Local\Microsoft\WindowsApps\bash.exe",
+    )
+
+    assert utils._to_bash_path(r"D:\Project\Comet\eval") == "/mnt/d/Project/Comet/eval"
+
+
+def test_skill_parser_reads_skill_markdown_as_utf8(tmp_path: Path):
+    skill_md = tmp_path / "SKILL.md"
+    skill_md.write_text(
+        "---\nname: utf8-skill\ndescription: Bob’s test\n---\n\n<overview>\n中文内容\n</overview>\n",
+        encoding="utf-8",
+    )
+
+    sections = parse_skill_md(skill_md)
+
+    assert "Bob’s test" in load_skill_content(skill_md)
+    assert "中文内容" in sections["overview"]
+
+
+def test_bash_env_bridges_eval_keys_to_wsl(monkeypatch):
+    monkeypatch.setattr(utils.os, "name", "nt")
+    monkeypatch.setattr(
+        utils,
+        "BASH_EXEC",
+        r"C:\Users\BENYM\AppData\Local\Microsoft\WindowsApps\bash.exe",
+    )
+    monkeypatch.setenv("WSLENV", "EXISTING")
+    monkeypatch.setenv("ANTHROPIC_AUTH_TOKEN", "token")
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://example.test")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    env = utils._bash_env()
+
+    names = env["WSLENV"].split(":")
+    assert names[:1] == ["EXISTING"]
+    assert "ANTHROPIC_AUTH_TOKEN" in names
+    assert "ANTHROPIC_BASE_URL" in names
+    assert "ANTHROPIC_API_KEY" not in names

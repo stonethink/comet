@@ -632,7 +632,7 @@ describe('Factory skill package generation', () => {
         'comet-fix-median',
       ]),
     );
-    expect(evalManifest.evaluation?.baselineTreatments).toEqual(['CONTROL', 'COMET_FULL']);
+    expect(evalManifest.evaluation?.baselineTreatments).toEqual(['CONTROL', 'COMET_FULL_040_BETA']);
     expect(evalManifest.evaluation?.qualityGates).toEqual({
       minWeightedScore: 0.8,
       minPassAt1: 0.6,

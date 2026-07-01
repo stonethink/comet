@@ -1327,7 +1327,7 @@ function workflowContractEvalManifest(
     skill: { name: plan.name, source: '..', profile: 'authoring-skill' },
     evaluation: {
       recommendedTasks,
-      baselineTreatments: isOverlay ? ['CONTROL', 'COMET_FULL'] : ['CONTROL'],
+      baselineTreatments: isOverlay ? ['CONTROL', 'COMET_FULL_040_BETA'] : ['CONTROL'],
       qualityGates: {
         minWeightedScore: 0.8,
         minPassAt1: 0.6,
