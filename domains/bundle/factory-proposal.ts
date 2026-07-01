@@ -238,7 +238,7 @@ export async function buildBundleFactoryProposal(options: {
           {
             id: 'confirm-generate' as const,
             label: 'Confirm and initialize generation',
-            command: `comet bundle factory-init ${options.name} --file ${path.resolve(options.filePath)} --confirmed-proposal`,
+            command: `comet creator init ${options.name} --file ${path.resolve(options.filePath)} --confirmed-proposal`,
             writesState: true,
           },
         ]

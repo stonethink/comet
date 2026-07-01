@@ -99,13 +99,13 @@ function advice(
       return {
         impact: 'Comet cannot safely compose the Skill until every source Skill is resolved.',
         label: 'Resolve missing or ambiguous Skill candidates',
-        command: `comet bundle status ${bundleName}`,
+        command: `comet creator status ${bundleName}`,
       };
     case 'proposal':
       return {
         impact: 'The resolved Skill composition has not been confirmed by the user.',
         label: 'Confirm the resolved composition proposal',
-        command: `comet bundle factory-init ${bundleName} --file <plan.json> --confirmed-proposal`,
+        command: `comet creator init ${bundleName} --file <plan.json> --confirmed-proposal`,
       };
     case 'preference':
       return {
@@ -130,20 +130,20 @@ function advice(
       return {
         impact: 'Required scripts, rules, hooks, or checks are missing from the generated Skill.',
         label: 'Regenerate the Skill Creator package',
-        command: `comet bundle factory-generate ${bundleName}`,
+        command: `comet creator generate ${bundleName}`,
       };
     case 'authoring':
       return {
         impact:
           'The generated Skill still contains scaffold content that must be authored before publishing.',
         label: 'Complete generated Skill authoring',
-        command: `comet bundle authoring-record ${bundleName} --lane skill-core --file <authoring-output.json>, then run the skill-review lane`,
+        command: `comet creator authoring-record ${bundleName} --lane skill-core --file <authoring-output.json>, then run the skill-review lane`,
       };
     case 'draft':
       return {
         impact: 'The draft cannot be tied to a stable hash.',
         label: 'Reconcile the Bundle status',
-        command: `comet publish status ${bundleName}`,
+        command: `comet creator status ${bundleName}`,
       };
     case 'eval':
       return {

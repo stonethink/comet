@@ -669,7 +669,7 @@ describe('Factory skill package generation', () => {
         expect.objectContaining({ artifact: 'disabled-review-report' }),
       ]),
     );
-    expect(evalManifest.metadata?.draftHash).toMatch(/^[a-f0-9]{64}$/u);
+    expect(evalManifest.metadata?.draftHash).toBe('<current-bundle-hash>');
   });
 
   it('does not generate engine manifests when engine mode is none', async () => {

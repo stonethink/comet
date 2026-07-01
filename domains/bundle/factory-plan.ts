@@ -24,7 +24,6 @@ export interface BundleFactoryPlanFile {
   runnerMode?: BundleFactoryMetadata['runnerMode'];
   mode?: BundleAuthoringState['mode'];
   sourceRoot?: string;
-  creator?: BundleAuthoringState['creator'];
   defaultLocale?: string;
   locales?: string[];
   engineEnabled?: boolean;
@@ -42,7 +41,6 @@ export interface NormalizedBundleFactoryPlan {
   runnerMode: BundleFactoryMetadata['runnerMode'];
   mode: BundleAuthoringState['mode'];
   sourceRoot?: string;
-  creator: NonNullable<BundleAuthoringState['creator']>;
   defaultLocale: string;
   locales: string[];
   engineEnabled: boolean;
@@ -63,7 +61,6 @@ const FACTORY_PLAN_FIELDS = new Set([
   'runnerMode',
   'mode',
   'sourceRoot',
-  'creator',
   'defaultLocale',
   'locales',
   'engineEnabled',
@@ -83,7 +80,6 @@ function persistedFactoryPlan(plan: NormalizedBundleFactoryPlan): PersistedBundl
     runnerMode: plan.runnerMode,
     mode: plan.mode,
     ...(plan.sourceRoot ? { sourceRoot: plan.sourceRoot } : {}),
-    creator: plan.creator,
     defaultLocale: plan.defaultLocale,
     locales: plan.locales,
     engineEnabled: plan.engineEnabled,
@@ -219,7 +215,6 @@ export function normalizeBundleFactoryPlan(options: {
     runnerMode: plan.runnerMode ?? 'standalone',
     mode: planMode,
     ...(plan.sourceRoot ? { sourceRoot: plan.sourceRoot } : {}),
-    creator: plan.creator ?? 'native',
     defaultLocale,
     locales,
     engineEnabled: plan.engineEnabled ?? engineMode !== 'none',

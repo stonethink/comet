@@ -15,7 +15,7 @@
 
 ## 创作区（你写什么）
 
-生成器把每个 Node SKILL.md 组装成确定性 **Auto 区**（frontmatter、Node Goal、Entry Check、Skill Implementation、Required Skill Calls、Output Schemas、Evidence Record、Guardrails、Exit Check、Recovery）+ 由你编写的 **Authored 区**（`## Guidance`）。**你只写 Guidance 正文，不写整个文件**。主会话通过 `comet bundle authoring-record <name> --lane skill-core --file <out.json>` 记录你的产出；artifact `../<node-skill>/SKILL.md` 的 `content` 即 Guidance 正文。
+生成器把每个 Node SKILL.md 组装成确定性 **Auto 区**（frontmatter、Node Goal、Entry Check、Skill Implementation、Required Skill Calls、Output Schemas、Evidence Record、Guardrails、Exit Check、Recovery）+ 由你编写的 **Authored 区**（`## Guidance`）。**你只写 Guidance 正文，不写整个文件**。主会话通过 `comet creator authoring-record <name> --lane skill-core --file <out.json>` 记录你的产出；artifact `../<node-skill>/SKILL.md` 的 `content` 即 Guidance 正文。
 
 质量标尺：真实的 Comet 阶段 skill（如 `comet-build/SKILL.md`）；完整 substance 节点 Guidance 范例见 `reference/authored-zone-example.md`。写决策内容，不写套话。在 Guidance 内用 `###` 子标题（嵌套在 `## Guidance` 之下）：
 

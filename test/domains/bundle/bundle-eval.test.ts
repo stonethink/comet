@@ -9,7 +9,7 @@ import {
   planBundleEval,
   recordBundleEval,
   validateStableFactoryControlPlane,
-  type BundleEvalResult,
+  type RepositoryEvalResult,
 } from '../../../domains/bundle/eval.js';
 import {
   readBundleAuthoringState,
@@ -134,34 +134,25 @@ async function createFactoryStateWithGeneratedPackage(
   return generateBundleDraftFromFactoryState({ projectRoot, state: initialized });
 }
 
-function result(bundleHash: string, overrides: Partial<BundleEvalResult> = {}): BundleEvalResult {
+function result(
+  draftHash: string,
+  overrides: Partial<RepositoryEvalResult> = {},
+): RepositoryEvalResult {
   return {
-    schemaVersion: 1,
-    provider: 'native-skill-creator',
+    schemaVersion: 2,
+    provider: 'comet-eval',
     level: 'quick',
-    bundleHash,
-    entries: [
-      {
-        id: 'entry',
-        passed: true,
-        passRate: 1,
-        evidence: ['entry-smoke.json'],
-      },
-    ],
-    bundle: {
-      compilePassed: true,
-      safetyPassed: true,
-      evidence: ['compile.json', 'safety.json'],
-    },
-    benchmark: {
-      cases: 4,
-      baselinePassRate: 0.25,
-      withSkillPassRate: 1,
-      tokenCount: 1200,
-      durationMs: 5000,
-    },
+    draftHash,
+    evalManifestHash: 'b'.repeat(64),
+    tasks: ['generic-skill-smoke'],
+    treatments: ['generated-skill'],
+    passAtK: { '1': 1 },
+    weightedScore: { overall: 1 },
+    instabilityGap: { overall: 0 },
+    failures: [],
+    reports: ['eval-report.html'],
     passed: true,
-    summary: 'All quick gates passed.',
+    summary: 'Repository eval gates passed.',
     ...overrides,
   };
 }
@@ -170,7 +161,15 @@ function sha256(content: string | Buffer): string {
   return createHash('sha256').update(content).digest('hex');
 }
 
-describe('Bundle benchmark planning and evidence', () => {
+async function readGeneratedEvalManifestHash(
+  state: BundleAuthoringState,
+): Promise<{ evalManifestHash: string }> {
+  const evalManifestPath = state.factory?.generatedSkillPackage?.evalManifestPath;
+  if (!evalManifestPath) return { evalManifestHash: 'b'.repeat(64) };
+  return { evalManifestHash: sha256(await fs.readFile(evalManifestPath)) };
+}
+
+describe('Bundle eval planning and evidence', () => {
   let root: string;
   let projectRoot: string;
   let stateHash: string;
@@ -185,7 +184,6 @@ describe('Bundle benchmark planning and evidence', () => {
       name: 'eval-bundle',
       sourceRoot,
       candidates: [],
-      creator: 'native',
       defaultLocale: 'en',
       locales: ['en'],
       engineEnabled: false,
@@ -229,7 +227,14 @@ describe('Bundle benchmark planning and evidence', () => {
         hash: stateHash,
         passed: true,
         resultPath: expect.stringContaining(
-          path.join('.comet', 'bundle-evals', 'eval-bundle', stateHash, 'result.json'),
+          path.join(
+            '.comet',
+            'bundle-evals',
+            'eval-bundle',
+            stateHash,
+            'b'.repeat(64),
+            'result.json',
+          ),
         ),
       },
     });
@@ -274,7 +279,7 @@ describe('Bundle benchmark planning and evidence', () => {
     const evalManifestPath = generated.factory!.generatedSkillPackage!.evalManifestPath!;
     const evalManifestSource = await fs.readFile(evalManifestPath, 'utf8');
     const evalManifest = parse(evalManifestSource) as { metadata?: { draftHash?: string } };
-    expect(evalManifest.metadata?.draftHash).toBe(generated.currentHash);
+    expect(evalManifest.metadata?.draftHash).toBe('<current-bundle-hash>');
 
     const repositoryEvalResult = {
       schemaVersion: 2,
@@ -409,49 +414,38 @@ describe('Bundle benchmark planning and evidence', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('requires one result for every entry Skill and Bundle compile/safety evidence', async () => {
-    const missingEntry = await writeResult(
-      result(stateHash, { entries: [] }),
-      'missing-entry.json',
-    );
-    await expect(recordBundleEval(projectRoot, 'eval-bundle', missingEntry)).rejects.toThrow(
-      /entry.*entry/iu,
-    );
-
-    const missingBundleEvidence = await writeResult(
-      result(stateHash, {
-        bundle: { compilePassed: true, safetyPassed: true, evidence: [] },
-      }),
-      'missing-bundle.json',
-    );
-    await expect(
-      recordBundleEval(projectRoot, 'eval-bundle', missingBundleEvidence),
-    ).rejects.toThrow(/bundle.*evidence/iu);
-  });
-
-  it('requires variance for full results but not quick results', async () => {
-    const full = result(stateHash, {
-      level: 'full',
-      benchmark: {
-        cases: 10,
-        baselinePassRate: 0.2,
-        withSkillPassRate: 0.9,
-        tokenCount: 5000,
-        durationMs: 20_000,
+  it('rejects pre-release eval evidence schemas', async () => {
+    const legacy = await writeUnknownResult(
+      {
+        schemaVersion: 1,
+        provider: 'native-skill-creator',
+        level: 'quick',
+        bundleHash: stateHash,
+        entries: [{ id: 'entry', passed: true, passRate: 1, evidence: ['entry-smoke.json'] }],
+        bundle: { compilePassed: true, safetyPassed: true, evidence: ['compile.json'] },
+        benchmark: {
+          cases: 4,
+          baselinePassRate: 0.25,
+          withSkillPassRate: 1,
+          tokenCount: 1200,
+          durationMs: 5000,
+        },
+        passed: true,
+        summary: 'Legacy evidence should no longer be accepted.',
       },
-    });
-    const resultFile = await writeResult(full, 'full.json');
+      'legacy-eval.json',
+    );
 
-    await expect(recordBundleEval(projectRoot, 'eval-bundle', resultFile)).rejects.toThrow(
-      /variance/iu,
+    await expect(recordBundleEval(projectRoot, 'eval-bundle', legacy)).rejects.toThrow(
+      /schemaVersion must be 2/iu,
     );
   });
 
   it('keeps failed Eval in draft while retaining its evidence', async () => {
     const failed = result(stateHash, {
-      entries: [{ id: 'entry', passed: false, passRate: 0.5, evidence: ['failure.json'] }],
+      failures: ['entry failed'],
       passed: false,
-      summary: 'Entry benchmark failed.',
+      summary: 'Entry eval failed.',
     });
 
     const state = await recordBundleEval(
@@ -482,7 +476,15 @@ describe('Bundle benchmark planning and evidence', () => {
     expect(recorded.eval).toBeUndefined();
     await expect(
       fs.access(
-        path.join(projectRoot, '.comet', 'bundle-evals', 'eval-bundle', stateHash, 'result.json'),
+        path.join(
+          projectRoot,
+          '.comet',
+          'bundle-evals',
+          'eval-bundle',
+          stateHash,
+          'b'.repeat(64),
+          'result.json',
+        ),
       ),
     ).resolves.toBeUndefined();
   });
@@ -504,16 +506,7 @@ describe('Bundle benchmark planning and evidence', () => {
     );
     const changed = await reconcileBundleAuthoringState(projectRoot, 'stable-missing-control');
     const resultFile = await writeResult(
-      result(changed.currentHash!, {
-        entries: [
-          {
-            id: 'stable-missing-control',
-            passed: true,
-            passRate: 1,
-            evidence: ['entry-smoke.json'],
-          },
-        ],
-      }),
+      result(changed.currentHash!, await readGeneratedEvalManifestHash(changed)),
       'missing-control-plane.json',
     );
 
@@ -529,6 +522,7 @@ describe('Bundle benchmark planning and evidence', () => {
           'bundle-evals',
           'stable-missing-control',
           changed.currentHash!,
+          sha256(await fs.readFile(changed.factory!.generatedSkillPackage!.evalManifestPath!)),
           'result.json',
         ),
       ),
@@ -557,16 +551,7 @@ describe('Bundle benchmark planning and evidence', () => {
       'stable-degraded-capabilities',
     );
     const resultFile = await writeResult(
-      result(changed.currentHash!, {
-        entries: [
-          {
-            id: 'stable-degraded-capabilities',
-            passed: true,
-            passRate: 1,
-            evidence: ['entry-smoke.json'],
-          },
-        ],
-      }),
+      result(changed.currentHash!, await readGeneratedEvalManifestHash(changed)),
       'degraded-capabilities.json',
     );
 
@@ -593,16 +578,7 @@ requiresConfirmation: false
     );
     const changed = await reconcileBundleAuthoringState(projectRoot, 'stable-degraded-hook');
     const resultFile = await writeResult(
-      result(changed.currentHash!, {
-        entries: [
-          {
-            id: 'stable-degraded-hook',
-            passed: true,
-            passRate: 1,
-            evidence: ['entry-smoke.json'],
-          },
-        ],
-      }),
+      result(changed.currentHash!, await readGeneratedEvalManifestHash(changed)),
       'degraded-hook.json',
     );
 
@@ -632,14 +608,8 @@ requiresConfirmation: false
     );
     const resultFile = await writeResult(
       result(changed.currentHash!, {
-        entries: [
-          {
-            id: 'stable-failed-missing-control',
-            passed: false,
-            passRate: 0.25,
-            evidence: ['entry-failure.json'],
-          },
-        ],
+        ...(await readGeneratedEvalManifestHash(changed)),
+        failures: ['entry failed before control-plane completion'],
         passed: false,
         summary: 'Entry failed before control-plane completion.',
       }),
@@ -659,6 +629,7 @@ requiresConfirmation: false
             'bundle-evals',
             'stable-failed-missing-control',
             changed.currentHash!,
+            sha256(await fs.readFile(changed.factory!.generatedSkillPackage!.evalManifestPath!)),
             'result.json',
           ),
         ),
@@ -702,16 +673,7 @@ requiresConfirmation: false
       },
     });
     const resultFile = await writeResult(
-      result(generated.currentHash!, {
-        entries: [
-          {
-            id: 'stable-stale-root',
-            passed: true,
-            passRate: 1,
-            evidence: ['entry-smoke.json'],
-          },
-        ],
-      }),
+      result(generated.currentHash!, await readGeneratedEvalManifestHash(generated)),
       'stale-package-root.json',
     );
 
@@ -721,7 +683,7 @@ requiresConfirmation: false
   });
 
   async function writeResult(
-    value: BundleEvalResult,
+    value: RepositoryEvalResult,
     fileName = 'result-input.json',
   ): Promise<string> {
     return writeUnknownResult(value, fileName);

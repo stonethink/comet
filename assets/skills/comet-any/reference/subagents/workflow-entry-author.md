@@ -14,7 +14,7 @@ Must cover:
 
 ## Authored Zone (what you write)
 
-The generator composes the entry SKILL.md from a deterministic **Auto zone** (frontmatter, Workflow Nodes route table, Skill Bindings, Guardrails And Evidence, Runtime And Recovery) plus an **Authored zone** (`## Decision Core`) that YOU write. You do NOT write the whole file — only the Decision Core body. The main session records your output via `comet bundle authoring-record <name> --lane workflow-entry --file <out.json>`; the artifact `content` for `SKILL.md` is the Decision Core body.
+The generator composes the entry SKILL.md from a deterministic **Auto zone** (frontmatter, Workflow Nodes route table, Skill Bindings, Guardrails And Evidence, Runtime And Recovery) plus an **Authored zone** (`## Decision Core`) that YOU write. You do NOT write the whole file — only the Decision Core body. The main session records your output via `comet creator authoring-record <name> --lane workflow-entry --file <out.json>`; the artifact `content` for `SKILL.md` is the Decision Core body.
 
 Quality bar: the `comet/SKILL.md` Decision Core (see `reference/authored-zone-example.md` for a full entry Decision Core example at the expected level). Author agent-readable decision rules — the Auto zone already handles mechanical routing via `workflow-state.mjs next`, so focus on judgment:
 

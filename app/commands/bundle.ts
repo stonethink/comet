@@ -101,7 +101,7 @@ function formatStateReview(
     | NonNullable<Awaited<ReturnType<typeof reconcileBundleAuthoringState>>['review']>
     | undefined,
 ): string {
-  if (!reviewState) return 'Review: missing; run comet bundle review-summary before approval';
+  if (!reviewState) return 'Review: missing; run comet publish review before approval';
   return `Review: ${reviewState.decision} by ${reviewState.reviewer} @ ${reviewState.hash}`;
 }
 
@@ -123,7 +123,7 @@ function formatStatusText(
   const factoryPackage =
     state.factory?.generatedSkillPackage?.packageRoot ??
     state.factory?.planPath ??
-    'missing; run comet bundle factory-generate or inspect factory-init plan';
+    'missing; run comet creator generate or inspect creator init plan';
 
   return [
     userText,
@@ -158,7 +158,7 @@ function formatListText(
     }
   >,
 ): string {
-  if (states.length === 0) return 'No Bundle authoring states found.';
+  if (states.length === 0) return 'No Skill Creator states found.';
   return states
     .map((state) =>
       [
@@ -298,7 +298,6 @@ export async function bundleDraftCreateCommand(
     projectRoot: projectRoot(options),
     name,
     candidates: [],
-    creator: null,
     defaultLocale: options.defaultLocale ?? options.locale ?? 'en',
     locales: options.localeOption ?? [options.defaultLocale ?? options.locale ?? 'en'],
     engineEnabled: options.engine ?? false,
@@ -317,7 +316,6 @@ export async function bundleDraftOptimizeCommand(
     name: options.name ?? bundle.manifest.metadata.name,
     sourceRoot,
     candidates: [],
-    creator: null,
     defaultLocale: options.defaultLocale ?? bundle.manifest.metadata.defaultLocale,
     locales: options.localeOption ?? bundle.manifest.metadata.locales,
     engineEnabled: bundle.manifest.engine.enabled,
@@ -371,7 +369,7 @@ export async function bundleFactoryGenerateCommand(
   emit(
     updated,
     options.json,
-    `Generated Skill Creator Bundle draft ${updated.name}\nDraft: ${updated.draftPath}`,
+    `Generated Skill Creator package ${updated.name}\nDraft: ${updated.draftPath}`,
   );
 }
 
@@ -443,7 +441,7 @@ export async function bundleFactoryResolveCommand(
   emit(
     updated,
     options.json,
-    `Resolved factory candidate ${options.candidate} for ${updated.name}`,
+    `Resolved Skill Creator candidate ${options.candidate} for ${updated.name}`,
   );
 }
 

@@ -643,7 +643,7 @@ DEMO_SNAPSHOT.changes.archived.forEach(addCometArtifacts);
 
 // Demo-only data for sidebar visualizations that do not have a dashboard
 // collector yet. Shapes are intentionally close to BundleAuthoringState and
-// BundleEvalResult so real collection can replace this without redesigning UI.
+// RepositoryEvalResult so real collection can replace this without redesigning UI.
 export const DEMO_SKILL_VISUALS = {
   compose: {
     summary: {
@@ -789,8 +789,17 @@ export const DEMO_SKILL_VISUALS = {
     results: [
       {
         name: 'customize-comet-release-checks',
-        provider: 'native-skill-creator',
+        provider: 'comet-eval',
         level: 'full',
+        draftHash: 'a'.repeat(64),
+        evalManifestHash: 'b'.repeat(64),
+        tasks: ['route-conformance', 'control-plane', 'publish-readiness'],
+        treatments: ['customize-comet-release-checks'],
+        passAtK: { 1: 1 },
+        weightedScore: { overall: 0.93 },
+        instabilityGap: { overall: 0.02 },
+        failures: [],
+        reports: ['eval-report.html'],
         passed: true,
         summary:
           'Generated package passed route conformance, control-plane validation, and publish readiness.',
@@ -830,8 +839,17 @@ export const DEMO_SKILL_VISUALS = {
       },
       {
         name: 'create-skill-maker-review-flow',
-        provider: 'native-skill-creator',
+        provider: 'comet-eval',
         level: 'quick',
+        draftHash: 'c'.repeat(64),
+        evalManifestHash: 'd'.repeat(64),
+        tasks: ['authoring-lanes', 'entry-smoke', 'install-preview'],
+        treatments: ['create-skill-maker-review-flow'],
+        passAtK: { 1: 1 },
+        weightedScore: { overall: 0.9 },
+        instabilityGap: { overall: 0.03 },
+        failures: [],
+        reports: ['quick-eval-report.html'],
         passed: true,
         summary:
           'Quick eval passed authoring-lane coverage, entry smoke, and install-preview checks.',
@@ -864,8 +882,28 @@ export const DEMO_SKILL_VISUALS = {
       },
       {
         name: 'upgrade-review-comments-skill',
-        provider: 'comet-fallback',
+        provider: 'comet-eval',
         level: 'quick',
+        draftHash: 'e'.repeat(64),
+        evalManifestHash: 'f'.repeat(64),
+        tasks: ['review-comment-intake', 'candidate-resolution', 'hook-disclosure'],
+        treatments: ['upgrade-review-comments-skill'],
+        passAtK: { 1: 0 },
+        weightedScore: { overall: 0.58 },
+        instabilityGap: { overall: 0.12 },
+        failures: [
+          {
+            task: 'candidate-resolution',
+            treatment: 'upgrade-review-comments-skill',
+            reason: 'GitHub Skill candidate is still ambiguous.',
+          },
+          {
+            task: 'hook-disclosure',
+            treatment: 'upgrade-review-comments-skill',
+            reason: 'Hook executable disclosure is missing.',
+          },
+        ],
+        reports: ['quick-eval-report.html'],
         passed: false,
         summary:
           'Entry smoke found one unresolved GitHub Skill candidate and a missing hook disclosure.',

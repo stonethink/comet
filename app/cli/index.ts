@@ -17,32 +17,32 @@ import {
 import {
   publishApproveCommand,
   publishDistributeCommand,
-  publishListCommand,
-  publishNextCommand,
   publishReviewCommand,
   publishRunCommand,
-  publishStatusCommand,
 } from '../commands/publish.js';
 import {
-  bundleCandidatesCommand,
-  bundleAuthoringPlanCommand,
-  bundleAuthoringRecordCommand,
+  creatorAuthoringPlanCommand,
+  creatorAuthoringRecordCommand,
+  creatorCandidatesCommand,
+  creatorGenerateCommand,
+  creatorGuideCommand,
+  creatorInitCommand,
+  creatorListCommand,
+  creatorNextCommand,
+  creatorProposeCommand,
+  creatorResolveCommand,
+  creatorStatusCommand,
+} from '../commands/creator.js';
+import {
   bundleCompileCommand,
   bundleDistributeCommand,
   bundleDraftCreateCommand,
   bundleDraftOptimizeCommand,
   bundleEvalPlanCommand,
   bundleEvalRecordCommand,
-  bundleFactoryGuideCommand,
-  bundleFactoryGenerateCommand,
-  bundleFactoryInitCommand,
-  bundleFactoryProposeCommand,
-  bundleFactoryResolveCommand,
-  bundleListCommand,
   bundlePublishCommand,
   bundleReviewSummaryCommand,
   bundleReviewCommand,
-  bundleStatusCommand,
 } from '../commands/bundle.js';
 
 const program = new Command();
@@ -143,7 +143,7 @@ program
 
 program
   .command('eval')
-  .description('Benchmark a Skill or eval manifest with one command')
+  .description('Evaluate a Skill or eval manifest with one command')
   .argument('[target]', 'Local Skill directory, SKILL.md, or comet/eval.yaml')
   .option('--project <dir>', 'Repository root that contains eval/', '.')
   .option('--manifest <path>', 'Path to comet/eval.yaml')
@@ -215,9 +215,7 @@ skill
 
 skill
   .command('check')
-  .description(
-    'Check deterministic Engine Run runtime checks. Use comet eval for benchmark reports',
-  )
+  .description('Check deterministic Engine Run runtime checks. Use comet eval for eval reports')
   .option('--change <dir>', 'Change directory that owns the Run')
   .option('--run-id <id>', 'Standalone Run id stored under .comet/runs/<id>')
   .option('--project <dir>', 'Project root used for standalone Run lookup', '.')
@@ -233,33 +231,121 @@ skill
 
 const publish = program
   .command('publish')
-  .description('Skill publish candidates for the /comet-any user-facing release path');
+  .description('Review, approve, publish, and distribute Skill Creator candidates');
 
-publish
+const creator = program
+  .command('creator')
+  .description('Skill Creator workspace for /comet-any creation and resume flows');
+
+creator
   .command('list')
   .description('List Skill Creator candidates that can be resumed')
   .option('--project <dir>', 'Project root', '.')
   .option('--json', 'Output as JSON')
   .action(async (options) => {
-    await publishListCommand(options);
+    await creatorListCommand(options);
   });
 
-publish
+creator
   .command('status <name>')
   .description('Show validation readiness and next action for one Skill Creator candidate')
   .option('--project <dir>', 'Project root', '.')
   .option('--json', 'Output as JSON')
   .action(async (name, options) => {
-    await publishStatusCommand(name, options);
+    await creatorStatusCommand(name, options);
   });
 
-publish
+creator
   .command('next <name>')
   .description('Print the single recommended next user step')
   .option('--project <dir>', 'Project root', '.')
   .option('--json', 'Output as JSON')
   .action(async (name, options) => {
-    await publishNextCommand(name, options);
+    await creatorNextCommand(name, options);
+  });
+
+creator
+  .command('guide')
+  .description('Summarize /comet-any first-use, preferences, and resumable flows')
+  .option('--project <dir>', 'Project root', '.')
+  .option('--json', 'Output as JSON')
+  .action(async (options) => {
+    await creatorGuideCommand(options);
+  });
+
+creator
+  .command('candidates')
+  .description('Discover Skill candidates for Skill Creator authoring')
+  .option('--project <dir>', 'Project root', '.')
+  .option('--json', 'Output as JSON')
+  .action(async (options) => {
+    await creatorCandidatesCommand(options);
+  });
+
+creator
+  .command('propose <name>')
+  .description('Preview a Skill Creator proposal without writing candidate state')
+  .option('--project <dir>', 'Project root', '.')
+  .requiredOption('--file <path>', 'Skill Creator plan JSON file')
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await creatorProposeCommand(name, options);
+  });
+
+creator
+  .command('init <name>')
+  .description('Initialize or update Skill Creator metadata from a structured plan file')
+  .option('--project <dir>', 'Project root', '.')
+  .requiredOption('--file <path>', 'Skill Creator plan JSON file')
+  .option('--confirmed-proposal', 'Record that the user approved the Skill Creator proposal')
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await creatorInitCommand(name, options);
+  });
+
+creator
+  .command('resolve <name>')
+  .description('Resolve a missing or ambiguous Skill Creator candidate')
+  .option('--project <dir>', 'Project root', '.')
+  .requiredOption('--candidate <query>', 'Skill Creator candidate query')
+  .option('--source <root-or-hash>', 'Selected source root or exact source hash')
+  .option('--ignore-missing', 'Ignore a missing preference and remove it from the call chain')
+  .option('--reason <text>', 'Reason for ignoring a missing preference')
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await creatorResolveCommand(name, options);
+  });
+
+creator
+  .command('authoring-plan <name>')
+  .description('Plan the Skill Creator authoring pipeline for a candidate')
+  .option('--project <dir>', 'Project root', '.')
+  .addOption(
+    new Option('--depth <depth>', 'Authoring depth').choices(['quick', 'full']).default('quick'),
+  )
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await creatorAuthoringPlanCommand(name, options);
+  });
+
+creator
+  .command('authoring-record <name>')
+  .description('Validate and record a Skill Creator authoring lane output')
+  .option('--project <dir>', 'Project root', '.')
+  .requiredOption('--lane <id>', 'Authoring lane id')
+  .requiredOption('--file <path>', 'Lane output JSON file')
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await creatorAuthoringRecordCommand(name, options);
+  });
+
+creator
+  .command('generate <name>')
+  .description('Generate candidate source from stored Skill Creator metadata')
+  .option('--project <dir>', 'Project root', '.')
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await creatorGenerateCommand(name, options);
   });
 
 publish
@@ -320,38 +406,6 @@ const bundle = program
   .command('bundle')
   .description('Advanced Bundle backend for /comet-any Skill Creator state and audits');
 
-bundle
-  .command('candidates')
-  .description('Discover Skill candidates for Bundle authoring')
-  .option('--project <dir>', 'Project root', '.')
-  .option('--json', 'Output as JSON')
-  .action(async (options) => {
-    await bundleCandidatesCommand(options);
-  });
-
-bundle
-  .command('authoring-plan <name>')
-  .description('Plan the /comet-any authoring pipeline for a Bundle')
-  .option('--project <dir>', 'Project root', '.')
-  .addOption(
-    new Option('--depth <depth>', 'Authoring depth').choices(['quick', 'full']).default('quick'),
-  )
-  .option('--json', 'Output as JSON')
-  .action(async (name, options) => {
-    await bundleAuthoringPlanCommand(name, options);
-  });
-
-bundle
-  .command('authoring-record <name>')
-  .description('Validate and record a /comet-any authoring lane output')
-  .option('--project <dir>', 'Project root', '.')
-  .requiredOption('--lane <id>', 'Authoring lane id')
-  .requiredOption('--file <path>', 'Lane output JSON file')
-  .option('--json', 'Output as JSON')
-  .action(async (name, options) => {
-    await bundleAuthoringRecordCommand(name, options);
-  });
-
 const draft = bundle.command('draft').description('Manage Bundle drafts');
 
 draft
@@ -377,76 +431,6 @@ draft
   });
 
 bundle
-  .command('list')
-  .description('List recoverable Bundle authoring states')
-  .option('--project <dir>', 'Project root', '.')
-  .option('--json', 'Output as JSON')
-  .action(async (options) => {
-    await bundleListCommand(options);
-  });
-
-bundle
-  .command('status <name>')
-  .description('Show Bundle authoring status')
-  .option('--project <dir>', 'Project root', '.')
-  .option('--json', 'Output as JSON')
-  .action(async (name, options) => {
-    await bundleStatusCommand(name, options);
-  });
-
-bundle
-  .command('factory-guide')
-  .description('Summarize /comet-any first-use, preferences, and resumable Skill Creator flows')
-  .option('--project <dir>', 'Project root', '.')
-  .option('--json', 'Output as JSON')
-  .action(async (options) => {
-    await bundleFactoryGuideCommand(options);
-  });
-
-bundle
-  .command('factory-propose <name>')
-  .description('Preview a /comet-any Skill Creator proposal without writing Bundle state')
-  .option('--project <dir>', 'Project root', '.')
-  .requiredOption('--file <path>', 'Skill Creator plan JSON file')
-  .option('--json', 'Output as JSON')
-  .action(async (name, options) => {
-    await bundleFactoryProposeCommand(name, options);
-  });
-
-bundle
-  .command('factory-init <name>')
-  .description('Initialize or update Skill Creator metadata from a structured plan file')
-  .option('--project <dir>', 'Project root', '.')
-  .requiredOption('--file <path>', 'Skill Creator plan JSON file')
-  .option('--confirmed-proposal', 'Record that the user approved the Skill Creator proposal')
-  .option('--json', 'Output as JSON')
-  .action(async (name, options) => {
-    await bundleFactoryInitCommand(name, options);
-  });
-
-bundle
-  .command('factory-generate <name>')
-  .description('Generate Bundle draft source from stored Skill Creator metadata')
-  .option('--project <dir>', 'Project root', '.')
-  .option('--json', 'Output as JSON')
-  .action(async (name, options) => {
-    await bundleFactoryGenerateCommand(name, options);
-  });
-
-bundle
-  .command('factory-resolve <name>')
-  .description('Resolve a missing or ambiguous Skill Creator candidate')
-  .option('--project <dir>', 'Project root', '.')
-  .requiredOption('--candidate <query>', 'Skill Creator candidate query')
-  .option('--source <root-or-hash>', 'Selected source root or exact source hash')
-  .option('--ignore-missing', 'Ignore a missing preference and remove it from the call chain')
-  .option('--reason <text>', 'Reason for ignoring a missing preference')
-  .option('--json', 'Output as JSON')
-  .action(async (name, options) => {
-    await bundleFactoryResolveCommand(name, options);
-  });
-
-bundle
   .command('compile <name>')
   .description('Dry-run compile a Bundle for one platform')
   .option('--project <dir>', 'Project root', '.')
@@ -459,8 +443,8 @@ bundle
   });
 
 bundle
-  .command('benchmark-plan <name>')
-  .description('Estimate Bundle benchmark work')
+  .command('eval-plan <name>')
+  .description('Estimate Bundle eval work')
   .option('--project <dir>', 'Project root', '.')
   .addOption(
     new Option('--level <level>', 'Eval level').choices(['quick', 'full']).default('quick'),
@@ -472,10 +456,10 @@ bundle
   });
 
 bundle
-  .command('benchmark-record <name>')
-  .description('Record structured Bundle benchmark evidence')
+  .command('eval-record <name>')
+  .description('Record structured Bundle eval evidence')
   .option('--project <dir>', 'Project root', '.')
-  .requiredOption('--result <file>', 'Benchmark result JSON')
+  .requiredOption('--result <file>', 'Eval result JSON')
   .option('--json', 'Output as JSON')
   .action(async (name, options) => {
     await bundleEvalRecordCommand(name, options);

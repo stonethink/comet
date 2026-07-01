@@ -13,11 +13,7 @@ import {
   type FactoryPackageArtifact,
   type FactoryPackageDraft,
 } from './artifacts.js';
-import {
-  hashWorkflowProtocol,
-  type WorkflowNodeProtocol,
-  type WorkflowProtocol,
-} from '../workflow-contract/index.js';
+import type { WorkflowNodeProtocol, WorkflowProtocol } from '../workflow-contract/index.js';
 
 function factoryEntryDescription(plan: FactorySkillPackagePlan): string {
   return plan.description || `Use when running the generated ${plan.name} workflow.`;
@@ -597,8 +593,10 @@ ${workflowContractOverlayHelperScript()}
 
 function statePath(protocol) {
   const preferred = String(protocol.state?.statePath ?? '');
-  const fallback = String(protocol.state?.compatibilityStatePath ?? '.comet/runs/' + protocol.name + '/state.json');
-  const relative = preferred.includes('*') ? fallback : preferred;
+  if (preferred.includes('*')) {
+    throw new Error('workflow-run statePath cannot contain wildcards');
+  }
+  const relative = preferred;
   return path.join(runRoot, ...relative.split('/').filter(Boolean));
 }
 
@@ -694,8 +692,10 @@ function generatedNodeSkillName(protocol, nodeId) {
 
 function statePath(protocol) {
   const preferred = String(protocol.state?.statePath ?? '');
-  const fallback = String(protocol.state?.compatibilityStatePath ?? '.comet/runs/' + protocol.name + '/state.json');
-  const relative = preferred.includes('*') ? fallback : preferred;
+  if (preferred.includes('*')) {
+    throw new Error('workflow-run statePath cannot contain wildcards');
+  }
+  const relative = preferred;
   return path.join(runRoot, ...relative.split('/').filter(Boolean));
 }
 
@@ -895,8 +895,10 @@ function generatedNodeSkillName(protocol, id) {
 
 function statePath(protocol) {
   const preferred = String(protocol.state?.statePath ?? '');
-  const fallback = String(protocol.state?.compatibilityStatePath ?? '.comet/runs/' + protocol.name + '/state.json');
-  const relative = preferred.includes('*') ? fallback : preferred;
+  if (preferred.includes('*')) {
+    throw new Error('workflow-run statePath cannot contain wildcards');
+  }
+  const relative = preferred;
   return path.join(runRoot, ...relative.split('/').filter(Boolean));
 }
 
@@ -1320,7 +1322,7 @@ function workflowContractEvalManifest(
     metadata: {
       name: plan.name,
       description: factoryEntryDescription(plan),
-      draftHash: hashWorkflowProtocol(protocol),
+      draftHash: '<current-bundle-hash>',
     },
     skill: { name: plan.name, source: '..', profile: 'authoring-skill' },
     evaluation: {
@@ -1412,7 +1414,7 @@ function renderSkillReviewMarkdown(plan: FactorySkillPackagePlan): string {
             .join('\n');
     return `# Skill Review\n\nEvidence source: ${review.evidenceSource}.\nPassed: ${review.passed ? 'yes' : 'no'}.\nVoters: ${review.voters ?? 'n/a'}.\nLenses: ${(review.lenses ?? []).join(', ') || 'n/a'}.\nRounds: ${review.rounds ?? 'n/a'}.\nReviewed at: ${review.reviewedAt}.\n\n## Findings\n\n${findings}\n`;
   }
-  return '# Skill Review\n\nEvidence source: deterministic-check-only.\n\nNo LLM authoring review has been recorded for this Bundle yet. This file is an honest placeholder, not a review approval. Run the `/comet-any` skill-review lane and record its verdict via `comet bundle authoring-record <name> --lane skill-review --file <review.json>` to replace this with a real multi-vote review summary.\n';
+  return '# Skill Review\n\nEvidence source: deterministic-check-only.\n\nNo LLM authoring review has been recorded for this Bundle yet. This file is an honest placeholder, not a review approval. Run the `/comet-any` skill-review lane and record its verdict via `comet creator authoring-record <name> --lane skill-review --file <review.json>` to replace this with a real multi-vote review summary.\n';
 }
 
 function authoringLanesReview(plan: FactorySkillPackagePlan): {
@@ -1529,7 +1531,7 @@ function workflowContractArtifacts(plan: FactorySkillPackagePlan): FactoryPackag
       'reference/recovery.md',
       'reference',
       plan.contentDrafts?.['reference/recovery.md'] ??
-        `# Workflow Recovery\n\n- State path: \`${protocol.state.statePath}\`\n- Compatibility state path: \`${protocol.state.compatibilityStatePath ?? 'none'}\`\n- Resume by reading the first incomplete Workflow Node.\n`,
+        `# Workflow Recovery\n\n- State model: \`${protocol.state.kind}\`\n- State path: \`${protocol.state.statePath}\`\n- Resume by reading the first incomplete Workflow Node.\n`,
     ),
     artifact(
       'reference/composition-report.md',

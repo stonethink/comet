@@ -109,8 +109,8 @@ export interface WorkflowEdge {
 }
 
 export interface WorkflowStateSpec {
+  kind: 'comet-overlay' | 'workflow-run';
   statePath: string;
-  compatibilityStatePath?: string;
   currentNodeField: string;
   completedNodesField: string;
   evidenceField: string;

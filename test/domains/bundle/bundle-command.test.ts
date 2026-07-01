@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
@@ -21,7 +22,7 @@ import {
   bundleReviewCommand,
   bundleStatusCommand,
 } from '../../../app/commands/bundle.js';
-import type { BundleEvalResult } from '../../../domains/bundle/eval.js';
+import type { RepositoryEvalResult } from '../../../domains/bundle/eval.js';
 import { workflowFor as workflowDefinitionFor } from '../../helpers/workflow-plan.js';
 import { createBundleDraft } from '../../../domains/bundle/draft.js';
 import { loadBundle } from '../../../domains/bundle/load.js';
@@ -127,24 +128,27 @@ function workflowFor(name: string, skills: string[]): ReturnType<typeof workflow
   return workflowDefinitionFor(name, skills);
 }
 
-function passingResult(hash: string, entries = ['entry']): BundleEvalResult {
+function passingResult(hash: string, entries = ['entry']): RepositoryEvalResult {
   return {
-    schemaVersion: 1,
-    provider: 'native-skill-creator',
+    schemaVersion: 2,
+    provider: 'comet-eval',
     level: 'quick',
-    bundleHash: hash,
-    entries: entries.map((id) => ({ id, passed: true, passRate: 1, evidence: [`${id}.json`] })),
-    bundle: { compilePassed: true, safetyPassed: true, evidence: ['compile.json'] },
-    benchmark: {
-      cases: 2,
-      baselinePassRate: 0,
-      withSkillPassRate: 1,
-      tokenCount: 500,
-      durationMs: 1000,
-    },
+    draftHash: hash,
+    evalManifestHash: 'b'.repeat(64),
+    tasks: ['generic-skill-smoke'],
+    treatments: entries,
+    passAtK: { '1': 1 },
+    weightedScore: { overall: 1 },
+    instabilityGap: { overall: 0 },
+    failures: [],
+    reports: ['eval-report.html'],
     passed: true,
     summary: 'Command gates passed.',
   };
+}
+
+function sha256(content: string | Buffer): string {
+  return createHash('sha256').update(content).digest('hex');
 }
 
 async function captureJson(run: () => Promise<void>): Promise<Record<string, unknown>> {
@@ -878,9 +882,18 @@ prefer:
       bundleStatusCommand('unconfirmed-publish-skill', { project: projectRoot, json: true }),
     );
     const resultFile = path.join(root, 'unconfirmed-publish-eval.json');
+    const evalManifestPath =
+      (status.factory as { generatedSkillPackage?: { evalManifestPath?: string } } | undefined)
+        ?.generatedSkillPackage?.evalManifestPath ?? null;
+    const evalManifestHash = evalManifestPath
+      ? sha256(await fs.readFile(evalManifestPath))
+      : 'b'.repeat(64);
     await fs.writeFile(
       resultFile,
-      JSON.stringify(passingResult(String(status.currentHash), ['unconfirmed-publish-skill'])),
+      JSON.stringify({
+        ...passingResult(String(status.currentHash), ['unconfirmed-publish-skill']),
+        evalManifestHash,
+      }),
     );
     await bundleEvalRecordCommand('unconfirmed-publish-skill', {
       project: projectRoot,
@@ -1255,7 +1268,6 @@ prefer:
           hash: 'a'.repeat(64),
         },
       ],
-      creator: 'native',
       defaultLocale: 'zh',
       locales: ['zh', 'en'],
       engineEnabled: true,
@@ -1593,7 +1605,6 @@ prefer:
       projectRoot,
       name: 'blocked-factory',
       candidates: [],
-      creator: 'native',
       defaultLocale: 'zh',
       locales: ['zh', 'en'],
       engineEnabled: true,
@@ -1938,7 +1949,6 @@ prefer:
       projectRoot,
       name: 'resolvable-factory',
       candidates: [],
-      creator: 'native',
       defaultLocale: 'zh',
       locales: ['zh', 'en'],
       engineEnabled: true,
@@ -2155,7 +2165,6 @@ prefer:
       projectRoot,
       name: 'factory-composition-action',
       candidates: [],
-      creator: 'native',
       defaultLocale: 'zh',
       locales: ['zh', 'en'],
       engineEnabled: true,

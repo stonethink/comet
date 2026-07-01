@@ -1,6 +1,6 @@
 # Bundle Authoring Reference
 
-`comet bundle` is `/comet-any`'s internal deterministic backend. Ordinary users should not memorize subcommands; Skill Creator turns the confirmed Workflow Contract into a plan and uses the CLI to maintain state.
+`comet creator` is `/comet-any`'s ordinary CLI surface, backed by the deterministic `comet bundle` backend. Ordinary users should not memorize Bundle subcommands; Skill Creator turns the confirmed Workflow Contract into a plan and uses the CLI to maintain state.
 
 ## Workflow Contract Input
 
@@ -129,15 +129,15 @@ The three `workflow-*.mjs` scripts are authored per workflow contract; the three
 
 ## CLI Lifecycle
 
-Common internal commands:
+Common Creator commands:
 
 ```bash
-comet bundle factory-guide --project . --json
-comet bundle candidates --json
-comet bundle factory-propose <name> --file <plan.json> --json
-comet bundle factory-init <name> --file <plan.json> --confirmed-proposal --json
-comet bundle factory-resolve <name> --candidate <query> --source <root-or-hash> --json
-comet bundle factory-generate <name> --json
+comet creator guide --project . --json
+comet creator candidates --json
+comet creator propose <name> --file <plan.json> --json
+comet creator init <name> --file <plan.json> --confirmed-proposal --json
+comet creator resolve <name> --candidate <query> --source <root-or-hash> --json
+comet creator generate <name> --json
 comet bundle compile <name> --platform <id> --json
 comet eval <generated-skill>/comet/eval.yaml --quick --html
 comet eval <generated-skill>/comet/eval.yaml --full --html

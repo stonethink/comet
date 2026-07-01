@@ -21,13 +21,14 @@ published, and distributed.
 Ordinary users only need to remember this path:
 
 ```text
-/comet-any create -> comet eval -> comet publish status/next -> comet publish review/approve/run -> comet publish distribute --preview -> comet publish distribute
+/comet-any create -> comet eval -> comet creator status/next -> comet publish review/approve/run -> comet publish distribute --preview -> comet publish distribute
 ```
 
-`comet publish status` / `comet publish next` is the ordinary readiness and single-next-step entry.
-`comet bundle` is the Advanced Bundle backend responsible for deterministic state, hashes,
-readiness, publish, and distribute. `comet skill run` / `comet skill continue` is the advanced
-Engine Run debugging path. They are not the main entry point for ordinary users creating Skills.
+`comet creator status` / `comet creator next` is the ordinary readiness and single-next-step entry.
+`comet publish` handles review, approval, publish, and distribution. `comet bundle` remains the
+Advanced Bundle backend for deterministic state, hashes, and deep debugging. `comet skill run` /
+`comet skill continue` is the advanced Engine Run debugging path. They are not the main entry point
+for ordinary users creating Skills.
 
 ## First-use project preferences
 
@@ -212,8 +213,8 @@ Then run the real evaluation and generate a browsable HTML report:
 comet eval ./generated-skill/comet/eval.yaml --html
 ```
 
-Benchmark results must bind to the current draft hash. If current-hash benchmark evidence is
-missing, the benchmark fails, or the benchmark is skipped, publish is blocked.
+Eval results must bind to the current draft hash. If current-hash eval evidence is missing, the
+eval fails, or eval is skipped, publish is blocked.
 
 ## Publish
 
@@ -221,8 +222,8 @@ Before publishing, always review readiness. Ordinary users should let `/comet-an
 for manual commands, prefer:
 
 ```bash
-comet publish status <name> --json
-comet publish next <name> --json
+comet creator status <name> --json
+comet creator next <name> --json
 comet publish review <name> --platform <reference-platform> --json
 comet publish approve <name> --reviewer <reviewer> --json
 comet publish run <name> --platform <reference-platform> --json
@@ -235,7 +236,7 @@ The review summary must show:
 - project-level preference mode and required Skills
 - resolved Skill evidence
 - composition proposal and deviation reasons
-- benchmark evidence
+- eval evidence
 - readiness, blockers, warnings, evidence
 - `Publish readiness:`
 - `User next steps:`
@@ -245,7 +246,7 @@ Blocking cases include:
 - unresolved candidate
 - missing or ambiguous required Skill
 - preference drift in `strict` mode
-- missing current-hash benchmark evidence
+- missing current-hash eval evidence
 - missing current-hash human approval
 - required capability gap
 - unconfirmed executable disclosure
@@ -303,7 +304,7 @@ and the last confirmed proposal summary. Resume checks include:
 - whether the draft hash changed
 - whether `.comet/skill-preferences.yaml` `preferenceHash` changed
 - whether resolved Skill hashes changed
-- whether benchmark evidence still matches the current hash
+- whether eval evidence still matches the current hash
 - whether approval still matches the current hash
 
 Example resume copy:
@@ -311,7 +312,7 @@ Example resume copy:
 ```text
 resume summary
 Current step: review
-Suggested user command: comet publish next <name>
+Suggested user command: comet creator next <name>
 ```
 
 If preferences or Skill sources changed, `advisory` mode should warn and let the user choose
@@ -320,23 +321,23 @@ require the user to confirm whether to continue or regenerate.
 
 ## Advanced backend reference
 
-Ordinary users do not need to call these commands directly. They exist for debugging `/comet-any`
-backend state, repairing candidate resolution, auditing authoring lanes, or explicit automation
-over the Skill Creator backend.
+Ordinary users usually let `/comet-any` call these commands. They exist for repairing candidate
+resolution, auditing authoring lanes, or explicit automation over the Skill Creator state. Use raw
+`comet bundle` commands only when you are debugging backend state directly.
 
 ```bash
-comet bundle factory-guide --project . --json
-comet bundle factory-propose <name> --file <plan.json> --json
-comet bundle factory-init <name> --file <plan.json> --json
-comet bundle factory-resolve <name> --candidate <query> --source <root-or-hash> --json
-comet bundle factory-init <name> --file <plan.json> --confirmed-proposal --json
-comet bundle factory-generate <name> --json
-comet bundle authoring-plan <name> --depth quick --json
-comet bundle authoring-record <name> --lane <lane-id> --file <lane-output.json> --json
+comet creator guide --project . --json
+comet creator propose <name> --file <plan.json> --json
+comet creator init <name> --file <plan.json> --json
+comet creator resolve <name> --candidate <query> --source <root-or-hash> --json
+comet creator init <name> --file <plan.json> --confirmed-proposal --json
+comet creator generate <name> --json
+comet creator authoring-plan <name> --depth quick --json
+comet creator authoring-record <name> --lane <lane-id> --file <lane-output.json> --json
 ```
 
-`comet bundle status` JSON still includes backend next action for `/comet-any` and automation.
-Ordinary users should read `comet publish status` / `comet publish next` for the user command.
+`comet creator status` JSON includes the next action for `/comet-any` and automation.
+Ordinary users should read `comet creator status` / `comet creator next` for the user command.
 
 ## What the user needs to remember
 
@@ -345,5 +346,5 @@ Ordinary users should read `comet publish status` / `comet publish next` for the
    generated by `/comet-any`.
 3. The composition proposal must be reviewed before a Bundle draft is written.
 4. Eval is publish evidence, not the publish action itself.
-5. Publish and distribute reuse the Bundle backend; use `comet publish status` /
-   `comet publish next` for the next step instead of hand-writing internal state.
+5. Creator state uses `comet creator status` / `comet creator next` for the next step; publish and
+   distribute stay under `comet publish`.

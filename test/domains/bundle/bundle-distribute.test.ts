@@ -4,7 +4,7 @@ import os from 'os';
 import path from 'path';
 import { parse, stringify } from 'yaml';
 import { optimizeBundleDraft } from '../../../domains/bundle/draft.js';
-import { recordBundleEval, type BundleEvalResult } from '../../../domains/bundle/eval.js';
+import { recordBundleEval, type RepositoryEvalResult } from '../../../domains/bundle/eval.js';
 import { publishBundle, reviewBundle } from '../../../domains/bundle/publish.js';
 import { distributeBundle } from '../../../domains/bundle/distribute.js';
 import { reconcileBundleAuthoringState } from '../../../domains/bundle/state.js';
@@ -97,25 +97,20 @@ requiresConfirmation: false
   }
 }
 
-function passingResult(hash: string): BundleEvalResult {
+function passingResult(hash: string): RepositoryEvalResult {
   return {
-    schemaVersion: 1,
-    provider: 'native-skill-creator',
+    schemaVersion: 2,
+    provider: 'comet-eval',
     level: 'quick',
-    bundleHash: hash,
-    entries: [{ id: 'entry', passed: true, passRate: 1, evidence: ['entry.json'] }],
-    bundle: {
-      compilePassed: true,
-      safetyPassed: true,
-      evidence: ['compile.json'],
-    },
-    benchmark: {
-      cases: 2,
-      baselinePassRate: 0,
-      withSkillPassRate: 1,
-      tokenCount: 500,
-      durationMs: 1000,
-    },
+    draftHash: hash,
+    evalManifestHash: 'b'.repeat(64),
+    tasks: ['generic-skill-smoke'],
+    treatments: ['entry'],
+    passAtK: { '1': 1 },
+    weightedScore: { overall: 1 },
+    instabilityGap: { overall: 0 },
+    failures: [],
+    reports: ['eval-report.html'],
     passed: true,
     summary: 'Distribution gates passed.',
   };
@@ -609,7 +604,6 @@ describe('Bundle distribution', () => {
       name: options.name,
       sourceRoot,
       candidates: [],
-      creator: 'native',
       defaultLocale: 'en',
       locales: ['en', 'zh'],
       engineEnabled: false,

@@ -1,9 +1,10 @@
 import { spawnSync } from 'child_process';
+import crypto from 'crypto';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
-import type { BundleEvalResult } from '../../../domains/bundle/eval.js';
+import type { RepositoryEvalResult } from '../../../domains/bundle/eval.js';
 import { workflowFor as workflowDefinitionFor } from '../../helpers/workflow-plan.js';
 import { ensureCliBuilt } from '../../helpers/ensure-cli-built.js';
 
@@ -68,7 +69,6 @@ async function writeFactoryPlan(planFile: string): Promise<void> {
         runnerMode: 'standalone',
         defaultLocale: 'zh',
         locales: ['zh', 'en'],
-        creator: 'native',
         engineEnabled: true,
       },
       null,
@@ -82,7 +82,7 @@ async function authorSubstanceNodes(
   projectRoot: string,
   name: string,
 ): Promise<void> {
-  const status = runJson('bundle', 'status', name, '--project', projectRoot);
+  const status = runJson('creator', 'status', name, '--project', projectRoot);
   const unauthored = status.factory?.generatedSkillPackage?.unauthoredSubstanceNodes ?? [];
   for (const nodeSkill of unauthored) {
     const draftFile = path.join(root, `${name}-${nodeSkill}-guidance.json`);
@@ -107,7 +107,7 @@ async function authorSubstanceNodes(
       }),
     );
     runJson(
-      'bundle',
+      'creator',
       'authoring-record',
       name,
       '--project',
@@ -119,9 +119,9 @@ async function authorSubstanceNodes(
     );
   }
   if (unauthored.length > 0) {
-    runJson('bundle', 'factory-generate', name, '--project', projectRoot);
+    runJson('creator', 'generate', name, '--project', projectRoot);
   }
-  const updated = runJson('bundle', 'status', name, '--project', projectRoot);
+  const updated = runJson('creator', 'status', name, '--project', projectRoot);
   const packageRoot = updated.factory?.generatedSkillPackage?.packageRoot;
   if (typeof packageRoot === 'string') {
     await authorGeneratedMarkers(packageRoot);
@@ -148,29 +148,39 @@ async function authorGeneratedMarkers(root: string): Promise<void> {
   }
 }
 
-function passingResult(hash: string, entrySkills: string[] = ['alpha', 'beta']): BundleEvalResult {
+function passingResult(
+  hash: string,
+  entrySkills: string[] = ['alpha', 'beta'],
+  evalManifestHash = 'b'.repeat(64),
+): RepositoryEvalResult {
   return {
-    schemaVersion: 1,
-    provider: 'native-skill-creator',
+    schemaVersion: 2,
+    provider: 'comet-eval',
     level: 'quick',
-    bundleHash: hash,
-    entries: entrySkills.map((id) => ({
-      id,
-      passed: true,
-      passRate: 1,
-      evidence: [`${id}.json`],
-    })),
-    bundle: { compilePassed: true, safetyPassed: true, evidence: ['compile.json'] },
-    benchmark: {
-      cases: 4,
-      baselinePassRate: 0.25,
-      withSkillPassRate: 1,
-      tokenCount: 800,
-      durationMs: 1500,
-    },
+    draftHash: hash,
+    evalManifestHash,
+    tasks: ['generic-skill-smoke'],
+    treatments: entrySkills,
+    passAtK: { '1': 1 },
+    weightedScore: { overall: 1 },
+    instabilityGap: { overall: 0 },
+    failures: [],
+    reports: ['eval-report.html'],
     passed: true,
     summary: 'CLI E2E gates passed.',
   };
+}
+
+async function generatedEvalManifestHash(status: Record<string, unknown>): Promise<string> {
+  const factory = status.factory as
+    | { generatedSkillPackage?: { packageRoot?: unknown } }
+    | undefined;
+  const packageRoot = factory?.generatedSkillPackage?.packageRoot;
+  if (typeof packageRoot !== 'string') {
+    throw new Error('Generated Skill package root is missing from status fixture');
+  }
+  const evalManifest = await fs.readFile(path.join(packageRoot, 'comet', 'eval.yaml'));
+  return crypto.createHash('sha256').update(evalManifest).digest('hex');
 }
 
 function runCli(...args: string[]) {
@@ -210,7 +220,7 @@ describe('comet bundle CLI end to end', () => {
     const draft = runJson('bundle', 'draft', 'optimize', sourceRoot, '--project', projectRoot);
     expect(draft).toMatchObject({ name: 'e2e-bundle', status: 'draft' });
 
-    const status = runJson('bundle', 'status', 'e2e-bundle', '--project', projectRoot);
+    const status = runJson('creator', 'status', 'e2e-bundle', '--project', projectRoot);
     expect(status).toMatchObject({ name: 'e2e-bundle', status: 'draft' });
     expect(status.currentHash).toMatch(/^[a-f0-9]{64}$/u);
 
@@ -230,7 +240,7 @@ describe('comet bundle CLI end to end', () => {
 
     const evalPlan = runJson(
       'bundle',
-      'benchmark-plan',
+      'eval-plan',
       'e2e-bundle',
       '--project',
       projectRoot,
@@ -243,7 +253,7 @@ describe('comet bundle CLI end to end', () => {
     await fs.writeFile(resultFile, JSON.stringify(passingResult(String(status.currentHash))));
     const evaluated = runJson(
       'bundle',
-      'benchmark-record',
+      'eval-record',
       'e2e-bundle',
       '--project',
       projectRoot,
@@ -303,7 +313,7 @@ describe('comet bundle CLI end to end', () => {
   it('lists recoverable authoring states through the built CLI', async () => {
     runJson('bundle', 'draft', 'create', 'recoverable-bundle', '--project', projectRoot);
 
-    const listed = runJson('bundle', 'list', '--project', projectRoot);
+    const listed = runJson('creator', 'list', '--project', projectRoot);
 
     expect(listed).toMatchObject({
       bundles: [
@@ -318,11 +328,12 @@ describe('comet bundle CLI end to end', () => {
     });
   });
 
-  it('exposes publish facade commands through the built CLI', async () => {
+  it('exposes Skill Creator resume commands through the built CLI', async () => {
     runJson('bundle', 'draft', 'create', 'publish-facade-bundle', '--project', projectRoot);
 
-    const listed = runJson('publish', 'list', '--project', projectRoot);
-    const status = runJson('publish', 'status', 'publish-facade-bundle', '--project', projectRoot);
+    const listed = runJson('creator', 'list', '--project', projectRoot);
+    const status = runJson('creator', 'status', 'publish-facade-bundle', '--project', projectRoot);
+    const next = runJson('creator', 'next', 'publish-facade-bundle', '--project', projectRoot);
 
     expect(listed).toMatchObject({
       bundles: [
@@ -337,6 +348,10 @@ describe('comet bundle CLI end to end', () => {
       name: 'publish-facade-bundle',
       status: 'draft',
       nextAction: { action: 'choose-eval-level' },
+    });
+    expect(next).toMatchObject({
+      name: 'publish-facade-bundle',
+      nextStep: { action: 'choose-eval-level' },
     });
   });
 
@@ -370,8 +385,8 @@ prefer:
     );
 
     const result = runJson(
-      'bundle',
-      'factory-propose',
+      'creator',
+      'propose',
       'proposal-factory',
       '--file',
       planFile,
@@ -404,8 +419,8 @@ prefer:
     await writeFactoryPlan(planFile);
 
     const result = runCli(
-      'bundle',
-      'factory-propose',
+      'creator',
+      'propose',
       'skill-maker-alpha',
       '--project',
       projectRoot,
@@ -450,8 +465,8 @@ prefer:
     await writeFactoryPlan(planFile);
 
     const initialized = runJson(
-      'bundle',
-      'factory-init',
+      'creator',
+      'init',
       'factory-bundle',
       '--project',
       projectRoot,
@@ -466,8 +481,8 @@ prefer:
     });
 
     const blocked = runCli(
-      'bundle',
-      'factory-generate',
+      'creator',
+      'generate',
       'factory-bundle',
       '--project',
       projectRoot,
@@ -477,8 +492,8 @@ prefer:
     expect(blocked.stderr).toContain('unresolved factory Skill candidates');
 
     const resolved = runJson(
-      'bundle',
-      'factory-resolve',
+      'creator',
+      'resolve',
       'factory-bundle',
       '--project',
       projectRoot,
@@ -499,8 +514,8 @@ prefer:
       },
     });
     runJson(
-      'bundle',
-      'factory-init',
+      'creator',
+      'init',
       'factory-bundle',
       '--project',
       projectRoot,
@@ -509,13 +524,7 @@ prefer:
       '--confirmed-proposal',
     );
 
-    const generated = runJson(
-      'bundle',
-      'factory-generate',
-      'factory-bundle',
-      '--project',
-      projectRoot,
-    );
+    const generated = runJson('creator', 'generate', 'factory-bundle', '--project', projectRoot);
     const compiled = runJson(
       'bundle',
       'compile',
@@ -527,7 +536,7 @@ prefer:
     );
     const quickEvalPlan = runJson(
       'bundle',
-      'benchmark-plan',
+      'eval-plan',
       'factory-bundle',
       '--project',
       projectRoot,
@@ -536,7 +545,7 @@ prefer:
     );
     const fullEvalPlan = runJson(
       'bundle',
-      'benchmark-plan',
+      'eval-plan',
       'factory-bundle',
       '--project',
       projectRoot,
@@ -666,7 +675,6 @@ prefer:
           runnerMode: 'standalone',
           defaultLocale: 'zh',
           locales: ['zh', 'en'],
-          creator: 'native',
           engineEnabled: true,
         },
         null,
@@ -675,8 +683,8 @@ prefer:
     );
 
     const initialized = runJson(
-      'bundle',
-      'factory-init',
+      'creator',
+      'init',
       'factory-missing',
       '--project',
       projectRoot,
@@ -693,8 +701,8 @@ prefer:
     });
 
     const blocked = runCli(
-      'bundle',
-      'factory-generate',
+      'creator',
+      'generate',
       'factory-missing',
       '--project',
       projectRoot,
@@ -704,8 +712,8 @@ prefer:
     expect(blocked.stderr).toContain('unresolved factory Skill candidates');
 
     const resolved = runJson(
-      'bundle',
-      'factory-resolve',
+      'creator',
+      'resolve',
       'factory-missing',
       '--project',
       projectRoot,
@@ -719,8 +727,8 @@ prefer:
       deviations: [expect.objectContaining({ skill: 'missing-skill', actualIndex: -1 })],
     });
     runJson(
-      'bundle',
-      'factory-init',
+      'creator',
+      'init',
       'factory-missing',
       '--project',
       projectRoot,
@@ -729,13 +737,7 @@ prefer:
       '--confirmed-proposal',
     );
 
-    const generated = runJson(
-      'bundle',
-      'factory-generate',
-      'factory-missing',
-      '--project',
-      projectRoot,
-    );
+    const generated = runJson('creator', 'generate', 'factory-missing', '--project', projectRoot);
     await authorSubstanceNodes(root, projectRoot, 'factory-missing');
     const summary = runJson(
       'bundle',
@@ -786,7 +788,6 @@ prefer:
           runnerMode: 'standalone',
           defaultLocale: 'zh',
           locales: ['zh', 'en'],
-          creator: 'native',
           engineEnabled: true,
         },
         null,
@@ -794,18 +795,10 @@ prefer:
       ),
     );
 
+    runJson('creator', 'init', 'factory-text-mode', '--project', projectRoot, '--file', planFile);
     runJson(
-      'bundle',
-      'factory-init',
-      'factory-text-mode',
-      '--project',
-      projectRoot,
-      '--file',
-      planFile,
-    );
-    runJson(
-      'bundle',
-      'factory-resolve',
+      'creator',
+      'resolve',
       'factory-text-mode',
       '--project',
       projectRoot,
@@ -816,8 +809,8 @@ prefer:
       'The target workflow can proceed with factory-alpha only.',
     );
     runJson(
-      'bundle',
-      'factory-init',
+      'creator',
+      'init',
       'factory-text-mode',
       '--project',
       projectRoot,
@@ -825,7 +818,7 @@ prefer:
       planFile,
       '--confirmed-proposal',
     );
-    runJson('bundle', 'factory-generate', 'factory-text-mode', '--project', projectRoot);
+    runJson('creator', 'generate', 'factory-text-mode', '--project', projectRoot);
 
     const reviewSummary = runCli(
       'bundle',
@@ -871,8 +864,8 @@ prefer:
     await writeFactoryPlan(planFile);
 
     runJson(
-      'bundle',
-      'factory-init',
+      'creator',
+      'init',
       'factory-warning-text-mode',
       '--project',
       projectRoot,
@@ -880,8 +873,8 @@ prefer:
       planFile,
     );
     runJson(
-      'bundle',
-      'factory-resolve',
+      'creator',
+      'resolve',
       'factory-warning-text-mode',
       '--project',
       projectRoot,
@@ -891,8 +884,8 @@ prefer:
       path.join(projectRoot, '.claude', 'skills', 'factory-alpha'),
     );
     runJson(
-      'bundle',
-      'factory-init',
+      'creator',
+      'init',
       'factory-warning-text-mode',
       '--project',
       projectRoot,
@@ -900,10 +893,10 @@ prefer:
       planFile,
       '--confirmed-proposal',
     );
-    runJson('bundle', 'factory-generate', 'factory-warning-text-mode', '--project', projectRoot);
+    runJson('creator', 'generate', 'factory-warning-text-mode', '--project', projectRoot);
     await authorSubstanceNodes(root, projectRoot, 'factory-warning-text-mode');
     const status = runJson(
-      'bundle',
+      'creator',
       'status',
       'factory-warning-text-mode',
       '--project',
@@ -912,11 +905,17 @@ prefer:
     const resultFile = path.join(root, 'warning-text-mode-eval.json');
     await fs.writeFile(
       resultFile,
-      JSON.stringify(passingResult(String(status.currentHash), ['factory-warning-text-mode'])),
+      JSON.stringify(
+        passingResult(
+          String(status.currentHash),
+          ['factory-warning-text-mode'],
+          await generatedEvalManifestHash(status),
+        ),
+      ),
     );
     runJson(
       'bundle',
-      'benchmark-record',
+      'eval-record',
       'factory-warning-text-mode',
       '--project',
       projectRoot,
@@ -941,7 +940,7 @@ prefer:
     expect(reviewSummary.stdout).toContain('Evidence:');
   });
 
-  it('prints explicit recovery hints in bundle status text mode when eval and review are missing', async () => {
+  it('prints explicit recovery hints in creator status text mode when eval and review are missing', async () => {
     await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
     await fs.mkdir(path.join(projectRoot, '.claude', 'skills', 'factory-alpha'), {
       recursive: true,
@@ -968,8 +967,8 @@ prefer:
     await writeFactoryPlan(planFile);
 
     const initialized = runJson(
-      'bundle',
-      'factory-init',
+      'creator',
+      'init',
       'factory-status-text-mode',
       '--project',
       projectRoot,
@@ -982,8 +981,8 @@ prefer:
       },
     });
     runJson(
-      'bundle',
-      'factory-resolve',
+      'creator',
+      'resolve',
       'factory-status-text-mode',
       '--project',
       projectRoot,
@@ -993,8 +992,8 @@ prefer:
       path.join(projectRoot, '.claude', 'skills', 'factory-alpha'),
     );
     runJson(
-      'bundle',
-      'factory-init',
+      'creator',
+      'init',
       'factory-status-text-mode',
       '--project',
       projectRoot,
@@ -1002,36 +1001,36 @@ prefer:
       planFile,
       '--confirmed-proposal',
     );
-    runJson('bundle', 'factory-generate', 'factory-status-text-mode', '--project', projectRoot);
+    runJson('creator', 'generate', 'factory-status-text-mode', '--project', projectRoot);
 
-    const bundleStatus = runCli(
-      'bundle',
+    const creatorStatus = runCli(
+      'creator',
       'status',
       'factory-status-text-mode',
       '--project',
       projectRoot,
     );
 
-    expect(bundleStatus.status, bundleStatus.stderr).toBe(0);
-    expect(bundleStatus.stdout).toContain('Status: draft');
-    expect(bundleStatus.stdout).toContain('Skill Creator package:');
-    expect(bundleStatus.stdout).toContain(
+    expect(creatorStatus.status, creatorStatus.stderr).toBe(0);
+    expect(creatorStatus.stdout).toContain('Status: draft');
+    expect(creatorStatus.stdout).toContain('Skill Creator package:');
+    expect(creatorStatus.stdout).toContain(
       'Eval: missing; run comet eval <generated-skill>/comet/eval.yaml --quick --html',
     );
-    expect(bundleStatus.stdout).toContain(
-      'Review: missing; run comet bundle review-summary before approval',
+    expect(creatorStatus.stdout).toContain(
+      'Review: missing; run comet publish review before approval',
     );
-    expect(bundleStatus.stdout).toContain('Next action: choose-eval-level');
-    expect(bundleStatus.stdout).toContain('Suggested user command: comet eval ');
-    expect(bundleStatus.stdout).not.toContain('choose-benchmark-level');
-    expect(bundleStatus.stdout).not.toContain('needs-benchmark');
-    expect(bundleStatus.stdout).not.toContain('Run a benchmark');
-    expect(bundleStatus.stdout).not.toContain('Benchmark: missing');
-    expect(bundleStatus.stdout).not.toContain('benchmark-record');
-    expect(bundleStatus.stdout).not.toContain('benchmark-plan');
+    expect(creatorStatus.stdout).toContain('Next action: choose-eval-level');
+    expect(creatorStatus.stdout).toContain('Suggested user command: comet eval ');
+    expect(creatorStatus.stdout).not.toContain('choose-benchmark-level');
+    expect(creatorStatus.stdout).not.toContain('needs-benchmark');
+    expect(creatorStatus.stdout).not.toContain('Run a benchmark');
+    expect(creatorStatus.stdout).not.toContain('Benchmark: missing');
+    expect(creatorStatus.stdout).not.toContain('benchmark-record');
+    expect(creatorStatus.stdout).not.toContain('benchmark-plan');
   });
 
-  it('reports next action metadata in bundle status JSON output', async () => {
+  it('reports next action metadata in creator status JSON output', async () => {
     await fs.mkdir(path.join(projectRoot, '.comet'), { recursive: true });
     await fs.mkdir(path.join(projectRoot, '.claude', 'skills', 'factory-alpha'), {
       recursive: true,
@@ -1060,7 +1059,6 @@ prefer:
           runnerMode: 'standalone',
           defaultLocale: 'zh',
           locales: ['zh', 'en'],
-          creator: 'native',
           engineEnabled: true,
         },
         null,
@@ -1069,8 +1067,8 @@ prefer:
     );
 
     runJson(
-      'bundle',
-      'factory-init',
+      'creator',
+      'init',
       'factory-next-action',
       '--project',
       projectRoot,
@@ -1078,9 +1076,9 @@ prefer:
       planFile,
       '--confirmed-proposal',
     );
-    runJson('bundle', 'factory-generate', 'factory-next-action', '--project', projectRoot);
+    runJson('creator', 'generate', 'factory-next-action', '--project', projectRoot);
 
-    const status = runJson('bundle', 'status', 'factory-next-action', '--project', projectRoot);
+    const status = runJson('creator', 'status', 'factory-next-action', '--project', projectRoot);
 
     expect(status).toMatchObject({
       nextAction: {
@@ -1113,7 +1111,6 @@ prefer:
           runnerMode: 'standalone',
           defaultLocale: 'zh',
           locales: ['zh', 'en'],
-          creator: 'native',
           engineEnabled: true,
         },
         null,
@@ -1122,8 +1119,8 @@ prefer:
     );
 
     runJson(
-      'bundle',
-      'factory-init',
+      'creator',
+      'init',
       'factory-resolve-action',
       '--project',
       projectRoot,
@@ -1131,7 +1128,7 @@ prefer:
       planFile,
     );
 
-    const status = runCli('bundle', 'status', 'factory-resolve-action', '--project', projectRoot);
+    const status = runCli('creator', 'status', 'factory-resolve-action', '--project', projectRoot);
 
     expect(status.status, status.stderr).toBe(0);
     expect(status.stdout).toContain('Next action: resolve-candidates');
@@ -1139,7 +1136,7 @@ prefer:
       'Suggested user command: Ask /comet-any to resolve missing-skill',
     );
     expect(status.stdout).toContain(
-      'Backend command: comet bundle factory-resolve factory-resolve-action --candidate missing-skill',
+      'Backend command: comet creator resolve factory-resolve-action --candidate missing-skill',
     );
   });
 });

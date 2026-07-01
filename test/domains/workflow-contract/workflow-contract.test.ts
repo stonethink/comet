@@ -42,6 +42,13 @@ describe('workflow contract normalization', () => {
     expect(workflow.protocol.outputSchemas.map((schema) => schema.id)).toEqual(
       expect.arrayContaining(['comet.plan.v1', 'comet.handoff.v1', 'comet.review.v1']),
     );
+    expect(workflow.protocol.state).toEqual({
+      kind: 'comet-overlay',
+      statePath: 'openspec/changes/*/.comet.yaml',
+      currentNodeField: 'phase',
+      completedNodesField: 'completedNodes',
+      evidenceField: 'evidence',
+    });
   });
 
   it('allows required Skill calls without replacing Node implementations', () => {

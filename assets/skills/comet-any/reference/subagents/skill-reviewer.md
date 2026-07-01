@@ -95,7 +95,7 @@ If any Critical or Important issue exists, do not return `Review passed`. If an 
 
 ## Multi-vote Review (depth-aware)
 
-The skill-review lane is the DAG barrier and runs after every author lane. Its verdict is recorded with `comet bundle authoring-record <name> --lane skill-review --file <review.json>` and becomes the real `skill-review.md` / `authoring-lanes.json` evidence — it is NOT a hardcoded approval.
+The skill-review lane is the DAG barrier and runs after every author lane. Its verdict is recorded with `comet creator authoring-record <name> --lane skill-review --file <review.json>` and becomes the real `skill-review.md` / `authoring-lanes.json` evidence — it is NOT a hardcoded approval.
 
 - `depth: full` → dispatch N=3 independent reviewers, each holding exactly one lens (`contract-fit`, `usability`, `evidence-trace`, `self-consistency`), none seeing the others' conclusions. Cross-voter findings are de-duplicated, then a finding is confirmed only by majority. Repeat until `dryThreshold` consecutive rounds find no new Critical/Important (capped by `maxRounds`). `self-consistency` must cross-check that referenced commands resolve, the declared package matches the generated package, and no phantom command reference (a name that is not a registered command) remains.
 - `depth: quick` → a single reviewer, single round.

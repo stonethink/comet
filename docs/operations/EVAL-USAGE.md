@@ -1,4 +1,4 @@
-# Benchmark a Skill with `comet eval`
+# Evaluate a Skill with `comet eval`
 
 This document explains, from the user's point of view, how to evaluate a Skill in the current
 release. In normal usage, you do not need to understand pytest, task registry details, profiles,
@@ -6,11 +6,11 @@ treatments, or Docker internals. The user-facing entry point is `comet eval`.
 
 ## First understand where `comet eval` fits in Comet
 
-`/comet-any` creates or optimizes a Skill, while `comet eval` benchmarks whether that Skill can be
+`/comet-any` creates or optimizes a Skill, while `comet eval` evaluates whether that Skill can be
 discovered by the eval harness, run, and reported correctly. The current `/comet-any` flow also
-feeds benchmark results and project-level preference evidence into publish readiness:
-`preferenceHash`, the composition proposal, resolved Skill evidence, and benchmark evidence must
-all match the current draft.
+feeds eval results and project-level preference evidence into publish readiness: `preferenceHash`,
+the composition proposal, resolved Skill evidence, and eval evidence must all match the current
+draft.
 
 Think about the flow like this:
 
@@ -19,7 +19,7 @@ Think about the flow like this:
   -> produces comet/eval.yaml
   -> comet eval --collect performs discovery precheck
   -> comet eval --html performs the real evaluation
-  -> /comet-any or comet publish status/next reads the result and continues into readiness / review / publish / distribute
+  -> /comet-any or comet creator status/next reads the result and continues into readiness / review / publish / distribute
 ```
 
 `comet eval` does not publish. Publishing is still handled by the Bundle backend behind
@@ -29,7 +29,7 @@ evidence.
 For ordinary users, the recommended path remains:
 
 ```text
-/comet-any -> comet eval -> comet publish status/next -> comet publish review/approve/run -> comet publish distribute --preview -> comet publish distribute
+/comet-any -> comet eval -> comet creator status/next -> comet publish review/approve/run -> comet publish distribute --preview -> comet publish distribute
 ```
 
 The stable composed Skill Bundle required capability set is
@@ -60,13 +60,13 @@ precheck right after generation.
 The second command, `--html`, performs the real evaluation and produces a browsable report.
 After it passes, `/comet-any` can use the result as publish evidence.
 
-## How benchmark results enter publish readiness
+## How eval results enter publish readiness
 
-After `/comet-any` or the backend records benchmark results, they are merged into publish readiness.
+After `/comet-any` or the backend records eval results, they are merged into publish readiness.
 What the user needs to know is just:
 
 1. Results from `comet eval` become evidence for `Publish readiness:`.
-2. If current-hash benchmark evidence is missing, `User next steps:` must point to running
+2. If current-hash eval evidence is missing, `User next steps:` must point to running
    `comet eval` before publish continues.
 
 The usual sequence is:
@@ -74,11 +74,11 @@ The usual sequence is:
 ```bash
 comet eval ./generated-skill/comet/eval.yaml --collect
 comet eval ./generated-skill/comet/eval.yaml --html
-comet publish next <name> --json
+comet creator next <name> --json
 comet publish review <name> --platform <reference-platform> --json
 ```
 
-`comet publish next` prints only the single recommended user command; `comet publish review` must
+`comet creator next` prints only the single recommended user command; `comet publish review` must
 directly show `Publish readiness:`, `User next steps:`, `Readiness:`, `Blockers:`, `Warnings:`,
 and `Evidence:`.
 
@@ -131,18 +131,18 @@ Users do not need to read low-level logs line by line. Start with:
 workflow, task, model, and related categories. That attribution helps decide whether the next step
 is fixing the Skill, the eval config, or the environment.
 
-## How `/comet-any` uses benchmark results
+## How `/comet-any` uses eval results
 
 From the user's point of view, after `comet eval` finishes you can hand control back to
-`/comet-any` or run `comet publish next <name>` to see the single recommended next step.
-`/comet-any` merges benchmark evidence into readiness:
+`/comet-any` or run `comet creator next <name>` to see the single recommended next step.
+`/comet-any` merges eval evidence into readiness:
 
-- no benchmark evidence: cannot publish
-- benchmark failed: cannot publish
-- benchmark evidence points to an old hash: cannot publish
+- no eval evidence: cannot publish
+- eval failed: cannot publish
+- eval evidence points to an old hash: cannot publish
 - `.comet/skill-preferences.yaml` changed while in `strict` mode: cannot publish; confirm or
   regenerate first
-- benchmark passed and hash matches: continue into review / publish decisions
+- eval passed and hash matches: continue into review / publish decisions
 
 Users should not edit Bundle state manually, and they should not write report paths into internal
 JSON by hand. `/comet-any` records structured evidence through the Bundle backend.
@@ -239,12 +239,12 @@ In practice, only remember these three points:
 
 1. If `/comet-any` generated the Skill, prefer `comet/eval.yaml`
 2. Run `--collect` first, then `--html`
-3. Benchmark results are publish readiness evidence, not the publish action itself
+3. Eval results are publish readiness evidence, not the publish action itself
 
 Recommended commands:
 
 ```bash
 comet eval ./generated-skill/comet/eval.yaml --collect
 comet eval ./generated-skill/comet/eval.yaml --html
-comet publish next <name> --json
+comet creator next <name> --json
 ```

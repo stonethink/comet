@@ -1,11 +1,11 @@
-# 使用 `comet eval` benchmark 一个 Skill
+# 使用 `comet eval` 评估一个 Skill
 
 本文从用户视角说明新版本怎么评估一个 Skill。正常情况下，你不需要理解 pytest、task registry、profile、treatment 或 Docker 细节；用户主入口是 `comet eval`。
 
 ## 先理解 `comet eval` 在 Comet 里的位置
 
-`/comet-any` 负责创建或优化 Skill，`comet eval` 负责 benchmark 这个 Skill 是否能被 eval harness 发现、运行并产出报告。
-新版本的 `/comet-any` 还会把 benchmark 结果和项目级偏好证据一起放进 publish readiness：`preferenceHash`、组合方案、resolved Skill 证据和 benchmark evidence 必须都能对应当前 draft。
+`/comet-any` 负责创建或优化 Skill，`comet eval` 负责评估这个 Skill 是否能被 eval harness 发现、运行并产出报告。
+新版本的 `/comet-any` 还会把 eval 结果和项目级偏好证据一起放进 publish readiness：`preferenceHash`、组合方案、resolved Skill 证据和 eval evidence 必须都能对应当前 draft。
 
 两者的关系可以这样理解：
 
@@ -14,11 +14,11 @@
   -> 产出 comet/eval.yaml
   -> comet eval --collect 做发现预检查
   -> comet eval --html 执行真实评估
-  -> /comet-any 或 comet publish status/next 读取评估结果并进入 readiness / review / publish / distribute
+  -> /comet-any 或 comet creator status/next 读取评估结果并进入 readiness / review / publish / distribute
 ```
 
 `comet eval` 不负责发布。发布仍然由 `/comet-any` 背后的 Bundle 后端处理，对普通用户暴露为 `comet publish`。eval 的职责是提供发布前证据。
-对普通用户，推荐链路仍是 `/comet-any -> comet eval -> comet publish status/next -> comet publish review/approve/run -> comet publish distribute --preview -> comet publish distribute`。
+对普通用户，推荐链路仍是 `/comet-any -> comet eval -> comet creator status/next -> comet publish review/approve/run -> comet publish distribute --preview -> comet publish distribute`。
 稳定组合 Skill Bundle 的 required capability set（必需能力集合）是 `skills/scripts/rules/hooks/references`；
 其中 `scripts/rules/hooks` 是 required control plane，`hooks/*.yaml` 只有在 `comet publish distribute`
 编译到目标平台后才会生效。
@@ -44,23 +44,23 @@ comet eval ./generated-skill/comet/eval.yaml --html
 
 第二步 `--html` 才执行真实评估，并生成可浏览报告。评估通过后，`/comet-any` 可以把这份结果作为发布前证据的一部分。
 
-## benchmark 结果如何进入 publish readiness
+## eval 结果如何进入 publish readiness
 
-`/comet-any` 或后端在记录 benchmark 结果后，会把它并入 publish readiness。用户需要知道的只有两点：
+`/comet-any` 或后端在记录 eval 结果后，会把它并入 publish readiness。用户需要知道的只有两点：
 
 1. `comet eval` 产出的结果会成为 `Publish readiness:` 的证据来源。
-2. 当前 hash 缺少 benchmark 证据时，`User next steps:` 必须先指向运行 `comet eval`，而不是继续发布。
+2. 当前 hash 缺少 eval 证据时，`User next steps:` 必须先指向运行 `comet eval`，而不是继续发布。
 
 通常顺序是：
 
 ```bash
 comet eval ./generated-skill/comet/eval.yaml --collect
 comet eval ./generated-skill/comet/eval.yaml --html
-comet publish next <name> --json
+comet creator next <name> --json
 comet publish review <name> --platform <reference-platform> --json
 ```
 
-`comet publish next` 只输出当前推荐的一步用户命令；`comet publish review` 需要把 `Publish readiness:`、`User next steps:`、`Readiness:`、`Blockers:`、`Warnings:` 和 `Evidence:` 直接展示给用户。
+`comet creator next` 只输出当前推荐的一步用户命令；`comet publish review` 需要把 `Publish readiness:`、`User next steps:`、`Readiness:`、`Blockers:`、`Warnings:` 和 `Evidence:` 直接展示给用户。
 
 ## 为什么先 `collect`
 
@@ -109,7 +109,7 @@ eval/local/logs/experiments/<experiment-id>/summary.html
 
 ## `/comet-any` 如何使用 eval 结果
 
-从用户视角，eval 结束后把结果交回 `/comet-any` 继续推进，或运行 `comet publish next <name>` 看唯一推荐下一步即可。`/comet-any` 会把 eval 证据纳入 readiness：
+从用户视角，eval 结束后把结果交回 `/comet-any` 继续推进，或运行 `comet creator next <name>` 看唯一推荐下一步即可。`/comet-any` 会把 eval 证据纳入 readiness：
 
 - 没有 eval 证据：不能 publish
 - eval 失败：不能 publish
@@ -213,5 +213,5 @@ comet skill check --change ./changes/demo --scope completion
 ```bash
 comet eval ./generated-skill/comet/eval.yaml --collect
 comet eval ./generated-skill/comet/eval.yaml --html
-comet publish next <name> --json
+comet creator next <name> --json
 ```

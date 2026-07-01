@@ -95,7 +95,7 @@ prompt:
 
 ## 多视角审查（按 depth）
 
-skill-review lane 是 DAG 的 barrier，在所有创作 lane 之后运行。其裁决用 `comet bundle authoring-record <name> --lane skill-review --file <review.json>` 记录，成为真实的 `skill-review.md` / `authoring-lanes.json` 证据——绝不是硬编码的批准。
+skill-review lane 是 DAG 的 barrier，在所有创作 lane 之后运行。其裁决用 `comet creator authoring-record <name> --lane skill-review --file <review.json>` 记录，成为真实的 `skill-review.md` / `authoring-lanes.json` 证据——绝不是硬编码的批准。
 
 - `depth: full`：派发 N=3 个独立审查者，每人只持一个 lens（`contract-fit`、`usability`、`evidence-trace`、`self-consistency`），互不见彼此结论。跨审查者的 findings 去重后，仅多数确认才成立。重复直到连续 `dryThreshold` 轮无新的 Critical/Important（上限 `maxRounds`）。`self-consistency` 必须交叉校验：引用的命令可解析、声明产物 == 实际产物、无幽灵命令引用（未注册的命令名）残留。
 - `depth: quick`：单审查者、单轮。

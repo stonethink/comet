@@ -7,15 +7,17 @@ import {
   bundleEvalRecordCommand,
 } from '../../../app/commands/bundle.js';
 import {
+  creatorListCommand,
+  creatorNextCommand,
+  creatorStatusCommand,
+} from '../../../app/commands/creator.js';
+import {
   publishApproveCommand,
   publishDistributeCommand,
-  publishListCommand,
-  publishNextCommand,
   publishReviewCommand,
   publishRunCommand,
-  publishStatusCommand,
 } from '../../../app/commands/publish.js';
-import type { BundleEvalResult } from '../../../domains/bundle/eval.js';
+import type { RepositoryEvalResult } from '../../../domains/bundle/eval.js';
 
 async function writeBundle(root: string, name: string): Promise<void> {
   await fs.mkdir(path.join(root, 'skills', 'entry'), { recursive: true });
@@ -71,21 +73,20 @@ engine:
   );
 }
 
-function passingResult(hash: string): BundleEvalResult {
+function passingResult(hash: string): RepositoryEvalResult {
   return {
-    schemaVersion: 1,
-    provider: 'native-skill-creator',
+    schemaVersion: 2,
+    provider: 'comet-eval',
     level: 'quick',
-    bundleHash: hash,
-    entries: [{ id: 'entry', passed: true, passRate: 1, evidence: ['entry.json'] }],
-    bundle: { compilePassed: true, safetyPassed: true, evidence: ['compile.json'] },
-    benchmark: {
-      cases: 2,
-      baselinePassRate: 0,
-      withSkillPassRate: 1,
-      tokenCount: 500,
-      durationMs: 1000,
-    },
+    draftHash: hash,
+    evalManifestHash: 'b'.repeat(64),
+    tasks: ['generic-skill-smoke'],
+    treatments: ['entry'],
+    passAtK: { '1': 1 },
+    weightedScore: { overall: 1 },
+    instabilityGap: { overall: 0 },
+    failures: [],
+    reports: ['eval-report.html'],
     passed: true,
     summary: 'Publish facade gates passed.',
   };
@@ -111,7 +112,7 @@ async function captureText(run: () => Promise<void>): Promise<string> {
   }
 }
 
-describe('publish command facade', () => {
+describe('creator and publish command facades', () => {
   let root: string;
   let projectRoot: string;
   let sourceRoot: string;
@@ -129,12 +130,12 @@ describe('publish command facade', () => {
     await fs.rm(root, { recursive: true, force: true });
   });
 
-  it('lists and inspects publish candidates through the facade', async () => {
+  it('lists and inspects Skill Creator candidates through the creator facade', async () => {
     const listed = await captureJson(() =>
-      publishListCommand({ project: projectRoot, json: true }),
+      creatorListCommand({ project: projectRoot, json: true }),
     );
     const status = await captureJson(() =>
-      publishStatusCommand('publish-facade', { project: projectRoot, json: true }),
+      creatorStatusCommand('publish-facade', { project: projectRoot, json: true }),
     );
 
     expect(listed).toMatchObject({
@@ -158,7 +159,7 @@ describe('publish command facade', () => {
     });
 
     const text = await captureText(() =>
-      publishStatusCommand('publish-facade', { project: projectRoot }),
+      creatorStatusCommand('publish-facade', { project: projectRoot }),
     );
     expect(text).toContain('Found an unfinished Skill creation');
     expect(text).toContain('Still needed:');
@@ -171,7 +172,7 @@ describe('publish command facade', () => {
     expect(text).not.toContain('benchmark-record');
 
     const next = await captureJson(() =>
-      publishNextCommand('publish-facade', { project: projectRoot, json: true }),
+      creatorNextCommand('publish-facade', { project: projectRoot, json: true }),
     );
     expect(next).toMatchObject({
       schemaVersion: 1,
@@ -188,7 +189,7 @@ describe('publish command facade', () => {
     expect(JSON.stringify(next)).not.toContain('backendCommand');
 
     const nextText = await captureText(() =>
-      publishNextCommand('publish-facade', { project: projectRoot }),
+      creatorNextCommand('publish-facade', { project: projectRoot }),
     );
     expect(nextText).toContain('Next step for publish-facade');
     expect(nextText).toContain('Current step: needs-eval');
@@ -203,7 +204,7 @@ describe('publish command facade', () => {
 
   it('reviews, approves, publishes, and distributes through the facade', async () => {
     const status = await captureJson(() =>
-      publishStatusCommand('publish-facade', { project: projectRoot, json: true }),
+      creatorStatusCommand('publish-facade', { project: projectRoot, json: true }),
     );
     const resultFile = path.join(root, 'eval.json');
     await fs.writeFile(resultFile, JSON.stringify(passingResult(String(status.currentHash))));
@@ -312,7 +313,7 @@ describe('publish command facade', () => {
 
   it('previews publish distribution through the facade without writing files', async () => {
     const status = await captureJson(() =>
-      publishStatusCommand('publish-facade', { project: projectRoot, json: true }),
+      creatorStatusCommand('publish-facade', { project: projectRoot, json: true }),
     );
     const resultFile = path.join(root, 'eval-preview.json');
     await fs.writeFile(resultFile, JSON.stringify(passingResult(String(status.currentHash))));

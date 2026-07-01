@@ -351,7 +351,6 @@ export interface BundleAuthoringState {
   currentHash: string | null;
   base?: { root: string; version: string; hash: string };
   candidates: BundleCandidateSource[];
-  creator: 'native' | 'comet-fallback' | null;
   defaultLocale: string;
   locales: string[];
   engineEnabled: boolean;

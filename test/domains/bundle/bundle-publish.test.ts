@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
 import { parse, stringify } from 'yaml';
 import { createBundleDraft, optimizeBundleDraft } from '../../../domains/bundle/draft.js';
-import { recordBundleEval, type BundleEvalResult } from '../../../domains/bundle/eval.js';
+import { recordBundleEval, type RepositoryEvalResult } from '../../../domains/bundle/eval.js';
 import {
   generateBundleDraftFromFactoryState,
   initializeBundleFactoryState,
@@ -64,35 +65,38 @@ function workflowFor(name: string, skills: string[]): ReturnType<typeof workflow
   return workflowDefinitionFor(name, skills);
 }
 
-function passingResult(hash: string): BundleEvalResult {
+function passingResult(hash: string, evalManifestHash = 'b'.repeat(64)): RepositoryEvalResult {
   return {
-    schemaVersion: 1,
-    provider: 'native-skill-creator',
+    schemaVersion: 2,
+    provider: 'comet-eval',
     level: 'quick',
-    bundleHash: hash,
-    entries: [{ id: 'entry', passed: true, passRate: 1, evidence: ['entry.json'] }],
-    bundle: {
-      compilePassed: true,
-      safetyPassed: true,
-      evidence: ['compile.json'],
-    },
-    benchmark: {
-      cases: 4,
-      baselinePassRate: 0.25,
-      withSkillPassRate: 1,
-      tokenCount: 1000,
-      durationMs: 4000,
-    },
+    draftHash: hash,
+    evalManifestHash,
+    tasks: ['generic-skill-smoke'],
+    treatments: ['entry'],
+    passAtK: { '1': 1 },
+    weightedScore: { overall: 1 },
+    instabilityGap: { overall: 0 },
+    failures: [],
+    reports: ['eval-report.html'],
     passed: true,
     summary: 'Publish gates passed.',
   };
 }
 
-function passingFactoryResult(hash: string, entry: string): BundleEvalResult {
+function passingFactoryResult(
+  hash: string,
+  entry: string,
+  evalManifestHash = 'b'.repeat(64),
+): RepositoryEvalResult {
   return {
-    ...passingResult(hash),
-    entries: [{ id: entry, passed: true, passRate: 1, evidence: [`${entry}.json`] }],
+    ...passingResult(hash, evalManifestHash),
+    treatments: [entry],
   };
+}
+
+function sha256(content: string | Buffer): string {
+  return createHash('sha256').update(content).digest('hex');
 }
 
 describe('Bundle review and publish', () => {
@@ -326,7 +330,6 @@ describe('Bundle review and publish', () => {
       projectRoot,
       name: 'factory-no-generated-package',
       candidates: [],
-      creator: 'native',
       defaultLocale: 'en',
       locales: ['en'],
       engineEnabled: true,
@@ -420,7 +423,6 @@ describe('Bundle review and publish', () => {
       name,
       sourceRoot,
       candidates: [],
-      creator: 'native',
       defaultLocale: 'en',
       locales: ['en'],
       engineEnabled: false,
@@ -460,11 +462,23 @@ describe('Bundle review and publish', () => {
 
   async function recordPassingEval(
     name: string,
-    createResult: (hash: string, entry: string) => BundleEvalResult = (hash) => passingResult(hash),
+    createResult: (
+      hash: string,
+      entry: string,
+      evalManifestHash: string,
+    ) => RepositoryEvalResult = (hash, _entry, evalManifestHash) =>
+      passingResult(hash, evalManifestHash),
   ) {
     const state = await reconcileBundleAuthoringState(projectRoot, name);
+    const evalManifestPath = state.factory?.generatedSkillPackage?.evalManifestPath;
+    const evalManifestHash = evalManifestPath
+      ? sha256(await fs.readFile(evalManifestPath))
+      : 'b'.repeat(64);
     const resultFile = path.join(root, `${name}-eval.json`);
-    await fs.writeFile(resultFile, JSON.stringify(createResult(state.currentHash!, name), null, 2));
+    await fs.writeFile(
+      resultFile,
+      JSON.stringify(createResult(state.currentHash!, name, evalManifestHash), null, 2),
+    );
     return recordBundleEval(projectRoot, name, resultFile);
   }
 });

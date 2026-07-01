@@ -11,7 +11,6 @@ interface BundleDraftChoices {
   projectRoot: string;
   name: string;
   candidates: BundleCandidateSource[];
-  creator: 'native' | 'comet-fallback' | null;
   defaultLocale: string;
   locales: string[];
   engineEnabled: boolean;
@@ -58,7 +57,6 @@ function baseState(
     draftPath: destination,
     currentHash: null,
     candidates: structuredClone(options.candidates),
-    creator: options.creator,
     defaultLocale: options.defaultLocale,
     locales: [...options.locales],
     engineEnabled: options.engineEnabled,

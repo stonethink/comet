@@ -14,7 +14,6 @@ function state(overrides: Partial<BundleAuthoringState> = {}): BundleAuthoringSt
     draftPath: '/project/.comet/bundle-drafts/demo-skill',
     currentHash: 'a'.repeat(64),
     candidates: [],
-    creator: 'native',
     defaultLocale: 'en',
     locales: ['en'],
     engineEnabled: true,
@@ -68,7 +67,7 @@ describe('Bundle next action', () => {
       userCommand:
         'comet eval /project/.comet/bundle-drafts/demo-skill/skills/demo-skill/comet/eval.yaml --quick --html',
     });
-    expect(action.backendCommand).toBe('comet bundle benchmark-plan demo-skill --level quick');
+    expect(action.backendCommand).toBe('comet bundle eval-plan demo-skill --level quick');
   });
 
   it('requests review again when the current-hash review was rejected', () => {

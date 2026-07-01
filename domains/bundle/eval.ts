@@ -25,25 +25,6 @@ export interface BundleEvalPlan {
   explanation: string;
 }
 
-export interface BundleEvalResult {
-  schemaVersion: 1;
-  provider: 'native-skill-creator' | 'comet-fallback';
-  level: 'quick' | 'full';
-  bundleHash: string;
-  entries: Array<{ id: string; passed: boolean; passRate: number; evidence: string[] }>;
-  bundle: { compilePassed: boolean; safetyPassed: boolean; evidence: string[] };
-  benchmark: {
-    cases: number;
-    baselinePassRate: number;
-    withSkillPassRate: number;
-    variance?: number;
-    tokenCount: number;
-    durationMs: number;
-  };
-  passed: boolean;
-  summary: string;
-}
-
 export interface RepositoryEvalResult {
   schemaVersion: 2;
   provider: 'comet-eval';
@@ -61,7 +42,7 @@ export interface RepositoryEvalResult {
   summary: string;
 }
 
-export type BundleEvalEvidenceResult = BundleEvalResult | RepositoryEvalResult;
+export type BundleEvalEvidenceResult = RepositoryEvalResult;
 
 export interface BundleControlPlaneValidation {
   passed: boolean;
@@ -144,66 +125,6 @@ function assertRateRecord(value: unknown, label: string): asserts value is Recor
   }
 }
 
-function assertNonNegative(value: unknown, label: string): asserts value is number {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
-    throw new Error(`${label} must be a non-negative number`);
-  }
-}
-
-function parseLegacyEvalResult(value: Record<string, unknown>): BundleEvalResult {
-  assertObject(value, 'Benchmark result');
-  if (value.schemaVersion !== 1) throw new Error('Benchmark result schemaVersion must be 1');
-  if (!['native-skill-creator', 'comet-fallback'].includes(String(value.provider))) {
-    throw new Error('Benchmark result provider is unsupported');
-  }
-  if (!['quick', 'full'].includes(String(value.level))) {
-    throw new Error('Benchmark result level must be quick or full');
-  }
-  if (typeof value.bundleHash !== 'string' || !/^[a-f0-9]{64}$/u.test(value.bundleHash)) {
-    throw new Error('Benchmark result bundleHash must be a SHA-256 hash');
-  }
-  if (!Array.isArray(value.entries)) throw new Error('Benchmark result entries must be an array');
-  for (const [index, entry] of value.entries.entries()) {
-    assertObject(entry, `Benchmark result entries[${index}]`);
-    if (typeof entry.id !== 'string' || !entry.id) {
-      throw new Error(`Benchmark result entries[${index}].id must be a string`);
-    }
-    if (typeof entry.passed !== 'boolean') {
-      throw new Error(`Benchmark result entries[${index}].passed must be a boolean`);
-    }
-    assertRate(entry.passRate, `Benchmark result entries[${index}].passRate`);
-    assertStringArray(entry.evidence, `Benchmark result entries[${index}].evidence`);
-  }
-  assertObject(value.bundle, 'Benchmark result bundle');
-  if (
-    typeof value.bundle.compilePassed !== 'boolean' ||
-    typeof value.bundle.safetyPassed !== 'boolean'
-  ) {
-    throw new Error('Benchmark result bundle compilePassed and safetyPassed must be booleans');
-  }
-  assertStringArray(value.bundle.evidence, 'Benchmark result bundle evidence');
-  assertObject(value.benchmark, 'Benchmark result benchmark');
-  assertNonNegative(value.benchmark.cases, 'Benchmark result benchmark cases');
-  if (!Number.isInteger(value.benchmark.cases) || value.benchmark.cases === 0) {
-    throw new Error('Benchmark result benchmark cases must be a positive integer');
-  }
-  assertRate(value.benchmark.baselinePassRate, 'Benchmark result benchmark baselinePassRate');
-  assertRate(value.benchmark.withSkillPassRate, 'Benchmark result benchmark withSkillPassRate');
-  assertNonNegative(value.benchmark.tokenCount, 'Benchmark result benchmark tokenCount');
-  assertNonNegative(value.benchmark.durationMs, 'Benchmark result benchmark durationMs');
-  if (value.level === 'full') {
-    assertNonNegative(value.benchmark.variance, 'Benchmark result benchmark variance');
-  } else if (value.benchmark.variance !== undefined) {
-    assertNonNegative(value.benchmark.variance, 'Benchmark result benchmark variance');
-  }
-  if (typeof value.passed !== 'boolean')
-    throw new Error('Benchmark result passed must be a boolean');
-  if (typeof value.summary !== 'string' || !value.summary.trim()) {
-    throw new Error('Benchmark result summary must be a non-empty string');
-  }
-  return value as unknown as BundleEvalResult;
-}
-
 function parseRepositoryEvalResult(value: Record<string, unknown>): RepositoryEvalResult {
   assertObject(value, 'Eval result');
   if (value.schemaVersion !== 2) throw new Error('Eval result schemaVersion must be 2');
@@ -233,15 +154,8 @@ function parseRepositoryEvalResult(value: Record<string, unknown>): RepositoryEv
 
 function parseEvalResult(value: unknown): BundleEvalEvidenceResult {
   assertObject(value, 'Eval result');
-  if (value.schemaVersion === 1) return parseLegacyEvalResult(value);
   if (value.schemaVersion === 2) return parseRepositoryEvalResult(value);
-  throw new Error('Eval result schemaVersion must be 1 or 2');
-}
-
-export function isRepositoryEvalResult(
-  result: BundleEvalEvidenceResult,
-): result is RepositoryEvalResult {
-  return result.schemaVersion === 2 && result.provider === 'comet-eval';
+  throw new Error('Eval result schemaVersion must be 2');
 }
 
 export async function validateStableFactoryControlPlane(
@@ -531,32 +445,12 @@ async function validateGeneratedScriptContracts(
   }
 }
 
-function assertEntryCoverageForIds(expectedIds: string[], result: BundleEvalResult): void {
-  const expected = [...expectedIds].sort();
-  const actual = result.entries.map((entry) => entry.id).sort();
-  if (new Set(actual).size !== actual.length) {
-    throw new Error('Benchmark result entry ids must be unique');
-  }
-  if (expected.length !== actual.length || expected.some((id, index) => id !== actual[index])) {
-    throw new Error(`Benchmark result must contain every entry Skill: ${expected.join(', ')}`);
-  }
-}
-
-function assertEntryCoverage(ir: BundleCompilerIr, result: BundleEvalResult): void {
-  assertEntryCoverageForIds(
-    ir.skills.filter((skill) => skill.visibility === 'entry').map((skill) => skill.id),
-    result,
-  );
-}
-
 function evalResultHash(result: BundleEvalEvidenceResult): string {
-  return isRepositoryEvalResult(result) ? result.draftHash : result.bundleHash;
+  return result.draftHash;
 }
 
 function evalEvidencePathSegments(result: BundleEvalEvidenceResult): string[] {
-  return isRepositoryEvalResult(result)
-    ? [result.draftHash, result.evalManifestHash]
-    : [result.bundleHash];
+  return [result.draftHash, result.evalManifestHash];
 }
 
 function sha256(content: string | Buffer): string {
@@ -564,7 +458,6 @@ function sha256(content: string | Buffer): string {
 }
 
 async function readGeneratedEvalManifestIdentity(state: BundleAuthoringState): Promise<{
-  draftHash: string;
   evalManifestHash: string;
 } | null> {
   const evalManifestPath = state.factory?.generatedSkillPackage?.evalManifestPath;
@@ -572,11 +465,7 @@ async function readGeneratedEvalManifestIdentity(state: BundleAuthoringState): P
   const source = await fs.readFile(evalManifestPath, 'utf8');
   const manifest = parse(source) as Record<string, unknown>;
   assertObject(manifest, 'Generated eval manifest');
-  const metadata = manifest.metadata;
-  assertObject(metadata, 'Generated eval manifest metadata');
-  assertHash(metadata.draftHash, 'Generated eval manifest metadata.draftHash');
   return {
-    draftHash: metadata.draftHash,
     evalManifestHash: sha256(source),
   };
 }
@@ -586,16 +475,12 @@ async function resultMatchesCurrentDraft(
   result: BundleEvalEvidenceResult,
 ): Promise<boolean> {
   if (!state.currentHash) return false;
-  if (!isRepositoryEvalResult(result)) {
-    return result.bundleHash === state.currentHash;
-  }
   const generatedManifest = await readGeneratedEvalManifestIdentity(state);
   if (!generatedManifest) {
     return result.draftHash === state.currentHash;
   }
   return (
     result.draftHash === state.currentHash &&
-    result.draftHash === generatedManifest.draftHash &&
     result.evalManifestHash === generatedManifest.evalManifestHash
   );
 }
@@ -632,12 +517,7 @@ function stateWithEval(
   result: BundleEvalEvidenceResult,
   resultPath: string,
 ): BundleAuthoringState {
-  const gatesPassed = isRepositoryEvalResult(result)
-    ? result.passed && result.failures.length === 0
-    : result.passed &&
-      result.entries.every((entry) => entry.passed) &&
-      result.bundle.compilePassed &&
-      result.bundle.safetyPassed;
+  const gatesPassed = result.passed && result.failures.length === 0;
   const updated: BundleAuthoringState = {
     ...state,
     status: gatesPassed ? 'eval-passed' : 'draft',
@@ -655,12 +535,7 @@ function stateWithEval(
 }
 
 function resultWouldPassEvalGates(result: BundleEvalEvidenceResult): boolean {
-  return isRepositoryEvalResult(result)
-    ? result.passed && result.failures.length === 0
-    : result.passed &&
-        result.entries.every((entry) => entry.passed) &&
-        result.bundle.compilePassed &&
-        result.bundle.safetyPassed;
+  return result.passed && result.failures.length === 0;
 }
 
 export function planBundleEval(ir: BundleCompilerIr, level: 'quick' | 'full'): BundleEvalPlan {
@@ -714,15 +589,6 @@ export async function recordBundleEval(
 
   const controlPlane = await validateStableFactoryControlPlane(state);
   if (!controlPlane.passed) {
-    const bundle = await loadBundle(state.draftPath);
-    if (!isRepositoryEvalResult(result)) {
-      assertEntryCoverageForIds(
-        bundle.manifest.skills
-          .filter((skill) => skill.visibility === 'entry')
-          .map((skill) => skill.id),
-        result,
-      );
-    }
     const resultPath = await writeEvidence(projectRoot, name, result);
     if (resultWouldPassEvalGates(result)) {
       throw new Error(`Bundle control plane is incomplete: ${controlPlane.errors.join(', ')}`);
@@ -738,9 +604,6 @@ export async function recordBundleEval(
     state = await reconcileBundleAuthoringState(projectRoot, name);
     await writeEvidence(projectRoot, name, result);
     return state;
-  }
-  if (!isRepositoryEvalResult(result)) {
-    assertEntryCoverage(ir, result);
   }
   const resultPath = await writeEvidence(projectRoot, name, result);
   const updated = stateWithEval(state, result, resultPath);

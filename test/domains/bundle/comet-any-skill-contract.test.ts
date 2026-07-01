@@ -34,7 +34,7 @@ function registeredCommands(cliSource: string): Set<string> {
 
 function referencedCommands(doc: string): string[] {
   const refs: string[] = [];
-  for (const match of doc.matchAll(/comet\s+(bundle|publish|skill|eval)\s+([\w-]+)/gu)) {
+  for (const match of doc.matchAll(/comet\s+(bundle|creator|publish|skill|eval)\s+([\w-]+)/gu)) {
     refs.push(match[2]!);
   }
   return refs;

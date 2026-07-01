@@ -2,12 +2,7 @@ import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
 import { compileBundleIr } from './compiler.js';
-import {
-  isRepositoryEvalResult,
-  planBundleEval,
-  readBundleEvalResult,
-  validateStableFactoryControlPlane,
-} from './eval.js';
+import { planBundleEval, readBundleEvalResult, validateStableFactoryControlPlane } from './eval.js';
 import { hashBundle } from './hash.js';
 import { loadBundle } from './load.js';
 import { compileBundleForPlatform, type PlatformCompileReport } from './platform.js';
@@ -125,7 +120,7 @@ async function repositoryEvalFailureSummary(state: BundleAuthoringState): Promis
   }
   try {
     const result = await readBundleEvalResult(state.eval.resultPath);
-    if (isRepositoryEvalResult(result) && (!result.passed || result.failures.length > 0)) {
+    if (!result.passed || result.failures.length > 0) {
       return result.summary;
     }
   } catch {

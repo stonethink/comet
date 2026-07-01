@@ -1,6 +1,6 @@
 # Bundle Authoring 参考
 
-`comet bundle` 是 `/comet-any` 的内部确定性后端。普通用户不需要记忆子命令；Skill Creator 负责把用户确认的 Workflow Contract 写成 plan，再调用 CLI 维护状态。
+`comet creator` 是 `/comet-any` 的普通 CLI 表面，背后复用 `comet bundle` 的确定性后端。普通用户不需要记忆 Bundle 子命令；Skill Creator 负责把用户确认的 Workflow Contract 写成 plan，再调用 CLI 维护状态。
 
 ## Workflow Contract 输入
 
@@ -129,15 +129,15 @@ Factory 必须生成：
 
 ## CLI 生命周期
 
-常用内部命令：
+常用 Creator 命令：
 
 ```bash
-comet bundle factory-guide --project . --json
-comet bundle candidates --json
-comet bundle factory-propose <name> --file <plan.json> --json
-comet bundle factory-init <name> --file <plan.json> --confirmed-proposal --json
-comet bundle factory-resolve <name> --candidate <query> --source <root-or-hash> --json
-comet bundle factory-generate <name> --json
+comet creator guide --project . --json
+comet creator candidates --json
+comet creator propose <name> --file <plan.json> --json
+comet creator init <name> --file <plan.json> --confirmed-proposal --json
+comet creator resolve <name> --candidate <query> --source <root-or-hash> --json
+comet creator generate <name> --json
 comet bundle compile <name> --platform <id> --json
 comet eval <generated-skill>/comet/eval.yaml --quick --html
 comet eval <generated-skill>/comet/eval.yaml --full --html

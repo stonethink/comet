@@ -94,7 +94,6 @@ describe('Bundle authoring lifecycle', () => {
           hash: 'a'.repeat(64),
         },
       ],
-      creator: 'native',
       defaultLocale: 'zh',
       locales: ['zh', 'en'],
       engineEnabled: true,
@@ -106,7 +105,6 @@ describe('Bundle authoring lifecycle', () => {
       mode: 'create',
       status: 'draft',
       currentHash: null,
-      creator: 'native',
       defaultLocale: 'zh',
       locales: ['zh', 'en'],
       engineEnabled: true,
@@ -139,7 +137,6 @@ describe('Bundle authoring lifecycle', () => {
       projectRoot,
       name: 'factory-bundle',
       candidates: [resolvedSource],
-      creator: 'native',
       defaultLocale: 'zh',
       locales: ['zh', 'en'],
       engineEnabled: true,
@@ -224,7 +221,6 @@ describe('Bundle authoring lifecycle', () => {
         projectRoot,
         name: 'existing',
         candidates: [],
-        creator: null,
         defaultLocale: 'en',
         locales: ['en'],
         engineEnabled: false,
@@ -247,7 +243,6 @@ describe('Bundle authoring lifecycle', () => {
       name: 'demo-bundle',
       sourceRoot,
       candidates: [],
-      creator: 'comet-fallback',
       defaultLocale: 'en',
       locales: ['en', 'zh'],
       engineEnabled: false,
@@ -275,16 +270,24 @@ describe('Bundle authoring lifecycle', () => {
       projectRoot,
       name: 'atomic',
       candidates: [],
-      creator: null,
       defaultLocale: 'en',
       locales: ['en'],
       engineEnabled: false,
     });
-    await writeBundleAuthoringState(projectRoot, { ...state, creator: 'native' });
-    await writeBundleAuthoringState(projectRoot, { ...state, creator: 'comet-fallback' });
+    await writeBundleAuthoringState(projectRoot, {
+      ...state,
+      defaultLocale: 'zh',
+      locales: ['zh', 'en'],
+    });
+    await writeBundleAuthoringState(projectRoot, {
+      ...state,
+      defaultLocale: 'en',
+      locales: ['en'],
+    });
 
     await expect(readBundleAuthoringState(projectRoot, 'atomic')).resolves.toMatchObject({
-      creator: 'comet-fallback',
+      defaultLocale: 'en',
+      locales: ['en'],
     });
     expect(await fs.readdir(path.join(projectRoot, '.comet', 'bundle-authoring'))).toEqual([
       'atomic.json',
@@ -439,7 +442,6 @@ describe('Bundle authoring lifecycle', () => {
       name,
       sourceRoot,
       candidates: [],
-      creator: 'native',
       defaultLocale: 'en',
       locales: ['en', 'zh'],
       engineEnabled: false,

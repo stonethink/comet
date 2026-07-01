@@ -14,7 +14,7 @@ Must cover:
 
 ## Authored Zone (what you write)
 
-The generator composes each Node SKILL.md from a deterministic **Auto zone** (frontmatter, Node Goal, Entry Check, Skill Implementation, Required Skill Calls, Output Schemas, Evidence Record, Guardrails, Exit Check, Recovery) plus an **Authored zone** (`## Guidance`) that YOU write. You do NOT write the whole file — only the Guidance body. The main session records your output via `comet bundle authoring-record <name> --lane skill-core --file <out.json>`; the artifact `content` for `../<node-skill>/SKILL.md` is the Guidance body.
+The generator composes each Node SKILL.md from a deterministic **Auto zone** (frontmatter, Node Goal, Entry Check, Skill Implementation, Required Skill Calls, Output Schemas, Evidence Record, Guardrails, Exit Check, Recovery) plus an **Authored zone** (`## Guidance`) that YOU write. You do NOT write the whole file — only the Guidance body. The main session records your output via `comet creator authoring-record <name> --lane skill-core --file <out.json>`; the artifact `content` for `../<node-skill>/SKILL.md` is the Guidance body.
 
 Quality bar: a real Comet phase skill (e.g. `comet-build/SKILL.md`); see `reference/authored-zone-example.md` for a full sample at the expected level. Author decision content, not boilerplate. Use `###` subsections within Guidance so they nest under `## Guidance`:
 

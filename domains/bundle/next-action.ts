@@ -76,7 +76,7 @@ export function determineBundleNextAction(state: BundleAuthoringState): BundleNe
       category: 'factory',
       userLabel: 'Resolve missing or ambiguous Skill candidates',
       reason: `${unresolved.length} unresolved Skill Creator candidate(s) remain`,
-      backendCommand: `comet bundle factory-resolve ${state.name} --candidate ${first.query}`,
+      backendCommand: `comet creator resolve ${state.name} --candidate ${first.query}`,
       userCommand: `Ask /comet-any to resolve ${first.query}`,
       requiresUserConfirmation: true,
     };
@@ -104,7 +104,7 @@ export function determineBundleNextAction(state: BundleAuthoringState): BundleNe
       userLabel: 'Confirm the resolved composition proposal',
       reason:
         'Skill Creator candidates and composition are resolved but proposal confirmation is missing',
-      backendCommand: `comet bundle factory-init ${state.name} --file ${planPath} --confirmed-proposal`,
+      backendCommand: `comet creator init ${state.name} --file ${planPath} --confirmed-proposal`,
       userCommand: 'Ask /comet-any to show and confirm the resolved composition proposal',
       requiresUserConfirmation: true,
     };
@@ -116,7 +116,7 @@ export function determineBundleNextAction(state: BundleAuthoringState): BundleNe
       category: 'factory',
       userLabel: 'Generate the Comet-native Skill package',
       reason: 'Skill Creator metadata exists but no generated Skill package is recorded yet',
-      backendCommand: `comet bundle factory-generate ${state.name}`,
+      backendCommand: `comet creator generate ${state.name}`,
       userCommand: 'Ask /comet-any to continue generation',
       requiresUserConfirmation: false,
     };
@@ -129,7 +129,7 @@ export function determineBundleNextAction(state: BundleAuthoringState): BundleNe
       category: 'eval',
       userLabel: 'Run repository eval for the generated Skill',
       reason: 'Current draft hash is missing passing eval evidence',
-      backendCommand: `comet bundle benchmark-plan ${state.name} --level quick`,
+      backendCommand: `comet bundle eval-plan ${state.name} --level quick`,
       userCommand:
         evalManifest !== null
           ? `comet eval ${evalManifest} --quick --html`

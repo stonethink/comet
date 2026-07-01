@@ -14,7 +14,7 @@
 
 ## 创作区（你写什么）
 
-生成器把 entry SKILL.md 组装成确定性 **Auto 区**（frontmatter、Workflow Nodes 路由表、Skill Bindings、Guardrails And Evidence、Runtime And Recovery）+ 由你编写的 **Authored 区**（`## Decision Core`）。**你只写 Decision Core 正文，不写整个文件**。主会话通过 `comet bundle authoring-record <name> --lane workflow-entry --file <out.json>` 记录；artifact `SKILL.md` 的 `content` 即 Decision Core 正文。
+生成器把 entry SKILL.md 组装成确定性 **Auto 区**（frontmatter、Workflow Nodes 路由表、Skill Bindings、Guardrails And Evidence、Runtime And Recovery）+ 由你编写的 **Authored 区**（`## Decision Core`）。**你只写 Decision Core 正文，不写整个文件**。主会话通过 `comet creator authoring-record <name> --lane workflow-entry --file <out.json>` 记录；artifact `SKILL.md` 的 `content` 即 Decision Core 正文。
 
 质量标尺：`comet/SKILL.md` 的 Decision Core（完整 entry Decision Core 范例见 `reference/authored-zone-example.md`）。写 agent 可读的决策规则——机械路由已由 Auto 区的 `workflow-state.mjs next` 处理，所以聚焦判断：
 

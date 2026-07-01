@@ -14,7 +14,7 @@ All subagents only return Markdown outputs and structured review findings. They 
 
 ## Role Briefs
 
-After the user confirms the Skill Creator proposal, and before `factory-generate` or source generation, the main session reads and dispatches these briefs in order:
+After the user confirms the Skill Creator proposal, and before `comet creator generate` or source generation, the main session reads and dispatches these briefs in order:
 
 1. Script author subagent: `comet-any/reference/subagents/script-author.md`
 2. Reference author subagent: `comet-any/reference/subagents/reference-author.md`
@@ -36,7 +36,7 @@ Subagent outputs first become reviewable drafts, then flow into `reference/autho
 
 ## Dispatch by DAG
 
-The Role Briefs order above is a linearization of the authoring DAG, not a mandate to run strictly sequential. The authoritative DAG lives in `reference/authoring-protocol.json` and `comet bundle authoring-plan <name> --depth quick|full --json`:
+The Role Briefs order above is a linearization of the authoring DAG, not a mandate to run strictly sequential. The authoritative DAG lives in `reference/authoring-protocol.json` and `comet creator authoring-plan <name> --depth quick|full --json`:
 
 - **wave1** (`script`, `reference`, `pause-points`): no dependencies on each other. On platforms that expose subagents, dispatch these three concurrently. Each gets only its own role brief, common input, and the protocol/resolved-skills paths (file handoff, no shared history).
 - **wave2** (`workflow-entry`, `skill-core`): depend on the script contract (`NEXT:`/`SKILL:` outputs). Start only after the script lane is DONE. The two may run concurrently with each other.
@@ -47,7 +47,7 @@ Regardless of platform:
 - Sequencing follows DAG dependencies; only the barrier truly waits for all prior lanes.
 - On platforms without subagent capability, the main session runs the same lanes inline in dependency order — semantics are identical, only latency changes. Record `dispatchMode: "subagent"` or `"inline"` per lane in `reference/authoring-lanes.json`.
 - Claude Code may delegate a wave's fan-out to its `Workflow` tool as an optional accelerator; this is an implementation choice, not part of the contract. The contract is the protocol + schemas + DAG, which every platform can interpret.
-- Every lane output is validated and recorded via `comet bundle authoring-record <name> --lane <id> --file <out.json> --json` before the next dependent wave begins.
+- Every lane output is validated and recorded via `comet creator authoring-record <name> --lane <id> --file <out.json> --json` before the next dependent wave begins.
 
 ## Common Inputs
 

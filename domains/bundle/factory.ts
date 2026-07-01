@@ -1,7 +1,7 @@
 import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { parse, stringify } from 'yaml';
+import { stringify } from 'yaml';
 import { discoverBundleCandidates, type BundleCandidate } from './candidates.js';
 import { createBundleDraft, optimizeBundleDraft } from './draft.js';
 import { composeBundleFactoryPlan } from './factory-compose.js';
@@ -81,24 +81,6 @@ function proposalConfirmation(options: {
     acceptedCapabilities: ['skills', 'scripts', 'rules', 'hooks', 'references', 'agents'],
     warnings: options.warnings ?? [],
   };
-}
-
-async function syncGeneratedEvalDraftHash(
-  evalManifestPath: string | null,
-  draftHash: string,
-): Promise<void> {
-  if (!evalManifestPath) return;
-  const source = await fs.readFile(evalManifestPath, 'utf8');
-  const manifest = parse(source) as Record<string, unknown>;
-  if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
-    throw new Error(`Generated eval manifest must be an object: ${evalManifestPath}`);
-  }
-  const metadata =
-    manifest.metadata && typeof manifest.metadata === 'object' && !Array.isArray(manifest.metadata)
-      ? (manifest.metadata as Record<string, unknown>)
-      : {};
-  manifest.metadata = { ...metadata, draftHash };
-  await fs.writeFile(evalManifestPath, stringify(manifest), 'utf8');
 }
 
 function bundleManifest(
@@ -436,14 +418,8 @@ export async function generateBundleDraftFromFactoryState(options: {
     'utf8',
   );
 
-  const initialBundle = await loadBundle(state.draftPath);
-  const currentHash = await hashBundle(initialBundle);
-  await syncGeneratedEvalDraftHash(generated.evalManifestPath, currentHash);
   const bundle = await loadBundle(state.draftPath);
-  const syncedHash = await hashBundle(bundle);
-  if (syncedHash !== currentHash) {
-    throw new Error('Generated eval manifest draft hash must not change Bundle hash');
-  }
+  const currentHash = await hashBundle(bundle);
   const updated: BundleAuthoringState = {
     ...state,
     status: 'draft',
@@ -500,7 +476,7 @@ export async function initializeBundleFactoryState(options: {
     const requestedPlanHash = hashBundleFactoryPlan(plan);
     if (currentPlanHash !== null && currentPlanHash !== requestedPlanHash) {
       throw new Error(
-        `Confirmed Skill Creator plan ${requestedPlanHash} does not match current Skill Creator plan ${currentPlanHash}; rerun factory-init without --confirmed-proposal to replace the plan, or confirm the current plan file`,
+        `Confirmed Skill Creator plan ${requestedPlanHash} does not match current Skill Creator plan ${currentPlanHash}; rerun comet creator init without --confirmed-proposal to replace the plan, or confirm the current plan file`,
       );
     }
     const factory = state.factory.composition
@@ -584,7 +560,6 @@ export async function initializeBundleFactoryState(options: {
             name: options.name,
             sourceRoot: optimizeSourceRoot!,
             candidates: flattenedCandidates,
-            creator: plan.creator,
             defaultLocale: plan.defaultLocale,
             locales: plan.locales,
             engineEnabled: plan.engineEnabled,
@@ -594,7 +569,6 @@ export async function initializeBundleFactoryState(options: {
             projectRoot,
             name: options.name,
             candidates: flattenedCandidates,
-            creator: plan.creator,
             defaultLocale: plan.defaultLocale,
             locales: plan.locales,
             engineEnabled: plan.engineEnabled,
@@ -612,7 +586,6 @@ export async function initializeBundleFactoryState(options: {
     status: 'draft',
     currentHash: null,
     candidates: flattenedCandidates,
-    creator: plan.creator,
     defaultLocale: plan.defaultLocale,
     locales: plan.locales,
     engineEnabled: plan.engineEnabled,
@@ -633,6 +606,6 @@ export function assertFactoryProposalConfirmed(state: {
   if (!state.factory) return;
   if (state.factory.proposalConfirmation?.confirmed === true) return;
   throw new Error(
-    `Skill Creator proposal confirmation is required before generating, reviewing, or publishing ${state.name}; review the Skill Creator proposal and rerun factory-init with --confirmed-proposal`,
+    `Skill Creator proposal confirmation is required before generating, reviewing, or publishing ${state.name}; review the Skill Creator proposal and rerun comet creator init with --confirmed-proposal`,
   );
 }
