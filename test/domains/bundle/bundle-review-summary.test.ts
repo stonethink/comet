@@ -680,6 +680,12 @@ prefer:
     expect(summary.readiness.blockers).toEqual(
       expect.arrayContaining(['[control-plane] missing scripts/comet-check.mjs']),
     );
+    expect(summary.readiness.blockers).not.toContain(
+      '[agent] Claude Code custom agent definitions are missing from platform preview',
+    );
+    expect(summary.userSummary.items).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'agent' })]),
+    );
     expect(summary.readiness.evidence.controlPlane).toEqual(expect.stringMatching(/file\(s\)$/u));
     expect(summary.readiness.evidence.controlPlaneErrors).toEqual(
       expect.stringMatching(/error\(s\)$/u),

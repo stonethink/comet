@@ -234,7 +234,12 @@ async function buildReadiness(
       (agent) => agent.platform === 'claude',
     );
     const hasClaudeAgentPreview = compile?.files.some((file) => file.kind === 'agent') ?? false;
-    if (compile?.platform === 'claude' && hasClaudeAgent && !hasClaudeAgentPreview) {
+    if (
+      controlPlane.passed &&
+      compile?.platform === 'claude' &&
+      hasClaudeAgent &&
+      !hasClaudeAgentPreview
+    ) {
       blockers.push(
         '[agent] Claude Code custom agent definitions are missing from platform preview',
       );
