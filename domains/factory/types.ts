@@ -118,6 +118,12 @@ export interface FactoryControlPlaneOutput {
   scripts: string[];
 }
 
+export interface GeneratedFactoryPlatformAgent {
+  id: string;
+  platform: 'claude';
+  path: string;
+}
+
 export type GeneratedWrapperClassification =
   | 'delegate-complete'
   | 'delegate-advisory'
@@ -131,6 +137,7 @@ export interface GeneratedFactorySkillPackage {
   enginePath: string | null;
   evalManifestPath: string | null;
   controlPlane: FactoryControlPlaneOutput;
+  platformAgents: GeneratedFactoryPlatformAgent[];
   unauthoredSubstanceNodes?: string[];
   wrapperClassification?: GeneratedWrapperClassification;
 }

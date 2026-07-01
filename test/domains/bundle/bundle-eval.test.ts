@@ -43,6 +43,7 @@ function evalIr(entryCount = 1): BundleCompilerIr {
     scripts: [],
     references: [],
     assets: [],
+    agents: [],
     overrides: [],
     engine: null,
   };

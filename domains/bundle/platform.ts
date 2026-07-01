@@ -40,11 +40,12 @@ function addUnsupported(
   ir: BundleCompilerIr,
   capability: BundleCapability,
   reason: string,
+  forcedRequired?: boolean,
 ): void {
   if (report.unsupported.some((item) => item.capability === capability)) return;
   report.unsupported.push({
     capability,
-    required: required(ir, capability),
+    required: forcedRequired ?? required(ir, capability),
     reason,
   });
 }
@@ -213,6 +214,27 @@ export async function compileBundleForPlatform(
       kind: 'asset',
     });
   }
+
+  for (const agent of ir.agents) {
+    if (agent.platform !== target.id || !target.layout.agentsRoot) {
+      if (agent.required) {
+        addUnsupported(
+          report,
+          ir,
+          'agents',
+          `Platform ${target.id} cannot express agent ${agent.id}`,
+          true,
+        );
+      }
+      continue;
+    }
+    report.files.push({
+      source: agent.source,
+      destination: path.join(target.layout.agentsRoot, `${agent.id}.md`),
+      kind: 'agent',
+    });
+  }
+
   if (ir.engine) {
     await collectEngineFiles(
       ir.engine.sourceRoot,

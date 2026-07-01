@@ -78,7 +78,7 @@ function proposalConfirmation(options: {
     confirmedAt: new Date().toISOString(),
     proposalHash: options.proposalHash,
     preferenceHash: options.preferenceHash,
-    acceptedCapabilities: ['skills', 'scripts', 'rules', 'hooks', 'references'],
+    acceptedCapabilities: ['skills', 'scripts', 'rules', 'hooks', 'references', 'agents'],
     warnings: options.warnings ?? [],
   };
 }
@@ -137,6 +137,7 @@ function bundleManifest(
         `skills/${skillId}/reference/authoring-lanes.json`,
         `skills/${skillId}/reference/skill-review.md`,
         `skills/${skillId}/reference/composition-report.md`,
+        `skills/${skillId}/reference/subagents/script-author.md`,
       ],
       scripts: [
         {
@@ -177,9 +178,17 @@ function bundleManifest(
         },
       ],
       assets: [],
+      agents: [
+        {
+          id: 'comet-any-script-author',
+          path: `skills/${skillId}/agents/claude/comet-any-script-author.md`,
+          platform: 'claude',
+          required: true,
+        },
+      ],
     },
     platforms: {
-      requires: ['skills', 'scripts', 'rules', 'hooks', 'references'],
+      requires: ['skills', 'scripts', 'rules', 'hooks', 'references', 'agents'],
       optional: [],
       overrides: [],
     },
@@ -424,6 +433,7 @@ export async function generateBundleDraftFromFactoryState(options: {
         enginePath: generated.enginePath,
         evalManifestPath: generated.evalManifestPath,
         controlPlane: generated.controlPlane,
+        platformAgents: generated.platformAgents,
         unauthoredSubstanceNodes: generated.unauthoredSubstanceNodes,
         wrapperClassification: generated.wrapperClassification,
       },

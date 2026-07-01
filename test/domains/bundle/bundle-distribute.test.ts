@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
+import { parse, stringify } from 'yaml';
 import { optimizeBundleDraft } from '../../../domains/bundle/draft.js';
 import { recordBundleEval, type BundleEvalResult } from '../../../domains/bundle/eval.js';
 import { publishBundle, reviewBundle } from '../../../domains/bundle/publish.js';
@@ -185,6 +186,63 @@ describe('Bundle distribution', () => {
     expect(globalResult.platforms[0]).toMatchObject({ platform: 'opencode', status: 'installed' });
     await expect(
       fs.access(path.join(homeDir, '.config', 'opencode', 'skills', 'entry', 'SKILL.md')),
+    ).resolves.toBeUndefined();
+  });
+
+  it('installs declared Claude Code agents into .claude/agents', async () => {
+    const draft = await createDraft({ name: 'agent-bundle' });
+    await fs.mkdir(path.join(draft.draftPath, 'agents', 'claude'), { recursive: true });
+    await fs.writeFile(
+      path.join(draft.draftPath, 'agents', 'claude', 'agent-bundle-reviewer.md'),
+      '---\nname: agent-bundle-reviewer\ndescription: Use when reviewing agent-bundle.\ntools: Read\nmodel: inherit\n---\n\n# Reviewer\n',
+      'utf8',
+    );
+    const manifestPath = path.join(draft.draftPath, 'bundle.yaml');
+    const manifest = parse(await fs.readFile(manifestPath, 'utf8')) as Record<string, unknown>;
+    const resources = manifest.resources as Record<string, unknown>;
+    resources.agents = [
+      {
+        id: 'agent-bundle-reviewer',
+        path: 'agents/claude/agent-bundle-reviewer.md',
+        platform: 'claude',
+        required: true,
+      },
+    ];
+    manifest.platforms = {
+      ...(manifest.platforms as Record<string, unknown>),
+      requires: ['skills', 'agents'],
+    };
+    await fs.writeFile(manifestPath, stringify(manifest), 'utf8');
+    const state = await reconcileBundleAuthoringState(projectRoot, 'agent-bundle');
+    const resultFile = path.join(root, 'agent-bundle-eval.json');
+    await fs.writeFile(resultFile, JSON.stringify(passingResult(state.currentHash!), null, 2));
+    await recordBundleEval(projectRoot, 'agent-bundle', resultFile);
+    await reviewBundle({
+      projectRoot,
+      name: 'agent-bundle',
+      decision: 'approved',
+      reviewer: 'alice',
+    });
+    await publishBundle({
+      projectRoot,
+      name: 'agent-bundle',
+      referencePlatform: 'claude',
+    });
+
+    const result = await distributeBundle({
+      projectRoot,
+      name: 'agent-bundle',
+      platforms: ['claude'],
+      scope: 'project',
+    });
+
+    expect(result.platforms[0]).toMatchObject({
+      platform: 'claude',
+      status: 'installed',
+      plannedFiles: expect.arrayContaining([expect.objectContaining({ kind: 'agent' })]),
+    });
+    await expect(
+      fs.access(path.join(projectRoot, '.claude', 'agents', 'agent-bundle-reviewer.md')),
     ).resolves.toBeUndefined();
   });
 

@@ -54,6 +54,37 @@ function jsonArtifact(
   return artifact(artifactPath, kind, `${JSON.stringify(value, null, 2)}\n`);
 }
 
+function claudeAgentDefinition(options: {
+  name: string;
+  description: string;
+  tools: string;
+  title: string;
+  body: string;
+}): string {
+  return `---
+name: ${options.name}
+description: ${options.description}
+tools: ${options.tools}
+model: inherit
+---
+
+# ${options.title}
+
+${options.body}
+`;
+}
+
+function portableScriptAuthorBrief(): string {
+  return `# Script Author Brief
+
+Author the script contract for one comet-any authoring lane. This is a portable role brief for platforms that do not support Claude Code custom agents.
+
+- Read the assigned workflow protocol and lane instructions.
+- Write only the assigned report path.
+- Do not publish, install, or run destructive commands.
+`;
+}
+
 function slug(value: string): string {
   return value
     .toLowerCase()
@@ -1436,6 +1467,8 @@ function workflowContractArtifacts(plan: FactorySkillPackagePlan): FactoryPackag
     'reference/authoring-lanes.json',
     'reference/skill-review.md',
     'reference/composition-report.md',
+    'reference/subagents/script-author.md',
+    'agents/claude/comet-any-script-author.md',
     'scripts/comet-plan.mjs',
     'scripts/comet-check.mjs',
     'scripts/comet-hook-guard.mjs',
@@ -1504,6 +1537,19 @@ function workflowContractArtifacts(plan: FactorySkillPackagePlan): FactoryPackag
       workflowContractCompositionReport(plan, protocol),
     ),
     artifact('reference/skill-review.md', 'reference', renderSkillReviewMarkdown(plan)),
+    artifact('reference/subagents/script-author.md', 'reference', portableScriptAuthorBrief()),
+    artifact(
+      'agents/claude/comet-any-script-author.md',
+      'agent',
+      claudeAgentDefinition({
+        name: 'comet-any-script-author',
+        description:
+          'Use when authoring workflow script contracts for a confirmed comet-any bundle draft.',
+        tools: 'Read, Write, Glob, Grep',
+        title: 'Script Author Agent',
+        body: 'Author the script contract for one comet-any authoring lane. Read the portable brief, write only the assigned report path, and do not publish, install, or run destructive commands.',
+      }),
+    ),
     jsonArtifact('reference/authoring-lanes.json', {
       schemaVersion: 1,
       protocolHash,
@@ -1511,6 +1557,7 @@ function workflowContractArtifacts(plan: FactorySkillPackagePlan): FactoryPackag
         'workflow-entry',
         'skill-core',
         'script-contract',
+        'platform-agent',
         'reference',
         'eval',
         'skill-review',
@@ -1674,5 +1721,12 @@ export async function generateFactorySkillPackage(
         .filter((item) => item.kind === 'script')
         .map((item) => artifactTarget(packageRoot, item.path)),
     },
+    platformAgents: [
+      {
+        id: 'comet-any-script-author',
+        platform: 'claude',
+        path: path.join(packageRoot, 'agents', 'claude', 'comet-any-script-author.md'),
+      },
+    ],
   };
 }

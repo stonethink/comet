@@ -1448,6 +1448,7 @@ prefer:
       'rules',
       'hooks',
       'references',
+      'agents',
     ]);
     expect(bundle.manifest.resources.rules).toEqual([
       {
@@ -1475,6 +1476,7 @@ prefer:
       'skills/factory-bundle/reference/authoring-lanes.json',
       'skills/factory-bundle/reference/skill-review.md',
       'skills/factory-bundle/reference/composition-report.md',
+      'skills/factory-bundle/reference/subagents/script-author.md',
     ]);
     expect(bundle.manifest.resources.scripts).toEqual([
       {
@@ -1514,6 +1516,14 @@ prefer:
         runtime: 'node',
       },
     ]);
+    expect(bundle.manifest.resources.agents).toEqual([
+      {
+        id: 'comet-any-script-author',
+        path: 'skills/factory-bundle/agents/claude/comet-any-script-author.md',
+        platform: 'claude',
+        required: true,
+      },
+    ]);
     await expect(
       fs.access(path.join(draftRoot, 'rules', 'factory-bundle-orchestration.md')),
     ).resolves.toBeUndefined();
@@ -1531,6 +1541,18 @@ prefer:
     await expect(
       fs.access(
         path.join(draftRoot, 'skills', 'factory-bundle', 'reference', 'authoring-lanes.json'),
+      ),
+    ).resolves.toBeUndefined();
+    await expect(
+      fs.access(
+        path.join(
+          draftRoot,
+          'skills',
+          'factory-bundle',
+          'agents',
+          'claude',
+          'comet-any-script-author.md',
+        ),
       ),
     ).resolves.toBeUndefined();
     await expect(

@@ -83,6 +83,11 @@ function declaredPaths(manifest: BundleManifest): DeclaredPath[] {
       relative: asset,
       directory: false,
     })),
+    ...manifest.resources.agents.map((agent, index) => ({
+      field: `resources.agents[${index}].path`,
+      relative: agent.path,
+      directory: false,
+    })),
     ...manifest.platforms.overrides.map((override, index) => ({
       field: `platforms.overrides[${index}].path`,
       relative: override.path,
@@ -254,6 +259,23 @@ export async function validateBundle(bundle: SkillBundle): Promise<string[]> {
       errors.push(`resources.rules[${index}].match must contain at least one pattern`);
     }
   });
+
+  for (const [index, agent] of manifest.resources.agents.entries()) {
+    if (agent.platform !== 'claude') continue;
+    if (isAbsolutePath(agent.path) || isEscapingPath(agent.path)) continue;
+    try {
+      const source = await fs.readFile(path.resolve(bundle.root, agent.path), 'utf8');
+      if (
+        !source.trimStart().startsWith('---') ||
+        !source.includes('\nname:') ||
+        !source.includes('\ndescription:')
+      ) {
+        errors.push(`resources.agents[${index}] must contain Claude Code agent frontmatter`);
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+  }
 
   const realRoot = await fs.realpath(bundle.root);
   await collectSymbolicLinks(bundle.root, bundle.root, errors);

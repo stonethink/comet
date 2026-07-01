@@ -230,6 +230,15 @@ async function buildReadiness(
         }`,
       );
     }
+    const hasClaudeAgent = generatedPackage.platformAgents?.some(
+      (agent) => agent.platform === 'claude',
+    );
+    const hasClaudeAgentPreview = compile?.files.some((file) => file.kind === 'agent') ?? false;
+    if (compile?.platform === 'claude' && hasClaudeAgent && !hasClaudeAgentPreview) {
+      blockers.push(
+        '[agent] Claude Code custom agent definitions are missing from platform preview',
+      );
+    }
   }
   if (state.status === 'ready' && !state.ready) {
     blockers.push('[publish] Ready Bundle metadata is missing');
@@ -283,6 +292,9 @@ async function buildReadiness(
         : {}),
       ...(generatedPackage
         ? { wrapperClassification: generatedPackage.wrapperClassification ?? 'unknown' }
+        : {}),
+      ...(generatedPackage?.platformAgents
+        ? { agent: `${generatedPackage.platformAgents.length} platform agent(s)` }
         : {}),
       ...(state.factory?.composition
         ? {
@@ -345,6 +357,7 @@ async function fallbackIrForBundle(bundle: SkillBundle, locale: string): Promise
     scripts: [],
     references: [],
     assets: [],
+    agents: [],
     overrides: [],
     engine: null,
   };

@@ -5,12 +5,13 @@ export type FactoryAuthoringLane =
   | 'skill-core'
   | 'workflow-entry'
   | 'script-contract'
+  | 'platform-agent'
   | 'reference'
   | 'pause-points'
   | 'eval'
   | 'skill-review';
 
-export type FactoryPackageArtifactKind = 'skill' | 'script' | 'reference' | 'engine';
+export type FactoryPackageArtifactKind = 'skill' | 'script' | 'reference' | 'engine' | 'agent';
 
 export type FactoryArtifactAuthorKind = 'deterministic-adapter' | 'subagent';
 

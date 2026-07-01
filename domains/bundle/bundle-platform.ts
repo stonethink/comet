@@ -22,6 +22,7 @@ export interface PlatformBundleLayout {
   rulesRoot: string | null;
   hooksSupported: boolean;
   scriptsRoot: string | null;
+  agentsRoot: string | null;
 }
 
 export interface BundlePlatformTarget {
@@ -58,6 +59,7 @@ export function listBundlePlatformTargets(options: {
     const capabilities = new Set<BundleCapability>(['skills', 'scripts', 'references', 'assets']);
     if (platform.rulesDir && platform.rulesFormat) capabilities.add('rules');
     if (platform.supportsHooks && platform.hookFormat) capabilities.add('hooks');
+    if (platform.id === 'claude') capabilities.add('agents');
     return {
       id: platform.id,
       name: platform.name,
@@ -70,6 +72,7 @@ export function listBundlePlatformTargets(options: {
         rulesRoot: rulesRoot(platform, baseDir, options.scope),
         hooksSupported: capabilities.has('hooks'),
         scriptsRoot: path.join(platformRoot, 'skills', '.comet-bundles'),
+        agentsRoot: platform.id === 'claude' ? path.join(platformRoot, 'agents') : null,
       },
       capabilities,
     };

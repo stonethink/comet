@@ -86,6 +86,7 @@ describe('loadBundle', () => {
         },
       ],
       assets: [],
+      agents: [],
     });
     expect(bundle.manifest.platforms).toEqual({
       requires: ['skills'],

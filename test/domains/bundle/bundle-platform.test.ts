@@ -86,6 +86,7 @@ function ir(overrides: Partial<BundleCompilerIr> = {}): BundleCompilerIr {
         source: path.resolve('fixtures/assets/icon.txt'),
       },
     ],
+    agents: [],
     overrides: [],
     engine: null,
     ...overrides,

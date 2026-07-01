@@ -79,6 +79,13 @@ export async function compileBundleIr(
     }))
     .sort((left, right) => compareText(left.logicalPath, right.logicalPath));
 
+  const agents = bundle.manifest.resources.agents
+    .map((agent) => ({
+      ...agent,
+      source: requiredSource(resolved.files, agent.path),
+    }))
+    .sort((left, right) => compareText(left.id, right.id));
+
   const overrides = bundle.manifest.platforms.overrides
     .map((override) => ({
       ...override,
@@ -106,6 +113,7 @@ export async function compileBundleIr(
     scripts,
     references,
     assets,
+    agents,
     overrides,
     engine: bundle.manifest.engine.enabled
       ? { sourceRoot: path.resolve(bundle.root, bundle.manifest.engine.path ?? 'engine') }

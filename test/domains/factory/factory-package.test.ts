@@ -114,6 +114,41 @@ describe('Factory skill package generation', () => {
     expect(compositionReport).toContain('Wrapper classification: scaffold-blocked');
   });
 
+  it('generates Claude Code custom agent definitions separately from portable role briefs', async () => {
+    const workflow = normalizeWorkflowDefinition(
+      builtinCometFivePhaseWorkflow({
+        name: 'agent-ready',
+        goal: 'Generate native authoring agents.',
+      }),
+    );
+    const output = await generateFactorySkillPackage(
+      packagePlan({ root, name: 'agent-ready', workflow }),
+    );
+
+    const agentPath = path.join(
+      output.packageRoot,
+      'agents',
+      'claude',
+      'comet-any-script-author.md',
+    );
+    const agent = await fs.readFile(agentPath, 'utf8');
+    expect(agent).toContain('---\nname: comet-any-script-author');
+    expect(agent).toContain('description: Use when authoring workflow script contracts');
+    expect(agent).toContain('tools: Read, Write, Glob, Grep');
+    expect(agent).toContain('model: inherit');
+    expect(agent).toContain('# Script Author Agent');
+
+    const lanes = JSON.parse(
+      await fs.readFile(path.join(output.packageRoot, 'reference', 'authoring-lanes.json'), 'utf8'),
+    ) as { lanes: unknown[] };
+    expect(JSON.stringify(lanes)).toContain('platform-agent');
+
+    await expect(
+      fs.access(path.join(output.packageRoot, 'reference', 'subagents', 'script-author.md')),
+    ).resolves.toBeUndefined();
+    expect(agentPath).not.toContain(path.join('reference', 'subagents'));
+  });
+
   it('generates workflow contract packages from Nodes and Output Schemas', async () => {
     const workflow = normalizeWorkflowDefinition({
       ...builtinCometFivePhaseWorkflow({

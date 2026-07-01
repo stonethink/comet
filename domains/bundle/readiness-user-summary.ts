@@ -20,6 +20,7 @@ export interface BundleReadinessUserSummaryItem {
     | 'review'
     | 'publish'
     | 'capability'
+    | 'agent'
     | 'executable'
     | 'unknown';
   severity: 'blocker' | 'warning';
@@ -80,6 +81,7 @@ function codeOf(message: string): BundleReadinessUserSummaryItem['code'] {
       'review',
       'publish',
       'capability',
+      'agent',
       'executable',
     ].includes(value)
   ) {
@@ -166,6 +168,13 @@ function advice(
         impact: 'The selected platform cannot support one of the required generated capabilities.',
         label: 'Preview distribution on the target platform',
         command: `comet publish distribute ${bundleName} --platform <platform> --scope project --preview`,
+      };
+    case 'agent':
+      return {
+        impact:
+          'The generated Skill declares Claude Code custom agents, but the platform preview does not include them.',
+        label: 'Preview Claude Code agent distribution',
+        command: `comet publish distribute ${bundleName} --platform claude --scope project --preview`,
       };
     case 'executable':
       return {

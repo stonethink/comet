@@ -378,7 +378,7 @@ describe('Bundle authoring lifecycle', () => {
     expect(state.factory?.proposalConfirmation).toMatchObject({
       confirmed: true,
       proposalHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
-      acceptedCapabilities: ['skills', 'scripts', 'rules', 'hooks', 'references'],
+      acceptedCapabilities: ['skills', 'scripts', 'rules', 'hooks', 'references', 'agents'],
     });
     expect(state.factory?.proposalConfirmation?.confirmedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/u);
   });

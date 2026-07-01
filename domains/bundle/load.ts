@@ -3,6 +3,7 @@ import path from 'path';
 import { parse } from 'yaml';
 import type {
   BundleCapability,
+  BundleAgentDefinition,
   BundleHookDefinition,
   BundleManifest,
   BundlePlatformOverride,
@@ -15,7 +16,16 @@ import type {
 
 type YamlObject = Record<string, unknown>;
 
-const CAPABILITIES = ['skills', 'rules', 'hooks', 'scripts', 'references', 'assets'] as const;
+const CAPABILITIES = [
+  'skills',
+  'rules',
+  'hooks',
+  'scripts',
+  'references',
+  'assets',
+  'agents',
+] as const;
+const AGENT_PLATFORMS = ['claude'] as const;
 const SKILL_VISIBILITIES = ['entry', 'internal'] as const;
 const RULE_MODES = ['always', 'matched'] as const;
 const SIDE_EFFECTS = ['none', 'read', 'write', 'external'] as const;
@@ -195,6 +205,21 @@ function narrowScript(value: unknown, filePath: string, index: number): BundleSc
   };
 }
 
+function narrowAgent(value: unknown, filePath: string, index: number): BundleAgentDefinition {
+  const fieldPath = `resources.agents[${index}]`;
+  assertObject(value, filePath, fieldPath);
+  assertString(value.id, filePath, `${fieldPath}.id`);
+  assertString(value.path, filePath, `${fieldPath}.path`);
+  assertEnum(value.platform, AGENT_PLATFORMS, filePath, `${fieldPath}.platform`);
+  assertBoolean(value.required, filePath, `${fieldPath}.required`);
+  return {
+    id: value.id,
+    path: normalizeResourcePath(value.path),
+    platform: value.platform,
+    required: value.required,
+  };
+}
+
 function narrowCapabilityArray(
   value: unknown,
   filePath: string,
@@ -257,6 +282,9 @@ function narrowManifest(document: unknown, filePath: string): BundleManifest {
       assertString(entry, filePath, `resources.assets[${index}]`);
       return normalizeResourcePath(entry);
     }),
+    agents: optionalArray(resourcesValue, 'agents', filePath, 'resources').map((entry, index) =>
+      narrowAgent(entry, filePath, index),
+    ),
   };
 
   const platformsValue = document.platforms ?? {};
@@ -348,6 +376,7 @@ function declaredLocalizedPaths(bundle: SkillBundle): Set<string> {
     ...bundle.manifest.resources.rules.map((item) => item.path),
     ...bundle.manifest.resources.hooks.map((item) => item.path),
     ...bundle.manifest.resources.references,
+    ...bundle.manifest.resources.agents.map((item) => item.path),
     ...bundle.manifest.platforms.overrides.map((item) => item.path),
   ]);
 }
@@ -389,6 +418,7 @@ async function collectBaselineFiles(bundle: SkillBundle): Promise<Map<string, st
     ...bundle.manifest.resources.references,
     ...bundle.manifest.resources.scripts.map((item) => item.path),
     ...bundle.manifest.resources.assets,
+    ...bundle.manifest.resources.agents.map((item) => item.path),
     ...bundle.manifest.platforms.overrides.map((item) => item.path),
   ];
   for (const logicalPath of directFiles) {

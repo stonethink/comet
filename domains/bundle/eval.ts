@@ -77,6 +77,8 @@ const REQUIRED_FACTORY_CONTROL_PLANE = [
   'reference/authoring-lanes.json',
   'reference/skill-review.md',
   'reference/composition-report.md',
+  'reference/subagents/script-author.md',
+  'agents/claude/comet-any-script-author.md',
   'scripts/comet-plan.mjs',
   'scripts/comet-check.mjs',
   'scripts/comet-hook-guard.mjs',
@@ -98,6 +100,7 @@ const REQUIRED_FACTORY_CAPABILITIES: BundleCapability[] = [
   'rules',
   'hooks',
   'references',
+  'agents',
 ];
 
 function assertObject(value: unknown, label: string): asserts value is Record<string, unknown> {
@@ -349,6 +352,7 @@ async function validateFactoryManifestResources(options: {
   const scripts = resourceSet(manifest.resources.scripts);
   const scriptIds = new Set(manifest.resources.scripts.map((script) => script.id));
   const references = new Set(manifest.resources.references);
+  const agents = resourceSet(manifest.resources.agents);
   const expectedRules = [
     {
       id: `${entrySkill}-orchestration`,
@@ -401,6 +405,14 @@ async function validateFactoryManifestResources(options: {
     `skills/${entrySkill}/reference/authoring-lanes.json`,
     `skills/${entrySkill}/reference/skill-review.md`,
     `skills/${entrySkill}/reference/composition-report.md`,
+    `skills/${entrySkill}/reference/subagents/script-author.md`,
+  ];
+  const expectedAgents = [
+    {
+      id: 'comet-any-script-author',
+      path: `skills/${entrySkill}/agents/claude/comet-any-script-author.md`,
+      platform: 'claude',
+    },
   ];
 
   for (const rule of expectedRules) {
@@ -424,6 +436,19 @@ async function validateFactoryManifestResources(options: {
       errors.push(`manifest missing required reference ${reference}`);
     } else {
       evidence.push(`reference:${reference}`);
+    }
+  }
+  for (const agent of expectedAgents) {
+    const actual = agents.get(agent.id);
+    if (
+      !actual ||
+      actual.path !== agent.path ||
+      actual.platform !== agent.platform ||
+      !actual.required
+    ) {
+      errors.push(`manifest missing required agent ${agent.id} at ${agent.path}`);
+    } else {
+      evidence.push(`agent:${agent.id}`);
     }
   }
   for (const hook of expectedHooks) {

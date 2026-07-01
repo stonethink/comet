@@ -8,7 +8,14 @@ import type { WorkflowDefinitionInput, WorkflowProtocol } from '../workflow-cont
 import type { SkillCreatorIntent } from './user-facing.js';
 
 export type BundleSkillVisibility = 'entry' | 'internal';
-export type BundleCapability = 'skills' | 'rules' | 'hooks' | 'scripts' | 'references' | 'assets';
+export type BundleCapability =
+  | 'skills'
+  | 'rules'
+  | 'hooks'
+  | 'scripts'
+  | 'references'
+  | 'assets'
+  | 'agents';
 export type BundleSideEffect = 'none' | 'read' | 'write' | 'external';
 
 export interface BundleSkillDefinition {
@@ -37,6 +44,13 @@ export interface BundleScriptDefinition {
   sideEffect: BundleSideEffect;
   runtime: 'node' | 'bash' | 'python';
   requiresConfirmation?: boolean;
+}
+
+export interface BundleAgentDefinition {
+  id: string;
+  path: string;
+  platform: 'claude';
+  required: boolean;
 }
 
 export interface BundlePlatformOverride {
@@ -70,6 +84,7 @@ export interface BundleManifest {
     references: string[];
     scripts: BundleScriptDefinition[];
     assets: string[];
+    agents: BundleAgentDefinition[];
   };
   platforms: {
     requires: BundleCapability[];
@@ -108,6 +123,7 @@ export interface BundleCompilerIr {
   scripts: Array<BundleScriptDefinition & { source: string }>;
   references: Array<{ logicalPath: string; source: string }>;
   assets: Array<{ logicalPath: string; source: string }>;
+  agents: Array<BundleAgentDefinition & { source: string }>;
   overrides: Array<BundlePlatformOverride & { source: string }>;
   engine: { sourceRoot: string } | null;
 }
@@ -218,7 +234,7 @@ export interface BundleFactoryProposalConfirmation {
   confirmedAt: string;
   proposalHash: string;
   preferenceHash: string | null;
-  acceptedCapabilities: Array<'skills' | 'scripts' | 'rules' | 'hooks' | 'references'>;
+  acceptedCapabilities: Array<'skills' | 'scripts' | 'rules' | 'hooks' | 'references' | 'agents'>;
   warnings: string[];
 }
 
@@ -227,6 +243,12 @@ export interface BundleControlPlaneOutput {
   evalManifestPath: string | null;
   compositionReportPath: string;
   scripts: string[];
+}
+
+export interface BundleGeneratedPlatformAgent {
+  id: string;
+  platform: 'claude';
+  path: string;
 }
 
 export type GeneratedWrapperClassification =
@@ -242,6 +264,7 @@ export interface BundleGeneratedSkillPackage {
   enginePath: string | null;
   evalManifestPath: string | null;
   controlPlane?: BundleControlPlaneOutput;
+  platformAgents?: BundleGeneratedPlatformAgent[];
   unauthoredSubstanceNodes?: string[];
   wrapperClassification?: GeneratedWrapperClassification;
 }
@@ -293,7 +316,7 @@ export interface AuthoringReview {
 export interface PlatformInstallFile {
   source: string;
   destination: string;
-  kind: 'skill' | 'rule' | 'hook' | 'script' | 'reference' | 'asset' | 'engine';
+  kind: 'skill' | 'rule' | 'hook' | 'script' | 'reference' | 'asset' | 'agent' | 'engine';
   operation?:
     | {
         type: 'rule';
