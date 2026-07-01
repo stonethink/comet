@@ -57,6 +57,7 @@ function walkFiles(relativePath, ignoredNames = new Set()) {
 
     for (const entry of entries) {
       if (ignoredNames.has(entry)) continue;
+      if (entry.startsWith('.pytest-tmp-')) continue;
       const entryAbsolutePath = path.join(currentAbsolutePath, entry);
       const entryRelativePath = path.join(currentRelativePath, entry).replaceAll(path.sep, '/');
       if (entryRelativePath === 'eval/local/logs' || entryRelativePath === 'eval/.venv') continue;

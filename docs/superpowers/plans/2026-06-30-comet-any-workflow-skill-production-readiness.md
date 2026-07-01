@@ -75,7 +75,7 @@ This spec spans several modules, but the changes are not independent products. O
 - Produces validation finding code `orphan-output-schema`.
 - Consumes existing `WorkflowDefinitionInput.outputSchemas` and `WorkflowNodeTemplate.outputSchemas`.
 
-- [ ] **Step 1: Write failing workflow-contract tests**
+- [x] **Step 1: Write failing workflow-contract tests**
 
 Add these tests to `test/domains/workflow-contract/workflow-contract.test.ts`:
 
@@ -161,7 +161,7 @@ it('rejects patch Output Schemas that are not defined', () => {
 });
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -171,7 +171,7 @@ npx vitest run test/domains/workflow-contract/workflow-contract.test.ts -t "Outp
 
 Expected: failures mention `outputSchemas` not existing on `WorkflowNodePatch` or custom schema not attached.
 
-- [ ] **Step 3: Add `WorkflowNodePatch.outputSchemas` and finding code**
+- [x] **Step 3: Add `WorkflowNodePatch.outputSchemas` and finding code**
 
 In `domains/workflow-contract/types.ts`, update:
 
@@ -192,7 +192,7 @@ Extend `WorkflowValidationFinding['code']`:
 | 'orphan-output-schema'
 ```
 
-- [ ] **Step 4: Merge patch schemas into normalized nodes**
+- [x] **Step 4: Merge patch schemas into normalized nodes**
 
 In `domains/workflow-contract/normalize.ts`, add this field inside the node object returned from the template map:
 
@@ -202,7 +202,7 @@ outputSchemas: dedupe([...(template.outputSchemas ?? []), ...(patch.outputSchema
 
 Keep `protocol.evals[].requiredOutputSchemas` unchanged because it already derives from final `nodes.flatMap((node) => node.outputSchemas)`.
 
-- [ ] **Step 5: Validate patch schema references and orphan custom schemas**
+- [x] **Step 5: Validate patch schema references and orphan custom schemas**
 
 In `domains/workflow-contract/validation.ts`, after patch binding validation, add:
 
@@ -243,7 +243,7 @@ for (const schema of input.outputSchemas ?? []) {
 }
 ```
 
-- [ ] **Step 6: Verify GREEN**
+- [x] **Step 6: Verify GREEN**
 
 Run:
 
@@ -253,7 +253,7 @@ npx vitest run test/domains/workflow-contract/workflow-contract.test.ts
 
 Expected: all workflow-contract tests pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add domains/workflow-contract/types.ts domains/workflow-contract/normalize.ts domains/workflow-contract/validation.ts test/domains/workflow-contract/workflow-contract.test.ts
@@ -276,7 +276,7 @@ git commit -m "feat(workflow-contract): attach patch output schemas"
 - Produces: `WorkflowSkillBinding.enforcement`.
 - Consumes: existing `requiredSkillCalls` and `augmentations`.
 
-- [ ] **Step 1: Write failing tests for binding enforcement**
+- [x] **Step 1: Write failing tests for binding enforcement**
 
 Add to `test/domains/workflow-contract/workflow-contract.test.ts`:
 
@@ -354,7 +354,7 @@ it('renders augmentations into entry, node, and handoff outputs', async () => {
 });
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -364,7 +364,7 @@ npx vitest run test/domains/workflow-contract/workflow-contract.test.ts test/dom
 
 Expected: failures mention missing `enforcement`, missing `## Augmentations`, or handoff output lacks augmentations.
 
-- [ ] **Step 3: Add enforcement types and normalization**
+- [x] **Step 3: Add enforcement types and normalization**
 
 In `domains/workflow-contract/types.ts`, add:
 
@@ -421,7 +421,7 @@ function normalizeBinding(
 }
 ```
 
-- [ ] **Step 4: Render augmentations in generated markdown**
+- [x] **Step 4: Render augmentations in generated markdown**
 
 In `domains/factory/package.ts`, add:
 
@@ -469,7 +469,7 @@ In `workflowContractNodeMarkdown`, add after `## Required Skill Calls`:
 ${augmentationMarkdown(node)}
 ```
 
-- [ ] **Step 5: Include augmentations in handoff and guard checks**
+- [x] **Step 5: Include augmentations in handoff and guard checks**
 
 In `workflowContractHandoffScript`, add `augmentations` to each node JSON object:
 
@@ -499,7 +499,7 @@ if (missingAugmentations.length > 0) {
 }
 ```
 
-- [ ] **Step 6: Verify GREEN**
+- [x] **Step 6: Verify GREEN**
 
 Run:
 
@@ -509,7 +509,7 @@ npx vitest run test/domains/workflow-contract/workflow-contract.test.ts test/dom
 
 Expected: all focused tests pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add domains/workflow-contract/types.ts domains/workflow-contract/normalize.ts domains/factory/package.ts test/domains/workflow-contract/workflow-contract.test.ts test/domains/factory/factory-package.test.ts
@@ -529,7 +529,7 @@ git commit -m "feat(factory): enforce workflow augmentations"
 - Consumes `openspec/changes/<name>/.comet.yaml` as primary state.
 - Produces auxiliary evidence at `.comet/workflow-evidence/<change>/<workflow>.json`.
 
-- [ ] **Step 1: Write failing overlay state tests**
+- [x] **Step 1: Write failing overlay state tests**
 
 In `test/domains/factory/factory-package.test.ts`, extend the existing generated package test with:
 
@@ -595,7 +595,7 @@ it('uses .comet.yaml for comet-five-phase-overlay routing and sidecar evidence',
 });
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -605,7 +605,7 @@ npx vitest run test/domains/factory/factory-package.test.ts -t "overlay state|wo
 
 Expected: generated scripts still create/read `.comet/runs/<workflow>/state.json`.
 
-- [ ] **Step 3: Add generated overlay adapter helpers**
+- [x] **Step 3: Add generated overlay adapter helpers**
 
 In the generated script body helpers inside `domains/factory/package.ts`, add these JavaScript functions to `workflowContractStateScript`, `workflowContractGuardScript`, and `workflowContractHookGuardScript` script templates:
 
@@ -688,7 +688,7 @@ function evidencePathFor(protocol, change) {
 }
 ```
 
-- [ ] **Step 4: Route overlay status/next/record through `.comet.yaml`**
+- [x] **Step 4: Route overlay status/next/record through `.comet.yaml`**
 
 In `workflowContractStateScript`, when `isCometOverlay(protocol)` is true:
 
@@ -755,7 +755,7 @@ if (command === 'record') {
 }
 ```
 
-- [ ] **Step 5: Route overlay guard evidence through the sidecar**
+- [x] **Step 5: Route overlay guard evidence through the sidecar**
 
 In `workflowContractGuardScript`, replace direct `statePath(protocol)` reads when overlay is true with:
 
@@ -788,7 +788,7 @@ console.log(
 );
 ```
 
-- [ ] **Step 6: Verify GREEN**
+- [x] **Step 6: Verify GREEN**
 
 Run:
 
@@ -798,7 +798,7 @@ npx vitest run test/domains/factory/factory-package.test.ts -t "overlay state|wo
 
 Expected: tests pass and no generated `.comet/runs/<workflow>/state.json` exists for overlay packages.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add domains/factory/package.ts test/domains/factory/factory-package.test.ts
@@ -822,7 +822,7 @@ git commit -m "feat(factory): use comet overlay state adapter"
 - Produces readiness blockers for `AUTHORING PENDING` and entry Decision Core placeholders.
 - Produces wrapper labels `delegate-complete`, `delegate-advisory`, `scaffold-blocked`, `kernel-authored`.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Add to `test/domains/factory/factory-package.test.ts`:
 
@@ -869,7 +869,7 @@ it('blocks readiness when generated packages still contain authoring pending mar
 });
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -879,7 +879,7 @@ npx vitest run test/domains/factory/factory-package.test.ts test/domains/bundle/
 
 Expected: missing `wrapperClassification` and missing blockers.
 
-- [ ] **Step 3: Add wrapper classification to generated package metadata**
+- [x] **Step 3: Add wrapper classification to generated package metadata**
 
 In `domains/factory/types.ts` and `domains/bundle/types.ts`, add:
 
@@ -912,7 +912,7 @@ function wrapperClassification(plan: FactorySkillPackagePlan): GeneratedWrapperC
 
 Thread the value into `GeneratedFactorySkillPackage` and `BundleGeneratedSkillPackage`.
 
-- [ ] **Step 4: Render classification in composition report**
+- [x] **Step 4: Render classification in composition report**
 
 In `workflowContractCompositionReport`, add:
 
@@ -920,7 +920,7 @@ In `workflowContractCompositionReport`, add:
 - Wrapper classification: ${wrapperClassification(plan)}
 ```
 
-- [ ] **Step 5: Scan generated packages during readiness**
+- [x] **Step 5: Scan generated packages during readiness**
 
 In `domains/bundle/review-summary.ts`, add a helper:
 
@@ -959,7 +959,7 @@ Add evidence:
 wrapperClassification: generatedPackage.wrapperClassification ?? 'unknown',
 ```
 
-- [ ] **Step 6: Verify GREEN**
+- [x] **Step 6: Verify GREEN**
 
 Run:
 
@@ -969,7 +969,7 @@ npx vitest run test/domains/factory/factory-package.test.ts test/domains/bundle/
 
 Expected: focused tests pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add domains/factory/package.ts domains/factory/types.ts domains/bundle/types.ts domains/bundle/review-summary.ts test/domains/factory/factory-package.test.ts test/domains/bundle/bundle-review-summary.test.ts
@@ -999,7 +999,7 @@ git commit -m "feat(bundle): block scaffolded generated skills"
 - Produces eval task `workflow-overlay-contract`.
 - Consumes generated `comet/eval.yaml` through existing `--eval-manifest`.
 
-- [ ] **Step 1: Write failing manifest parser tests**
+- [x] **Step 1: Write failing manifest parser tests**
 
 In `eval/local/tests/scaffold/test_conftest_helpers.py`, extend `test_dynamic_treatment_config_from_eval_manifest` manifest fixture with:
 
@@ -1035,7 +1035,7 @@ assert cfg.skills[0]["required_output_schemas"] == ["comet.grill-me.v1"]
 assert cfg.skills[0]["expected_evidence"][0]["check"] == "augmentation:design.grill-me"
 ```
 
-- [ ] **Step 2: Write failing factory manifest test**
+- [x] **Step 2: Write failing factory manifest test**
 
 In `test/domains/factory/factory-package.test.ts`, add:
 
@@ -1087,7 +1087,7 @@ it('writes overlay eval manifests with task suite, baselines, gates, and evidenc
 });
 ```
 
-- [ ] **Step 3: Verify RED**
+- [x] **Step 3: Verify RED**
 
 Run:
 
@@ -1098,7 +1098,7 @@ cd eval && uv run pytest local/tests/scaffold/test_conftest_helpers.py -q
 
 Expected: parser and manifest field assertions fail.
 
-- [ ] **Step 4: Extend `SkillEvalManifest`**
+- [x] **Step 4: Extend `SkillEvalManifest`**
 
 In `eval/scaffold/python/manifests.py`, add dataclass fields:
 
@@ -1120,7 +1120,7 @@ required_output_schemas=list(evaluation.get("requiredOutputSchemas") or []),
 expected_evidence=list(evaluation.get("expectedEvidence") or []),
 ```
 
-- [ ] **Step 5: Inject manifest details into dynamic treatment**
+- [x] **Step 5: Inject manifest details into dynamic treatment**
 
 In `eval/local/tests/conftest.py`, add keys to the manifest skill config:
 
@@ -1142,7 +1142,7 @@ if dynamic and manifest_tasks and not treatment_filter:
     ]
 ```
 
-- [ ] **Step 6: Extend generated eval manifests**
+- [x] **Step 6: Extend generated eval manifests**
 
 In `workflowContractEvalManifest`, compute:
 
@@ -1187,7 +1187,7 @@ expectedEvidence: protocol.nodes.flatMap((node) => [
 ]),
 ```
 
-- [ ] **Step 7: Add overlay contract eval task**
+- [x] **Step 7: Add overlay contract eval task**
 
 Create `eval/local/tasks/workflow-overlay-contract/task.toml`:
 
@@ -1251,7 +1251,7 @@ Register in `eval/local/tasks/index.yaml`:
 - workflow-overlay-contract
 ```
 
-- [ ] **Step 8: Verify GREEN**
+- [x] **Step 8: Verify GREEN**
 
 Run:
 
@@ -1263,7 +1263,7 @@ cd eval && uv run pytest local/tests/tasks/test_tasks.py --task=workflow-overlay
 
 Expected: unit tests pass; collect-only can discover `DYNAMIC_SKILL` and baseline treatments.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add domains/factory/package.ts eval/scaffold/python/manifests.py eval/local/tests/conftest.py eval/local/tests/scaffold/test_conftest_helpers.py eval/local/tests/tasks/test_tasks.py eval/local/tasks/workflow-overlay-contract eval/local/tasks/index.yaml eval/scaffold/python/validation/authoring_rubric.py test/domains/factory/factory-package.test.ts
@@ -1290,7 +1290,7 @@ git commit -m "feat(eval): evaluate generated workflow contracts"
 - Maintains compatibility with existing `native-skill-creator` benchmark result JSON during migration.
 - Produces readiness blocker code `[eval]`.
 
-- [ ] **Step 1: Write failing eval evidence tests**
+- [x] **Step 1: Write failing eval evidence tests**
 
 In `test/domains/bundle/bundle-eval.test.ts`, add:
 
@@ -1395,7 +1395,7 @@ it('blocks readiness when repository eval evidence is below quality gates', asyn
 });
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -1405,7 +1405,7 @@ npx vitest run test/domains/bundle/bundle-eval.test.ts test/domains/bundle/bundl
 
 Expected: parser rejects provider `comet-eval` or readiness still emits `[benchmark]`.
 
-- [ ] **Step 3: Add structured eval result support**
+- [x] **Step 3: Add structured eval result support**
 
 In `domains/bundle/eval.ts`, add:
 
@@ -1443,7 +1443,7 @@ const gatesPassed =
       result.bundle.safetyPassed;
 ```
 
-- [ ] **Step 4: Rename readiness blocker from benchmark to eval**
+- [x] **Step 4: Rename readiness blocker from benchmark to eval**
 
 In `domains/bundle/review-summary.ts`, replace:
 
@@ -1463,7 +1463,7 @@ If `state.eval?.resultPath` exists and the parsed repository result is failed, a
 blockers.push(`[eval] Eval evidence is below publish quality gates: ${result.summary}`);
 ```
 
-- [ ] **Step 5: Update user-facing next-action wording**
+- [x] **Step 5: Update user-facing next-action wording**
 
 In `domains/bundle/readiness-user-summary.ts`, replace `benchmark` code with `eval` in the code union and `codeOf` allowlist.
 
@@ -1480,7 +1480,7 @@ case 'eval':
 
 Update `domains/bundle/next-action.ts` and `app/commands/bundle.ts` text from benchmark to eval while keeping command suggestions on `comet eval`.
 
-- [ ] **Step 6: Update tests from benchmark wording to eval wording**
+- [x] **Step 6: Update tests from benchmark wording to eval wording**
 
 Update affected assertions in:
 
@@ -1501,7 +1501,7 @@ And next action:
 Run repository eval for the generated Skill
 ```
 
-- [ ] **Step 7: Verify GREEN**
+- [x] **Step 7: Verify GREEN**
 
 Run:
 
@@ -1511,7 +1511,7 @@ npx vitest run test/domains/bundle/bundle-eval.test.ts test/domains/bundle/bundl
 
 Expected: all bundle eval/readiness/command tests pass.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add domains/bundle/eval.ts domains/bundle/review-summary.ts domains/bundle/readiness-user-summary.ts domains/bundle/next-action.ts app/commands/bundle.ts test/domains/bundle/bundle-eval.test.ts test/domains/bundle/bundle-review-summary.test.ts test/domains/bundle/bundle-command.test.ts test/domains/bundle/bundle-cli-e2e.test.ts
@@ -1543,7 +1543,7 @@ git commit -m "feat(bundle): gate readiness on eval evidence"
 - Produces Claude Code destination `.claude/agents/<agent-id>.md`.
 - Consumes portable briefs under `reference/subagents/*.md` only as source material, not as platform-native agents.
 
-- [ ] **Step 1: Write failing factory and platform tests**
+- [x] **Step 1: Write failing factory and platform tests**
 
 In `test/domains/factory/factory-package.test.ts`, add:
 
@@ -1616,7 +1616,7 @@ it('installs declared Claude Code agents into .claude/agents', async () => {
 });
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -1626,7 +1626,7 @@ npx vitest run test/domains/factory/factory-package.test.ts test/domains/bundle/
 
 Expected: manifest parser rejects `agents`, platform compile does not install `.claude/agents`, and factory does not generate agent definitions.
 
-- [ ] **Step 3: Add bundle agent resource model**
+- [x] **Step 3: Add bundle agent resource model**
 
 In `domains/bundle/types.ts`, update:
 
@@ -1650,7 +1650,7 @@ export interface BundleAgentDefinition {
 
 Add `agents: BundleAgentDefinition[]` to `BundleManifest.resources`, `BundleCompilerIr`, and `PlatformInstallFile['kind']`.
 
-- [ ] **Step 4: Parse, validate, hash, and compile agent resources**
+- [x] **Step 4: Parse, validate, hash, and compile agent resources**
 
 In `domains/bundle/load.ts`, add `agents` to `CAPABILITIES` and parse `resources.agents` with:
 
@@ -1687,7 +1687,7 @@ const agents = bundle.manifest.resources.agents
   .sort((left, right) => compareText(left.id, right.id));
 ```
 
-- [ ] **Step 5: Add Claude platform support**
+- [x] **Step 5: Add Claude platform support**
 
 In `domains/bundle/bundle-platform.ts`, include `agents` capability only for Claude Code:
 
@@ -1717,7 +1717,7 @@ for (const agent of ir.agents) {
 }
 ```
 
-- [ ] **Step 6: Generate Claude agent definitions from factory packages**
+- [x] **Step 6: Generate Claude agent definitions from factory packages**
 
 In `domains/factory/artifacts.ts`, extend:
 
@@ -1780,7 +1780,7 @@ agents: [
 
 Add `agents` to required capabilities for factory output.
 
-- [ ] **Step 7: Add readiness blockers for invalid platform agents**
+- [x] **Step 7: Add readiness blockers for invalid platform agents**
 
 In `domains/bundle/review-summary.ts`, when compile reports unsupported required `agents`, existing capability blocker handles it. Add a generated package scan for agent source files:
 
@@ -1796,7 +1796,7 @@ if (
 
 Add `agent` code to `readiness-user-summary.ts` with next action `comet publish distribute <name> --platform claude --scope project --preview`.
 
-- [ ] **Step 8: Verify GREEN**
+- [x] **Step 8: Verify GREEN**
 
 Run:
 
@@ -1806,7 +1806,7 @@ npx vitest run test/domains/factory/factory-package.test.ts test/domains/bundle/
 
 Expected: generated package includes `agents/claude/*.md`, bundle parser accepts it, and Claude distribute preview/installation targets `.claude/agents/*.md`.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add domains/bundle/types.ts domains/bundle/load.ts domains/bundle/validate.ts domains/bundle/compiler.ts domains/bundle/bundle-platform.ts domains/bundle/platform.ts domains/bundle/factory.ts domains/factory/artifacts.ts domains/factory/package.ts domains/factory/types.ts test/domains/bundle/bundle-distribute.test.ts test/domains/bundle/bundle-review-summary.test.ts test/domains/factory/factory-package.test.ts
@@ -1836,7 +1836,7 @@ git commit -m "feat(bundle): distribute claude custom agents"
 - Produces Chinese guidance for node-attached Output Schemas, augmentation enforcement, overlay state, eval evidence, readiness blockers, and platform-native agents.
 - Produces English parity only after user confirmation.
 
-- [ ] **Step 1: Write failing Chinese guidance tests**
+- [x] **Step 1: Write failing Chinese guidance tests**
 
 In `test/domains/bundle/comet-any-skill-contract.test.ts`, add assertions:
 
@@ -1860,7 +1860,7 @@ expect(zhEvalProvider).not.toContain('benchmark-plan');
 expect(zhEvalProvider).not.toContain('benchmark-record');
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -1870,7 +1870,7 @@ npx vitest run test/domains/bundle/comet-any-skill.test.ts test/domains/bundle/c
 
 Expected: Chinese guidance strings are missing or old benchmark text remains.
 
-- [ ] **Step 3: Update Chinese Skill guidance**
+- [x] **Step 3: Update Chinese Skill guidance**
 
 Make these exact content changes in Chinese files:
 
@@ -1892,7 +1892,7 @@ Output Schema 必须挂到具体 Workflow Node 才算生效；只定义在 `work
 `reference/subagents/*.md` 是跨平台 lane brief；Claude Code custom agent 必须单独生成到平台 agent 资源，并带 `name`、`description`、`tools`、`model` frontmatter。
 ```
 
-- [ ] **Step 4: Verify Chinese GREEN**
+- [x] **Step 4: Verify Chinese GREEN**
 
 Run:
 
@@ -1902,11 +1902,11 @@ npx vitest run test/domains/bundle/comet-any-skill.test.ts test/domains/bundle/c
 
 Expected: Chinese tests pass.
 
-- [ ] **Step 5: Pause for user confirmation**
+- [x] **Step 5: Pause for user confirmation**
 
 Stop and show the Chinese guidance diff summary. Do not modify `assets/skills/comet-any/**` until the user confirms.
 
-- [ ] **Step 6: Sync English after confirmation**
+- [x] **Step 6: Sync English after confirmation**
 
 After confirmation, mirror the Chinese changes in:
 
@@ -1918,7 +1918,7 @@ After confirmation, mirror the Chinese changes in:
 
 Use the English phrase `phase gate`, `check`, or `blocker` naturally; do not change English technical terms such as `Debug Gate` when not part of Chinese translation.
 
-- [ ] **Step 7: Verify bilingual parity**
+- [x] **Step 7: Verify bilingual parity**
 
 Run:
 
@@ -1928,7 +1928,7 @@ npx vitest run test/domains/bundle/comet-any-skill.test.ts test/domains/bundle/c
 
 Expected: Chinese and English guidance tests pass, and old benchmark-provider wording is absent.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add assets/skills-zh/comet-any assets/skills/comet-any test/domains/bundle/comet-any-skill.test.ts test/domains/bundle/comet-any-skill-contract.test.ts test/domains/skill/skills.test.ts
@@ -1947,7 +1947,7 @@ git commit -m "docs(skill): clarify comet-any readiness contracts"
 - Produces final user-visible changelog entries under `0.4.0-beta.1`.
 - Produces verification evidence for focused tests, build, lint, and full test.
 
-- [ ] **Step 1: Check version and changelog target**
+- [x] **Step 1: Check version and changelog target**
 
 Run:
 
@@ -1959,7 +1959,7 @@ rg -n "What's Changed \\[0\\.4\\.0-beta\\.1\\]|What's Changed" CHANGELOG.md pack
 
 Expected: current branch `package.json` remains `0.4.0-beta.1`. If `origin/master` changed to a different released version, update this plan section before writing the changelog.
 
-- [ ] **Step 2: Add changelog entries**
+- [x] **Step 2: Add changelog entries**
 
 Append under `## What's Changed [0.4.0-beta.1] - 2026-06-27`:
 
@@ -1975,7 +1975,7 @@ Append under `## What's Changed [0.4.0-beta.1] - 2026-06-27`:
 - **Comet Any production readiness**: Added workflow-contract, factory package, bundle readiness, eval manifest, platform agent, bilingual Skill guidance, and overlay state adapter coverage for generated workflow Skill readiness.
 ```
 
-- [ ] **Step 3: Run focused verification**
+- [x] **Step 3: Run focused verification**
 
 Run:
 
@@ -1989,7 +1989,7 @@ cd eval && uv run pytest local/tests/scaffold/test_conftest_helpers.py -q
 
 Expected: all focused checks pass.
 
-- [ ] **Step 4: Run repository verification**
+- [x] **Step 4: Run repository verification**
 
 Run:
 
@@ -2002,7 +2002,7 @@ pnpm test
 
 Expected: all repository checks pass. If Windows CRLF affects unrelated old files during `pnpm format:check`, inspect whether those files were modified in this branch before changing them.
 
-- [ ] **Step 5: Run generated package eval collect-only**
+- [x] **Step 5: Run generated package eval collect-only**
 
 Generate or reuse a local `comet-grill-me` package, then run:
 
@@ -2012,7 +2012,7 @@ cd eval && uv run pytest local/tests/tasks/test_tasks.py --eval-manifest <genera
 
 Expected: collection includes `DYNAMIC_SKILL`, `CONTROL`, and `COMET_FULL` for `comet-five-phase-overlay` manifests.
 
-- [ ] **Step 6: Inspect worktree**
+- [x] **Step 6: Inspect worktree**
 
 Run:
 
@@ -2022,7 +2022,7 @@ git status --short
 
 Expected: only intentional implementation, tests, docs, and changelog files are modified.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add CHANGELOG.md
