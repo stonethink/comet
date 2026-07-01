@@ -1,5 +1,7 @@
 # Skill 核心作者 subagent
 
+本文件是 portable lane brief，不是 platform-native custom agent；如需 Claude Code custom agent，必须另行生成平台 agent 资源和 frontmatter。
+
 ## 职责
 
 编写 internal Node Skill 的用户可见核心内容。entry Skill 由 workflow entry 作者单独负责。目标是产出 Comet-like 的多 Node workflow，

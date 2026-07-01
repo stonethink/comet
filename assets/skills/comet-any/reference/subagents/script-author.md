@@ -1,5 +1,7 @@
 # Script Author Subagent
 
+This file is a portable lane brief, not a platform-native custom agent. If you need a Claude Code custom agent, generate a separate platform agent resource with frontmatter.
+
 ## Responsibilities
 
 Design the generated Skill's script contract instead of copying Comet Classic scripts. Scripts must use the current workflow protocol, user-selected Node labels, and real composed Skill outputs to define automatic advancement, exit checks, recovery, and evidence recording.
@@ -20,7 +22,7 @@ Read the common input from the main session, especially:
 - `workflow.kind`, `workflow.nodes`, `engineMode`, and `runnerMode` from `plan.json`, plus the
   derived internal `callChain` source inventory from Skill Creator metadata
 - `reference/resolved-skills.json`
-- Protected `.comet.yaml` semantics when users customize existing Comet Skills
+- Protected `.comet.yaml` semantics when users customize existing Comet Skills; `comet-five-phase-overlay` primary state comes only from `openspec/changes/<name>/.comet.yaml` and must not create `.comet/runs/<workflow>/state.json` as the Comet overlay primary state.
 
 Use file handoff: the main session provides paths instead of pasting large bodies of text. Do not read main-session history or ask the user to restate content already written to artifacts.
 
@@ -50,6 +52,7 @@ Return a script contract draft that explains, for each script:
 - How it outputs `NEXT:`, `SKILL:`, and blocking reasons.
 - How it stays in the current Node when the Node is incomplete instead of forcing an exit.
 - How it supports cross-device recovery.
+- For `comet-five-phase-overlay`, how it blocks when there is no active change or multiple active changes and asks the user to choose.
 
 Exit checks must come from the current workflow protocol and composed Skill goal, not copied Comet Classic scripts.
 

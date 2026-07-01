@@ -1,5 +1,7 @@
 # 脚本作者 subagent
 
+本文件是 portable lane brief，不是 platform-native custom agent；如需 Claude Code custom agent，必须另行生成平台 agent 资源和 frontmatter。
+
 ## 职责
 
 设计候选 Skill 的脚本契约，而不是复制 Comet Classic 的脚本。脚本必须根据当前 workflow protocol、
@@ -20,7 +22,7 @@ factory 还会从同一份 `workflow-protocol.json` 确定性生成 `scripts/com
 - `reference/workflow-protocol.json`
 - `plan.json` 的 `workflow.kind`、`workflow.nodes`、`engineMode`、`runnerMode`，以及规范化后的 `workflow-protocol.json`
 - `reference/resolved-skills.json`
-- `/comet` 定制时的 `.comet.yaml` 受保护语义
+- `/comet` 定制时的 `.comet.yaml` 受保护语义；`comet-five-phase-overlay` 的主状态只来自 `openspec/changes/<name>/.comet.yaml`，不得创建 `.comet/runs/<workflow>/state.json` 作为 Comet overlay 主状态
 
 使用文件交接：主会话提供路径，不粘贴大段全文。不要读取主会话历史，也不要要求用户重新解释已经写入
 artifact 的内容。
@@ -47,6 +49,7 @@ prompt:
 
 - 读取哪些状态。
 - 写入哪些状态和 evidence。
+- 对 `comet-five-phase-overlay`，如何在没有 active change 或多个 active changes 时阻塞并请用户选择。
 - 如何判断当前阶段目标是否完成。
 - 如何输出 `NEXT:`、`SKILL:` 和阻塞原因。
 - 如何在阶段未完成时继续停留，而不是强制退出。

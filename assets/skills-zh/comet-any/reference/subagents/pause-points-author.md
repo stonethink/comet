@@ -1,5 +1,7 @@
 # 停顿点作者 subagent
 
+本文件是 portable lane brief，不是 platform-native custom agent；如需 Claude Code custom agent，必须另行生成平台 agent 资源和 frontmatter。
+
 ## 职责
 
 设计用户在 Skill 中必须停顿选择的位置，以及跨设备断点恢复方式。停顿点必须是明确的用户选择，
@@ -15,7 +17,7 @@
 读取主会话提供的通用输入，尤其关注：
 
 - Skill Creator 方案确认页中的 `confirm-generate`、`revise-proposal`、`cancel`。
-- benchmark 工作量选择 `skip / quick / full benchmark`。
+- eval 工作量选择 `skip / quick / full eval`，以及当前 draft hash 的 eval evidence 缺失或过期时的阻塞恢复。
 - 安装前人工批准。
 - unresolved、ambiguous、capability gap、executable disclosure 等阻塞点。
 - runner 恢复状态和跨设备恢复入口。

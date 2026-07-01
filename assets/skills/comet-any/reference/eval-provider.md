@@ -1,41 +1,37 @@
-# Benchmark Provider Reference
+# Eval Evidence Reference
 
-## Provider priority
+## Eval choices
 
-Prefer native `skill-creator` generation and benchmark capabilities. If the native capability is
-unavailable, ask the user before fallback to the Comet fallback. Never enable fallback by default.
-
-## Benchmark choices
-
-Before any provider action, show:
+Before any verification action, show:
 
 - `quick` estimated runs, covered components, and token workload.
 - `full` estimated runs, covered components, and token workload.
-- the three choices: `skip / quick / full benchmark`.
+- the three choices: `skip / quick / full eval`.
 
-If benchmark is skipped or fails, do not enter ready; do not publish or distribute.
+If eval is skipped, fails, or records stale-hash evidence, do not enter ready; do not publish or distribute.
 
-For ordinary users, the benchmark path remains single-purpose: daily evaluation goes through
-`comet eval`. `/comet-any` may internally call `comet bundle benchmark-plan` and
-`comet bundle benchmark-record` to plan and record evidence, but must not present them as
-replacement user-facing benchmark commands.
+For ordinary users, the verification path remains single-purpose: daily evaluation goes through
+`comet eval`. `/comet-any` may internally record eval evidence, but must not present the internal
+recording step as a replacement user-facing command.
 For ordinary users, prefer the word "verify" when explaining; do not surface `Publish readiness:`
 as a first-class concept.
 
 ## Result recording
 
-The benchmark provider must produce structured JSON, then record it with:
+Eval evidence must produce structured JSON with at least:
 
-```bash
-comet bundle benchmark-record <name> --result <file> --json
-```
+- the current draft hash.
+- covered entry Skill and internal Node Skills.
+- `workflow-protocol.json` hash.
+- quick or full choice, token workload, and result summary.
+- Bundle compile, safety check, and capability evidence.
 
-The result must bind to the current Bundle hash, cover every entry Skill, and include Bundle
-compile and safety evidence. Old-hash evidence may remain on disk but cannot advance state.
+Only current draft hash eval evidence can advance state. Stale eval evidence may remain on disk for
+audit, but cannot make the current draft ready.
 
 ## Human review
 
-Passing benchmark still requires human approval. The review summary must include at least:
+Passing eval still requires human approval. The review summary must include at least:
 
 First run `comet publish review <name> --platform <reference-platform> --json`, then use its
 output to show:
@@ -57,11 +53,11 @@ output to show:
 - Whether `hooks/*.yaml` are treated only as portable hook descriptors until
   `comet publish distribute` compiles them for the target platform.
 - Capability gaps and executable disclosures.
-- benchmark choice, token workload, and result summary.
+- eval choice, token workload, and result summary.
 - `Validate this Skill` and the next action so the user knows why the candidate can become ready
   or is blocked.
 
-Readiness blockers stop publishing. If missing current-hash benchmark evidence, missing human
+Readiness blockers stop publishing. If missing current draft hash eval evidence, missing human
 approval, required capability gaps, or unconfirmed executable disclosures remain, the flow must stop
 in review and cannot continue to publish.
 

@@ -1,5 +1,7 @@
 # reference 作者 subagent
 
+本文件是 portable lane brief，不是 platform-native custom agent；如需 Claude Code custom agent，必须另行生成平台 agent 资源和 frontmatter。
+
 ## 职责
 
 编写和整理候选 Skill 的 reference 层，让审计、恢复、评审和后续维护有真实依据。

@@ -82,6 +82,25 @@ describe('comet-any skill contract', () => {
     }
   });
 
+  it('keeps comet-any guidance on eval evidence, not legacy benchmark commands (en + zh)', async () => {
+    for (const localeRoot of ['assets/skills/comet-any', 'assets/skills-zh/comet-any']) {
+      const docs = await readTree(path.resolve(REPO_ROOT, localeRoot));
+      for (const forbidden of [
+        'skill-creator provider',
+        'benchmark provider',
+        'benchmark-plan',
+        'benchmark-record',
+      ]) {
+        for (const [file, content] of Object.entries(docs)) {
+          expect(
+            content.toLowerCase(),
+            `${localeRoot}/${file} still references ${forbidden}`,
+          ).not.toContain(forbidden);
+        }
+      }
+    }
+  });
+
   it('generator source emits honest review evidence, not a fabricated approval', async () => {
     const packageSource = await readText('domains/factory/package.ts');
     expect(packageSource, 'generator must not fabricate review approval').not.toContain(

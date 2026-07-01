@@ -46,6 +46,15 @@ describe('comet-any Skill workflow contract docs', () => {
       'review',
       'elementui',
       'whitebox-code-standard',
+      'Output Schema 必须挂到具体 Workflow Node 才算生效',
+      'guarded',
+      'handoff-guarded',
+      'evidence-only',
+      'advisory',
+      '不得创建 `.comet/runs/<workflow>/state.json` 作为 Comet overlay 主状态',
+      '当前 draft hash 的 eval evidence',
+      'platform-native custom agent',
+      '`reference/subagents/*.md` 是跨平台 lane brief；Claude Code custom agent 必须单独生成到平台 agent 资源，并带 `name`、`description`、`tools`、`model` frontmatter。',
     ]) {
       expect(combined).toContain(expected);
     }
@@ -71,6 +80,15 @@ describe('comet-any Skill workflow contract docs', () => {
       'review',
       'elementui',
       'whitebox-code-standard',
+      'Output Schema must be attached to a concrete Workflow Node',
+      'guarded',
+      'handoff-guarded',
+      'evidence-only',
+      'advisory',
+      'must not create `.comet/runs/<workflow>/state.json` as the Comet overlay primary state',
+      'current draft hash eval evidence',
+      'platform-native custom agent',
+      '`reference/subagents/*.md` are portable lane briefs; Claude Code custom agents must be generated separately as platform agent resources with `name`, `description`, `tools`, and `model` frontmatter.',
     ]) {
       expect(combined).toContain(expected);
     }

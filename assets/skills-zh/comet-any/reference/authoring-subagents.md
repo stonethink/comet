@@ -6,6 +6,8 @@
 Claude Code、Codex、Gemini、Copilot 等平台的 subagent 调用方式不同，本参考只定义职责、输入和输出；
 具体派发方式使用当前平台提供的原生 subagent 机制。
 
+`reference/subagents/*.md` 是跨平台 lane brief；Claude Code custom agent 必须单独生成到平台 agent 资源，并带 `name`、`description`、`tools`、`model` frontmatter。不要把这些 portable lane brief 直接当作 platform-native custom agent 安装。
+
 先读取本总览，再只把对应角色 brief 交给对应 subagent。不要把六个角色 brief 合并成一个大 prompt；
 主会话负责保留全局上下文、汇总成果、调用 `comet bundle` 和 `comet publish`，subagent 只产出可审查草稿。
 

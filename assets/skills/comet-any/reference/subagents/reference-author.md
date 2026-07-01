@@ -1,5 +1,7 @@
 # Reference Author Subagent
 
+This file is a portable lane brief, not a platform-native custom agent. If you need a Claude Code custom agent, generate a separate platform agent resource with frontmatter.
+
 ## Responsibilities
 
 Write and organize the generated Skill's reference layer so audit, recovery, review, and future maintenance have real evidence. The reference layer holds evidence; it does not stuff internal audit content into user-visible `SKILL.md`.

@@ -1,5 +1,7 @@
 # Skill Review Subagent
 
+This file is a portable lane brief, not a platform-native custom agent. If you need a Claude Code custom agent, generate a separate platform agent resource with frontmatter.
+
 ## Responsibilities
 
 Review the other subagents' artifacts and claims, then decide whether the candidate Skill is usable like Comet. The review must give a clear conclusion: `Review passed` or blocking findings.
@@ -64,7 +66,7 @@ Any of these must produce blocking findings:
 - Nested Skill calls use provider prefixes.
 - User-visible `SKILL.md` leaks generated audit sections, source hashes, or internal metadata.
 - Customizing existing Comet Skills replaces or removes `open / design / build / verify / archive`, `.comet.yaml`, decision point, verify-result-transition, or archive-delta-sync.
-- Arbitrary Skill composition is missing automatic advancement, script guards, user pause points, recovery, or benchmark evidence.
+- Arbitrary Skill composition is missing automatic advancement, script guards, user pause points, recovery, or current draft hash eval evidence.
 
 ## Severity
 

@@ -52,9 +52,9 @@ Field rules:
 - `workflow.nodes`: per-Node patches for the workflow.
 - `implementation`: replace Node implementation. Only allowed on Nodes that support override.
 - `requiredSkillCalls`: Required Skill Calls inside the Node.
-- `augmentations`: helper Skills that do not replace the main implementation.
+- `augmentations`: helper Skills that do not replace the main implementation. Every new binding or schema must declare enforcement: `guarded`, `handoff-guarded`, `evidence-only`, or `advisory`.
 - `satisfies`: Output Schema ids satisfied by a producer override.
-- `outputSchemas`: advanced `workflow-kernel` definitions may add custom Output Schemas.
+- `outputSchemas`: advanced `workflow-kernel` definitions may add custom Output Schemas. Output Schema must be attached to a concrete Workflow Node before it is effective; defining it only in `workflow.outputSchemas` does not trigger guard, eval, or readiness.
 - `customNodes[].responsibility`: every custom Node must declare its Agent workflow responsibility.
 - `customNodes[].requiredSkillCalls`: custom Nodes may directly declare required Skill calls; generated scripts block progress until evidence is recorded.
 
@@ -62,6 +62,8 @@ Field rules:
 
 `comet-five-phase-overlay` includes these Workflow Nodes:
 
+- `comet-five-phase-overlay` primary state comes only from `openspec/changes/<name>/.comet.yaml`; no active change or multiple active changes must block and ask the user to choose.
+- The overlay must not create `.comet/runs/<workflow>/state.json` as the Comet overlay primary state; overlay scripts only read and advance `.comet.yaml`, while other files may be draft, eval, or publish evidence.
 - `open`: control, preserves Comet intake and `.comet.yaml` initialization.
 - `design`: producer, may be overridden only when it satisfies `comet.design.v1`.
 - `plan`: producer, may be overridden only when it satisfies `comet.plan.v1`.
@@ -137,13 +139,15 @@ comet bundle factory-init <name> --file <plan.json> --confirmed-proposal --json
 comet bundle factory-resolve <name> --candidate <query> --source <root-or-hash> --json
 comet bundle factory-generate <name> --json
 comet bundle compile <name> --platform <id> --json
-comet bundle benchmark-plan <name> --level quick --json
-comet bundle benchmark-record <name> --result <file> --json
+comet eval <generated-skill>/comet/eval.yaml --quick --html
+comet eval <generated-skill>/comet/eval.yaml --full --html
 comet publish review <name> --platform <reference-platform> --json
 comet publish approve <name> --reviewer <reviewer> --json
 comet publish run <name> --platform <reference-platform> --json
 comet publish distribute <name> --platform <id> --scope project --preview --json
 ```
+
+`<generated-skill>` is the directory for the compiled Skill. Eval results must be recorded as current draft hash eval evidence; readiness reads only evidence for that hash. Stale eval evidence may remain for audit, but cannot advance ready.
 
 ## Readiness
 
@@ -154,7 +158,8 @@ Readiness must check:
 - `workflow-protocol.json` loads successfully.
 - no ordinary control Node override exists.
 - producer overrides satisfy Output Schemas.
-- benchmark evidence matches the current hash.
+- every new binding or schema has `guarded`, `handoff-guarded`, `evidence-only`, or `advisory` enforcement.
+- current draft hash eval evidence exists and is not stale.
 - human review approved the current hash.
 - capability gaps and executable disclosures have been shown.
 

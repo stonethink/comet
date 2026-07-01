@@ -1,5 +1,7 @@
 # Skill 审查 subagent
 
+本文件是 portable lane brief，不是 platform-native custom agent；如需 Claude Code custom agent，必须另行生成平台 agent 资源和 frontmatter。
+
 ## 职责
 
 审查其他 subagent 的 artifacts 和 claims，判断候选 Skill 是否已经像 Comet 一样可用。
@@ -63,7 +65,7 @@ prompt:
 - 嵌套 Skill 调用使用 provider 前缀。
 - 用户可见 `SKILL.md` 泄漏生成审计章节、source hash 或内部 metadata。
 - `/comet` 定制替换或删除了 `open / design / build / verify / archive`、`.comet.yaml`、decision point、verify-result-transition 或 archive-delta-sync。
-- 任意 Skill 组合缺少自动推进、脚本守卫、用户停顿点、恢复或 benchmark。
+- 任意 Skill 组合缺少自动推进、脚本守卫、用户停顿点、恢复或当前 draft hash 的 eval evidence。
 
 ## 严重级别
 

@@ -1,5 +1,7 @@
 # Workflow Entry Author Subagent
 
+This file is a portable lane brief, not a platform-native custom agent. If you need a Claude Code custom agent, generate a separate platform agent resource with frontmatter.
+
 ## Responsibilities
 
 Write the generated Skill's entry `SKILL.md`. The entry owns the entry point, recovery, main router explanation, and user pause points; it must not turn the Node route table into an execution checklist that immediately triggers multiple Skills.

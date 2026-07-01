@@ -4,6 +4,8 @@
 
 `/comet-any` authoring outputs should be drafted by platform-native subagents, then assembled and recorded by the main session through the backend CLI. Claude Code, Codex, Gemini, Copilot, and other platforms expose subagents differently; this reference defines responsibilities, inputs, and outputs, not a provider-specific dispatch API.
 
+`reference/subagents/*.md` are portable lane briefs; Claude Code custom agents must be generated separately as platform agent resources with `name`, `description`, `tools`, and `model` frontmatter. Do not install these portable lane briefs directly as platform-native custom agent resources.
+
 Read this overview first, then give only the matching role brief to each subagent. Do not merge the six role briefs into one large prompt. The main session keeps global context, aggregates outputs, and calls `comet bundle` and `comet publish`; subagents only produce reviewable drafts.
 
 When the platform supports subagents, dispatch is required. If no platform subagent capability exists, the main session may execute the same briefs inline, but must mark that path as fallback in the user-facing summary and `reference/authoring-lanes.json`.

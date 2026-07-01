@@ -1,5 +1,7 @@
 # Pause Point Author Subagent
 
+This file is a portable lane brief, not a platform-native custom agent. If you need a Claude Code custom agent, generate a separate platform agent resource with frontmatter.
+
 ## Responsibilities
 
 Design the places where the user must pause and choose, plus cross-device recovery. Pause points must be explicit user choices that cannot be bypassed by default recommendations, historical preferences, or automatic advancement.
@@ -14,7 +16,7 @@ Must cover:
 Read the common input from the main session, especially:
 
 - `confirm-generate`, `revise-proposal`, and `cancel` from the Skill Creator confirmation page.
-- Benchmark workload choice: `skip / quick / full benchmark`.
+- Eval workload choice: `skip / quick / full eval`.
 - Human approval before installation.
 - Blockers such as unresolved candidates, ambiguity, capability gaps, and executable disclosures.
 - Runner recovery state and cross-device recovery entry.
