@@ -20,7 +20,6 @@ COMET_GUARD="$COMET_SCRIPTS_DIR/comet-guard.mjs"
 COMET_HANDOFF="$COMET_SCRIPTS_DIR/comet-handoff.mjs"
 COMET_ARCHIVE="$COMET_SCRIPTS_DIR/comet-archive.mjs"
 COMET_INTENT="$COMET_SCRIPTS_DIR/comet-intent.mjs"
-COMET_RUNTIME="$COMET_SCRIPTS_DIR/comet-runtime.mjs"
 
 # 脚本定位失败时停止流程
 if [ -z "$COMET_SCRIPTS_DIR" ]; then

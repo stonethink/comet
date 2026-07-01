@@ -20,7 +20,6 @@ COMET_GUARD="$COMET_SCRIPTS_DIR/comet-guard.mjs"
 COMET_HANDOFF="$COMET_SCRIPTS_DIR/comet-handoff.mjs"
 COMET_ARCHIVE="$COMET_SCRIPTS_DIR/comet-archive.mjs"
 COMET_INTENT="$COMET_SCRIPTS_DIR/comet-intent.mjs"
-COMET_RUNTIME="$COMET_SCRIPTS_DIR/comet-runtime.mjs"
 
 # Stop workflow when script location fails
 if [ -z "$COMET_SCRIPTS_DIR" ]; then

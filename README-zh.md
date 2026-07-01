@@ -403,7 +403,7 @@ MimoCode 基于 OpenCode，从各自目录读取 skills；安装时会将 OpenSp
 
 | 脚本                      | 用途                                                                    |
 | ------------------------- | ----------------------------------------------------------------------- |
-| `comet-env.mjs`           | 脚本发现助手 — 打印内置脚本所在目录，供 skill 解析同级启动器路径        |
+| `comet-env.mjs`           | 脚本发现助手 — 打印内置脚本所在目录，供 skill 解析同级命令脚本路径      |
 | `comet-guard.mjs`         | 阶段转换守护 — 验证退出条件，`--apply` 自动更新 `.comet.yaml`           |
 | `comet-handoff.mjs`       | 设计交接 — 从 OpenSpec 制品生成带 SHA256 追踪的确定性上下文包           |
 | `comet-archive.mjs`       | 一键归档 — 验证状态、同步 specs、移至归档、更新状态                     |
@@ -411,8 +411,8 @@ MimoCode 基于 OpenCode，从各自目录读取 skills；安装时会将 OpenSp
 | `comet-state.mjs`         | 统一状态管理 — init/set/get/check/scale，agent 的专属 YAML 接口         |
 | `comet-hook-guard.mjs`    | 阶段写入守护 — PreToolUse hook，在 open/design/archive 阶段拦截文件写入 |
 
-所有脚本都是基于内置 `comet-runtime.mjs`（由 TypeScript 生成）的 Node.js 薄封装，通过 `node` 在所有平台运行，
-因此 Comet 只依赖 Node.js，无需 Bash、Git Bash 或 WSL。
+Classic 自动化以 TypeScript 生成的独立 Node.js 命令脚本分发，通过 `node` 在所有平台运行，因此 Comet 只依赖
+Node.js，无需 Bash、Git Bash 或 WSL。
 
 </details>
 

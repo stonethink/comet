@@ -11,9 +11,9 @@ README 面向最终用户，只强调 Node-only runtime、resumable workflow、S
 ```text
 0.3.x                              0.4.0
 ┌──────────────────────┐           ┌──────────────────────────────┐
-│  Bash 脚本编排层      │           │  Node 单进程运行时            │
-│  (.sh × 7)           │           │  (.mjs launcher × 7          │
-│                      │           │   + comet-runtime.mjs)       │
+│  Bash 脚本编排层      │           │  Node 命令脚本运行时          │
+│  (.sh × 7)           │           │  (.mjs command × 7           │
+│                      │           │   + 共享 TypeScript 源码)     │
 │  依赖 Bash/Git Bash  │    ──►    │  只依赖 Node.js              │
 │                      │           │                              │
 │  文档 + 脚本          │           │  Skill 引擎（包/校验/快照/    │
@@ -23,25 +23,24 @@ README 面向最终用户，只强调 Node-only runtime、resumable workflow、S
 └──────────────────────┘           └──────────────────────────────┘
 ```
 
-## 一、运行时架构：从 Bash 脚本到 Node 单进程
+## 一、运行时架构：从 Bash 脚本到 Node 命令脚本
 
 ### 变化
 
-0.3.x 的 7 个 `.sh` bash 脚本（`comet-state.sh`、`comet-guard.sh` 等）全部替换为薄 `.mjs` Node 启动器，共用一个 TypeScript 编译出的 `comet-runtime.mjs`，单进程分发。
+0.3.x 的 7 个 `.sh` bash 脚本（`comet-state.sh`、`comet-guard.sh` 等）全部替换为独立 `.mjs` Node 命令脚本。脚本由 `domains/comet-classic/` 的 TypeScript 源码生成，运行时不再依赖一个集中式 `comet-runtime.mjs` 分发器。
 
 ```text
 0.3.x                                0.4.0
-comet-state.sh  ─┐                   comet-state.mjs  ─┐
-comet-guard.sh  ─┤                   comet-guard.mjs  ─┤
-comet-handoff.sh─┤   各自含          comet-handoff.mjs─┤  薄封装
-comet-archive.sh─┤   YAML 解析 +     comet-archive.mjs─┤  import
-comet-yaml-*.sh ─┤   状态规则        comet-yaml-*.mjs ─┤  comet-runtime.mjs
-comet-hook-*.sh ─┤                   comet-hook-*.mjs ─┤
-comet-env.sh    ─┘                   comet-env.mjs    ─┘
-                                       │
-                                       ▼
-                                 comet-runtime.mjs
-                                 (统一 TS 运行时)
+comet-state.sh  ─┐                   comet-state.mjs
+comet-guard.sh  ─┤                   comet-guard.mjs
+comet-handoff.sh─┤   各自含          comet-handoff.mjs
+comet-archive.sh─┤   YAML 解析 +     comet-archive.mjs
+comet-yaml-*.sh ─┤   状态规则        comet-yaml-*.mjs
+comet-hook-*.sh ─┤                   comet-hook-*.mjs
+comet-env.sh    ─┘                   comet-env.mjs
+                                      ↑
+                         domains/comet-classic/*
+                         (共享 TypeScript 源码)
 ```
 
 ### 用户感知

@@ -6,7 +6,11 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
 import { readRunState } from '../../../domains/engine/state.js';
 
-const runtime = path.resolve('assets', 'skills', 'comet', 'scripts', 'comet-runtime.mjs');
+const scriptsDir = path.resolve('assets', 'skills', 'comet', 'scripts');
+const scriptByCommand: Record<string, string> = {
+  guard: path.join(scriptsDir, 'comet-guard.mjs'),
+  state: path.join(scriptsDir, 'comet-state.mjs'),
+};
 const temporary: string[] = [];
 
 afterEach(async () => {
@@ -18,7 +22,11 @@ afterEach(async () => {
 });
 
 function run(cwd: string, ...args: string[]) {
-  return spawnSync(process.execPath, [runtime, ...args], { cwd, encoding: 'utf8' });
+  const [command, ...rest] = args;
+  return spawnSync(process.execPath, [scriptByCommand[command], ...rest], {
+    cwd,
+    encoding: 'utf8',
+  });
 }
 
 async function makeProject(): Promise<string> {

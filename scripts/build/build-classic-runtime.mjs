@@ -7,12 +7,23 @@ import { readRepositoryLayout, resolveRepositoryPath } from '../lib/repository-l
 
 const layout = readRepositoryLayout();
 const repoRoot = resolveRepositoryPath('.');
-const outputFile = resolveRepositoryPath(layout.classicRuntime.output);
+const runtimeScripts = Object.entries(layout.classicRuntime.outputs).map(([name, output]) => {
+  const entry = layout.classicRuntime.entries[name];
+  if (!entry) {
+    throw new Error(`Classic runtime script "${name}" is missing an entry`);
+  }
+  return {
+    name,
+    entry,
+    output,
+    outputFile: resolveRepositoryPath(output),
+  };
+});
 
-async function bundledRuntime() {
+async function bundledRuntime(script) {
   const result = await build({
     absWorkingDir: repoRoot,
-    entryPoints: [layout.classicRuntime.entry],
+    entryPoints: [script.entry],
     bundle: true,
     write: false,
     platform: 'node',
@@ -33,18 +44,20 @@ async function bundledRuntime() {
   });
 
   if (result.outputFiles.length !== 1) {
-    throw new Error(`Expected one Classic runtime output, got ${result.outputFiles.length}`);
+    throw new Error(
+      `Expected one Classic runtime output for ${script.name}, got ${result.outputFiles.length}`,
+    );
   }
   return result.outputFiles[0].contents;
 }
 
-async function checkFreshness(expected) {
+async function checkFreshness(script, expected) {
   let actual;
   try {
-    actual = await fs.readFile(outputFile);
+    actual = await fs.readFile(script.outputFile);
   } catch (error) {
     if (error.code === 'ENOENT') {
-      console.error(`Classic runtime is missing: ${layout.classicRuntime.output}`);
+      console.error(`Classic runtime script is missing: ${script.output}`);
       process.exitCode = 1;
       return;
     }
@@ -52,15 +65,27 @@ async function checkFreshness(expected) {
   }
 
   if (!actual.equals(expected)) {
-    console.error(`Classic runtime is stale: run node scripts/build/build-classic-runtime.mjs`);
+    console.error(
+      `Classic runtime script is stale: ${script.output}; run node scripts/build/build-classic-runtime.mjs`,
+    );
     process.exitCode = 1;
   }
 }
 
-const output = Buffer.from(await bundledRuntime());
+const outputs = await Promise.all(
+  runtimeScripts.map(async (script) => ({
+    script,
+    output: Buffer.from(await bundledRuntime(script)),
+  })),
+);
+
 if (process.argv.includes('--check')) {
-  await checkFreshness(output);
+  for (const { script, output } of outputs) {
+    await checkFreshness(script, output);
+  }
 } else {
-  await fs.mkdir(path.dirname(outputFile), { recursive: true });
-  await fs.writeFile(outputFile, output);
+  for (const { script, output } of outputs) {
+    await fs.mkdir(path.dirname(script.outputFile), { recursive: true });
+    await fs.writeFile(script.outputFile, output);
+  }
 }

@@ -21,7 +21,6 @@ describe('Skill Engine schema compatibility', () => {
       'comet-handoff.mjs',
       'comet-archive.mjs',
       'comet-env.mjs',
-      'comet-runtime.mjs',
     ]) {
       await fs.copyFile(path.join(sourceScripts, name), path.join(root, 'assets', name));
     }

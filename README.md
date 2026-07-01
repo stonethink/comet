@@ -421,7 +421,7 @@ After `comet init`, three groups of skills are installed to the selected platfor
 
 | Script                    | Purpose                                                                                                     |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `comet-env.mjs`           | Script discovery helper — prints the bundled scripts directory so skills can resolve sibling launcher paths |
+| `comet-env.mjs`           | Script discovery helper — prints the bundled scripts directory so skills can resolve sibling command paths |
 | `comet-guard.mjs`         | Phase transition guard — validates exit conditions, `--apply` auto-updates `.comet.yaml`                    |
 | `comet-handoff.mjs`       | Design handoff — generates deterministic context packages from OpenSpec artifacts with SHA256 tracing       |
 | `comet-archive.mjs`       | One-command archive — validates state, syncs specs, moves to archive, updates status                        |
@@ -429,8 +429,8 @@ After `comet init`, three groups of skills are installed to the selected platfor
 | `comet-hook-guard.mjs`    | Phase write guard — PreToolUse hook, blocks file writes during open/design/archive phases                   |
 | `comet-state.mjs`         | Unified state management — init/set/get/check/scale, agents' exclusive YAML interface                       |
 
-All scripts are thin Node.js facades over the bundled `comet-runtime.mjs` (generated from TypeScript). They run
-through `node` on every platform, so Comet requires only Node.js — no Bash, Git Bash, or WSL.
+Classic automation ships as independent Node.js command scripts generated from TypeScript. They run through `node`
+on every platform, so Comet requires only Node.js — no Bash, Git Bash, or WSL.
 
 </details>
 

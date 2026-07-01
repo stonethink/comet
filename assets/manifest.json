@@ -30,7 +30,6 @@
     "comet/scripts/comet-archive.mjs",
     "comet/scripts/comet-yaml-validate.mjs",
     "comet/scripts/comet-hook-guard.mjs",
-    "comet/scripts/comet-runtime.mjs",
     "comet/scripts/comet-intent.mjs",
     "comet-open/SKILL.md",
     "comet-design/SKILL.md",
@@ -60,4 +59,3 @@
     { "id": "zh", "name": "中文", "skillsDir": "skills-zh" }
   ]
 }
-

@@ -134,11 +134,15 @@ for (const scriptModule of directoryNames('scripts')) {
   }
 }
 
-if (!isFile(layout.classicRuntime.entry)) {
-  fail(`classic runtime entry "${layout.classicRuntime.entry}" is missing`);
+for (const [name, entry] of Object.entries(layout.classicRuntime.entries ?? {})) {
+  if (!isFile(entry)) {
+    fail(`classic runtime entry "${name}" -> "${entry}" is missing`);
+  }
 }
-if (!isFile(layout.classicRuntime.output)) {
-  fail(`classic runtime output "${layout.classicRuntime.output}" is missing`);
+for (const [name, output] of Object.entries(layout.classicRuntime.outputs ?? {})) {
+  if (!isFile(output)) {
+    fail(`classic runtime output "${name}" -> "${output}" is missing`);
+  }
 }
 if (!isFile(layout.manifestPath)) {
   fail(`asset manifest "${layout.manifestPath}" is missing`);

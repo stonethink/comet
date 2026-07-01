@@ -135,7 +135,7 @@ async function createFakeOpenSpecArchive(
 }
 
 describe('comet script contracts', () => {
-  it('keeps all Classic launchers as runtime-only Node facades', async () => {
+  it('keeps all Classic command scripts independent from the removed runtime dispatcher', async () => {
     const sources: Record<string, string> = {
       state: await fs.readFile(path.join(scriptsDir, 'comet-state.mjs'), 'utf-8'),
       validate: await fs.readFile(path.join(scriptsDir, 'comet-yaml-validate.mjs'), 'utf-8'),
@@ -146,11 +146,14 @@ describe('comet script contracts', () => {
       intent: await fs.readFile(path.join(scriptsDir, 'comet-intent.mjs'), 'utf-8'),
     };
 
-    for (const [command, source] of Object.entries(sources)) {
-      expect(source).toContain("import { main } from './comet-runtime.mjs'");
-      expect(source).toContain(`main(['${command}', `);
-      // Launchers must stay thin: no shell tooling, no direct subprocess spawning.
-      expect(source).not.toMatch(/\b(?:grep|awk|sed|spawnSync|child_process|execFile)\b/u);
+    await expect(fs.access(path.join(scriptsDir, 'comet-runtime.mjs'))).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
+    for (const source of Object.values(sources)) {
+      expect(source).toContain('#!/usr/bin/env node');
+      expect(source).not.toContain('./comet-runtime.mjs');
+      // Generated scripts must stay Node-only: no shell utility rewrites.
+      expect(source).not.toMatch(/\b(?:grep|awk|sed)\b/u);
     }
   });
 
@@ -192,7 +195,6 @@ describe('comet scripts', () => {
       'comet-intent.mjs',
       'comet-yaml-validate.mjs',
       'comet-hook-guard.mjs',
-      'comet-runtime.mjs',
     ]) {
       const content = await fs.readFile(path.join(scriptsDir, name), 'utf-8');
       const destination = path.join(tmpScriptsDir, name);
@@ -683,9 +685,9 @@ describe('comet scripts', () => {
     expect(result.status).toBe(0);
     const printedDir = result.stdout.trim();
     // comet-env.mjs prints its own directory — the scripts dir holding every
-    // sibling launcher plus the bundled runtime.
+    // standalone command script.
     expect(printedDir.endsWith('scripts')).toBe(true);
-    for (const sibling of ['comet-state.mjs', 'comet-runtime.mjs', 'comet-hook-guard.mjs']) {
+    for (const sibling of ['comet-state.mjs', 'comet-guard.mjs', 'comet-hook-guard.mjs']) {
       await expect(fs.access(`${printedDir}/${sibling}`)).resolves.toBeUndefined();
     }
   }, 20_000);
@@ -4779,4 +4781,3 @@ describe('comet scripts', () => {
     }, 20_000);
   });
 });
-

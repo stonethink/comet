@@ -6,8 +6,24 @@
     "zh": "assets/skills-zh"
   },
   "classicRuntime": {
-    "entry": "domains/comet-classic/classic-cli.ts",
-    "output": "assets/skills/comet/scripts/comet-runtime.mjs"
+    "entries": {
+      "state": "domains/comet-classic/classic-state-entry.ts",
+      "validate": "domains/comet-classic/classic-validate-entry.ts",
+      "guard": "domains/comet-classic/classic-guard-entry.ts",
+      "handoff": "domains/comet-classic/classic-handoff-entry.ts",
+      "archive": "domains/comet-classic/classic-archive-entry.ts",
+      "hookGuard": "domains/comet-classic/classic-hook-guard-entry.ts",
+      "intent": "domains/comet-classic/classic-intent-entry.ts"
+    },
+    "outputs": {
+      "state": "assets/skills/comet/scripts/comet-state.mjs",
+      "validate": "assets/skills/comet/scripts/comet-yaml-validate.mjs",
+      "guard": "assets/skills/comet/scripts/comet-guard.mjs",
+      "handoff": "assets/skills/comet/scripts/comet-handoff.mjs",
+      "archive": "assets/skills/comet/scripts/comet-archive.mjs",
+      "hookGuard": "assets/skills/comet/scripts/comet-hook-guard.mjs",
+      "intent": "assets/skills/comet/scripts/comet-intent.mjs"
+    }
   },
   "allowedTopLevelEntries": [
     ".agents",

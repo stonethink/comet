@@ -54,7 +54,7 @@ function commandError(command: string | undefined): ClassicCommandResult {
   if (!command) {
     return {
       exitCode: 64,
-      stderr: `Usage: comet-runtime <${CLASSIC_COMMANDS.join('|')}> [args]`,
+      stderr: `Usage: comet-classic <${CLASSIC_COMMANDS.join('|')}> [args]`,
     };
   }
   return {

@@ -4,9 +4,8 @@
 // Usage:
 //   COMET_SCRIPTS_DIR="$(node /path/to/comet-env.mjs)"
 //
-// The skill boilerplate runs this once to resolve the sibling launcher paths
-// (comet-state.mjs, comet-guard.mjs, …) without depending on bash. Each
-// launcher then resolves its sibling comet-runtime.mjs the same way.
+// The skill boilerplate runs this once to resolve the sibling command scripts
+// (comet-state.mjs, comet-guard.mjs, ...) without depending on bash.
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 

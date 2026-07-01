@@ -148,7 +148,6 @@ COMET_STATE="$COMET_SCRIPTS_DIR/comet-state.mjs"
 COMET_GUARD="$COMET_SCRIPTS_DIR/comet-guard.mjs"
 COMET_HANDOFF="$COMET_SCRIPTS_DIR/comet-handoff.mjs"
 COMET_ARCHIVE="$COMET_SCRIPTS_DIR/comet-archive.mjs"
-COMET_RUNTIME="$COMET_SCRIPTS_DIR/comet-runtime.mjs"
 
 if [ -z "$COMET_SCRIPTS_DIR" ]; then
   echo "ERROR: Comet scripts not found. Ensure the comet skill is installed." >&2

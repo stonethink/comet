@@ -5,10 +5,10 @@ import os from 'os';
 import path from 'path';
 import { statusCommand } from '../../app/commands/status.js';
 
-const runtime = path.resolve('assets', 'skills', 'comet', 'scripts', 'comet-runtime.mjs');
+const stateScript = path.resolve('assets', 'skills', 'comet', 'scripts', 'comet-state.mjs');
 
 function state(cwd: string, ...args: string[]) {
-  return spawnSync(process.execPath, [runtime, 'state', ...args], {
+  return spawnSync(process.execPath, [stateScript, ...args], {
     cwd,
     encoding: 'utf8',
     env: { ...process.env, COMET_FORCE_PHASE: '1' },

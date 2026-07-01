@@ -5,7 +5,7 @@ import os from 'os';
 import path from 'path';
 import { doctorCommand } from '../../app/commands/doctor.js';
 
-const runtime = path.resolve('assets', 'skills', 'comet', 'scripts', 'comet-runtime.mjs');
+const stateScript = path.resolve('assets', 'skills', 'comet', 'scripts', 'comet-state.mjs');
 
 function state(cwd: string, ...args: string[]) {
   const env: NodeJS.ProcessEnv = { ...process.env };
@@ -14,7 +14,7 @@ function state(cwd: string, ...args: string[]) {
     // documented way for tooling/tests to seed a change into a specific phase.
     env.COMET_FORCE_PHASE = '1';
   }
-  return spawnSync(process.execPath, [runtime, 'state', ...args], {
+  return spawnSync(process.execPath, [stateScript, ...args], {
     cwd,
     encoding: 'utf8',
     env,

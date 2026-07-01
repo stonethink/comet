@@ -8,7 +8,7 @@ import { parse } from 'yaml';
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const REPO_ROOT = path.resolve(path.dirname(SCRIPT_PATH), '..', '..');
-const RUNTIME = path.join(REPO_ROOT, 'assets', 'skills', 'comet', 'scripts', 'comet-runtime.mjs');
+const SCRIPTS_DIR = path.join(REPO_ROOT, 'assets', 'skills', 'comet', 'scripts');
 const CLASSIC_RUNTIME_ROOT = path.join(
   REPO_ROOT,
   'assets',
@@ -17,9 +17,20 @@ const CLASSIC_RUNTIME_ROOT = path.join(
   'runtime',
   'classic',
 );
+const SCRIPT_BY_COMMAND = {
+  archive: 'comet-archive.mjs',
+  guard: 'comet-guard.mjs',
+  handoff: 'comet-handoff.mjs',
+  'hook-guard': 'comet-hook-guard.mjs',
+  state: 'comet-state.mjs',
+  validate: 'comet-yaml-validate.mjs',
+};
 
 function run(cwd, args, options = {}) {
-  return spawnSync(process.execPath, [RUNTIME, ...args], {
+  const [command, ...rest] = args;
+  const script = SCRIPT_BY_COMMAND[command];
+  if (!script) throw new Error(`Unknown Classic benchmark command: ${command}`);
+  return spawnSync(process.execPath, [path.join(SCRIPTS_DIR, script), ...rest], {
     cwd,
     encoding: 'utf8',
     input: options.input,

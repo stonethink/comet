@@ -13,7 +13,7 @@ function usage(): ClassicCommandResult {
   return result(
     64,
     undefined,
-    'Usage: comet-runtime intent route <frame-json>\nUsage: comet-runtime intent route --stdin',
+    'Usage: comet-intent.mjs route <frame-json>\nUsage: comet-intent.mjs route --stdin',
   );
 }
 

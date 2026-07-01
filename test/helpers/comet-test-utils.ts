@@ -146,7 +146,6 @@ export async function setupScripts(tmpDir: string) {
     'comet-state.mjs',
     'comet-yaml-validate.mjs',
     'comet-hook-guard.mjs',
-    'comet-runtime.mjs',
   ]) {
     const content = await fs.readFile(path.join(scriptsDir, name), 'utf-8');
     const destination = path.join(tmpScriptsDir, name);

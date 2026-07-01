@@ -5,7 +5,7 @@
 COMET_FULL:
   description: "Full comet skill (workflow 0.4.0-beta.1) with all sub-skills and brainstorming"
   skills:
-    # Main dispatcher (carries scripts/ with the .mjs launchers, runtime bundle, and runtime/classic control package)
+    # Main dispatcher (carries scripts/ with independent .mjs command bundles and runtime/classic control package)
     - name: comet
       skill: comet
       variant: all

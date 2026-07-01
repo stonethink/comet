@@ -6,7 +6,10 @@ import { PassThrough } from 'stream';
 import { spawnSync } from 'child_process';
 import { readRunState } from '../../../domains/engine/state.js';
 
-const runtime = path.resolve('assets', 'skills', 'comet', 'scripts', 'comet-runtime.mjs');
+const scriptsDir = path.resolve('assets', 'skills', 'comet', 'scripts');
+const stateScript = path.join(scriptsDir, 'comet-state.mjs');
+const validateScript = path.join(scriptsDir, 'comet-yaml-validate.mjs');
+const hookGuardScript = path.join(scriptsDir, 'comet-hook-guard.mjs');
 const buildScript = path.resolve('scripts', 'build', 'build-classic-runtime.mjs');
 const temporaryDirectories: string[] = [];
 
@@ -168,27 +171,26 @@ describe('Classic runtime CLI adapter', () => {
     });
   });
 });
-describe('Classic runtime bundle', () => {
+describe('Classic script bundles', () => {
   it('runs without dist or node_modules and exposes JSON diagnostics', async () => {
-    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'comet-runtime-'));
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'comet-script-'));
     temporaryDirectories.push(directory);
-    const isolatedRuntime = path.join(directory, 'comet-runtime.mjs');
-    await fs.copyFile(runtime, isolatedRuntime);
+    const isolatedStateScript = path.join(directory, 'comet-state.mjs');
+    await fs.copyFile(stateScript, isolatedStateScript);
 
-    const result = spawnSync(process.execPath, [isolatedRuntime, 'unknown', '--json'], {
+    const result = spawnSync(process.execPath, [isolatedStateScript, 'get', 'missing', 'phase', '--json'], {
       cwd: directory,
       encoding: 'utf8',
     });
 
-    expect(result.status).toBe(64);
+    expect(result.status).not.toBe(0);
     expect(result.stderr).toBe('');
     expect(JSON.parse(result.stdout)).toMatchObject({
-      command: 'unknown',
-      exitCode: 64,
+      exitCode: result.status,
     });
   });
 
-  it('is fresh and listed in the shipped manifest', async () => {
+  it('is fresh and lists independent scripts in the shipped manifest', async () => {
     const check = spawnSync(process.execPath, [buildScript, '--check'], {
       cwd: path.resolve('.'),
       encoding: 'utf8',
@@ -200,15 +202,17 @@ describe('Classic runtime bundle', () => {
     };
 
     expect(check.status, check.stderr || check.stdout).toBe(0);
-    expect(manifest.skills).toContain('comet/scripts/comet-runtime.mjs');
+    expect(manifest.skills).not.toContain('comet/scripts/comet-runtime.mjs');
+    expect(manifest.skills).toContain('comet/scripts/comet-state.mjs');
+    expect(manifest.skills).toContain('comet/scripts/comet-guard.mjs');
     expect(manifest.skills).toContain('comet/scripts/comet-intent.mjs');
   });
 
   it('executes state and validation commands from a standalone project', async () => {
-    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'comet-runtime-state-'));
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'comet-script-state-'));
     temporaryDirectories.push(directory);
 
-    const init = spawnSync(process.execPath, [runtime, 'state', 'init', 'demo', 'full'], {
+    const init = spawnSync(process.execPath, [stateScript, 'init', 'demo', 'full'], {
       cwd: directory,
       encoding: 'utf8',
     });
@@ -216,25 +220,25 @@ describe('Classic runtime bundle', () => {
     await fs.writeFile(path.join(demoDir, 'proposal.md'), 'proposal\n');
     await fs.writeFile(path.join(demoDir, 'design.md'), 'design\n');
     await fs.writeFile(path.join(demoDir, 'tasks.md'), '- [x] seed\n');
-    const get = spawnSync(process.execPath, [runtime, 'state', 'get', 'demo', 'phase'], {
+    const get = spawnSync(process.execPath, [stateScript, 'get', 'demo', 'phase'], {
       cwd: directory,
       encoding: 'utf8',
     });
     const set = spawnSync(
       process.execPath,
-      [runtime, 'state', 'set', 'demo', 'build_mode', 'executing-plans'],
+      [stateScript, 'set', 'demo', 'build_mode', 'executing-plans'],
       { cwd: directory, encoding: 'utf8' },
     );
     const transition = spawnSync(
       process.execPath,
-      [runtime, 'state', 'transition', 'demo', 'open-complete'],
+      [stateScript, 'transition', 'demo', 'open-complete'],
       { cwd: directory, encoding: 'utf8' },
     );
-    const next = spawnSync(process.execPath, [runtime, 'state', 'next', 'demo'], {
+    const next = spawnSync(process.execPath, [stateScript, 'next', 'demo'], {
       cwd: directory,
       encoding: 'utf8',
     });
-    const validate = spawnSync(process.execPath, [runtime, 'validate', 'demo'], {
+    const validate = spawnSync(process.execPath, [validateScript, 'demo'], {
       cwd: directory,
       encoding: 'utf8',
     });
@@ -259,7 +263,7 @@ describe('Classic runtime bundle', () => {
   });
 
   it('keeps task-checkoff validation in the TypeScript state command', async () => {
-    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'comet-runtime-task-'));
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'comet-script-task-'));
     temporaryDirectories.push(directory);
     await fs.mkdir(path.join(directory, 'docs'), { recursive: true });
     await fs.writeFile(
@@ -269,12 +273,12 @@ describe('Classic runtime bundle', () => {
 
     const pass = spawnSync(
       process.execPath,
-      [runtime, 'state', 'task-checkoff', 'docs/plan.md', 'Implement runtime facade'],
+      [stateScript, 'task-checkoff', 'docs/plan.md', 'Implement runtime facade'],
       { cwd: directory, encoding: 'utf8' },
     );
     const fail = spawnSync(
       process.execPath,
-      [runtime, 'state', 'task-checkoff', 'docs/plan.md', 'Continue migration'],
+      [stateScript, 'task-checkoff', 'docs/plan.md', 'Continue migration'],
       { cwd: directory, encoding: 'utf8' },
     );
 
@@ -285,16 +289,16 @@ describe('Classic runtime bundle', () => {
   });
 
   it('rejects direct writes to machine-owned Run fields', async () => {
-    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'comet-runtime-owned-'));
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'comet-script-owned-'));
     temporaryDirectories.push(directory);
-    spawnSync(process.execPath, [runtime, 'state', 'init', 'demo', 'full'], {
+    spawnSync(process.execPath, [stateScript, 'init', 'demo', 'full'], {
       cwd: directory,
       encoding: 'utf8',
     });
 
     const result = spawnSync(
       process.execPath,
-      [runtime, 'state', 'set', 'demo', 'current_step', 'completed'],
+      [stateScript, 'set', 'demo', 'current_step', 'completed'],
       { cwd: directory, encoding: 'utf8' },
     );
 
@@ -303,13 +307,13 @@ describe('Classic runtime bundle', () => {
   });
 
   it('re-resolves the Run step when migrated Classic configuration changes', async () => {
-    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'comet-runtime-sync-'));
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'comet-script-sync-'));
     temporaryDirectories.push(directory);
-    spawnSync(process.execPath, [runtime, 'state', 'init', 'demo', 'full'], {
+    spawnSync(process.execPath, [stateScript, 'init', 'demo', 'full'], {
       cwd: directory,
       encoding: 'utf8',
     });
-    spawnSync(process.execPath, [runtime, 'state', 'set', 'demo', 'phase', 'build'], {
+    spawnSync(process.execPath, [stateScript, 'set', 'demo', 'phase', 'build'], {
       cwd: directory,
       encoding: 'utf8',
       env: { ...process.env, COMET_FORCE_PHASE: '1' },
@@ -318,11 +322,11 @@ describe('Classic runtime bundle', () => {
     // the hook guard treats it as an illegal phase jump.
     await fs.mkdir(path.join(directory, 'docs'), { recursive: true });
     await fs.writeFile(path.join(directory, 'docs', 'design.md'), 'design\n');
-    spawnSync(process.execPath, [runtime, 'state', 'set', 'demo', 'design_doc', 'docs/design.md'], {
+    spawnSync(process.execPath, [stateScript, 'set', 'demo', 'design_doc', 'docs/design.md'], {
       cwd: directory,
       encoding: 'utf8',
     });
-    const hook = spawnSync(process.execPath, [runtime, 'hook-guard'], {
+    const hook = spawnSync(process.execPath, [hookGuardScript], {
       cwd: directory,
       encoding: 'utf8',
       input: JSON.stringify({
@@ -336,7 +340,7 @@ describe('Classic runtime bundle', () => {
 
     const set = spawnSync(
       process.execPath,
-      [runtime, 'state', 'set', 'demo', 'plan', 'docs/plan.md'],
+      [stateScript, 'set', 'demo', 'plan', 'docs/plan.md'],
       { cwd: directory, encoding: 'utf8' },
     );
     const changeDir = path.join(directory, 'openspec', 'changes', 'demo');

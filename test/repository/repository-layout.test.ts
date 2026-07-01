@@ -7,14 +7,22 @@ import {
 } from '../../platform/paths/repository-layout.js';
 
 describe('repository layout registry', () => {
-  it('resolves the manifest and classic runtime output paths', () => {
+  it('resolves the manifest and classic script output paths', () => {
     const layout = readRepositoryLayout();
 
     expect(layout.assetsRoot).toBe('assets');
     expect(layout.manifestPath).toBe('assets/manifest.json');
-    expect(layout.classicRuntime.output).toBe('assets/skills/comet/scripts/comet-runtime.mjs');
-    expect(resolveRepositoryPath(layout.classicRuntime.output)).toBe(
-      path.resolve('assets', 'skills', 'comet', 'scripts', 'comet-runtime.mjs'),
+    expect(layout.classicRuntime.outputs).toMatchObject({
+      state: 'assets/skills/comet/scripts/comet-state.mjs',
+      guard: 'assets/skills/comet/scripts/comet-guard.mjs',
+      archive: 'assets/skills/comet/scripts/comet-archive.mjs',
+      intent: 'assets/skills/comet/scripts/comet-intent.mjs',
+    });
+    expect(Object.values(layout.classicRuntime.outputs)).not.toContain(
+      'assets/skills/comet/scripts/comet-runtime.mjs',
+    );
+    expect(resolveRepositoryPath(layout.classicRuntime.outputs.state)).toBe(
+      path.resolve('assets', 'skills', 'comet', 'scripts', 'comet-state.mjs'),
     );
   });
 

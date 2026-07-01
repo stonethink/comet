@@ -9,8 +9,8 @@ export interface RepositoryLayout {
     zh: string;
   };
   classicRuntime: {
-    entry: string;
-    output: string;
+    entries: Record<string, string>;
+    outputs: Record<string, string>;
   };
   allowedTopLevelEntries: string[];
   sourceRoots: string[];
