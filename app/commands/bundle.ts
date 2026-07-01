@@ -92,7 +92,7 @@ function formatStateEval(
     | undefined,
 ): string {
   if (!evalState)
-    return 'Eval: missing; run comet eval <generated-skill>/comet/eval.yaml --quick --html, then comet bundle benchmark-record';
+    return 'Eval: missing; run comet eval <generated-skill>/comet/eval.yaml --quick --html';
   return `Eval: ${evalState.passed ? 'passed' : 'failed'} (${evalState.level}) @ ${evalState.hash}`;
 }
 
@@ -109,6 +109,10 @@ function formatStatusText(
   state: Awaited<ReturnType<typeof reconcileBundleAuthoringState>>,
   resumeSummary: ReturnType<typeof buildBundleResumeSummary>,
 ): string {
+  const backendCommandLines =
+    resumeSummary.recommendedNextStep.category === 'eval'
+      ? []
+      : [`Backend command: ${resumeSummary.recommendedNextStep.backendCommand}`];
   const userText = buildSkillCreatorResumeText({
     title: 'Found an unfinished Skill creation',
     completed: resumeSummary.completed,
@@ -136,7 +140,7 @@ function formatStatusText(
     `User next step: ${resumeSummary.recommendedNextStep.userLabel}`,
     `Reason: ${resumeSummary.recommendedNextStep.reason}`,
     `Suggested user command: ${resumeSummary.recommendedNextStep.userCommand}`,
-    `Backend command: ${resumeSummary.recommendedNextStep.backendCommand}`,
+    ...backendCommandLines,
     ...formatOptionalSection('Already done:', resumeSummary.completed),
     ...formatOptionalSection('Still missing:', resumeSummary.missing),
     ...(resumeSummary.preferenceDrift.changed

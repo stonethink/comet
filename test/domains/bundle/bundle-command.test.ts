@@ -255,22 +255,25 @@ prefer:
       status: 'draft',
       resumeSummary: {
         schemaVersion: 1,
-        currentStep: 'needs-benchmark',
-        recommendedNextStep: { action: 'choose-benchmark-level' },
+        currentStep: 'needs-eval',
+        recommendedNextStep: { action: 'choose-eval-level', category: 'eval' },
       },
     });
     expect(status.currentHash).toMatch(/^[a-f0-9]{64}$/u);
     const text = await captureText(() =>
       bundleStatusCommand('optimized-bundle', { project: projectRoot }),
     );
-    expect(text).toContain('Current step: needs-benchmark');
+    expect(text).toContain('Current step: needs-eval');
     expect(text).toContain('User next step: Run repository eval for the generated Skill');
     expect(text).toContain('Suggested user command:');
-    expect(text).toContain(
-      'Backend command: comet bundle benchmark-plan optimized-bundle --level quick',
-    );
     expect(text).toContain('Still missing:');
     expect(text).toContain('- Passing eval evidence for the current draft');
+    expect(text).not.toContain('choose-benchmark-level');
+    expect(text).not.toContain('needs-benchmark');
+    expect(text).not.toContain('Run a benchmark');
+    expect(text).not.toContain('Benchmark: missing');
+    expect(text).not.toContain('benchmark-record');
+    expect(text).not.toContain('benchmark-plan');
   });
 
   it('lists recoverable Bundle authoring states with next actions', async () => {
@@ -291,7 +294,7 @@ prefer:
         expect.objectContaining({
           resumeSummary: expect.objectContaining({
             schemaVersion: 1,
-            currentStep: 'needs-benchmark',
+            currentStep: 'needs-eval',
             recommendedNextStep: expect.objectContaining({
               userCommand: expect.stringContaining('comet eval '),
             }),
@@ -307,9 +310,14 @@ prefer:
 
     const text = await captureText(() => bundleListCommand({ project: projectRoot }));
     expect(text).toContain('created-bundle: draft');
-    expect(text).toContain('Next action: choose-benchmark-level');
+    expect(text).toContain('Next action: choose-eval-level');
     expect(text).toContain('Suggested user command:');
     expect(text).toContain('optimized-bundle: draft');
+    expect(text).not.toContain('choose-benchmark-level');
+    expect(text).not.toContain('needs-benchmark');
+    expect(text).not.toContain('Run a benchmark');
+    expect(text).not.toContain('Benchmark: missing');
+    expect(text).not.toContain('benchmark-record');
   });
 
   it('initializes Skill Creator metadata from a structured plan file', async () => {

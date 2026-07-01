@@ -61,8 +61,10 @@ describe('Bundle next action', () => {
     );
 
     expect(action).toMatchObject({
-      action: 'choose-benchmark-level',
-      category: 'benchmark',
+      action: 'choose-eval-level',
+      category: 'eval',
+      userLabel: 'Run repository eval for the generated Skill',
+      reason: 'Current draft hash is missing passing eval evidence',
       userCommand:
         'comet eval /project/.comet/bundle-drafts/demo-skill/skills/demo-skill/comet/eval.yaml --quick --html',
     });
@@ -130,14 +132,15 @@ describe('Bundle next action', () => {
       schemaVersion: 1,
       name: 'demo-skill',
       goal: 'Create a resumable Skill',
-      currentStep: 'needs-benchmark',
+      currentStep: 'needs-eval',
       preferenceDrift: {
         changed: true,
         storedHash: 'old-hash',
         currentHash: 'new-hash',
       },
       recommendedNextStep: {
-        action: 'choose-benchmark-level',
+        action: 'choose-eval-level',
+        category: 'eval',
       },
     });
     expect(summary.completed).toContain('Skill Creator metadata initialized');

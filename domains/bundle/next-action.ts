@@ -5,7 +5,7 @@ export type BundleNextActionKind =
   | 'fix-composition'
   | 'confirm-proposal'
   | 'generate-factory-package'
-  | 'choose-benchmark-level'
+  | 'choose-eval-level'
   | 'request-review'
   | 'publish'
   | 'ask-distribution'
@@ -13,7 +13,7 @@ export type BundleNextActionKind =
 
 export type BundleNextActionCategory =
   | 'factory'
-  | 'benchmark'
+  | 'eval'
   | 'review'
   | 'publish'
   | 'distribute'
@@ -39,7 +39,7 @@ export interface BundleResumeSummary {
     | 'needs-composition-fix'
     | 'needs-proposal-confirmation'
     | 'needs-generation'
-    | 'needs-benchmark'
+    | 'needs-eval'
     | 'needs-review'
     | 'needs-publish'
     | 'needs-distribution'
@@ -125,8 +125,8 @@ export function determineBundleNextAction(state: BundleAuthoringState): BundleNe
   if (!state.eval || state.eval.hash !== state.currentHash || !state.eval.passed) {
     const evalManifest = generatedEvalManifest(state);
     return {
-      action: 'choose-benchmark-level',
-      category: 'benchmark',
+      action: 'choose-eval-level',
+      category: 'eval',
       userLabel: 'Run repository eval for the generated Skill',
       reason: 'Current draft hash is missing passing eval evidence',
       backendCommand: `comet bundle benchmark-plan ${state.name} --level quick`,
@@ -199,7 +199,7 @@ export function buildBundleResumeSummary(
     'fix-composition': 'needs-composition-fix',
     'confirm-proposal': 'needs-proposal-confirmation',
     'generate-factory-package': 'needs-generation',
-    'choose-benchmark-level': 'needs-benchmark',
+    'choose-eval-level': 'needs-eval',
     'request-review': 'needs-review',
     publish: 'needs-publish',
     'ask-distribution': 'needs-distribution',

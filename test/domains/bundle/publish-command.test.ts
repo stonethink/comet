@@ -141,7 +141,7 @@ describe('publish command facade', () => {
       bundles: [
         expect.objectContaining({
           resumeSummary: expect.objectContaining({
-            currentStep: 'needs-benchmark',
+            currentStep: 'needs-eval',
           }),
         }),
       ],
@@ -149,10 +149,10 @@ describe('publish command facade', () => {
     expect(status).toMatchObject({
       name: 'publish-facade',
       status: 'draft',
-      nextAction: { action: 'choose-benchmark-level' },
+      nextAction: { action: 'choose-eval-level' },
       resumeSummary: expect.objectContaining({
         recommendedNextStep: expect.objectContaining({
-          category: 'benchmark',
+          category: 'eval',
         }),
       }),
     });
@@ -162,8 +162,13 @@ describe('publish command facade', () => {
     );
     expect(text).toContain('Found an unfinished Skill creation');
     expect(text).toContain('Still needed:');
-    expect(text).toContain('Current step: needs-benchmark');
+    expect(text).toContain('Current step: needs-eval');
     expect(text).toContain('Suggested user command:');
+    expect(text).not.toContain('choose-benchmark-level');
+    expect(text).not.toContain('needs-benchmark');
+    expect(text).not.toContain('Run a benchmark');
+    expect(text).not.toContain('Benchmark: missing');
+    expect(text).not.toContain('benchmark-record');
 
     const next = await captureJson(() =>
       publishNextCommand('publish-facade', { project: projectRoot, json: true }),
@@ -172,10 +177,10 @@ describe('publish command facade', () => {
       schemaVersion: 1,
       name: 'publish-facade',
       status: 'draft',
-      currentStep: 'needs-benchmark',
+      currentStep: 'needs-eval',
       nextStep: {
-        action: 'choose-benchmark-level',
-        category: 'benchmark',
+        action: 'choose-eval-level',
+        category: 'eval',
         command: expect.stringContaining('comet eval'),
         requiresUserConfirmation: true,
       },
@@ -186,9 +191,14 @@ describe('publish command facade', () => {
       publishNextCommand('publish-facade', { project: projectRoot }),
     );
     expect(nextText).toContain('Next step for publish-facade');
-    expect(nextText).toContain('Current step: needs-benchmark');
+    expect(nextText).toContain('Current step: needs-eval');
     expect(nextText).toContain('Command: comet eval');
     expect(nextText).not.toContain('Backend command:');
+    expect(nextText).not.toContain('choose-benchmark-level');
+    expect(nextText).not.toContain('needs-benchmark');
+    expect(nextText).not.toContain('Run a benchmark');
+    expect(nextText).not.toContain('Benchmark: missing');
+    expect(nextText).not.toContain('benchmark-record');
   });
 
   it('reviews, approves, publishes, and distributes through the facade', async () => {

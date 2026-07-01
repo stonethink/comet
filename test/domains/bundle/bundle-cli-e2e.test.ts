@@ -311,7 +311,7 @@ describe('comet bundle CLI end to end', () => {
           name: 'recoverable-bundle',
           status: 'draft',
           nextAction: {
-            action: 'choose-benchmark-level',
+            action: 'choose-eval-level',
           },
         },
       ],
@@ -329,14 +329,14 @@ describe('comet bundle CLI end to end', () => {
         {
           name: 'publish-facade-bundle',
           status: 'draft',
-          nextAction: { action: 'choose-benchmark-level' },
+          nextAction: { action: 'choose-eval-level' },
         },
       ],
     });
     expect(status).toMatchObject({
       name: 'publish-facade-bundle',
       status: 'draft',
-      nextAction: { action: 'choose-benchmark-level' },
+      nextAction: { action: 'choose-eval-level' },
     });
   });
 
@@ -1016,16 +1016,19 @@ prefer:
     expect(bundleStatus.stdout).toContain('Status: draft');
     expect(bundleStatus.stdout).toContain('Skill Creator package:');
     expect(bundleStatus.stdout).toContain(
-      'Eval: missing; run comet eval <generated-skill>/comet/eval.yaml --quick --html, then comet bundle benchmark-record',
+      'Eval: missing; run comet eval <generated-skill>/comet/eval.yaml --quick --html',
     );
     expect(bundleStatus.stdout).toContain(
       'Review: missing; run comet bundle review-summary before approval',
     );
-    expect(bundleStatus.stdout).toContain('Next action: choose-benchmark-level');
+    expect(bundleStatus.stdout).toContain('Next action: choose-eval-level');
     expect(bundleStatus.stdout).toContain('Suggested user command: comet eval ');
-    expect(bundleStatus.stdout).toContain(
-      'Backend command: comet bundle benchmark-plan factory-status-text-mode --level quick',
-    );
+    expect(bundleStatus.stdout).not.toContain('choose-benchmark-level');
+    expect(bundleStatus.stdout).not.toContain('needs-benchmark');
+    expect(bundleStatus.stdout).not.toContain('Run a benchmark');
+    expect(bundleStatus.stdout).not.toContain('Benchmark: missing');
+    expect(bundleStatus.stdout).not.toContain('benchmark-record');
+    expect(bundleStatus.stdout).not.toContain('benchmark-plan');
   });
 
   it('reports next action metadata in bundle status JSON output', async () => {
@@ -1081,8 +1084,8 @@ prefer:
 
     expect(status).toMatchObject({
       nextAction: {
-        action: 'choose-benchmark-level',
-        backendCommand: 'comet bundle benchmark-plan factory-next-action --level quick',
+        action: 'choose-eval-level',
+        category: 'eval',
         userCommand: expect.stringContaining('comet eval '),
       },
     });
