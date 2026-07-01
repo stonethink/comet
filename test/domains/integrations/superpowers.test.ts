@@ -66,7 +66,7 @@ describe('superpowers', () => {
       expect(SKILLS_AGENT_MAP['mimocode']).toBeNull();
     });
 
-    it('has entries for all 31 platforms', async () => {
+    it('has entries for all 33 platforms', async () => {
       const { SKILLS_AGENT_MAP } = await import('../../../domains/integrations/superpowers.js');
       const platformIds = [
         'claude',
@@ -95,6 +95,7 @@ describe('superpowers', () => {
         'pi',
         'qoder',
         'antigravity',
+        'antigravity2',
         'bob',
         'forgecode',
         'trae',
@@ -105,7 +106,7 @@ describe('superpowers', () => {
       for (const id of platformIds) {
         expect(SKILLS_AGENT_MAP).toHaveProperty(id);
       }
-      expect(Object.keys(SKILLS_AGENT_MAP)).toHaveLength(32);
+      expect(Object.keys(SKILLS_AGENT_MAP)).toHaveLength(33);
     });
   });
 

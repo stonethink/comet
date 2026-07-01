@@ -45,8 +45,8 @@ describe('CI workflows', () => {
     expect(workflow).not.toContain('check_glob "$HOME_DIR/$sd/openspec-*"');
     expect(workflow).not.toContain('check_dir "$HOME_DIR/$sd/brainstorming"');
     expect(workflow).not.toContain('check_dir "$HOME_DIR/$sd/using-superpowers"');
-    expect(workflow).toContain('All 31 platforms project Comet skills: OK');
-    expect(workflow).toContain('All 31 platforms global Comet skills: OK');
+    expect(workflow).toContain('All 33 platforms project Comet skills: OK');
+    expect(workflow).toContain('All 33 platforms global Comet skills: OK');
   });
 
   it('defines PR title linting with Comet-specific semantic scopes', async () => {

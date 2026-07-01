@@ -122,7 +122,7 @@ jobs:
           done
           check_file "$PROJ/.pi/extensions/comet-commands.ts"
           PROJ="$PROJ" node -e "const s=require(process.env.PROJ+'/.pi/settings.json'); if(s.enableSkillCommands!==true) process.exit(1)"
-          echo "All 31 platforms project Comet skills: OK"
+          echo "All 33 platforms project Comet skills: OK"
         shell: bash
 
       - name: Verify external installer status (project)
@@ -216,7 +216,7 @@ jobs:
           done
           check_file "$HOME_DIR/.pi/agent/extensions/comet-commands.ts"
           HOME_DIR="$HOME_DIR" node -e "const s=require(process.env.HOME_DIR+'/.pi/agent/settings.json'); if(s.enableSkillCommands!==true) process.exit(1)"
-          echo "All 31 platforms global Comet skills: OK"
+          echo "All 33 platforms global Comet skills: OK"
         shell: bash
 
       - name: Verify external installer status (global)

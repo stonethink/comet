@@ -250,7 +250,7 @@ describe('comet init E2E', () => {
           initCommand(tmpDir, { yes: true, json: true }),
         );
 
-        expect((result.results as unknown[]).length).toBeGreaterThanOrEqual(31);
+        expect((result.results as unknown[]).length).toBeGreaterThanOrEqual(33);
 
         const manifest = await readManifest();
         const platformDirs = [
@@ -311,7 +311,7 @@ describe('comet init E2E', () => {
   );
 
   it(
-    'installs Antigravity Comet skills to the Gemini global skills directory',
+    'installs Antigravity and Antigravity 2.0 Comet skills to their respective global skills directories',
     async () => {
       mockExternalSuccess();
 
@@ -319,19 +319,26 @@ describe('comet init E2E', () => {
       const fakeHome = path.join(tmpDir, 'fake-home');
       await fs.mkdir(fakeHome, { recursive: true });
 
-      vi.spyOn(os, 'homedir').mockReturnValue(fakeHome);
+      const homedirSpy = vi.spyOn(os, 'homedir').mockReturnValue(fakeHome);
 
-      const { initCommand } = await import('../../app/commands/init.js');
-      const result = await captureJsonOutput(() =>
-        initCommand(tmpDir, { yes: true, scope: 'global', json: true }),
-      );
+      try {
+        const { initCommand } = await import('../../app/commands/init.js');
+        const result = await captureJsonOutput(() =>
+          initCommand(tmpDir, { yes: true, scope: 'global', json: true }),
+        );
 
-      expect(result.selectedPlatforms).toEqual(['antigravity']);
+        expect(result.selectedPlatforms).toEqual(['antigravity', 'antigravity2']);
 
-      const manifest = await readManifest();
-      for (const skillPath of manifest.skills) {
-        const dest = path.join(fakeHome, '.gemini', 'antigravity', 'skills', skillPath);
-        await expect(fs.access(dest)).resolves.toBeUndefined();
+        const manifest = await readManifest();
+        for (const skillPath of manifest.skills) {
+          const dest = path.join(fakeHome, '.gemini', 'antigravity', 'skills', skillPath);
+          await expect(fs.access(dest)).resolves.toBeUndefined();
+
+          const dest2 = path.join(fakeHome, '.gemini', 'config', 'skills', skillPath);
+          await expect(fs.access(dest2)).resolves.toBeUndefined();
+        }
+      } finally {
+        homedirSpy.mockRestore();
       }
     },
     INIT_E2E_TIMEOUT_MS,

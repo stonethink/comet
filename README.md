@@ -360,7 +360,7 @@ deterministically. Treat the Bundle command list above as an advanced backend re
 
 ## Supported Platforms
 
-`comet init` supports 31 AI coding platforms:
+`comet init` supports 33 AI coding platforms:
 
 <details>
 <summary>View full platform list</summary>
@@ -380,16 +380,21 @@ deterministically. Treat the Bundle command list above as an advanced backend re
 | Crush              | `.crush/`     | Factory Droid | `.factory/`  |
 | iFlow              | `.iflow/`     | Pi            | `.pi/`       |
 | Qoder              | `.qoder/`     | Antigravity   | `.agents/`   |
-| Bob Shell          | `.bob/`       | ForgeCode     | `.forge/`    |
-| Trae               | `.trae/`      | Trae CN       | `.trae-cn/`  |
-| ZCode              | `.zcode/`     | MimoCode      | `.mimocode/` |
+| Antigravity 2.0    | `.agents/`    | Bob Shell     | `.bob/`      |
+| ForgeCode          | `.forge/`     | Trae          | `.trae/`     |
+| Trae CN            | `.trae-cn/`   | ZCode         | `.zcode/`    |
+| MimoCode           | `.mimocode/`  |               |              |
 
 </details>
 
 Some platforms use different project and global directories. For example, OpenCode global installs use
 `.config/opencode`, MimoCode global installs use `.config/mimocode`, Lingma global installs use `.lingma`, and
-Antigravity global installs use `.gemini/antigravity`. ZCode and MimoCode are built on OpenCode and read skills
-from their own directories; OpenSpec output is mirrored from `.opencode/` into the matching directory during install.
+Antigravity global installs use `.gemini/antigravity`, while Antigravity 2.0 global installs use `.gemini/config`.
+ZCode and MimoCode are built on OpenCode and read skills from their own directories; OpenSpec output is mirrored from
+`.opencode/` into the matching directory during install.
+
+> [!NOTE]
+> Since Antigravity and Antigravity 2.0 share the same project-level `.agents/` skills directory, `comet init` auto-detection will select both by default. If you only want to install for one of them, you can unselect the other in the interactive installation flow (by not specifying `--yes`).
 
 ## Skills
 
