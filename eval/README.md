@@ -379,16 +379,26 @@ rubric_criteria = [
 
 ### Comet Rubric（9 维度）
 
-Comet 工作流专用，额外检查：
+Comet 工作流专用，输出 9 个维度分数和一个 `weighted_score`。每个维度由若干二值检查组成，维度分数为 `通过检查数 / 总检查数`；最终 `weighted_score` 按下表权重加权平均。
 
-| 维度 | 说明 |
-|------|------|
-| `main_flow` | 5 阶段证据（open → design → build → verify → archive） |
-| `gate_guard` | comet-guard / transition 命令使用 |
-| `artifact_quality` | 产物深度（proposal ≥ 10 行、design 有替代方案等） |
-| `spec_drift` | Delta spec 是否同步 |
-| `decision_point_compliance` | 状态变更前是否询问用户 |
-| `recovery_resilience` | checkpoint、trajectory 存在性 |
+| 维度 | 权重 | 评分信号 |
+|------|------|----------|
+| `completion` | 2.0 | 当前 task 的基础验证脚本通过率，例如功能修复、测试文件、工作流产物等 task-specific checks |
+| `main_flow` | 1.5 | workflow 阶段证据是否齐全；`full` 检查 open → design → build → verify → archive，`hotfix` / `tweak` 检查 open → build → verify → archive |
+| `gate_guard` | 1.5 | 是否使用 Comet 阶段守卫和状态推进能力，包括 `comet-guard`、状态 transition、`--apply` |
+| `artifact_quality` | 1.2 | OpenSpec / Superpowers / 测试产物是否有实质内容；`full` 要求 proposal、深度 design、足够 tasks 和测试断言，`hotfix` / `tweak` 使用预设路径的轻量产物口径 |
+| `skill_invocation` | 1.0 | 是否真实调用主 `comet`、嵌套 Comet 阶段 Skill、OpenSpec 依赖 Skill、Superpowers 依赖 Skill，并保持入口先于子 Skill |
+| `spec_drift` | 1.0 | 如果写入 delta spec，是否在归档前通过 OpenSpec 同步/归档语义合并；未涉及 delta spec 时记为 N/A 式满分 |
+| `decision_point_compliance` | 1.0 | 到达阻塞决策点时是否先询问用户；`full` 会检查 build/verify 等状态决策，`hotfix` / `tweak` 只检查预设路径中的升级、验证失败、归档重开等阻塞决策 |
+| `recovery_resilience` | 1.0 | 是否保留可恢复状态，例如 `.comet/checkpoint.json`、`run-state.json`、`state-events.jsonl`、`trajectory.jsonl`、handoff/context、干净 pending 状态 |
+| `efficiency` | 0.8 | 运行成本是否在阈值内：turns ≤ 80、工具调用 ≤ 150、时长 ≤ 600s |
+
+额外规则：
+
+- `skills_invoked` 只来自 Claude Code 事件中的真实 Skill 工具调用和 Skill 文件加载，不根据产物反推。
+- `opsx:*` 旧 OpenSpec Skill 名会归一化为 `openspec-*`，避免同一调用在报告中重复出现。
+- 如果 `comet-workflow` 未调用主 `comet`，会产生硬失败；如果调用了主 `comet` 但没有调用嵌套 Comet / OpenSpec / Superpowers 依赖 Skill，也会产生 workflow contract failure。
+- `weighted_score` 只聚合 9 个 Comet rubric 维度；LLM judge 启用后会额外输出 `[RUBRIC-JUDGE]` 信息，不替代规则分。
 
 ## Treatment 配置
 
