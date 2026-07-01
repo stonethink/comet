@@ -49,6 +49,7 @@ This is the first beta of the 0.4.0 line. Relative to 0.3.9, Comet becomes a Nod
 - **Decision point questions**: Comet decision points now prefer Claude Code's structured `AskUserQuestion` UI for single-select and multi-select choices, while falling back to numbered text options when the tool is missing or fails once in the current session. This restores clickable choice UX on Claude Code without breaking platforms that do not expose that tool.
 - **Classic `/comet` intent routing**: Upgrades entry workflow selection from prompt-only preset detection to a compact `CometIntentFrame` contract with deterministic runtime scoring, an explicit `proposed_route` candidate field, and a progressive `comet/reference/intent-frame.md` field reference, so full/hotfix/tweak/resume choices become explainable, testable, and safer around low-confidence or conflicting requests without making agents fill derived route fields.
 - **Chinese eval docs**: Local eval README guidance is now Chinese-first and uses the `COMET_FULL_040_BETA` treatment name consistently, so the eval entry docs match the current benchmark naming.
+- **Eval environment guidance**: Eval setup docs and `.env.example` now support system environment variables as the recommended key source for demos and screen recordings, keeping secret values out of checked files and visible terminal panes.
 
 ### Fixed
 

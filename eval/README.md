@@ -44,21 +44,27 @@ uv sync
 
 ### 环境变量
 
-复制 `.env.example` 为 `.env` 并填写：
+评估运行会先读取当前 shell 的环境变量，也会按需加载 `eval/.env`。录屏或演示时可以不创建 `.env`，或只创建一个完全空的 `.env`，把密钥放在系统环境变量里，避免文件内容出现在画面中。
+
+如需本地文件配置，可复制 `.env.example` 为 `.env` 并填写：
 
 ```bash
 cp .env.example .env
 ```
 
+> 注意：如果你使用系统环境变量，不要把 `.env.example` 中的 `ANTHROPIC_API_KEY=` 这类空赋值原样保留到 `.env`；空赋值在部分加载路径中可能覆盖已经存在的系统环境变量。
+
 | 变量 | 必填 | 说明 |
 |------|------|------|
-| `ANTHROPIC_API_KEY` | ✅ | Anthropic API 密钥 |
+| `ANTHROPIC_API_KEY` | ✅* | Anthropic API 密钥；也可以由系统环境变量提供 |
 | `BENCH_CC_MODEL` | ❌ | Claude 模型覆盖（默认用 CLI 配置） |
 | `BENCH_SIMULATOR_PROMPT_FILE` | ❌ | 自定义用户模拟器提示词文件（默认 `eval/simulator-instruction.md`） |
-| `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_BASE_URL` / `ANTHROPIC_MODEL` | ❌ | 用 Anthropic 兼容代理时的认证与模型配置 |
+| `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_BASE_URL` / `ANTHROPIC_MODEL` | ❌ | 用 Anthropic 兼容代理时的认证与模型配置；设置 `ANTHROPIC_AUTH_TOKEN` 后可不设置 `ANTHROPIC_API_KEY` |
 | `BENCH_LLM_JUDGE` | ❌ | 设为 `1` 启用 LLM-as-judge 评分 |
 | `BENCH_JUDGE_MODEL` | ❌ | Judge 模型覆盖（默认同主模型） |
 | `LANGSMITH_API_KEY` | ❌ | 仅 LangSmith 套件需要 |
+
+`*` 本地 Claude eval 至少需要 `ANTHROPIC_API_KEY` 或 `ANTHROPIC_AUTH_TOKEN` 之一存在于当前进程环境中。
 
 ## 快速开始
 
