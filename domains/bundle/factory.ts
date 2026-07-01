@@ -1,7 +1,7 @@
 import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { stringify } from 'yaml';
+import { parse, stringify } from 'yaml';
 import { discoverBundleCandidates, type BundleCandidate } from './candidates.js';
 import { createBundleDraft, optimizeBundleDraft } from './draft.js';
 import { composeBundleFactoryPlan } from './factory-compose.js';
@@ -81,6 +81,24 @@ function proposalConfirmation(options: {
     acceptedCapabilities: ['skills', 'scripts', 'rules', 'hooks', 'references', 'agents'],
     warnings: options.warnings ?? [],
   };
+}
+
+async function syncGeneratedEvalDraftHash(
+  evalManifestPath: string | null,
+  draftHash: string,
+): Promise<void> {
+  if (!evalManifestPath) return;
+  const source = await fs.readFile(evalManifestPath, 'utf8');
+  const manifest = parse(source) as Record<string, unknown>;
+  if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
+    throw new Error(`Generated eval manifest must be an object: ${evalManifestPath}`);
+  }
+  const metadata =
+    manifest.metadata && typeof manifest.metadata === 'object' && !Array.isArray(manifest.metadata)
+      ? (manifest.metadata as Record<string, unknown>)
+      : {};
+  manifest.metadata = { ...metadata, draftHash };
+  await fs.writeFile(evalManifestPath, stringify(manifest), 'utf8');
 }
 
 function bundleManifest(
@@ -418,8 +436,14 @@ export async function generateBundleDraftFromFactoryState(options: {
     'utf8',
   );
 
+  const initialBundle = await loadBundle(state.draftPath);
+  const currentHash = await hashBundle(initialBundle);
+  await syncGeneratedEvalDraftHash(generated.evalManifestPath, currentHash);
   const bundle = await loadBundle(state.draftPath);
-  const currentHash = await hashBundle(bundle);
+  const syncedHash = await hashBundle(bundle);
+  if (syncedHash !== currentHash) {
+    throw new Error('Generated eval manifest draft hash must not change Bundle hash');
+  }
   const updated: BundleAuthoringState = {
     ...state,
     status: 'draft',

@@ -1,6 +1,7 @@
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { parse } from 'yaml';
 import { compileBundleIr } from './compiler.js';
 import { loadBundle } from './load.js';
 import {
@@ -552,6 +553,53 @@ function evalResultHash(result: BundleEvalEvidenceResult): string {
   return isRepositoryEvalResult(result) ? result.draftHash : result.bundleHash;
 }
 
+function evalEvidencePathSegments(result: BundleEvalEvidenceResult): string[] {
+  return isRepositoryEvalResult(result)
+    ? [result.draftHash, result.evalManifestHash]
+    : [result.bundleHash];
+}
+
+function sha256(content: string | Buffer): string {
+  return createHash('sha256').update(content).digest('hex');
+}
+
+async function readGeneratedEvalManifestIdentity(state: BundleAuthoringState): Promise<{
+  draftHash: string;
+  evalManifestHash: string;
+} | null> {
+  const evalManifestPath = state.factory?.generatedSkillPackage?.evalManifestPath;
+  if (!evalManifestPath) return null;
+  const source = await fs.readFile(evalManifestPath, 'utf8');
+  const manifest = parse(source) as Record<string, unknown>;
+  assertObject(manifest, 'Generated eval manifest');
+  const metadata = manifest.metadata;
+  assertObject(metadata, 'Generated eval manifest metadata');
+  assertHash(metadata.draftHash, 'Generated eval manifest metadata.draftHash');
+  return {
+    draftHash: metadata.draftHash,
+    evalManifestHash: sha256(source),
+  };
+}
+
+async function resultMatchesCurrentDraft(
+  state: BundleAuthoringState,
+  result: BundleEvalEvidenceResult,
+): Promise<boolean> {
+  if (!state.currentHash) return false;
+  if (!isRepositoryEvalResult(result)) {
+    return result.bundleHash === state.currentHash;
+  }
+  const generatedManifest = await readGeneratedEvalManifestIdentity(state);
+  if (!generatedManifest) {
+    return result.draftHash === state.currentHash;
+  }
+  return (
+    result.draftHash === state.currentHash &&
+    result.draftHash === generatedManifest.draftHash &&
+    result.evalManifestHash === generatedManifest.evalManifestHash
+  );
+}
+
 async function writeEvidence(
   projectRoot: string,
   name: string,
@@ -562,7 +610,7 @@ async function writeEvidence(
     '.comet',
     'bundle-evals',
     name,
-    evalResultHash(result),
+    ...evalEvidencePathSegments(result),
   );
   const destination = path.join(directory, 'result.json');
   const temporary = path.join(directory, `.result.${randomUUID()}.tmp`);
@@ -659,7 +707,7 @@ export async function recordBundleEval(
 ): Promise<BundleAuthoringState> {
   const result = parseEvalResult(JSON.parse(await fs.readFile(resultFile, 'utf8')) as unknown);
   let state = await reconcileBundleAuthoringState(projectRoot, name);
-  if (evalResultHash(result) !== state.currentHash) {
+  if (!(await resultMatchesCurrentDraft(state, result))) {
     await writeEvidence(projectRoot, name, result);
     return state;
   }

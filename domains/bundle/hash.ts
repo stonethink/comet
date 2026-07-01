@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { parse, stringify } from 'yaml';
 import type { SkillBundle } from './types.js';
 
 interface HashedFile {
@@ -14,6 +15,29 @@ function posixPath(value: string): string {
 
 function sha256(content: string | Buffer): string {
   return createHash('sha256').update(content).digest('hex');
+}
+
+function normalizedContentForHash(relative: string, content: Buffer): string | Buffer {
+  if (!relative.endsWith('/comet/eval.yaml') && relative !== 'comet/eval.yaml') {
+    return content;
+  }
+  let manifest: unknown;
+  try {
+    manifest = parse(content.toString('utf8'));
+  } catch {
+    return content;
+  }
+  if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
+    return content;
+  }
+  const record = manifest as Record<string, unknown>;
+  if (record.kind !== 'SkillEvalManifest') return content;
+  const metadata = record.metadata;
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return content;
+  const metadataRecord = metadata as Record<string, unknown>;
+  if (typeof metadataRecord.draftHash !== 'string') return content;
+  metadataRecord.draftHash = '<current-bundle-hash>';
+  return stringify(record);
 }
 
 function compareText(left: string, right: string): number {
@@ -35,9 +59,10 @@ async function enumerateFiles(root: string, directory: string, files: HashedFile
       continue;
     }
     if (stats.isFile()) {
+      const content = await fs.readFile(target);
       files.push({
         path: relative,
-        sha256: sha256(await fs.readFile(target)),
+        sha256: sha256(normalizedContentForHash(relative, content)),
       });
     }
   }

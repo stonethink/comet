@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { promises as fs } from 'fs';
 import os from 'os';
@@ -165,6 +166,10 @@ function result(bundleHash: string, overrides: Partial<BundleEvalResult> = {}): 
   };
 }
 
+function sha256(content: string | Buffer): string {
+  return createHash('sha256').update(content).digest('hex');
+}
+
 describe('Bundle benchmark planning and evidence', () => {
   let root: string;
   let projectRoot: string;
@@ -258,6 +263,150 @@ describe('Bundle benchmark planning and evidence', () => {
       hash: current.currentHash,
       passed: true,
     });
+  });
+
+  it('records generated repository eval evidence only when manifest identity matches', async () => {
+    const generated = await createFactoryStateWithGeneratedPackage(
+      projectRoot,
+      root,
+      'repository-generated',
+    );
+    const evalManifestPath = generated.factory!.generatedSkillPackage!.evalManifestPath!;
+    const evalManifestSource = await fs.readFile(evalManifestPath, 'utf8');
+    const evalManifest = parse(evalManifestSource) as { metadata?: { draftHash?: string } };
+    expect(evalManifest.metadata?.draftHash).toBe(generated.currentHash);
+
+    const repositoryEvalResult = {
+      schemaVersion: 2,
+      provider: 'comet-eval',
+      level: 'full',
+      draftHash: generated.currentHash,
+      evalManifestHash: sha256(evalManifestSource),
+      tasks: ['workflow-overlay-contract'],
+      treatments: ['DYNAMIC_SKILL'],
+      passAtK: { '1': 1 },
+      weightedScore: { overall: 0.96 },
+      instabilityGap: { overall: 0.02 },
+      failures: [],
+      reports: ['eval-report.html'],
+      passed: true,
+      summary: 'Repository eval gates passed.',
+    };
+    const resultFile = await writeUnknownResult(repositoryEvalResult, 'generated-eval.json');
+
+    const updated = await recordBundleEval(projectRoot, 'repository-generated', resultFile);
+
+    expect(updated.eval).toMatchObject({
+      level: 'full',
+      hash: generated.currentHash,
+      passed: true,
+    });
+  });
+
+  it('retains repository eval evidence without advancing when manifest hash is stale', async () => {
+    const generated = await createFactoryStateWithGeneratedPackage(
+      projectRoot,
+      root,
+      'repository-stale-manifest',
+    );
+    const repositoryEvalResult = {
+      schemaVersion: 2,
+      provider: 'comet-eval',
+      level: 'full',
+      draftHash: generated.currentHash,
+      evalManifestHash: 'b'.repeat(64),
+      tasks: ['workflow-overlay-contract'],
+      treatments: ['DYNAMIC_SKILL'],
+      passAtK: { '1': 1 },
+      weightedScore: { overall: 0.96 },
+      instabilityGap: { overall: 0.02 },
+      failures: [],
+      reports: ['eval-report.html'],
+      passed: true,
+      summary: 'Repository eval gates passed.',
+    };
+    const resultFile = await writeUnknownResult(repositoryEvalResult, 'stale-manifest-eval.json');
+
+    const updated = await recordBundleEval(projectRoot, 'repository-stale-manifest', resultFile);
+
+    expect(updated.status).toBe('draft');
+    expect(updated.eval).toBeUndefined();
+    await expect(
+      fs.access(
+        path.join(
+          projectRoot,
+          '.comet',
+          'bundle-evals',
+          'repository-stale-manifest',
+          generated.currentHash!,
+          'b'.repeat(64),
+          'result.json',
+        ),
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it('does not overwrite accepted repository eval evidence with stale manifest results', async () => {
+    const generated = await createFactoryStateWithGeneratedPackage(
+      projectRoot,
+      root,
+      'repository-stale-after-valid',
+    );
+    const evalManifestPath = generated.factory!.generatedSkillPackage!.evalManifestPath!;
+    const evalManifestSource = await fs.readFile(evalManifestPath, 'utf8');
+    const validEvalManifestHash = sha256(evalManifestSource);
+    const passing = {
+      schemaVersion: 2,
+      provider: 'comet-eval',
+      level: 'full',
+      draftHash: generated.currentHash,
+      evalManifestHash: validEvalManifestHash,
+      tasks: ['workflow-overlay-contract'],
+      treatments: ['DYNAMIC_SKILL'],
+      passAtK: { '1': 1 },
+      weightedScore: { overall: 0.96 },
+      instabilityGap: { overall: 0.02 },
+      failures: [],
+      reports: ['eval-report.html'],
+      passed: true,
+      summary: 'Repository eval gates passed.',
+    };
+    const accepted = await recordBundleEval(
+      projectRoot,
+      'repository-stale-after-valid',
+      await writeUnknownResult(passing, 'valid-generated-eval.json'),
+    );
+    const acceptedResultPath = accepted.eval!.resultPath;
+    const acceptedEvidence = await fs.readFile(acceptedResultPath, 'utf8');
+
+    const stale = {
+      ...passing,
+      evalManifestHash: 'c'.repeat(64),
+      passed: false,
+      failures: ['stale manifest'],
+      summary: 'Stale manifest should not replace accepted evidence.',
+    };
+    const unchanged = await recordBundleEval(
+      projectRoot,
+      'repository-stale-after-valid',
+      await writeUnknownResult(stale, 'stale-generated-eval.json'),
+    );
+
+    expect(unchanged.eval!.resultPath).toBe(acceptedResultPath);
+    await expect(fs.readFile(acceptedResultPath, 'utf8')).resolves.toBe(acceptedEvidence);
+    await expect(
+      fs.access(
+        path.join(
+          projectRoot,
+          '.comet',
+          'bundle-evals',
+          'repository-stale-after-valid',
+          generated.currentHash!,
+          'c'.repeat(64),
+          'result.json',
+        ),
+      ),
+    ).resolves.toBeUndefined();
   });
 
   it('requires one result for every entry Skill and Bundle compile/safety evidence', async () => {
