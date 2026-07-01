@@ -55,6 +55,38 @@ def test_extract_events_captures_token_usage_and_cost():
     assert events["model_usage"]["mimo-v2.5-pro"]["costUSD"] == 0.123456
 
 
+def test_extract_events_normalizes_openspec_skill_aliases():
+    stdout = "\n".join(
+        [
+            json.dumps(
+                {
+                    "type": "assistant",
+                    "message": {
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "call_1",
+                                "name": "Skill",
+                                "input": {"skill": "opsx:new"},
+                            },
+                            {
+                                "type": "tool_use",
+                                "id": "call_2",
+                                "name": "Skill",
+                                "input": {"skill": "openspec-new-change"},
+                            },
+                        ]
+                    },
+                }
+            )
+        ]
+    )
+
+    events = extract_events(parse_output(stdout))
+
+    assert events["skills_invoked"] == ["openspec-new-change"]
+
+
 def test_experiment_summary_includes_token_and_cost_columns(monkeypatch, tmp_path: Path):
     monkeypatch.setenv("BENCH_LOGS_DIR", str(tmp_path))
     logger = ExperimentLogger(experiment_name="token-cost")

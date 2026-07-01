@@ -119,6 +119,190 @@ def test_comet_profile_scores_observed_nested_and_dependency_skill_invocations(
     assert any("superpowers=verification-before-completion" in msg for msg in passed)
 
 
+def test_comet_profile_scores_hotfix_with_hotfix_specific_rubric(tmp_path: Path):
+    change_dir = tmp_path / "openspec" / "changes" / "archive" / "2026-07-01-fix-median"
+    change_dir.mkdir(parents=True)
+    comet_dir = change_dir / ".comet"
+    comet_dir.mkdir()
+    (comet_dir / "checkpoint.json").write_text(
+        '{"runId":"r1","contextHash":null,"artifactsHash":"abc","createdAt":"2026-07-01"}',
+        encoding="utf-8",
+    )
+    (comet_dir / "run-state.json").write_text(
+        '{"status":"completed","currentStep":"completed"}',
+        encoding="utf-8",
+    )
+    (comet_dir / "state-events.jsonl").write_text(
+        '{"to":{"workflow":"hotfix","phase":"archive","archived":true}}\n',
+        encoding="utf-8",
+    )
+    (comet_dir / "trajectory.jsonl").write_text("{}\n", encoding="utf-8")
+    (change_dir / "proposal.md").write_text(
+        "\n".join(f"line {i}" for i in range(12)),
+        encoding="utf-8",
+    )
+    (change_dir / "design.md").write_text("Focused hotfix design.", encoding="utf-8")
+    (change_dir / "tasks.md").write_text(
+        "- [x] Reproduce median bug\n- [x] Fix even median\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "test_stats.py").write_text("def test_even():\n    assert True\n", encoding="utf-8")
+
+    outputs = {
+        "completion": {"passed": ["median fixed"], "failed": []},
+        "events": {
+            "skills_invoked": [
+                "comet",
+                "comet-hotfix",
+                "openspec-new-change",
+                "comet-verify",
+                "verification-before-completion",
+                "comet-archive",
+            ],
+            "commands_run": [
+                "node comet-state.mjs set fix-median verify_mode light",
+                "node comet-state.mjs transition fix-median verify-pass",
+            ],
+            "files_created": [
+                "openspec/changes/archive/2026-07-01-fix-median/proposal.md",
+                "openspec/changes/archive/2026-07-01-fix-median/tasks.md",
+                "openspec/changes/archive/2026-07-01-fix-median/.comet/state-events.jsonl",
+                "openspec/changes/archive/2026-07-01-fix-median/verification.md",
+            ],
+            "files_modified": [],
+            "num_turns": 1,
+            "tool_calls": [],
+            "duration_seconds": 5,
+        },
+        "interaction": {"mode": "auto_user", "max_turns": 3},
+    }
+
+    passed, _ = run_profile_rubric("comet-workflow", tmp_path, outputs)
+
+    assert any("[RUBRIC] main_flow: 1.00 - workflow=hotfix" in msg for msg in passed)
+    assert any("[RUBRIC] decision_point_compliance: 1.00" in msg for msg in passed)
+    assert any("no hotfix decision mutations observed" in msg for msg in passed)
+    assert any("[RUBRIC] artifact_quality: 1.00" in msg for msg in passed)
+    assert any("workflow=hotfix" in msg and "tasks=2 boxes" in msg for msg in passed)
+    assert any("[RUBRIC] recovery_resilience: 1.00" in msg for msg in passed)
+
+
+def test_comet_profile_scores_tweak_with_tweak_specific_rubric(tmp_path: Path):
+    change_dir = tmp_path / "openspec" / "changes" / "archive" / "2026-07-01-adjust-copy"
+    change_dir.mkdir(parents=True)
+    (change_dir / ".comet").mkdir()
+    (change_dir / ".comet.yaml").write_text(
+        "classic_profile: tweak\nphase: archive\nverify_result: pass\n",
+        encoding="utf-8",
+    )
+    (change_dir / "proposal.md").write_text(
+        "\n".join(f"line {i}" for i in range(12)),
+        encoding="utf-8",
+    )
+    (change_dir / "tasks.md").write_text("- [x] Apply copy tweak\n", encoding="utf-8")
+    (tmp_path / "test_copy.py").write_text("def test_copy():\n    assert True\n", encoding="utf-8")
+
+    outputs = {
+        "completion": {"passed": ["copy adjusted"], "failed": []},
+        "events": {
+            "skills_invoked": [
+                "comet",
+                "comet-tweak",
+                "openspec-new-change",
+                "openspec-apply-change",
+                "comet-verify",
+                "verification-before-completion",
+                "comet-archive",
+            ],
+            "commands_run": ["node comet-state.mjs set adjust-copy verify_mode light"],
+            "files_created": [
+                "openspec/changes/archive/2026-07-01-adjust-copy/proposal.md",
+                "openspec/changes/archive/2026-07-01-adjust-copy/tasks.md",
+                "openspec/changes/archive/2026-07-01-adjust-copy/.comet/state-events.jsonl",
+                "openspec/changes/archive/2026-07-01-adjust-copy/verification.md",
+            ],
+            "files_modified": [],
+            "num_turns": 1,
+            "tool_calls": [],
+            "duration_seconds": 5,
+        },
+        "interaction": {"mode": "auto_user", "max_turns": 3},
+    }
+
+    passed, _ = run_profile_rubric("comet-workflow", tmp_path, outputs)
+
+    assert any("[RUBRIC] main_flow: 1.00 - workflow=tweak" in msg for msg in passed)
+    assert any("[RUBRIC] artifact_quality: 1.00" in msg for msg in passed)
+    assert any("workflow=tweak" in msg and "tasks=1 boxes" in msg for msg in passed)
+
+
+def test_comet_profile_scores_full_with_full_specific_rubric(tmp_path: Path):
+    change_dir = tmp_path / "openspec" / "changes" / "archive" / "2026-07-01-add-api"
+    change_dir.mkdir(parents=True)
+    (change_dir / ".comet" / "handoff").mkdir(parents=True)
+    (change_dir / ".comet.yaml").write_text(
+        "workflow: full\nphase: archive\nverify_result: pass\n",
+        encoding="utf-8",
+    )
+    (change_dir / ".comet" / "handoff" / "design-context.md").write_text(
+        "context",
+        encoding="utf-8",
+    )
+    (change_dir / "proposal.md").write_text(
+        "\n".join(f"line {i}" for i in range(12)),
+        encoding="utf-8",
+    )
+    (change_dir / "design.md").write_text(
+        "Tradeoff and alternative option with risk to consider.",
+        encoding="utf-8",
+    )
+    (change_dir / "tasks.md").write_text(
+        "- [x] Design API\n- [x] Implement API\n- [x] Verify API\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "test_api.py").write_text("def test_api():\n    assert True\n", encoding="utf-8")
+
+    outputs = {
+        "completion": {"passed": ["api added"], "failed": []},
+        "events": {
+            "skills_invoked": [
+                "comet",
+                "comet-open",
+                "openspec-new-change",
+                "comet-design",
+                "brainstorming",
+                "comet-build",
+                "writing-plans",
+                "comet-verify",
+                "verification-before-completion",
+                "comet-archive",
+            ],
+            "commands_run": [
+                "node comet-state.mjs set add-api build_mode executing-plans",
+                "node comet-state.mjs transition add-api verify-pass",
+            ],
+            "tool_calls": [{"tool": "AskUserQuestion", "input": {}}],
+            "files_created": [
+                "openspec/changes/archive/2026-07-01-add-api/proposal.md",
+                "openspec/changes/archive/2026-07-01-add-api/tasks.md",
+                "docs/superpowers/specs/add-api.md",
+                "docs/superpowers/plans/add-api.md",
+                "openspec/changes/archive/2026-07-01-add-api/verification.md",
+            ],
+            "files_modified": [],
+            "num_turns": 1,
+            "duration_seconds": 5,
+        },
+        "interaction": {"mode": "auto_user", "max_turns": 3},
+    }
+
+    passed, _ = run_profile_rubric("comet-workflow", tmp_path, outputs)
+
+    assert any("[RUBRIC] main_flow: 1.00 - workflow=full" in msg for msg in passed)
+    assert any("[RUBRIC] artifact_quality: 1.00" in msg for msg in passed)
+    assert any("workflow=full" in msg and "design=deep" in msg for msg in passed)
+
+
 def test_generic_profile_scores_completion_skill_artifact_and_efficiency(tmp_path: Path):
     (tmp_path / "result.md").write_text("done")
     outputs = {

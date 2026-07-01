@@ -18,10 +18,25 @@ from scaffold.python.report_outputs import (
 # Regex to strip ANSI escape codes
 ANSI_ESCAPE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
+_SKILL_ALIASES = {
+    "opsx:new": "openspec-new-change",
+    "opsx:apply": "openspec-apply-change",
+    "opsx:verify": "openspec-verify-change",
+    "opsx:archive": "openspec-archive-change",
+    "opsx:explore": "openspec-explore",
+    "opsx:propose": "openspec-propose",
+}
+
 
 def strip_ansi(text: str) -> str:
     """Remove ANSI escape codes from text."""
     return ANSI_ESCAPE.sub("", text)
+
+
+def _record_skill_invocation(events: dict[str, Any], skill: str) -> None:
+    normalized = _SKILL_ALIASES.get(skill, skill)
+    if normalized not in events["skills_invoked"]:
+        events["skills_invoked"].append(normalized)
 
 
 # =============================================================================
@@ -100,8 +115,7 @@ def extract_events(parsed: dict[str, Any]) -> dict[str, Any]:
                         if ".claude/skills/" in path and (
                             m := re.search(r"\.claude/skills/([^/]+)", path)
                         ):
-                            if m.group(1) not in events["skills_invoked"]:
-                                events["skills_invoked"].append(m.group(1))
+                            _record_skill_invocation(events, m.group(1))
                     elif tool == "Write" and path:
                         events["files_created"].append(path)
                     elif tool == "Edit" and path:
@@ -109,8 +123,7 @@ def extract_events(parsed: dict[str, Any]) -> dict[str, Any]:
                     elif tool == "Bash" and inp.get("command"):
                         events["commands_run"].append(inp["command"])
                     elif tool == "Skill" and inp.get("skill"):
-                        if inp["skill"] not in events["skills_invoked"]:
-                            events["skills_invoked"].append(inp["skill"])
+                        _record_skill_invocation(events, inp["skill"])
 
         # Capture tool results and match to their tool_use calls
         if msg.get("type") == "user":

@@ -1,6 +1,6 @@
 """Comet skill rubric validator.
 
-Scores a comet full-workflow run across nine dimensions by analysing the
+Scores a comet workflow run across nine dimensions by analysing the
 captured Claude events and the artifacts left in the test directory. Every
 dimension emits a single check message of the form::
 
@@ -19,7 +19,7 @@ Scoring methodology (aligned with industry best practices from Galileo, Hebbia,
 
 Dimensions
 ----------
-1. main_flow              - how many of the 5 phases (open→design→build→verify→archive) left evidence (weight 1.5)
+1. main_flow              - how many workflow-specific phases left evidence (weight 1.5)
 2. gate_guard             - whether comet-guard / comet-state transition / --apply were used (weight 1.5)
 3. skill_invocation       - whether the comet entry, nested stage skills, and dependency skills were invoked (weight 1.0)
 4. spec_drift             - whether delta specs created during build were reconciled before archive (weight 1.0)
@@ -130,7 +130,28 @@ _PHASE_SIGNALS = {
 }
 
 # Substantive-content keywords for the design doc (brainstorming depth signals).
-_DESIGN_DEPTH_KEYWORDS = ("tradeoff", "alternative", "risk", "consider", "option")
+_DESIGN_DEPTH_KEYWORDS = (
+    "tradeoff",
+    "alternative",
+    "risk",
+    "consider",
+    "option",
+    "权衡",
+    "替代",
+    "风险",
+    "考虑",
+    "方案",
+)
+
+_WORKFLOW_PHASES = {
+    "full": ("open", "design", "build", "verify", "archive"),
+    "hotfix": ("open", "build", "verify", "archive"),
+    "tweak": ("open", "build", "verify", "archive"),
+}
+
+_PRESET_DECISION_MUTATIONS = (
+    re.compile(r"transition\s+\S+\s+(?:verify-fail|preset-escalate|archive-reopen)"),
+)
 
 
 def _fmt(dim: str, score: float, reason: str) -> str:
@@ -168,33 +189,97 @@ def _find_change_dir(test_dir: Path) -> Path | None:
             continue
         if d.name == "archive":
             for sub in d.iterdir():
-                if sub.is_dir() and (sub / ".comet.yaml").exists():
+                if sub.is_dir() and (
+                    (sub / ".comet.yaml").exists()
+                    or (sub / ".comet").exists()
+                    or (sub / "proposal.md").exists()
+                    or (sub / "tasks.md").exists()
+                ):
                     return sub
-        elif (d / ".comet.yaml").exists():
+        elif (
+            (d / ".comet.yaml").exists()
+            or (d / ".comet").exists()
+            or (d / "proposal.md").exists()
+            or (d / "tasks.md").exists()
+        ):
             return d
     return None
 
 
-def _score_main_flow(events: dict[str, Any], test_dir: Path) -> tuple[float, str]:
-    """Check which of the 5 phases left evidence. Binary: each phase is pass/fail."""
+def _detect_workflow_kind(events: dict[str, Any], test_dir: Path) -> str:
+    """Detect full/hotfix/tweak from observed Skill calls or .comet.yaml."""
+    invoked = events.get("skills_invoked", []) or []
+    if "comet-hotfix" in invoked:
+        return "hotfix"
+    if "comet-tweak" in invoked:
+        return "tweak"
+
+    cdir = _find_change_dir(test_dir)
+    yaml_path = cdir / ".comet.yaml" if cdir else None
+    if yaml_path and yaml_path.exists():
+        try:
+            yaml_content = yaml_path.read_text(errors="ignore")
+            match = re.search(
+                r"(?m)^\s*(?:workflow|classic_profile):\s*(full|hotfix|tweak)\b",
+                yaml_content,
+            )
+            if match:
+                return match.group(1)
+        except Exception:
+            pass
+
+    state_events_path = cdir / ".comet" / "state-events.jsonl" if cdir else None
+    if state_events_path and state_events_path.exists():
+        try:
+            state_events = state_events_path.read_text(errors="ignore")
+            match = re.search(r'"workflow"\s*:\s*"(full|hotfix|tweak)"', state_events)
+            if match:
+                return match.group(1)
+        except Exception:
+            pass
+
+    return "full"
+
+
+def _artifact_haystack(events: dict[str, Any], test_dir: Path) -> str:
     files = list(events.get("files_created", [])) + list(events.get("files_modified", []))
     try:
-        on_disk = [str(p.relative_to(test_dir)).replace("\\", "/") for p in test_dir.rglob("*") if p.is_file()]
+        on_disk = [
+            str(p.relative_to(test_dir)).replace("\\", "/")
+            for p in test_dir.rglob("*")
+            if p.is_file()
+        ]
     except Exception:
         on_disk = []
-    haystack = "\n".join(files + on_disk)
+    return "\n".join(files + on_disk)
 
-    # Binary check per phase: did it leave evidence?
+
+def _score_main_flow(
+    events: dict[str, Any], test_dir: Path, workflow: str
+) -> tuple[float, str]:
+    """Check which workflow-specific phases left evidence."""
+    haystack = _artifact_haystack(events, test_dir)
+
+    expected_phases = _WORKFLOW_PHASES[workflow]
     phase_checks: list[bool] = []
     phases_reached: list[str] = []
-    for phase, patterns in _PHASE_SIGNALS.items():
+    for phase in expected_phases:
+        patterns = _PHASE_SIGNALS[phase]
         found = any(p.search(haystack) for p in patterns)
         phase_checks.append(found)
         if found:
             phases_reached.append(phase)
 
     score, _ = _binary_score(phase_checks)
-    return score, f"{len(phases_reached)}/5 phases ({', '.join(phases_reached) if phases_reached else 'none'})"
+    return (
+        score,
+        "workflow={workflow} {reached}/{total} phases ({phases})".format(
+            workflow=workflow,
+            reached=len(phases_reached),
+            total=len(expected_phases),
+            phases=", ".join(phases_reached) if phases_reached else "none",
+        ),
+    )
 
 
 def _score_gate_guard(events: dict[str, Any]) -> tuple[float, str]:
@@ -303,7 +388,9 @@ def _score_efficiency(events: dict[str, Any]) -> tuple[float, str]:
     return score, f"turns={turns} tools={tool_calls} dur={duration:.0f}s"
 
 
-def _score_decision_point_compliance(events: dict[str, Any]) -> tuple[float, str]:
+def _score_decision_point_compliance(
+    events: dict[str, Any], workflow: str
+) -> tuple[float, str]:
     """Check if agent asked user at decision points. Binary: ratio >= 0.5."""
     cmds = _join_commands(events)
     tool_calls = events.get("tool_calls", []) or []
@@ -317,20 +404,27 @@ def _score_decision_point_compliance(events: dict[str, Any]) -> tuple[float, str
         if tc.get("tool") in {"AskUserQuestion", "ask_user", "AskFollowUpQuestion"}
     )
 
-    mutations = sum(len(rx.findall(cmds)) for rx in _DECISION_MUTATIONS)
+    mutation_patterns = (
+        _DECISION_MUTATIONS if workflow == "full" else _PRESET_DECISION_MUTATIONS
+    )
+    mutations = sum(len(rx.findall(cmds)) for rx in mutation_patterns)
 
     if mutations == 0:
         # No decision points reached — neutral pass
-        return 1.0, "no decision mutations observed"
+        return 1.0, f"no {workflow} decision mutations observed"
 
     # Binary: did the agent ask at least once per mutation?
     ratio = ask_signals / max(mutations, 1)
     checks = [ratio >= 0.5]
     score, _ = _binary_score(checks)
-    return score, f"{ask_signals} asks for {mutations} mutations (ratio={ratio:.2f})"
+    return (
+        score,
+        f"workflow={workflow} {ask_signals} asks for {mutations} mutations "
+        f"(ratio={ratio:.2f})",
+    )
 
 
-def _score_artifact_quality(test_dir: Path) -> tuple[float, str]:
+def _score_artifact_quality(test_dir: Path, workflow: str) -> tuple[float, str]:
     """Check artifact quality via binary checks per artifact type."""
     changes_root = test_dir / "openspec" / "changes"
     change_dirs: list[Path] = []
@@ -355,24 +449,26 @@ def _score_artifact_quality(test_dir: Path) -> tuple[float, str]:
     prop_text = prop.read_text(errors="ignore") if prop.exists() else ""
     prop_ok = prop_text.count("\n") >= 10
     checks.append(prop_ok)
-    notes.append(f"proposal={'ok' if prop_ok else 'stub'}")
+    notes.append(f"workflow={workflow} proposal={'ok' if prop_ok else 'stub'}")
 
     # Check 2: Design doc exists with depth keywords
     design = cdir / "design.md"
-    if design.exists():
-        dtext = design.read_text(errors="ignore").lower()
+    if workflow == "full":
+        dtext = design.read_text(errors="ignore").lower() if design.exists() else ""
         depth_hits = sum(1 for kw in _DESIGN_DEPTH_KEYWORDS if kw in dtext)
-        design_ok = depth_hits >= 2
+        design_ok = design.exists() and depth_hits >= 2
         checks.append(design_ok)
         notes.append(f"design={'deep' if design_ok else 'shallow'}")
-    # design.md optional for hotfix/tweak
+    elif design.exists():
+        notes.append("design=preset-optional")
 
     # Check 3: Tasks has checkboxes
     tasks = cdir / "tasks.md"
     if tasks.exists():
         ttext = tasks.read_text(errors="ignore")
         checkboxes = len(re.findall(r"- \[[ x]\]", ttext))
-        tasks_ok = checkboxes >= 3
+        min_tasks = 3 if workflow == "full" else 1
+        tasks_ok = checkboxes >= min_tasks
         checks.append(tasks_ok)
         notes.append(f"tasks={checkboxes} boxes")
 
@@ -386,14 +482,19 @@ def _score_artifact_quality(test_dir: Path) -> tuple[float, str]:
                 break
         except Exception:
             continue
-    checks.append(test_has_assert)
-    notes.append(f"tests={'w/ assert' if test_has_assert else 'no assert'}")
+    if workflow in {"full", "hotfix"} or test_files:
+        checks.append(test_has_assert)
+        notes.append(f"tests={'w/ assert' if test_has_assert else 'no assert'}")
+    else:
+        notes.append("tests=n/a")
 
     score, _ = _binary_score(checks)
     return score, "; ".join(notes)
 
 
-def _score_recovery_resilience(events: dict[str, Any], test_dir: Path) -> tuple[float, str]:
+def _score_recovery_resilience(
+    events: dict[str, Any], test_dir: Path, workflow: str
+) -> tuple[float, str]:
     """Check recovery artifacts via binary checks."""
     cdir = _find_change_dir(test_dir)
     if not cdir:
@@ -405,18 +506,25 @@ def _score_recovery_resilience(events: dict[str, Any], test_dir: Path) -> tuple[
 
     # Check 1: Checkpoint exists and valid
     checkpoint_path = comet_dir / "checkpoint.json"
+    state_events_path = comet_dir / "state-events.jsonl"
+    run_state_path = comet_dir / "run-state.json"
     if checkpoint_path.exists():
         try:
             checkpoint = json.loads(checkpoint_path.read_text(errors="ignore"))
-            checkpoint_ok = all(
-                checkpoint.get(k)
-                for k in ("runId", "contextHash", "artifactsHash", "createdAt")
+            checkpoint_ok = (
+                bool(checkpoint.get("runId"))
+                and "contextHash" in checkpoint
+                and bool(checkpoint.get("artifactsHash"))
+                and bool(checkpoint.get("createdAt"))
             )
             checks.append(checkpoint_ok)
             notes.append(f"checkpoint={'valid' if checkpoint_ok else 'invalid'}")
         except Exception:
             checks.append(False)
             notes.append("checkpoint=unreadable")
+    elif state_events_path.exists() or run_state_path.exists():
+        checks.append(True)
+        notes.append("checkpoint=state-events")
     else:
         checks.append(False)
         notes.append("checkpoint=missing")
@@ -432,8 +540,11 @@ def _score_recovery_resilience(events: dict[str, Any], test_dir: Path) -> tuple[
     handoff_dir = comet_dir / "handoff"
     handoff_files = list(handoff_dir.glob("*.md")) + list(handoff_dir.glob("*.json")) if handoff_dir.exists() else []
     context_ok = bool(context_files or handoff_files)
-    checks.append(context_ok)
-    notes.append(f"context={'exists' if context_ok else 'missing'}")
+    if workflow == "full":
+        checks.append(context_ok)
+        notes.append(f"context={'exists' if context_ok else 'missing'}")
+    else:
+        notes.append(f"context={'exists' if context_ok else 'preset-n/a'}")
 
     # Check 4: No orphaned pending actions
     pending_files = list(comet_dir.glob("**/pending*.json"))
@@ -457,6 +568,17 @@ def _score_recovery_resilience(events: dict[str, Any], test_dir: Path) -> tuple[
             yaml_ok = bool(re.search(r"phase:\s*\w+", yaml_content))
             checks.append(yaml_ok)
             notes.append(f"state={'ok' if yaml_ok else 'incomplete'}")
+        except Exception:
+            checks.append(False)
+            notes.append("state=unreadable")
+    elif run_state_path.exists():
+        try:
+            run_state = json.loads(run_state_path.read_text(errors="ignore"))
+            state_ok = run_state.get("status") == "completed" or bool(
+                run_state.get("currentStep")
+            )
+            checks.append(state_ok)
+            notes.append(f"state={'ok' if state_ok else 'incomplete'}")
         except Exception:
             checks.append(False)
             notes.append("state=unreadable")
@@ -492,17 +614,18 @@ def comet_rubric_validator(test_dir: Path, outputs: dict) -> tuple[list[str], li
     """
     events = (outputs or {}).get("events", {}) or {}
     completion = (outputs or {}).get("completion") or {}
+    workflow = _detect_workflow_kind(events, test_dir)
 
     scored: list[tuple[str, float, str]] = [
-        ("main_flow", *_score_main_flow(events, test_dir)),
+        ("main_flow", *_score_main_flow(events, test_dir, workflow)),
         ("gate_guard", *_score_gate_guard(events)),
         ("skill_invocation", *_score_skill_invocation(events)),
         ("spec_drift", *_score_spec_drift(events, test_dir)),
         ("completion", *_score_completion({"completion": completion})),
         ("efficiency", *_score_efficiency(events)),
-        ("decision_point_compliance", *_score_decision_point_compliance(events)),
-        ("artifact_quality", *_score_artifact_quality(test_dir)),
-        ("recovery_resilience", *_score_recovery_resilience(events, test_dir)),
+        ("decision_point_compliance", *_score_decision_point_compliance(events, workflow)),
+        ("artifact_quality", *_score_artifact_quality(test_dir, workflow)),
+        ("recovery_resilience", *_score_recovery_resilience(events, test_dir, workflow)),
     ]
 
     # Build dimension scores dict for weighted computation

@@ -66,6 +66,7 @@ This is the first beta of the 0.4.0 line. Relative to 0.3.9, Comet becomes a Nod
 - **Comet eval invocation contract**: Comet workflow eval tasks now require the run to enter the actual `/comet` Skill instead of accepting hand-written prose that merely imitates the phase names, and Comet eval treatments now inject the benchmark OpenSpec and Superpowers dependency Skill snapshots used by the workflow.
 - **Comet eval project instructions**: Comet workflow eval runs now inject an editable benchmark `CLAUDE.md` from the eval Skill assets into the isolated workspace, making `/comet` Skill invocation a project instruction instead of relying only on the task prompt.
 - **Comet eval nested Skill evidence**: Comet workflow eval instructions and the 0.4.0 beta Comet benchmark entry now require nested Comet stage Skills and OpenSpec/Superpowers dependency Skills to be invoked through the Skill tool, and the rubric reports missing nested/dependency Skill calls as workflow contract failures instead of inferring success from generated artifacts.
+- **Comet eval workflow-specific scoring**: Comet workflow eval rubric now scores `full`, `hotfix`, and `tweak` runs with separate phase, decision-point, artifact-quality, and recovery-evidence expectations, so preset workflows are no longer penalized for intentionally skipping full-workflow design depth or build decisions.
 - **Comet eval hook enforcement**: Comet eval treatments now install complete benchmark Skill packages for Comet and its OpenSpec/Superpowers dependencies, including rules, references, runtime metadata, scripts, and other bundled files, and configure the matching Claude Code `PreToolUse` hook for the 0.3.9 shell baseline and 0.4.0 beta Node baseline so phase guards can run inside the eval workspace.
 
 ### Tests
@@ -84,6 +85,7 @@ This is the first beta of the 0.4.0 line. Relative to 0.3.9, Comet becomes a Nod
 - **Comet eval hook coverage**: Adds regression coverage that 0.3.9 and 0.4.0 beta eval baselines preserve packaged Comet rule directories and configure the expected Claude Code hook command.
 - **Comet eval dependency package coverage**: Adds regression coverage that dependency Skills with scripts and nested support files, including Superpowers and OpenSpec snapshots, are copied completely into the isolated Claude Code workspace.
 - **Comet eval nested Skill coverage**: Adds regression coverage that Comet workflow evals require observable nested Comet, OpenSpec, and Superpowers Skill tool calls and score them in the `skill_invocation` rubric.
+- **Comet eval workflow rubric coverage**: Adds regression coverage for separate `full`, `hotfix`, and `tweak` rubric scoring, OpenSpec Skill alias normalization, and archived 0.4.0 recovery evidence stored under `.comet/run-state.json`.
 
 ### Removed
 

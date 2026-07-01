@@ -41,7 +41,7 @@ uv run pytest local/tests/tasks/test_tasks.py \
 
 Comet baseline 和它依赖的 OpenSpec / Superpowers Skill 都会按完整 Skill 包安装到 `.claude/skills/`，包括 `rules/`、`reference/`、`runtime/`、`scripts/` 以及其他随包文件。安装 canonical `comet` Skill 时，runner 会根据 baseline 自动配置 Claude Code `PreToolUse` hook：`COMET_FULL_039` 使用 `comet-hook-guard.sh`，`COMET_FULL_040_BETA` 使用 `comet-hook-guard.mjs`。
 
-报告中的 `Skills invoked` 和 `skill_invocation` rubric 只统计 Claude Code 事件里真实观测到的 Skill 工具调用，不会根据产物反推。`comet-workflow` profile 会把嵌套 Comet 阶段 Skill、OpenSpec 依赖 Skill、Superpowers 依赖 Skill 都作为关键证据；如果只调用主 `comet` 但没有调用这些依赖，run 会被标记为工作流契约失败。
+报告中的 `Skills invoked` 和 `skill_invocation` rubric 只统计 Claude Code 事件里真实观测到的 Skill 工具调用，不会根据产物反推。`comet-workflow` profile 会把嵌套 Comet 阶段 Skill、OpenSpec 依赖 Skill、Superpowers 依赖 Skill 都作为关键证据；如果只调用主 `comet` 但没有调用这些依赖，run 会被标记为工作流契约失败。rubric 会按 `full`、`hotfix`、`tweak` 三类 workflow 分别评分：`full` 要求深度设计和完整阶段证据，`hotfix` / `tweak` 使用预设路径的轻量产物和连续执行决策点口径。
 
 容器内 Claude 实验工作区的 ASCII 目录结构见 `../README.md` 的“容器中的 Claude 实验工作区”。
 
