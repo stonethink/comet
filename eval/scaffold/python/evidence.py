@@ -5,6 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+TREATMENT_NAME_ALIASES = {
+    "COMET-FULL": "COMET_FULL_040_BETA",
+}
+
 
 @dataclass(frozen=True)
 class EvalArtifactReference:
@@ -12,8 +16,11 @@ class EvalArtifactReference:
     path: str
 
 
-def _safe_name(treatment_name: str) -> str:
-    return treatment_name.lower().replace("-", "_")
+def stable_treatment_name(treatment_name: str) -> str:
+    alias = TREATMENT_NAME_ALIASES.get(treatment_name)
+    if alias:
+        return alias
+    return treatment_name.replace("-", "_")
 
 
 def build_eval_artifact_references(
@@ -21,7 +28,7 @@ def build_eval_artifact_references(
     treatment_name: str,
     rep: int,
 ) -> dict[str, str]:
-    name = _safe_name(treatment_name)
+    name = stable_treatment_name(treatment_name)
     return {
         "events": str(base_dir / "events" / f"{name}_rep{rep}.json"),
         "raw_stdout": str(base_dir / "raw" / f"{name}_rep{rep}_stdout.json"),

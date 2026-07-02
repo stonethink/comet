@@ -648,6 +648,43 @@ def experiment_logger():
 def setup_test_context(test_dir):
     """Factory fixture to set up test context with skills and CLAUDE.md."""
 
+    def _write_skill(
+        skill_name: str,
+        skill_file: str,
+        scripts_dir: Path | None = None,
+        source_dir: Path | None = None,
+    ) -> None:
+        skill_dir = test_dir / ".claude" / "skills" / skill_name
+        skill_dir.mkdir(parents=True, exist_ok=True)
+
+        if source_dir and source_dir.is_dir():
+            shutil.copytree(source_dir, skill_dir, dirs_exist_ok=True)
+
+        shutil.copyfile(skill_file, skill_dir / "SKILL.md")
+
+        if scripts_dir and scripts_dir.is_dir():
+            scripts_dest = skill_dir / "scripts"
+            shutil.rmtree(scripts_dest, ignore_errors=True)
+            shutil.copytree(scripts_dir, scripts_dest, dirs_exist_ok=True)
+
+    def _copy_environment(environment_dir: Path) -> None:
+        for item in environment_dir.iterdir():
+            dest = test_dir / item.name
+            if item.is_dir():
+                if dest.exists() and dest.is_dir():
+                    shutil.copytree(item, dest, dirs_exist_ok=True)
+                else:
+                    shutil.copytree(item, dest)
+            else:
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(item, dest)
+
+    def _write_claude_md(content_file: str) -> None:
+        claude_dir = test_dir / ".claude"
+        claude_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(content_file, claude_dir / "CLAUDE.md")
+        shutil.copyfile(content_file, test_dir / "CLAUDE.md")
+
     def _setup(skills: dict = None, claude_md: str = None, environment_dir: Path = None):
         for skill_name, cfg in (skills or {}).items():
             if not cfg:
@@ -675,21 +712,14 @@ def setup_test_context(test_dir):
             is_temp_dir = filtered_dir and filtered_dir != scripts_dir
 
             try:
-                args = ["write-skill", str(test_dir), skill_name, skill_file]
-                if filtered_dir:
-                    args.append(str(filtered_dir))
-                elif source_dir:
-                    args.append("")
-                if source_dir:
-                    args.append(str(source_dir))
-                run_shell("setup.sh", *args)
+                _write_skill(skill_name, skill_file, filtered_dir, source_dir)
             finally:
                 os.unlink(skill_file)
                 if is_temp_dir and filtered_dir.exists():
                     shutil.rmtree(filtered_dir)
 
         if environment_dir and environment_dir.exists():
-            run_shell("setup.sh", "copy-env", str(test_dir), str(environment_dir))
+            _copy_environment(environment_dir)
 
         if claude_md:
             with tempfile.NamedTemporaryFile(
@@ -698,7 +728,7 @@ def setup_test_context(test_dir):
                 f.write(claude_md)
                 temp_file = f.name
             try:
-                run_shell("setup.sh", "write-claude-md", str(test_dir), temp_file)
+                _write_claude_md(temp_file)
             finally:
                 os.unlink(temp_file)
 

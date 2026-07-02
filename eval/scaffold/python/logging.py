@@ -8,6 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from scaffold.python.evidence import stable_treatment_name
 from scaffold.python.paths import get_logs_dir
 from scaffold.python.report_outputs import (
     ReportOutputConfig,
@@ -677,7 +678,7 @@ def save_events(base_dir: Path, treatment_name: str, rep: int, events: dict[str,
     """Save events JSON."""
     events_dir = base_dir / "events"
     events_dir.mkdir(parents=True, exist_ok=True)
-    save_path = events_dir / f"{treatment_name.lower()}_rep{rep}.json"
+    save_path = events_dir / f"{stable_treatment_name(treatment_name)}_rep{rep}.json"
     save_path.write_text(json.dumps(events, indent=2), encoding="utf-8")
     return save_path
 
@@ -686,11 +687,12 @@ def save_raw(base_dir: Path, treatment_name: str, rep: int, stdout: str, stderr:
     """Save raw CLI output."""
     raw_dir = base_dir / "raw"
     raw_dir.mkdir(parents=True, exist_ok=True)
-    stdout_path = raw_dir / f"{treatment_name.lower()}_rep{rep}_stdout.json"
+    stable_name = stable_treatment_name(treatment_name)
+    stdout_path = raw_dir / f"{stable_name}_rep{rep}_stdout.json"
     stdout_path.write_text(stdout, encoding="utf-8")
 
     if stderr:
-        stderr_path = raw_dir / f"{treatment_name.lower()}_rep{rep}_stderr.txt"
+        stderr_path = raw_dir / f"{stable_name}_rep{rep}_stderr.txt"
         stderr_path.write_text(stderr, encoding="utf-8")
 
 
@@ -698,6 +700,6 @@ def save_report(base_dir: Path, treatment_name: str, rep: int, report: dict[str,
     """Save treatment report."""
     reports_dir = base_dir / "reports"
     reports_dir.mkdir(parents=True, exist_ok=True)
-    save_path = reports_dir / f"{treatment_name.lower()}_rep{rep}_report.json"
+    save_path = reports_dir / f"{stable_treatment_name(treatment_name)}_rep{rep}_report.json"
     save_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
     return save_path

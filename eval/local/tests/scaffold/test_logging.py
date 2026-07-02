@@ -9,7 +9,9 @@ from scaffold.python.logging import (
     extract_events,
     parse_output,
     rubric_columns,
+    save_events,
     save_raw,
+    save_report,
 )
 from scaffold.python.report_outputs import ReportOutputConfig
 
@@ -154,6 +156,23 @@ def test_save_raw_writes_utf8_output(tmp_path: Path):
 
     assert "中文" in stdout_path.read_text(encoding="utf-8")
     assert "stderr 中文" == stderr_path.read_text(encoding="utf-8")
+
+
+def test_save_artifacts_preserve_stable_treatment_filenames(tmp_path: Path):
+    save_events(tmp_path, "COMET_FULL_040_BETA", 2, {"ok": True})
+    save_raw(tmp_path, "COMET_FULL_040_BETA", 2, "{}", "stderr")
+    save_report(tmp_path, "COMET_FULL_040_BETA", 2, {"ok": True})
+
+    assert sorted(path.name for path in (tmp_path / "events").iterdir()) == [
+        "COMET_FULL_040_BETA_rep2.json"
+    ]
+    assert sorted(path.name for path in (tmp_path / "raw").iterdir()) == [
+        "COMET_FULL_040_BETA_rep2_stderr.txt",
+        "COMET_FULL_040_BETA_rep2_stdout.json",
+    ]
+    assert sorted(path.name for path in (tmp_path / "reports").iterdir()) == [
+        "COMET_FULL_040_BETA_rep2_report.json"
+    ]
 
 
 def test_rubric_columns_accept_profile_dimensions():
