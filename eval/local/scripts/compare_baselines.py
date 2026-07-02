@@ -21,6 +21,14 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+EVAL_ROOT = Path(__file__).resolve().parents[2]
+if str(EVAL_ROOT) not in sys.path:
+    sys.path.insert(0, str(EVAL_ROOT))
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+
 from scaffold.python.paths import get_logs_dir
 from scaffold.python.report_outputs import (
     load_report_output_config,
@@ -38,6 +46,13 @@ RUBRIC_DERIVED_METRICS = ("weighted_score",)
 TREATMENTS = ("CONTROL", "COMET_FULL_040_BETA", "COMET_FULL_039")
 WORKFLOW = "COMET_FULL_040_BETA"
 BASELINE = "COMET_FULL_039"
+
+
+def _treatment_from_report_name(raw_name: str) -> str:
+    for treatment in sorted(TREATMENTS, key=len, reverse=True):
+        if re.search(rf"(?:^|-){re.escape(treatment)}(?:-r\d+)?$", raw_name):
+            return treatment
+    return raw_name
 
 
 def _latest_experiment(logs: Path) -> Path | None:
@@ -79,12 +94,9 @@ def _load_reports(experiment_dir: Path) -> dict[str, list[dict]]:
         except (json.JSONDecodeError, OSError):
             continue
         raw_name = data.get("name", "unknown")
-        # Match the canonical treatment id by suffix (TREATMENTS are uppercase).
-        name = raw_name
-        for t in TREATMENTS:
-            if raw_name.endswith(t):
-                name = t
-                break
+        # Match the canonical treatment id, allowing pytest repetition suffixes
+        # such as ``COMET_FULL_040_BETA-r1``.
+        name = _treatment_from_report_name(raw_name)
         by_treatment[name].append(data)
     return by_treatment
 
@@ -126,7 +138,14 @@ def _aggregate_judge(reports: list[dict]) -> dict[str, dict[str, float]]:
         vals = per_dim.get(dim, [])
         n = len(vals)
         if not vals:
-            result[dim] = {"mean": 0.0, "stdev": 0.0, "min": 0.0, "max": 0.0, "pass_rate": 0.0, "n": 0}
+            result[dim] = {
+                "mean": 0.0,
+                "stdev": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "pass_rate": 0.0,
+                "n": 0,
+            }
             continue
         result[dim] = {
             "mean": statistics.fmean(vals),
@@ -153,7 +172,14 @@ def _aggregate(reports: list[dict]) -> dict[str, dict[str, float]]:
         vals = per_dim.get(dim, [])
         n = len(vals)
         if not vals:
-            result[dim] = {"mean": 0.0, "stdev": 0.0, "min": 0.0, "max": 0.0, "pass_rate": 0.0, "n": 0}
+            result[dim] = {
+                "mean": 0.0,
+                "stdev": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "pass_rate": 0.0,
+                "n": 0,
+            }
             continue
         mean = statistics.fmean(vals)
         stdev = statistics.pstdev(vals) if len(vals) > 1 else 0.0
@@ -222,6 +248,23 @@ def _source_summary(report: dict) -> str:
     manifest = events.get("eval_manifest") or "none"
     report_ref = (events.get("artifact_references") or {}).get("report", "none")
     return f"| `{run_id}` | {profile} | {source_text} | {manifest} | {report_ref} |"
+
+
+def _task_name(report: dict, treatment: str) -> str:
+    raw_name = str(report.get("name") or "unknown")
+    match = re.match(rf"^(.*)-{re.escape(treatment)}(?:-r\d+)?$", raw_name)
+    if match:
+        return match.group(1)
+    return raw_name
+
+
+def _task_outcomes(by_treatment: dict[str, list[dict]]) -> dict[str, dict[str, bool]]:
+    outcomes: dict[str, dict[str, bool]] = {}
+    for treatment in TREATMENTS:
+        for report in by_treatment.get(treatment, []):
+            task = _task_name(report, treatment)
+            outcomes.setdefault(task, {})[treatment] = _run_passed(report)
+    return outcomes
 
 
 # --- Attribution (improvement 2) -------------------------------------------
@@ -314,7 +357,10 @@ def build_report(experiment_dir: Path) -> str:
     lines.append("")
     lines.append("- **pass@k**: probability ≥1 of k attempts succeeds (capability ceiling)")
     lines.append("- **pass^k**: probability all k attempts succeed (reliability floor)")
-    lines.append("- The gap (pass@k − pass^k) measures instability: high ceiling, low floor = unreliable.")
+    lines.append(
+        "- The gap (pass@k − pass^k) measures instability: "
+        "high ceiling, low floor = unreliable."
+    )
     lines.append("")
     # Header
     k_cols = ks * 2
@@ -340,7 +386,26 @@ def build_report(experiment_dir: Path) -> str:
         lines.append("| " + " | ".join(cells) + " |")
     lines.append("")
     if max_n < 2:
-        lines.append(f"_Only {max_n} run per treatment — pass@k/pass^k for k>1 need ≥2 runs to be meaningful. Use ``--count 5``._")
+        lines.append(
+            f"_Only {max_n} run per treatment — pass@k/pass^k for k>1 need ≥2 runs "
+            "to be meaningful. Use ``--count 5``._"
+        )
+        lines.append("")
+
+    task_outcomes = _task_outcomes(by_treatment)
+    if task_outcomes:
+        lines.append("## Task outcomes")
+        lines.append("")
+        lines.append("| Task | " + " | ".join(TREATMENTS) + " |")
+        lines.append("|------|" + "|".join(["------"] * len(TREATMENTS)) + "|")
+        for task in sorted(task_outcomes):
+            cells = [task]
+            for treatment in TREATMENTS:
+                if treatment not in task_outcomes[task]:
+                    cells.append("—")
+                else:
+                    cells.append("PASS" if task_outcomes[task][treatment] else "FAIL")
+            lines.append("| " + " | ".join(cells) + " |")
         lines.append("")
 
     # Spend summary
@@ -357,7 +422,9 @@ def build_report(experiment_dir: Path) -> str:
         avg_tokens = (total_tokens / len(reps)) if total_tokens is not None else None
         avg_cost = (total_cost / len(reps)) if total_cost is not None else None
         lines.append(
-            f"| {t} | {len(reps)} | {_fmt_tokens(total_tokens)} | {_fmt_cost(total_cost)} | {_fmt_tokens(avg_tokens)} | {_fmt_cost(avg_cost)} |"
+            f"| {t} | {len(reps)} | {_fmt_tokens(total_tokens)} | "
+            f"{_fmt_cost(total_cost)} | {_fmt_tokens(avg_tokens)} | "
+            f"{_fmt_cost(avg_cost)} |"
         )
     lines.append("")
 
@@ -374,7 +441,10 @@ def build_report(experiment_dir: Path) -> str:
     label = "(mean±stdev, pass-rate across runs; 0.00–1.00)" if has_dist else "(mean, 0.00–1.00)"
     lines.append(f"## Rubric dimensions {label}")
     lines.append("")
-    lines.append("_Scores are binary pass-rates (0.0-1.0). Overall uses the validator-emitted weighted_score when available (see weights below)._")
+    lines.append(
+        "_Scores are binary pass-rates (0.0-1.0). Overall uses the "
+        "validator-emitted weighted_score when available (see weights below)._"
+    )
     lines.append("")
     header = "| Dimension | " + " | ".join(TREATMENTS) + " | Δ (workflow−baseline) |"
     sep = "|-----------|" + "|".join(["------"] * len(TREATMENTS)) + "|------|"
@@ -453,18 +523,27 @@ def build_report(experiment_dir: Path) -> str:
     if WORKFLOW not in aggregated or BASELINE not in aggregated:
         lines.append(f"Insufficient data: need both `{WORKFLOW}` and `{BASELINE}` runs.")
     elif regressions:
-        lines.append(f"❌ **Workflow regresses on {len(regressions)} dimension(s) vs 0.3.9 baseline:**")
+        lines.append(
+            f"❌ **Workflow regresses on {len(regressions)} dimension(s) "
+            "vs 0.3.9 baseline:**"
+        )
         lines.append("")
         for dim, wf, bl in regressions:
             lines.append(f"- **{dim}**: workflow {wf:.2f} < baseline {bl:.2f} (Δ {wf - bl:+.2f})")
         lines.append("")
-        lines.append("See the failure-attribution section above and the events/raw logs for root-cause analysis.")
+        lines.append(
+            "See the failure-attribution section above and the events/raw logs "
+            "for root-cause analysis."
+        )
     else:
         wf_overall = _overall(aggregated[WORKFLOW])
         bl_overall = _overall(aggregated[BASELINE])
         if wf_overall >= bl_overall:
-            lines.append(f"✅ **Workflow is stable**: overall {wf_overall:.2f} ≥ baseline {bl_overall:.2f}, "
-                         f"no dimension regresses beyond the 0.05 tolerance.")
+            lines.append(
+                f"✅ **Workflow is stable**: overall {wf_overall:.2f} ≥ "
+                f"baseline {bl_overall:.2f}, no dimension regresses beyond "
+                "the 0.05 tolerance."
+            )
         else:
             lines.append(f"⚠️ **Workflow overall lower** ({wf_overall:.2f} < {bl_overall:.2f}) "
                          f"but no single dimension regresses beyond tolerance.")
@@ -474,20 +553,28 @@ def build_report(experiment_dir: Path) -> str:
 
     # --- LLM-judge overlay (improvement 3) ---
     judge_aggregated = {t: _aggregate_judge(reps) for t, reps in by_treatment.items() if reps}
-    has_judge = any(stats.get(d, {}).get("n", 0) > 0 for stats in judge_aggregated.values() for d in ("artifact_quality", "spec_drift", "main_flow"))
+    has_judge = any(
+        stats.get(d, {}).get("n", 0) > 0
+        for stats in judge_aggregated.values()
+        for d in ("artifact_quality", "spec_drift", "main_flow")
+    )
     if has_judge:
         lines.append("")
         lines.append("## LLM-judge overlay (rule vs judge)")
         lines.append("")
-        lines.append("Independent LLM re-scored the three qualitative dimensions by reading the actual "
-                     "artifacts. Large rule-vs-judge gaps flag heuristic weaknesses.")
+        lines.append(
+            "Independent LLM re-scored the three qualitative dimensions by reading "
+            "the actual artifacts. Large rule-vs-judge gaps flag heuristic weaknesses."
+        )
         lines.append("")
         lines.append("| Dimension | Treatment | Rule | Judge | Gap |")
         lines.append("|-----------|-----------|------|-------|-----|")
         for dim in ("artifact_quality", "spec_drift", "main_flow"):
             for t in TREATMENTS:
-                rule = aggregated.get(t, {}).get(dim, {}).get("mean") if aggregated.get(t, {}).get(dim, {}).get("n") else None
-                judge = judge_aggregated.get(t, {}).get(dim, {}).get("mean") if judge_aggregated.get(t, {}).get(dim, {}).get("n") else None
+                rule_stats = aggregated.get(t, {}).get(dim, {})
+                judge_stats = judge_aggregated.get(t, {}).get(dim, {})
+                rule = rule_stats.get("mean") if rule_stats.get("n") else None
+                judge = judge_stats.get("mean") if judge_stats.get("n") else None
                 if rule is None and judge is None:
                     continue
                 gap = f"{judge - rule:+.2f}" if (rule is not None and judge is not None) else "—"
@@ -500,7 +587,11 @@ def build_report(experiment_dir: Path) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--experiment", default=None, help="Experiment id (defaults to latest)")
-    parser.add_argument("--out", default=None, help="Output path (defaults to <experiment>/comparison_report.md)")
+    parser.add_argument(
+        "--out",
+        default=None,
+        help="Output path (defaults to <experiment>/comparison_report.md)",
+    )
     parser.add_argument("--report-config", default=None, help="JSON/YAML config for report outputs")
     args = parser.parse_args(argv)
 

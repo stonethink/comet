@@ -4,12 +4,13 @@ import json
 from pathlib import Path
 
 from local.scripts.compare_baselines import build_report, main
+from scaffold.python.report_outputs import render_markdown_html
 
 
-def _write_report(reports_dir: Path, name: str, tokens: int, cost: float):
+def _write_report(reports_dir: Path, name: str, tokens: int, cost: float, passed: bool = True):
     report = {
         "name": f"comet-fix-median-{name}",
-        "passed": True,
+        "passed": passed,
         "checks_passed": [
             "[RUBRIC] main_flow: 1.00 - ok",
             "[RUBRIC] gate_guard: 1.00 - ok",
@@ -20,7 +21,7 @@ def _write_report(reports_dir: Path, name: str, tokens: int, cost: float):
             "[RUBRIC] decision_point_compliance: 1.00 - ok",
             "[RUBRIC] artifact_quality: 1.00 - ok",
         ],
-        "checks_failed": [],
+        "checks_failed": [] if passed else ["validator failed"],
         "events_summary": {
             "total_tokens": tokens,
             "total_cost_usd": cost,
@@ -44,6 +45,43 @@ def test_compare_report_includes_spend_summary(tmp_path: Path):
     assert "| COMET_FULL_040_BETA | 1 | 200 | $0.0200 | 200 | $0.0200 |" in report
 
 
+def test_compare_report_normalizes_repeated_run_suffixes(tmp_path: Path):
+    experiment = tmp_path / "experiment"
+    reports = experiment / "reports"
+    reports.mkdir(parents=True)
+    report = {
+        "name": "comet-fix-median-COMET_FULL_040_BETA-r1",
+        "passed": True,
+        "checks_passed": ["[RUBRIC] weighted_score: 1.00"],
+        "checks_failed": [],
+        "events_summary": {"total_tokens": 200, "total_cost_usd": 0.02},
+    }
+    (reports / "workflow_report.json").write_text(json.dumps(report))
+
+    output = build_report(experiment)
+
+    assert "| COMET_FULL_040_BETA | 1 |" in output
+    assert "| comet-fix-median | — | PASS | — |" in output
+    html = render_markdown_html(output, title="Comet Baseline Comparison Report")
+    assert "Task outcome matrix" in html
+    assert "N/A" in html
+
+
+def test_compare_report_includes_task_outcome_table(tmp_path: Path):
+    experiment = tmp_path / "experiment"
+    reports = experiment / "reports"
+    reports.mkdir(parents=True)
+    _write_report(reports, "CONTROL", 100, 0.01)
+    _write_report(reports, "COMET_FULL_040_BETA", 200, 0.02)
+    _write_report(reports, "COMET_FULL_039", 300, 0.03, passed=False)
+
+    report = build_report(experiment)
+
+    assert "## Task outcomes" in report
+    assert "| Task | CONTROL | COMET_FULL_040_BETA | COMET_FULL_039 |" in report
+    assert "| comet-fix-median | PASS | PASS | FAIL |" in report
+
+
 def test_compare_report_honors_html_report_output_config(monkeypatch, tmp_path: Path):
     monkeypatch.setenv("BENCH_LOGS_DIR", str(tmp_path))
     experiment = tmp_path / "experiments" / "exp1"
@@ -61,7 +99,31 @@ def test_compare_report_honors_html_report_output_config(monkeypatch, tmp_path: 
     assert not (experiment / "comparison_report.md").exists()
     html_report = experiment / "comparison_report.html"
     assert html_report.exists()
-    assert "Comet Baseline Comparison Report" in html_report.read_text(encoding="utf-8")
+    html = html_report.read_text(encoding="utf-8")
+    assert "Comet Baseline Comparison Report" in html
+    assert "paper-figure" in html
+    assert 'data-chart-backend="python"' in html
+    assert "Rubric dimension deltas" in html
+    assert "Task outcome matrix" in html
+    assert "<svg" in html
+    assert "matplotlib" not in html.lower()
+    assert "chart.js" not in html.lower()
+
+
+def test_html_report_falls_back_when_python_chart_backend_disabled(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("COMET_EVAL_REPORT_CHART_BACKEND", "inline")
+    experiment = tmp_path / "experiment"
+    reports = experiment / "reports"
+    reports.mkdir(parents=True)
+    _write_report(reports, "CONTROL", 100, 0.01)
+    _write_report(reports, "COMET_FULL_040_BETA", 200, 0.02)
+    _write_report(reports, "COMET_FULL_039", 300, 0.03)
+
+    markdown = build_report(experiment)
+    html = render_markdown_html(markdown, title="Comet Baseline Comparison Report")
+
+    assert 'data-chart-backend="inline-svg"' in html
+    assert "Task outcome matrix" in html
 
 
 def test_compare_report_uses_structured_failure_attribution(tmp_path: Path):
