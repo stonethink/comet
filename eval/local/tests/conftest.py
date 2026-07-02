@@ -40,6 +40,7 @@ from scaffold.python import (
     save_report,
     strip_ansi,
 )
+from scaffold.python.sample_quality import infer_sample_quality
 from scaffold.python.skill_parser import SCRIPT_EXTENSIONS
 
 # =============================================================================
@@ -777,6 +778,9 @@ def record_result(test_dir, experiment_logger, request):
         passed: list[str],
         failed: list[str],
         run_id: str = "",
+        returncode: int | None = None,
+        stdout: str | None = None,
+        stderr: str | None = None,
     ):
         if not experiment_logger:
             return
@@ -796,36 +800,20 @@ def record_result(test_dir, experiment_logger, request):
             events.get("profile"),
         )
 
-        report = {
-            "name": treatment_name,
-            "rep": rep,
-            "passed": len(failed) == 0,
-            "run_id": run_id,
-            "checks_passed": passed,
-            "checks_failed": failed,
-            "events_summary": {
-                "duration_seconds": events.get("duration_seconds"),
-                "num_turns": events.get("num_turns"),
-                "tool_calls": len(events.get("tool_calls", [])),
-                "input_tokens": events.get("input_tokens"),
-                "output_tokens": events.get("output_tokens"),
-                "cache_read_input_tokens": events.get("cache_read_input_tokens"),
-                "cache_creation_input_tokens": events.get("cache_creation_input_tokens"),
-                "total_tokens": events.get("total_tokens"),
-                "total_cost_usd": events.get("total_cost_usd"),
-                "model_usage": events.get("model_usage", {}),
-                "files_created": events.get("files_created", []),
-                "skills_invoked": events.get("skills_invoked", []),
-                "scripts_used": scripts_used,
-                "profile": events.get("profile"),
-                "skill_sources": events.get("skill_sources", []),
-                "eval_manifest": events.get("eval_manifest"),
-                "interaction": events.get("interaction", {}),
-                "artifact_references": artifact_references,
-                "failure_attribution": failure_attribution,
-            },
-            "timestamp": datetime.now().isoformat(),
-        }
+        report = _build_report_payload(
+            treatment_name=treatment_name,
+            rep=rep,
+            run_id=run_id,
+            events=events,
+            passed=passed,
+            failed=failed,
+            scripts_used=scripts_used,
+            artifact_references=artifact_references,
+            failure_attribution=failure_attribution,
+            returncode=returncode,
+            stdout=stdout,
+            stderr=stderr,
+        )
         save_report(base_dir, treatment_name, rep, report)
 
         experiment_logger.add_result(
@@ -860,6 +848,63 @@ def record_result(test_dir, experiment_logger, request):
         )
 
     return _record
+
+
+def _build_report_payload(
+    *,
+    treatment_name: str,
+    rep: int,
+    run_id: str,
+    events: dict[str, Any],
+    passed: list[str],
+    failed: list[str],
+    scripts_used: list[str],
+    artifact_references: dict[str, str],
+    failure_attribution: list[dict[str, str]],
+    returncode: int | None = None,
+    stdout: str | None = None,
+    stderr: str | None = None,
+) -> dict[str, Any]:
+    sample_quality = infer_sample_quality(
+        events=events,
+        checks_failed=failed,
+        failure_attribution=failure_attribution,
+        stdout=stdout,
+        stderr=stderr,
+        returncode=returncode,
+    ).to_dict()
+
+    return {
+        "name": treatment_name,
+        "rep": rep,
+        "passed": len(failed) == 0,
+        "run_id": run_id,
+        "checks_passed": passed,
+        "checks_failed": failed,
+        "sample_quality": sample_quality,
+        "events_summary": {
+            "duration_seconds": events.get("duration_seconds"),
+            "num_turns": events.get("num_turns"),
+            "tool_calls": len(events.get("tool_calls", [])),
+            "input_tokens": events.get("input_tokens"),
+            "output_tokens": events.get("output_tokens"),
+            "cache_read_input_tokens": events.get("cache_read_input_tokens"),
+            "cache_creation_input_tokens": events.get("cache_creation_input_tokens"),
+            "total_tokens": events.get("total_tokens"),
+            "total_cost_usd": events.get("total_cost_usd"),
+            "model_usage": events.get("model_usage", {}),
+            "files_created": events.get("files_created", []),
+            "skills_invoked": events.get("skills_invoked", []),
+            "scripts_used": scripts_used,
+            "profile": events.get("profile"),
+            "skill_sources": events.get("skill_sources", []),
+            "eval_manifest": events.get("eval_manifest"),
+            "interaction": events.get("interaction", {}),
+            "artifact_references": artifact_references,
+            "failure_attribution": failure_attribution,
+        },
+        "timestamp": datetime.now().isoformat(),
+    }
 
 
 # Fixture bundle accessor

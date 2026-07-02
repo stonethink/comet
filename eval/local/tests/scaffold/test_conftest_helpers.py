@@ -490,3 +490,45 @@ def test_workflow_overlay_contract_validator_accepts_minimal_contract_package(tm
     results = _run_workflow_overlay_validator(workspace, _overlay_validator_context(package))
 
     assert results["failed"] == []
+
+
+def test_build_report_payload_persists_sample_quality():
+    report = conftest._build_report_payload(
+        treatment_name="COMET_FULL_040_BETA",
+        rep=1,
+        run_id="run-1",
+        events={"duration_seconds": 10, "total_tokens": 100, "total_cost_usd": 0.01},
+        passed=["[RUBRIC] weighted_score: 1.00"],
+        failed=[],
+        scripts_used=[],
+        artifact_references={"report": "reports/demo.json"},
+        failure_attribution=[],
+        returncode=0,
+        stdout=json.dumps({"type": "result", "duration_ms": 10000}) + "\n",
+        stderr="",
+    )
+
+    assert report["sample_quality"]["status"] == "included"
+    assert report["sample_quality"]["reason_code"] == "valid_signal"
+    assert report["sample_quality"]["include_in_analysis"] is True
+
+
+def test_build_report_payload_marks_timeout_as_excluded():
+    report = conftest._build_report_payload(
+        treatment_name="COMET_FULL_039",
+        rep=1,
+        run_id="run-2",
+        events={},
+        passed=[],
+        failed=["no result"],
+        scripts_used=[],
+        artifact_references={"report": "reports/demo.json"},
+        failure_attribution=[],
+        returncode=124,
+        stdout="",
+        stderr="Timeout after 600s",
+    )
+
+    assert report["sample_quality"]["status"] == "excluded"
+    assert report["sample_quality"]["reason_code"] == "runner_timeout"
+    assert report["sample_quality"]["include_in_analysis"] is False

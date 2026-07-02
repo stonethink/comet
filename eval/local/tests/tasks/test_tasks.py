@@ -315,7 +315,15 @@ def test_task_treatment(task_name, treatment_name):
     passed = passed + rubric_passed
     failed = failed + rubric_failed
 
-    fixtures.record_result(events, passed, failed, run_id=run_id)
+    fixtures.record_result(
+        events,
+        passed,
+        failed,
+        run_id=run_id,
+        returncode=result.returncode,
+        stdout=result.stdout,
+        stderr=result.stderr,
+    )
 
     if failed:
         pytest.fail(f"Validation failed: {failed}")
