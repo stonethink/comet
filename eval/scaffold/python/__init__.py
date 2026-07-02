@@ -28,6 +28,13 @@ from .profiles import (
 )
 from .evidence import EvalArtifactReference, build_eval_artifact_references
 from .attribution import FailureAttribution, classify_failures
+from .sample_quality import (
+    SampleQuality,
+    include_in_analysis,
+    infer_sample_quality,
+    quality_from_report,
+    sample_quality_dict,
+)
 from .report_outputs import (
     ReportOutputConfig,
     load_report_output_config,
@@ -83,4 +90,6 @@ __all__ = [
     "resolve_profile_name", "run_profile_rubric",
     "ReportOutputConfig", "load_report_output_config", "preferred_report_path",
     "render_markdown_html", "write_report_outputs",
+    "SampleQuality", "infer_sample_quality", "quality_from_report",
+    "sample_quality_dict", "include_in_analysis",
 ]
