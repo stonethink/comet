@@ -417,7 +417,7 @@ def build_report(experiment_dir: Path) -> str:
     lines.append(f"- Treatments with data: {', '.join(sorted(raw_by_treatment)) or 'none'}")
     lines.append("")
 
-    if not aggregated:
+    if not raw_by_treatment:
         lines.append("No report data found. Run the eval suite first.")
         return "\n".join(lines)
 

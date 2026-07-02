@@ -376,6 +376,54 @@ def test_compare_report_reports_insufficient_clean_data(tmp_path: Path):
     assert "COMET_FULL_040_BETA" in report
 
 
+def test_compare_report_keeps_data_quality_sections_when_all_key_runs_are_excluded(tmp_path: Path):
+    experiment = tmp_path / "experiment"
+    reports = experiment / "reports"
+    reports.mkdir(parents=True)
+    _write_quality_report(
+        reports,
+        "workflow_timeout",
+        name="comet-full-workflow-COMET_FULL_040_BETA",
+        weighted_score=0.0,
+        tokens=999,
+        cost=9.99,
+        sample_quality={
+            "status": "excluded",
+            "reason_code": "runner_timeout",
+            "reason": "timeout",
+            "include_in_analysis": False,
+            "confidence": "high",
+            "evidence": ["Timeout after 600s"],
+        },
+        passed=False,
+    )
+    _write_quality_report(
+        reports,
+        "baseline_timeout",
+        name="comet-full-workflow-COMET_FULL_039",
+        weighted_score=0.0,
+        tokens=888,
+        cost=8.88,
+        sample_quality={
+            "status": "excluded",
+            "reason_code": "api_timeout",
+            "reason": "timeout",
+            "include_in_analysis": False,
+            "confidence": "high",
+            "evidence": ["stderr timeout"],
+        },
+        passed=False,
+    )
+
+    report = build_report(experiment)
+
+    assert "## Data quality summary" in report
+    assert "## Excluded runs" in report
+    assert "## Source evidence" in report
+    assert "Insufficient clean data" in report
+    assert "No report data found" not in report
+
+
 def test_html_report_includes_data_quality_summary(tmp_path: Path):
     experiment = tmp_path / "experiment"
     reports = experiment / "reports"
