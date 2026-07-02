@@ -10,6 +10,7 @@ export default defineConfig({
       'test/**/context-execution-benchmark.test.ts',
     ],
     coverage: {
+      reporter: ['text', 'lcov'],
       include: ['app/**/*.ts', 'domains/**/*.ts', 'platform/**/*.ts'],
       exclude: [
         'app/cli/**',

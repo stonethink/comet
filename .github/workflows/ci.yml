@@ -36,6 +36,16 @@ jobs:
 
       - run: pnpm test:coverage
 
+      - name: Upload coverage to Codecov
+        if: github.event_name == 'push'
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/lcov.info
+          flags: unittests
+          name: comet-node-${{ matrix.node-version }}
+          fail_ci_if_error: false
+
   script-smoke:
     runs-on: ${{ matrix.os }}
     strategy:
