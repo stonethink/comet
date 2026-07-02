@@ -24,6 +24,18 @@ pnpm test           # 单元测试
 
 注：本地 Windows 若 `core.autocrlf=true`，未改动的旧文件可能因 CRLF 被 `prettier --check` 误报；钩子只处理暂存文件，不受影响，旧文件下次编辑时会自动转为 LF。
 
+## Commit 规范
+
+提交信息必须使用类型前缀，格式为 `<type>: <summary>`，scope 可选：`<type>(<scope>): <summary>`。
+
+常用类型包括：`feat`、`fix`、`docs`、`chore`、`refactor`、`test`、`build`、`ci`、`perf`。
+
+示例：
+
+- `feat: add eval report language switch`
+- `fix(eval): prevent chart labels from overlapping`
+- `docs: update contributor commit rules`
+
 ## 项目结构规范
 
 当前源码目录按责任分层：
