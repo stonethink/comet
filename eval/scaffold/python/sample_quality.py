@@ -32,7 +32,14 @@ _NETWORK_RE = re.compile(
     re.I,
 )
 _CONTAINER_RE = re.compile(
-    r"(docker daemon not running|docker not available|build failed|container.*failed|mount.*failed)",
+    r"(docker daemon not running|"
+    r"docker [^\n]{0,80}(not available|failed|image build failed)|"
+    r"docker build[^\n]{0,80}failed|"
+    r"container (?:failed|crashed|did not start)|"
+    r"container build[^\n]{0,80}failed|"
+    r"build image[^\n]{0,80}failed|"
+    r"image build[^\n]{0,80}failed|"
+    r"mount[^\n]{0,80}failed)",
     re.I,
 )
 _VALIDATOR_RE = re.compile(
@@ -219,6 +226,11 @@ def infer_sample_quality(
 ) -> SampleQuality:
     report = report or {}
     existing = report.get("sample_quality")
+    if isinstance(existing, dict):
+        return _coerce_quality(existing)
+
+    events_summary = report.get("events_summary", {})
+    existing = events_summary.get("sample_quality") if isinstance(events_summary, dict) else None
     if isinstance(existing, dict):
         return _coerce_quality(existing)
 

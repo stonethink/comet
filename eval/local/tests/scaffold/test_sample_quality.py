@@ -100,6 +100,46 @@ def test_existing_sample_quality_is_respected():
     assert sample_quality_dict(report)["include_in_analysis"] is False
 
 
+def test_sample_quality_in_events_summary_is_respected():
+    report = {
+        "events_summary": {
+            "sample_quality": {
+                "status": "excluded",
+                "reason_code": "rate_limited",
+                "reason": "quota exceeded",
+                "include_in_analysis": False,
+                "confidence": "high",
+                "evidence": ["events summary"],
+            }
+        }
+    }
+
+    quality = quality_from_report(report)
+
+    assert quality.status == "excluded"
+    assert quality.reason_code == "rate_limited"
+    assert include_in_analysis(report) is False
+    assert sample_quality_dict(report)["status"] == "excluded"
+
+
+def test_plain_build_failed_with_observable_result_is_included():
+    quality = infer_sample_quality(
+        events={
+            "duration_seconds": 10,
+            "total_tokens": 1234,
+            "total_cost_usd": 0.01,
+        },
+        stdout='{"type":"result","duration_ms": 1000}\n',
+        stderr="build failed",
+        checks_failed=[],
+        returncode=0,
+    )
+
+    assert quality.status == "included"
+    assert quality.reason_code == "valid_signal"
+    assert quality.include_in_analysis is True
+
+
 def test_legacy_report_reads_raw_stderr_reference(tmp_path: Path):
     stderr = tmp_path / "raw" / "workflow_rep1_stderr.txt"
     stderr.parent.mkdir()
