@@ -76,3 +76,5 @@ uv run python local/scripts/compare_baselines.py --report-config report-config.j
 也可以设置 `COMET_EVAL_REPORT_CONFIG=/path/to/report-config.json`。
 
 每次运行的报告都会包含 profile、Skill 来源元数据、run id、产物引用，以及结构化失败归因。归因桶包括 `harness`、`workflow`、`task` 和 `model`。
+
+比较报告还会显示 `Data quality summary`。报告保留所有 raw runs 供审计，但 headline 指标、pass@k/pass^k、成本统计、图表和 verdict 默认使用 analysis set。`excluded` 表示明确的环境或运行器噪声（例如 API timeout、rate limit、Docker 启动失败），不会进入主统计；`flagged` 表示可疑 harness/task 噪声，仍进入主统计但会在报告中单独标出；真实 workflow/model/task 失败会保留为 `included`，不会因为分数低被过滤。

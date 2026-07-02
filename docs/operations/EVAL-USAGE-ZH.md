@@ -107,6 +107,10 @@ eval/local/logs/experiments/<experiment-id>/summary.html
 
 `comet eval` 的输出会提示 failure attribution：报告会把失败归到 harness、workflow、task、model 等桶里。这个归因用于判断下一步应该修 Skill、修 eval 配置，还是重跑环境。
 
+报告还会区分 raw set 和 analysis set。Raw set 保留所有运行记录；analysis set 是默认用于 headline、pass@k、成本、图表和 verdict 的去噪集合。`excluded` 通常表示 API timeout、rate limit、认证/网络失败、Docker/container failure 或外层 timeout，这类样本会保留在报告里但不进入主统计。`flagged` 表示 harness 或 task 假设可疑，仍进入主统计，但报告会提示风险。真实的 Skill、workflow、model 或 validator 失败不会被过滤，会作为 `included` 样本进入主统计。
+
+如果报告显示 `Insufficient clean data` 或 `Inconclusive due to data quality`，优先重跑对应 task/treatment 或检查环境，不要把当前 verdict 当作最终质量结论。
+
 ## `/comet-any` 如何使用 eval 结果
 
 从用户视角，eval 结束后把结果交回 `/comet-any` 继续推进，或运行 `comet creator next <name>` 看唯一推荐下一步即可。`/comet-any` 会把 eval 证据纳入 readiness：

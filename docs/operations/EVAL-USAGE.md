@@ -131,6 +131,18 @@ Users do not need to read low-level logs line by line. Start with:
 workflow, task, model, and related categories. That attribution helps decide whether the next step
 is fixing the Skill, the eval config, or the environment.
 
+Reports also distinguish the raw set from the analysis set. The raw set keeps every run for
+auditability; the analysis set is the default source for headline metrics, pass@k/pass^k, cost,
+charts, and the verdict. `excluded` usually means API timeout, rate limiting, auth/network
+failure, Docker/container failure, or an outer runner timeout; these runs stay visible in the
+report but do not affect headline metrics. `flagged` means a harness or task assumption looks
+suspicious; the run remains in the analysis set but is called out as a risk. Real Skill, workflow,
+model, or validator failures remain `included` and are not filtered away just because they lower
+the score.
+
+If the report says `Insufficient clean data` or `Inconclusive due to data quality`, rerun the
+affected task/treatment pair or inspect the environment before treating the verdict as final.
+
 ## How `/comet-any` uses eval results
 
 From the user's point of view, after `comet eval` finishes you can hand control back to
