@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 from local.scripts.generate_report_style_demo_charts import generate_charts
 
@@ -20,3 +21,13 @@ def test_generate_report_style_demo_charts_writes_bilingual_svgs(tmp_path: Path)
     en_rubric = (tmp_path / "rubric_delta.en.svg").read_text(encoding="utf-8")
     assert "图 1. Rubric 维度相对 0.3.9 的变化" in zh_rubric
     assert "Figure 1. Rubric dimension deltas relative to 0.3.9" in en_rubric
+    assert "Times New Roman" in zh_rubric
+    assert "SimSun" in zh_rubric
+
+    circle_x_values = [
+        float(match)
+        for match in re.findall(r"<circle cx=\"([0-9.]+)\" cy=\"[0-9.]+\" r=\"5.2\"", zh_rubric)
+    ]
+    assert circle_x_values
+    assert max(circle_x_values) < 760
+    assert '<text class="value" x="840"' in zh_rubric

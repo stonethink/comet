@@ -19,11 +19,9 @@
         --bad: #a33a32;
         --accent: #a87318;
         --code: #eee7dc;
-        --sans:
-          'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', Aptos, 'Segoe UI', Calibri,
-          sans-serif;
-        --serif: 'Noto Serif CJK SC', 'Source Han Serif SC', Georgia, 'Times New Roman', serif;
-        --mono: 'Cascadia Mono', 'SFMono-Regular', Consolas, monospace;
+        --paper-font:
+          'Times New Roman', SimSun, 'Songti SC', 'Noto Serif CJK SC', 'Source Han Serif SC', serif;
+        --mono: 'Times New Roman', SimSun, 'Songti SC', 'Noto Serif CJK SC', serif;
       }
 
       * {
@@ -41,7 +39,7 @@
           linear-gradient(90deg, rgba(25, 24, 23, 0.025) 1px, transparent 1px),
           linear-gradient(180deg, rgba(25, 24, 23, 0.025) 1px, transparent 1px), var(--paper);
         background-size: 28px 28px;
-        font: 16px/1.6 var(--sans);
+        font: 16px/1.6 var(--paper-font);
       }
 
       .page {
@@ -66,7 +64,7 @@
         border-radius: 4px;
         background: #fff;
         color: var(--muted);
-        font: 12px/1 var(--sans);
+        font: 12px/1 var(--paper-font);
         cursor: pointer;
       }
 
@@ -86,7 +84,7 @@
 
       .meta {
         color: var(--muted);
-        font: 12px/1.45 var(--sans);
+        font: 12px/1.45 var(--paper-font);
         letter-spacing: 0.08em;
         text-transform: uppercase;
       }
@@ -99,7 +97,7 @@
       h1 {
         max-width: 900px;
         margin: 0 0 14px;
-        font: 700 clamp(32px, 4vw, 54px) / 1.12 var(--serif);
+        font: 700 clamp(32px, 4vw, 54px) / 1.12 var(--paper-font);
         letter-spacing: 0;
         text-wrap: balance;
       }
@@ -108,7 +106,7 @@
         max-width: 880px;
         margin: 0;
         color: var(--muted);
-        font: 17px/1.65 var(--sans);
+        font: 17px/1.65 var(--paper-font);
         text-wrap: pretty;
       }
 
@@ -131,7 +129,7 @@
       .section-label {
         margin: 0 0 10px;
         color: var(--accent);
-        font: 700 11px/1.2 var(--sans);
+        font: 700 11px/1.2 var(--paper-font);
         letter-spacing: 0.1em;
         text-transform: uppercase;
       }
@@ -148,7 +146,7 @@
         padding: 0 0 0 18px;
         border-left: 2px solid var(--ink);
         color: var(--muted);
-        font: 14px/1.55 var(--sans);
+        font: 14px/1.55 var(--paper-font);
         list-style: none;
       }
 
@@ -178,21 +176,21 @@
 
       .metric-label {
         color: var(--muted);
-        font: 12px/1.25 var(--sans);
+        font: 12px/1.25 var(--paper-font);
         letter-spacing: 0.06em;
         text-transform: uppercase;
       }
 
       .metric-value {
         margin-top: 8px;
-        font: 700 32px/1 var(--serif);
+        font: 700 32px/1 var(--paper-font);
         font-variant-numeric: tabular-nums;
       }
 
       .metric-note {
         margin-top: 8px;
         color: var(--muted);
-        font: 13px/1.35 var(--sans);
+        font: 13px/1.35 var(--paper-font);
       }
 
       .positive {
@@ -232,13 +230,13 @@
 
       h2 {
         margin: 0;
-        font: 700 15px/1.35 var(--sans);
+        font: 700 15px/1.35 var(--paper-font);
         letter-spacing: 0;
       }
 
       .kicker {
         color: var(--muted);
-        font: 12px/1.25 var(--sans);
+        font: 12px/1.25 var(--paper-font);
         white-space: nowrap;
       }
 
@@ -256,7 +254,7 @@
       .caption {
         margin: 12px 0 0;
         color: var(--muted);
-        font: 13px/1.55 var(--sans);
+        font: 13px/1.55 var(--paper-font);
         text-wrap: pretty;
       }
 
@@ -277,7 +275,7 @@
         width: 100%;
         min-width: 920px;
         border-collapse: collapse;
-        font: 13px/1.45 var(--sans);
+        font: 13px/1.45 var(--paper-font);
       }
 
       caption {
@@ -286,7 +284,7 @@
         border-bottom: 1px solid var(--line);
         color: var(--muted);
         text-align: left;
-        font: 13px/1.5 var(--sans);
+        font: 13px/1.5 var(--paper-font);
       }
 
       th,
@@ -322,7 +320,7 @@
         height: 22px;
         border: 1px solid currentColor;
         border-radius: 999px;
-        font: 700 11px/1 var(--sans);
+        font: 700 11px/1 var(--paper-font);
         letter-spacing: 0.04em;
       }
 
@@ -346,13 +344,13 @@
 
       .method h2 {
         margin: 0 0 12px;
-        font: 700 25px/1.2 var(--serif);
+        font: 700 25px/1.2 var(--paper-font);
       }
 
       .method p,
       .method li {
         color: var(--muted);
-        font: 14px/1.6 var(--sans);
+        font: 14px/1.6 var(--paper-font);
       }
 
       .method ul {

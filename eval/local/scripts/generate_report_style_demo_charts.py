@@ -21,6 +21,8 @@ INK = "#1B1A18"
 MUTED = "#66615A"
 GRID = "#D8D2C7"
 PAPER = "#FFFFFF"
+PAPER_FONT = "'Times New Roman', SimSun, 'Songti SC', 'Noto Serif CJK SC', serif"
+MONO_FONT = "'Times New Roman', SimSun, 'Songti SC', 'Noto Serif CJK SC', serif"
 
 
 @dataclass(frozen=True)
@@ -96,12 +98,14 @@ def _rubric_delta_svg(lang: str) -> str:
     zh = lang == "zh"
     title = "图 1. Rubric 维度相对 0.3.9 的变化" if zh else "Figure 1. Rubric dimension deltas relative to 0.3.9"
     subtitle = "横轴为当前 workflow 减去 0.3.9 基线；右侧为提升，左侧为退步。" if zh else "X-axis shows current workflow minus 0.3.9 baseline; right is better."
-    x0, y0, width, row_gap = 330, 84, 430, 38
-    scale = width / 1.0
+    x0, y0, width, row_gap = 330, 84, 410, 38
+    x_min, x_max = -0.3, 0.65
+    scale = width / (x_max - x_min)
+    zero_x = x0 + (0 - x_min) * scale
 
     parts = _svg_header(920, 460, title, subtitle)
-    for tick in (-0.4, -0.2, 0.0, 0.2, 0.4):
-        x = x0 + (tick + 0.5) * scale
+    for tick in (-0.2, 0.0, 0.2, 0.4, 0.6):
+        x = x0 + (tick - x_min) * scale
         klass = "axis" if tick == 0 else "grid"
         parts.append(f'<line class="{klass}" x1="{x:.1f}" y1="70" x2="{x:.1f}" y2="390" />')
         parts.append(f'<text class="tick" x="{x:.1f}" y="420" text-anchor="middle">{tick:+.1f}</text>')
@@ -109,12 +113,12 @@ def _rubric_delta_svg(lang: str) -> str:
     for idx, item in enumerate(RUBRIC_DATA):
         y = y0 + idx * row_gap
         label = item.zh if zh else item.en
-        x = x0 + (item.delta + 0.5) * scale
+        x = x0 + (item.delta - x_min) * scale
         color = CURRENT if item.delta >= 0 else BASELINE
         parts.append(f'<text class="label" x="44" y="{y + 4}">{_escape(label)}</text>')
-        parts.append(f'<line x1="{x0 + 0.5 * scale:.1f}" y1="{y}" x2="{x:.1f}" y2="{y}" stroke="{color}" stroke-width="3" />')
+        parts.append(f'<line x1="{zero_x:.1f}" y1="{y}" x2="{x:.1f}" y2="{y}" stroke="{color}" stroke-width="3" />')
         parts.append(f'<circle cx="{x:.1f}" cy="{y}" r="5.2" fill="{color}" />')
-        parts.append(f'<text class="value" x="810" y="{y + 4}" text-anchor="end">{item.delta:+.2f}</text>')
+        parts.append(f'<text class="value" x="840" y="{y + 4}" text-anchor="end">{item.delta:+.2f}</text>')
 
     parts.append(_svg_footer())
     return "\n".join(parts)
@@ -150,8 +154,14 @@ def _quality_cost_svg(lang: str) -> str:
         color = CURRENT if item.key == "current" else BASELINE
         label = item.zh if zh else item.en
         parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="8" fill="{color}" />')
-        parts.append(f'<text class="value" x="{x + 12:.1f}" y="{y - 10:.1f}">{_escape(label)}</text>')
-        parts.append(f'<text class="tick" x="{x + 12:.1f}" y="{y + 8:.1f}">{item.rubric:.2f} / ${item.cost:.2f}</text>')
+        if item.key == "current":
+            text_x = x - 14
+            anchor = "end"
+        else:
+            text_x = x + 14
+            anchor = "start"
+        parts.append(f'<text class="value" x="{text_x:.1f}" y="{y - 10:.1f}" text-anchor="{anchor}">{_escape(label)}</text>')
+        parts.append(f'<text class="tick" x="{text_x:.1f}" y="{y + 9:.1f}" text-anchor="{anchor}">{item.rubric:.2f} / ${item.cost:.2f}</text>')
 
     x_axis = "总 token" if zh else "Total tokens"
     y_axis = "Rubric 平均分" if zh else "Rubric average"
@@ -181,7 +191,7 @@ def _task_outcomes_svg(lang: str) -> str:
             color = GOOD if passed else BAD
             status = "通过" if zh and passed else "失败" if zh else "PASS" if passed else "FAIL"
             parts.append(f'<rect x="{x}" y="{y}" width="{cell_w}" height="{cell_h}" rx="2" fill="{color}" />')
-            parts.append(f'<text x="{x + cell_w / 2:.1f}" y="{y + 22}" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="12" font-weight="700">{status}</text>')
+            parts.append(f'<text x="{x + cell_w / 2:.1f}" y="{y + 22}" text-anchor="middle" fill="#FFFFFF" font-family="{PAPER_FONT}" font-size="12" font-weight="700">{status}</text>')
 
     parts.append(_svg_footer())
     return "\n".join(parts)
@@ -191,11 +201,11 @@ def _svg_header(width: int, height: int, title: str, subtitle: str) -> list[str]
     return [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" role="img" aria-label="{_escape(title)}">',
         "<style>",
-        "text { font-family: Arial, 'Noto Sans CJK SC', 'Microsoft YaHei', sans-serif; }",
+        f"text {{ font-family: {PAPER_FONT}; }}",
         ".title { fill: #1B1A18; font-size: 18px; font-weight: 700; }",
         ".subtitle, .tick { fill: #66615A; font-size: 12px; }",
         ".label { fill: #1B1A18; font-size: 13px; }",
-        ".value { fill: #1B1A18; font-size: 12px; font-family: 'Cascadia Mono', Consolas, monospace; }",
+        f".value {{ fill: #1B1A18; font-size: 12px; font-family: {MONO_FONT}; }}",
         f".grid {{ stroke: {GRID}; stroke-width: 1; shape-rendering: crispEdges; }}",
         f".axis {{ stroke: {INK}; stroke-width: 1; shape-rendering: crispEdges; }}",
         "</style>",
