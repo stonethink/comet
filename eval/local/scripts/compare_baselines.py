@@ -19,7 +19,9 @@ import re
 import statistics
 import sys
 from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 EVAL_ROOT = Path(__file__).resolve().parents[2]
 if str(EVAL_ROOT) not in sys.path:
@@ -34,8 +36,9 @@ from scaffold.python.report_outputs import (
     load_report_output_config,
     write_report_outputs,
 )
-from scaffold.python.validation.rubric import RUBRIC_DIMENSIONS, _DIMENSION_WEIGHTS
 from scaffold.python.pass_at_k import pass_metrics_table
+from scaffold.python.sample_quality import quality_from_report, sample_quality_dict
+from scaffold.python.validation.rubric import RUBRIC_DIMENSIONS, _DIMENSION_WEIGHTS
 
 RUBRIC_RE = re.compile(r"\[RUBRIC\]\s+(\S+):\s*([0-9.]+)")
 RUBRIC_JUDGE_RE = re.compile(r"\[RUBRIC-JUDGE\]\s+(\S+):\s*([0-9.]+)")
@@ -46,6 +49,14 @@ RUBRIC_DERIVED_METRICS = ("weighted_score",)
 TREATMENTS = ("CONTROL", "COMET_FULL_040_BETA", "COMET_FULL_039")
 WORKFLOW = "COMET_FULL_040_BETA"
 BASELINE = "COMET_FULL_039"
+
+
+@dataclass(frozen=True)
+class ReportPartitions:
+    raw: dict[str, list[dict]]
+    analysis: dict[str, list[dict]]
+    flagged: dict[str, list[dict]]
+    excluded: dict[str, list[dict]]
 
 
 def _treatment_from_report_name(raw_name: str) -> str:
@@ -99,6 +110,48 @@ def _load_reports(experiment_dir: Path) -> dict[str, list[dict]]:
         name = _treatment_from_report_name(raw_name)
         by_treatment[name].append(data)
     return by_treatment
+
+
+def _partition_reports(
+    by_treatment: dict[str, list[dict]],
+    experiment_dir: Path,
+) -> ReportPartitions:
+    analysis: dict[str, list[dict]] = defaultdict(list)
+    flagged: dict[str, list[dict]] = defaultdict(list)
+    excluded: dict[str, list[dict]] = defaultdict(list)
+
+    for treatment, reports in by_treatment.items():
+        for report in reports:
+            quality = quality_from_report(report, experiment_dir=experiment_dir)
+            if quality.status == "excluded" or not quality.include_in_analysis:
+                excluded[treatment].append(report)
+            else:
+                analysis[treatment].append(report)
+                if quality.status == "flagged":
+                    flagged[treatment].append(report)
+
+    return ReportPartitions(
+        raw={key: list(value) for key, value in by_treatment.items()},
+        analysis={key: list(value) for key, value in analysis.items()},
+        flagged={key: list(value) for key, value in flagged.items()},
+        excluded={key: list(value) for key, value in excluded.items()},
+    )
+
+
+def _quality_counts(partitions: ReportPartitions, treatment: str) -> tuple[int, int, int, int]:
+    raw = len(partitions.raw.get(treatment, []))
+    included = len(partitions.analysis.get(treatment, []))
+    flagged = len(partitions.flagged.get(treatment, []))
+    excluded = len(partitions.excluded.get(treatment, []))
+    return raw, included, flagged, excluded
+
+
+def _report_ref(report: dict) -> str:
+    return (
+        (report.get("events_summary", {}).get("artifact_references") or {}).get("report")
+        or report.get("run_id")
+        or "none"
+    )
 
 
 def _scores_from_report(report: dict) -> dict[str, float]:
@@ -232,7 +285,37 @@ def _fmt_cost(value: int | float | None) -> str:
     return "N/A" if value is None else f"${value:.4f}"
 
 
-def _source_summary(report: dict) -> str:
+def _quality_run_rows(
+    reports: list[dict],
+    treatment: str,
+    experiment_dir: Path,
+    *,
+    include_column: bool,
+) -> list[str]:
+    rows: list[str] = []
+    for report in reports:
+        quality = sample_quality_dict(report, experiment_dir=experiment_dir)
+        task = _task_name(report, treatment)
+        evidence = "; ".join(quality.get("evidence", [])[:2]) or "none"
+        include_text = f" | {'yes' if quality.get('include_in_analysis') else 'no'}" if include_column else ""
+        rows.append(
+            f"| `{report.get('run_id') or 'n/a'}` | {task} | {treatment} | "
+            f"{quality.get('reason_code')} | {evidence}{include_text} | {_report_ref(report)} |"
+        )
+    return rows
+
+
+def _overall_by_reports(reports: list[dict]) -> float | None:
+    if not reports:
+        return None
+    return _overall(_aggregate(reports))
+
+
+def _fmt_optional_score(value: float | None) -> str:
+    return "—" if value is None else f"{value:.2f}"
+
+
+def _source_summary(report: dict, quality: dict[str, Any]) -> str:
     events = report.get("events_summary", {})
     run_id = report.get("run_id") or "n/a"
     profile = events.get("profile") or "n/a"
@@ -247,7 +330,10 @@ def _source_summary(report: dict) -> str:
     ) or "none"
     manifest = events.get("eval_manifest") or "none"
     report_ref = (events.get("artifact_references") or {}).get("report", "none")
-    return f"| `{run_id}` | {profile} | {source_text} | {manifest} | {report_ref} |"
+    return (
+        f"| `{run_id}` | {quality.get('status')} | {quality.get('reason_code')} | "
+        f"{profile} | {source_text} | {manifest} | {report_ref} |"
+    )
 
 
 def _task_name(report: dict, treatment: str) -> str:
@@ -319,22 +405,36 @@ def _attributions(reports: list[dict]) -> dict[str, list[str]]:
 
 
 def build_report(experiment_dir: Path) -> str:
-    by_treatment = _load_reports(experiment_dir)
+    raw_by_treatment = _load_reports(experiment_dir)
+    partitions = _partition_reports(raw_by_treatment, experiment_dir)
+    by_treatment = partitions.analysis
     aggregated = {t: _aggregate(reps) for t, reps in by_treatment.items() if reps}
 
     lines: list[str] = []
     lines.append("# Comet Baseline Comparison Report")
     lines.append("")
     lines.append(f"- Experiment: `{experiment_dir.name}`")
-    lines.append(f"- Treatments with data: {', '.join(sorted(aggregated)) or 'none'}")
+    lines.append(f"- Treatments with data: {', '.join(sorted(raw_by_treatment)) or 'none'}")
     lines.append("")
 
     if not aggregated:
         lines.append("No report data found. Run the eval suite first.")
         return "\n".join(lines)
 
-    # Per-treatment run counts
+    lines.append("## Data quality summary")
+    lines.append("")
+    lines.append("| Treatment | Raw runs | Included | Flagged | Excluded |")
+    lines.append("|-----------|----------|----------|---------|----------|")
+    for t in TREATMENTS:
+        raw, included, flagged, excluded = _quality_counts(partitions, t)
+        if raw == 0:
+            continue
+        lines.append(f"| {t} | {raw} | {included} | {flagged} | {excluded} |")
+    lines.append("")
+
     lines.append("## Run counts")
+    lines.append("")
+    lines.append("_Analysis set only; excluded hard-noise runs are omitted._")
     lines.append("")
     lines.append("| Treatment | Runs |")
     lines.append("|-----------|------|")
@@ -345,11 +445,8 @@ def build_report(experiment_dir: Path) -> str:
 
     has_dist = any(len(by_treatment.get(t, [])) >= 2 for t in TREATMENTS)
 
-    # --- pass@k / pass^k (capability ceiling vs reliability floor) ---
     pass_fail = _pass_fail_by_treatment(by_treatment)
     max_n = max((len(v) for v in pass_fail.values()), default=0)
-    # Choose k values to report: always include k=1 (single-attempt rate),
-    # plus k near the available run count so the metrics are meaningful.
     ks = [k for k in (1, 2, 5) if k <= max_n] or [1]
     ptable = pass_metrics_table(pass_fail, ks=ks)
 
@@ -362,8 +459,6 @@ def build_report(experiment_dir: Path) -> str:
         "high ceiling, low floor = unreliable."
     )
     lines.append("")
-    # Header
-    k_cols = ks * 2
     header_cells = ["Treatment"]
     for k in ks:
         header_cells.append(f"pass@{k}")
@@ -408,7 +503,6 @@ def build_report(experiment_dir: Path) -> str:
             lines.append("| " + " | ".join(cells) + " |")
         lines.append("")
 
-    # Spend summary
     lines.append("## Spend summary")
     lines.append("")
     lines.append("| Treatment | Runs | Tokens | Cost | Avg Tokens/Run | Avg Cost/Run |")
@@ -430,14 +524,14 @@ def build_report(experiment_dir: Path) -> str:
 
     lines.append("## Source evidence")
     lines.append("")
-    lines.append("| Run | Profile | Skill sources | Eval manifest | Report |")
-    lines.append("|-----|---------|---------------|---------------|--------|")
+    lines.append("| Run | Quality | Reason | Profile | Skill sources | Eval manifest | Report |")
+    lines.append("|-----|---------|--------|---------|---------------|---------------|--------|")
     for treatment in TREATMENTS:
-        for rep in by_treatment.get(treatment, []):
-            lines.append(_source_summary(rep))
+        for rep in raw_by_treatment.get(treatment, []):
+            quality = sample_quality_dict(rep, experiment_dir=experiment_dir)
+            lines.append(_source_summary(rep, quality))
     lines.append("")
 
-    # Dimension comparison table
     label = "(mean±stdev, pass-rate across runs; 0.00–1.00)" if has_dist else "(mean, 0.00–1.00)"
     lines.append(f"## Rubric dimensions {label}")
     lines.append("")
@@ -468,7 +562,6 @@ def build_report(experiment_dir: Path) -> str:
         lines.append("| " + " | ".join(row) + " |")
     lines.append("")
 
-    # Overall rows
     lines.append("| **Overall** | " + " | ".join(
         (f"{_overall(aggregated[t]):.2f}" if t in aggregated else "—") for t in TREATMENTS
     ) + " | " + (
@@ -477,7 +570,6 @@ def build_report(experiment_dir: Path) -> str:
     ) + " |")
     lines.append("")
 
-    # Dimension weights (for weighted average)
     lines.append("### Dimension weights")
     lines.append("")
     lines.append("| Dimension | Weight |")
@@ -487,7 +579,56 @@ def build_report(experiment_dir: Path) -> str:
         lines.append(f"| {dim} | {weight:.1f} |")
     lines.append("")
 
-    # --- Attribution (improvement 2) ---
+    excluded_total = sum(len(items) for items in partitions.excluded.values())
+    if excluded_total:
+        lines.append("## Excluded runs")
+        lines.append("")
+        lines.append("| Run | Task | Treatment | Reason | Evidence | Report |")
+        lines.append("|-----|------|-----------|--------|----------|--------|")
+        for treatment in TREATMENTS:
+            lines.extend(
+                _quality_run_rows(
+                    partitions.excluded.get(treatment, []),
+                    treatment,
+                    experiment_dir,
+                    include_column=False,
+                )
+            )
+        lines.append("")
+
+    flagged_total = sum(len(items) for items in partitions.flagged.values())
+    if flagged_total:
+        lines.append("## Flagged runs")
+        lines.append("")
+        lines.append("| Run | Task | Treatment | Reason | Evidence | Included? | Report |")
+        lines.append("|-----|------|-----------|--------|----------|-----------|--------|")
+        for treatment in TREATMENTS:
+            lines.extend(
+                _quality_run_rows(
+                    partitions.flagged.get(treatment, []),
+                    treatment,
+                    experiment_dir,
+                    include_column=True,
+                )
+            )
+        lines.append("")
+
+    lines.append("## Raw vs analysis sensitivity")
+    lines.append("")
+    lines.append("| Metric | Raw | Analysis | Delta |")
+    lines.append("|--------|-----|----------|-------|")
+    for treatment in TREATMENTS:
+        raw_value = _overall_by_reports(raw_by_treatment.get(treatment, []))
+        analysis_value = _overall_by_reports(by_treatment.get(treatment, []))
+        if raw_value is None and analysis_value is None:
+            continue
+        delta = "—" if raw_value is None or analysis_value is None else f"{analysis_value - raw_value:+.2f}"
+        lines.append(
+            f"| {treatment} overall | {_fmt_optional_score(raw_value)} | "
+            f"{_fmt_optional_score(analysis_value)} | {delta} |"
+        )
+    lines.append("")
+
     lines.append("## Failure attribution")
     lines.append("")
     lines.append(
@@ -498,7 +639,7 @@ def build_report(experiment_dir: Path) -> str:
     lines.append("")
     any_failures = False
     for t in TREATMENTS:
-        attr = _attributions(by_treatment.get(t, []))
+        attr = _attributions(raw_by_treatment.get(t, []))
         total = sum(len(v) for v in attr.values())
         if total == 0:
             continue
@@ -517,10 +658,30 @@ def build_report(experiment_dir: Path) -> str:
         lines.append("_No baseline check failures across treatments._")
         lines.append("")
 
-    # Verdict
     lines.append("## Verdict")
     lines.append("")
-    if WORKFLOW not in aggregated or BASELINE not in aggregated:
+    key_treatments = (WORKFLOW, BASELINE)
+    missing_clean = [t for t in key_treatments if not by_treatment.get(t)]
+    noisy_majority = []
+    for t in key_treatments:
+        raw, _included, _flagged, excluded = _quality_counts(partitions, t)
+        if raw > 0 and excluded / raw > 0.5:
+            noisy_majority.append(t)
+
+    if missing_clean:
+        lines.append(
+            "⚠️ **Insufficient clean data**: analysis set has no included runs for "
+            + ", ".join(f"`{t}`" for t in missing_clean)
+            + ". Rerun the affected task/treatment pairs or inspect the excluded runs above."
+        )
+    elif noisy_majority:
+        lines.append(
+            "⚠️ **Inconclusive due to data quality**: more than half of the raw runs were "
+            "excluded for "
+            + ", ".join(f"`{t}`" for t in noisy_majority)
+            + ". The analysis metrics are shown, but the A/B verdict should not be treated as final."
+        )
+    elif WORKFLOW not in aggregated or BASELINE not in aggregated:
         lines.append(f"Insufficient data: need both `{WORKFLOW}` and `{BASELINE}` runs.")
     elif regressions:
         lines.append(
@@ -545,13 +706,23 @@ def build_report(experiment_dir: Path) -> str:
                 "the 0.05 tolerance."
             )
         else:
-            lines.append(f"⚠️ **Workflow overall lower** ({wf_overall:.2f} < {bl_overall:.2f}) "
-                         f"but no single dimension regresses beyond tolerance.")
+            lines.append(
+                f"⚠️ **Workflow overall lower** ({wf_overall:.2f} < {bl_overall:.2f}) "
+                f"but no single dimension regresses beyond tolerance."
+            )
+
+    if not missing_clean and not noisy_majority and WORKFLOW in aggregated and BASELINE in aggregated:
+        raw, included, flagged, excluded = _quality_counts(partitions, WORKFLOW)
+        lines.append("")
+        lines.append(
+            f"_Verdict uses analysis set: `{WORKFLOW}` included {included}/{raw} raw run(s), "
+            f"flagged {flagged}, excluded {excluded}._"
+        )
+
     if has_dist:
         lines.append("")
-        lines.append(f"_Distribution stats computed from ≥2 runs per treatment._")
+        lines.append("_Distribution stats computed from ≥2 runs per treatment._")
 
-    # --- LLM-judge overlay (improvement 3) ---
     judge_aggregated = {t: _aggregate_judge(reps) for t, reps in by_treatment.items() if reps}
     has_judge = any(
         stats.get(d, {}).get("n", 0) > 0

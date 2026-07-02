@@ -30,6 +30,33 @@ def _write_report(reports_dir: Path, name: str, tokens: int, cost: float, passed
     (reports_dir / f"{name.lower()}_report.json").write_text(json.dumps(report))
 
 
+def _write_quality_report(
+    reports_dir: Path,
+    filename: str,
+    *,
+    name: str,
+    weighted_score: float,
+    tokens: int,
+    cost: float,
+    sample_quality: dict,
+    passed: bool = True,
+):
+    report = {
+        "name": name,
+        "passed": passed,
+        "run_id": filename,
+        "checks_passed": [f"[RUBRIC] weighted_score: {weighted_score:.2f}"],
+        "checks_failed": [] if passed else ["validator failed"],
+        "sample_quality": sample_quality,
+        "events_summary": {
+            "total_tokens": tokens,
+            "total_cost_usd": cost,
+            "artifact_references": {"report": f"reports/{filename}.json"},
+        },
+    }
+    (reports_dir / f"{filename}.json").write_text(json.dumps(report), encoding="utf-8")
+
+
 def test_compare_report_includes_spend_summary(tmp_path: Path):
     experiment = tmp_path / "experiment"
     reports = experiment / "reports"
@@ -236,3 +263,129 @@ def test_compare_report_overall_uses_weighted_score(tmp_path: Path):
     report = build_report(experiment)
 
     assert "| **Overall** | — | 0.25 | 0.75 | -0.50 |" in report
+
+
+def test_compare_report_excludes_hard_noise_from_analysis_metrics(tmp_path: Path):
+    experiment = tmp_path / "experiment"
+    reports = experiment / "reports"
+    reports.mkdir(parents=True)
+    _write_report(reports, "CONTROL", 100, 0.01)
+    _write_quality_report(
+        reports,
+        "workflow_clean",
+        name="comet-fix-median-COMET_FULL_040_BETA",
+        weighted_score=1.0,
+        tokens=200,
+        cost=0.02,
+        sample_quality={
+            "status": "included",
+            "reason_code": "valid_signal",
+            "reason": "clean",
+            "include_in_analysis": True,
+            "confidence": "high",
+            "evidence": ["result event present"],
+        },
+    )
+    _write_quality_report(
+        reports,
+        "workflow_timeout",
+        name="comet-fix-median-COMET_FULL_040_BETA-r1",
+        weighted_score=0.0,
+        tokens=999,
+        cost=9.99,
+        sample_quality={
+            "status": "excluded",
+            "reason_code": "api_timeout",
+            "reason": "timeout",
+            "include_in_analysis": False,
+            "confidence": "high",
+            "evidence": ["stderr timeout"],
+        },
+        passed=False,
+    )
+    _write_report(reports, "COMET_FULL_039", 300, 0.03)
+
+    report = build_report(experiment)
+
+    assert "## Data quality summary" in report
+    assert "| COMET_FULL_040_BETA | 2 | 1 | 0 | 1 |" in report
+    assert "| COMET_FULL_040_BETA | 1 |" in report
+    assert "| COMET_FULL_040_BETA | 1 | 200 | $0.0200 | 200 | $0.0200 |" in report
+    assert "workflow_timeout" in report
+    assert "api_timeout" in report
+    assert "999" not in report.split("## Spend summary", 1)[1].split("## Source evidence", 1)[0]
+
+
+def test_compare_report_lists_flagged_runs_without_excluding_them(tmp_path: Path):
+    experiment = tmp_path / "experiment"
+    reports = experiment / "reports"
+    reports.mkdir(parents=True)
+    _write_report(reports, "CONTROL", 100, 0.01)
+    _write_report(reports, "COMET_FULL_039", 300, 0.03)
+    _write_quality_report(
+        reports,
+        "workflow_flagged",
+        name="comet-full-workflow-COMET_FULL_040_BETA",
+        weighted_score=0.5,
+        tokens=200,
+        cost=0.02,
+        sample_quality={
+            "status": "flagged",
+            "reason_code": "harness_trigger_suspect",
+            "reason": "target Skill may not have been triggered",
+            "include_in_analysis": True,
+            "confidence": "medium",
+            "evidence": ["target Skill was never invoked"],
+        },
+    )
+
+    report = build_report(experiment)
+
+    assert "## Flagged runs" in report
+    assert "harness_trigger_suspect" in report
+    assert "| COMET_FULL_040_BETA | 1 | 200 | $0.0200 | 200 | $0.0200 |" in report
+
+
+def test_compare_report_reports_insufficient_clean_data(tmp_path: Path):
+    experiment = tmp_path / "experiment"
+    reports = experiment / "reports"
+    reports.mkdir(parents=True)
+    _write_report(reports, "CONTROL", 100, 0.01)
+    _write_report(reports, "COMET_FULL_039", 300, 0.03)
+    _write_quality_report(
+        reports,
+        "workflow_timeout",
+        name="comet-full-workflow-COMET_FULL_040_BETA",
+        weighted_score=0.0,
+        tokens=999,
+        cost=9.99,
+        sample_quality={
+            "status": "excluded",
+            "reason_code": "runner_timeout",
+            "reason": "timeout",
+            "include_in_analysis": False,
+            "confidence": "high",
+            "evidence": ["Timeout after 600s"],
+        },
+        passed=False,
+    )
+
+    report = build_report(experiment)
+
+    assert "Insufficient clean data" in report
+    assert "COMET_FULL_040_BETA" in report
+
+
+def test_html_report_includes_data_quality_summary(tmp_path: Path):
+    experiment = tmp_path / "experiment"
+    reports = experiment / "reports"
+    reports.mkdir(parents=True)
+    _write_report(reports, "CONTROL", 100, 0.01)
+    _write_report(reports, "COMET_FULL_040_BETA", 200, 0.02)
+    _write_report(reports, "COMET_FULL_039", 300, 0.03)
+
+    markdown = build_report(experiment)
+    html = render_markdown_html(markdown, title="Comet Baseline Comparison Report")
+
+    assert "Data quality summary" in html
+    assert "paper-figure" in html
