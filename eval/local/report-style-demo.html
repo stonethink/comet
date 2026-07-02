@@ -1,0 +1,1010 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Comet Eval Report Style Demo</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --paper: #f7f4ed;
+        --panel: #fffdf8;
+        --ink: #191817;
+        --muted: #66615a;
+        --line: #d7d0c3;
+        --grid: #e9e2d6;
+        --current: #1f5f8b;
+        --baseline: #9f3d2f;
+        --good: #28745c;
+        --bad: #a33a32;
+        --accent: #a87318;
+        --code: #eee7dc;
+        --serif: Charter, 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+        --sans: Aptos, 'Segoe UI', Calibri, sans-serif;
+        --mono: 'Cascadia Mono', 'SFMono-Regular', Consolas, monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        background: var(--paper);
+      }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        background:
+          linear-gradient(90deg, rgba(25, 24, 23, 0.025) 1px, transparent 1px),
+          linear-gradient(180deg, rgba(25, 24, 23, 0.025) 1px, transparent 1px), var(--paper);
+        background-size: 28px 28px;
+        font: 16px/1.55 var(--serif);
+      }
+
+      .page {
+        width: min(1180px, calc(100vw - 40px));
+        margin: 28px auto 48px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        box-shadow: 0 18px 55px rgba(25, 24, 23, 0.08);
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 190px minmax(0, 1fr);
+        gap: 34px;
+        padding: 34px 42px 28px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .meta {
+        color: var(--muted);
+        font: 12px/1.45 var(--sans);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .meta span {
+        display: block;
+        margin-bottom: 10px;
+      }
+
+      h1 {
+        max-width: 860px;
+        margin: 0 0 14px;
+        font: 650 clamp(34px, 4.4vw, 58px)/1.04 var(--serif);
+        letter-spacing: 0;
+        text-wrap: balance;
+      }
+
+      .dek {
+        max-width: 880px;
+        margin: 0;
+        color: var(--muted);
+        font: 17px/1.55 var(--sans);
+        text-wrap: pretty;
+      }
+
+      code {
+        padding: 0.08rem 0.28rem;
+        border-radius: 4px;
+        background: var(--code);
+        font-family: var(--mono);
+        font-size: 0.92em;
+      }
+
+      .abstract {
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.75fr);
+        gap: 30px;
+        padding: 26px 42px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .section-label {
+        margin: 0 0 10px;
+        color: var(--accent);
+        font: 700 11px/1.2 var(--sans);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .abstract p {
+        margin: 0;
+        font-size: 18px;
+        line-height: 1.55;
+        text-wrap: pretty;
+      }
+
+      .findings {
+        margin: 0;
+        padding: 0 0 0 18px;
+        border-left: 2px solid var(--ink);
+        color: var(--muted);
+        font: 14px/1.5 var(--sans);
+        list-style: none;
+      }
+
+      .findings li + li {
+        margin-top: 10px;
+      }
+      .findings strong {
+        color: var(--ink);
+      }
+
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        border-bottom: 1px solid var(--line);
+      }
+
+      .metric {
+        min-height: 112px;
+        padding: 18px 22px;
+        border-right: 1px solid var(--line);
+      }
+
+      .metric:last-child {
+        border-right: 0;
+      }
+
+      .metric-label {
+        color: var(--muted);
+        font: 12px/1.25 var(--sans);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .metric-value {
+        margin-top: 8px;
+        font: 650 32px/1 var(--serif);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .metric-note {
+        margin-top: 8px;
+        color: var(--muted);
+        font: 13px/1.35 var(--sans);
+      }
+
+      .positive {
+        color: var(--good);
+      }
+      .negative {
+        color: var(--bad);
+      }
+
+      .content {
+        padding: 34px 42px 46px;
+      }
+
+      .figure {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+
+      .figure + .figure,
+      .figure-grid,
+      .table-wrap,
+      .method {
+        margin-top: 28px;
+      }
+
+      .figure-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 16px 18px 12px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      h2 {
+        margin: 0;
+        font: 700 15px/1.25 var(--sans);
+        letter-spacing: 0;
+      }
+
+      .kicker {
+        color: var(--muted);
+        font: 12px/1.25 var(--sans);
+        white-space: nowrap;
+      }
+
+      .figure-body {
+        padding: 18px 20px 20px;
+      }
+
+      svg {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+
+      .axis {
+        stroke: var(--ink);
+        stroke-width: 1;
+        shape-rendering: crispEdges;
+      }
+
+      .grid-line {
+        stroke: var(--grid);
+        stroke-width: 1;
+        shape-rendering: crispEdges;
+      }
+
+      .tick,
+      .chart-label {
+        fill: var(--muted);
+        font-family: var(--sans);
+        font-size: 12px;
+      }
+
+      .chart-value {
+        fill: var(--ink);
+        font-family: var(--mono);
+        font-size: 12px;
+      }
+
+      .caption {
+        margin: 10px 0 0;
+        color: var(--muted);
+        font: 13px/1.45 var(--sans);
+        text-wrap: pretty;
+      }
+
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-top: 12px;
+        color: var(--muted);
+        font: 12px/1.2 var(--sans);
+      }
+
+      .legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+      }
+
+      .swatch {
+        width: 18px;
+        height: 2px;
+        background: var(--muted);
+      }
+
+      .swatch.current {
+        background: var(--current);
+      }
+      .swatch.baseline {
+        background: var(--baseline);
+      }
+
+      .figure-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 24px;
+      }
+
+      .table-wrap {
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        overflow-x: auto;
+        background: #fff;
+      }
+
+      table {
+        width: 100%;
+        min-width: 920px;
+        border-collapse: collapse;
+        font: 13px/1.35 var(--sans);
+      }
+
+      caption {
+        caption-side: top;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        text-align: left;
+        font: 13px/1.4 var(--sans);
+      }
+
+      th,
+      td {
+        padding: 9px 11px;
+        border-bottom: 1px solid var(--grid);
+        text-align: left;
+        vertical-align: middle;
+      }
+
+      th {
+        background: #f5efe4;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      tbody tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .num {
+        text-align: right;
+        font-family: var(--mono);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 54px;
+        height: 22px;
+        border: 1px solid currentColor;
+        border-radius: 999px;
+        font: 700 11px/1 var(--sans);
+        letter-spacing: 0.04em;
+      }
+
+      .status.pass {
+        color: var(--good);
+        background: color-mix(in srgb, var(--good), transparent 92%);
+      }
+
+      .status.fail {
+        color: var(--bad);
+        background: color-mix(in srgb, var(--bad), transparent 92%);
+      }
+
+      .method {
+        display: grid;
+        grid-template-columns: 0.9fr 1.1fr;
+        gap: 28px;
+        padding-top: 28px;
+        border-top: 1px solid var(--line);
+      }
+
+      .method h2 {
+        margin: 0 0 12px;
+        font: 650 25px/1.16 var(--serif);
+      }
+
+      .method p,
+      .method li {
+        color: var(--muted);
+        font: 14px/1.55 var(--sans);
+      }
+
+      .method ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+
+      @media (max-width: 860px) {
+        .page {
+          width: 100%;
+          margin: 0;
+          border-left: 0;
+          border-right: 0;
+        }
+
+        .hero,
+        .abstract,
+        .figure-grid,
+        .method {
+          grid-template-columns: 1fr;
+        }
+
+        .hero,
+        .abstract,
+        .content {
+          padding-left: 22px;
+          padding-right: 22px;
+        }
+
+        .metrics {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .metric:nth-child(2) {
+          border-right: 0;
+        }
+        .metric:nth-child(-n + 2) {
+          border-bottom: 1px solid var(--line);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <div class="meta">
+          <span>Comet Evaluation Report</span>
+          <span>Style demo</span>
+          <span>Generated 2026-07-02</span>
+        </div>
+        <div>
+          <h1>Workflow regression analysis with paper-grade comparative figures</h1>
+          <p class="dek">
+            Demo data: <code>COMET_FULL</code> vs <code>COMET_FULL_039</code>, serial eval reports
+            from the existing current-vs-0.3.9 run.
+          </p>
+        </div>
+      </header>
+
+      <section class="abstract">
+        <div>
+          <p class="section-label">Abstract</p>
+          <p>
+            The current Comet workflow improves task success and rubric quality over the 0.3.9
+            reference while consuming more tokens. The report emphasizes effect sizes,
+            uncertainty-friendly layouts, failure attribution, and source evidence so that benchmark
+            results read like a conference-paper evaluation section rather than a dashboard
+            snapshot.
+          </p>
+        </div>
+        <ul class="findings" aria-label="Key findings">
+          <li>
+            <strong>Primary finding.</strong> Task pass rate increases from 33.3% to 83.3% across
+            six tasks.
+          </li>
+          <li>
+            <strong>Trade-off.</strong> Token use increases by 5.90M tokens, mostly concentrated in
+            long workflow tasks.
+          </li>
+          <li>
+            <strong>Risk signal.</strong> Efficiency and decision-point compliance remain below the
+            0.3.9 reference.
+          </li>
+        </ul>
+      </section>
+
+      <section class="metrics" aria-label="Headline metrics">
+        <div class="metric">
+          <div class="metric-label">Task pass rate</div>
+          <div class="metric-value positive">+50.0 pp</div>
+          <div class="metric-note">5/6 current vs 2/6 baseline</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Rubric average</div>
+          <div class="metric-value positive">+0.18</div>
+          <div class="metric-note">0.72 current vs 0.54 baseline</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Check pass rate</div>
+          <div class="metric-value positive">+8.9 pp</div>
+          <div class="metric-note">76/79 current vs 69/79 baseline</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Total cost</div>
+          <div class="metric-value negative">+$3.63</div>
+          <div class="metric-note">$7.5947 current vs $3.9688 baseline</div>
+        </div>
+      </section>
+
+      <section class="content">
+        <article class="figure" aria-labelledby="figure-1-title">
+          <div class="figure-head">
+            <h2 id="figure-1-title">Figure 1. Rubric dimension deltas relative to 0.3.9</h2>
+            <span class="kicker">Mean score difference, higher is better</span>
+          </div>
+          <div class="figure-body">
+            <svg viewBox="0 0 980 420" role="img" aria-label="Forest plot showing dimension deltas">
+              <line class="grid-line" x1="360" y1="30" x2="360" y2="342"></line>
+              <line class="grid-line" x1="480" y1="30" x2="480" y2="342"></line>
+              <line class="axis" x1="600" y1="30" x2="600" y2="342"></line>
+              <line class="grid-line" x1="720" y1="30" x2="720" y2="342"></line>
+              <line class="grid-line" x1="840" y1="30" x2="840" y2="342"></line>
+              <text class="tick" x="348" y="370">-0.4</text>
+              <text class="tick" x="468" y="370">-0.2</text>
+              <text class="tick" x="594" y="370">0</text>
+              <text class="tick" x="710" y="370">+0.2</text>
+              <text class="tick" x="830" y="370">+0.4</text>
+              <text class="chart-label" x="520" y="402">Current minus 0.3.9 baseline</text>
+
+              <text class="chart-label" x="20" y="56">main_flow</text>
+              <line
+                x1="600"
+                y1="52"
+                x2="852"
+                y2="52"
+                stroke="var(--current)"
+                stroke-width="3"
+              ></line>
+              <circle cx="852" cy="52" r="5" fill="var(--current)"></circle>
+              <text class="chart-value" x="870" y="56">+0.42</text>
+
+              <text class="chart-label" x="20" y="92">gate_guard</text>
+              <line
+                x1="600"
+                y1="88"
+                x2="948"
+                y2="88"
+                stroke="var(--current)"
+                stroke-width="3"
+              ></line>
+              <circle cx="948" cy="88" r="5" fill="var(--current)"></circle>
+              <text class="chart-value" x="870" y="92">+0.58</text>
+
+              <text class="chart-label" x="20" y="128">skill_invocation</text>
+              <line
+                x1="600"
+                y1="124"
+                x2="816"
+                y2="124"
+                stroke="var(--current)"
+                stroke-width="3"
+              ></line>
+              <circle cx="816" cy="124" r="5" fill="var(--current)"></circle>
+              <text class="chart-value" x="870" y="128">+0.36</text>
+
+              <text class="chart-label" x="20" y="164">spec_drift</text>
+              <circle cx="600" cy="160" r="5" fill="var(--muted)"></circle>
+              <text class="chart-value" x="870" y="164">+0.00</text>
+
+              <text class="chart-label" x="20" y="200">completion</text>
+              <line
+                x1="600"
+                y1="196"
+                x2="738"
+                y2="196"
+                stroke="var(--current)"
+                stroke-width="3"
+              ></line>
+              <circle cx="738" cy="196" r="5" fill="var(--current)"></circle>
+              <text class="chart-value" x="870" y="200">+0.23</text>
+
+              <text class="chart-label" x="20" y="236">efficiency</text>
+              <line
+                x1="462"
+                y1="232"
+                x2="600"
+                y2="232"
+                stroke="var(--baseline)"
+                stroke-width="3"
+              ></line>
+              <circle cx="462" cy="232" r="5" fill="var(--baseline)"></circle>
+              <text class="chart-value" x="870" y="236">-0.23</text>
+
+              <text class="chart-label" x="20" y="272">decision_point_compliance</text>
+              <line
+                x1="456"
+                y1="268"
+                x2="600"
+                y2="268"
+                stroke="var(--baseline)"
+                stroke-width="3"
+              ></line>
+              <circle cx="456" cy="268" r="5" fill="var(--baseline)"></circle>
+              <text class="chart-value" x="870" y="272">-0.24</text>
+
+              <text class="chart-label" x="20" y="308">artifact_quality</text>
+              <line
+                x1="600"
+                y1="304"
+                x2="780"
+                y2="304"
+                stroke="var(--current)"
+                stroke-width="3"
+              ></line>
+              <circle cx="780" cy="304" r="5" fill="var(--current)"></circle>
+              <text class="chart-value" x="870" y="308">+0.30</text>
+            </svg>
+            <p class="caption">
+              Forest-plot style makes regressions visible without relying on dense numeric tables.
+              The vertical zero line is the 0.3.9 reference; blue favors the current workflow and
+              red favors the baseline.
+            </p>
+          </div>
+        </article>
+
+        <div class="figure-grid">
+          <article class="figure" aria-labelledby="figure-2-title">
+            <div class="figure-head">
+              <h2 id="figure-2-title">Figure 2. Quality-cost frontier</h2>
+              <span class="kicker">Rubric vs token budget</span>
+            </div>
+            <div class="figure-body">
+              <svg
+                viewBox="0 0 520 360"
+                role="img"
+                aria-label="Scatter plot of quality and token use"
+              >
+                <line class="grid-line" x1="72" y1="42" x2="72" y2="296"></line>
+                <line class="grid-line" x1="198" y1="42" x2="198" y2="296"></line>
+                <line class="grid-line" x1="324" y1="42" x2="324" y2="296"></line>
+                <line class="grid-line" x1="450" y1="42" x2="450" y2="296"></line>
+                <line class="grid-line" x1="72" y1="296" x2="450" y2="296"></line>
+                <line class="grid-line" x1="72" y1="232" x2="450" y2="232"></line>
+                <line class="grid-line" x1="72" y1="168" x2="450" y2="168"></line>
+                <line class="grid-line" x1="72" y1="104" x2="450" y2="104"></line>
+                <line class="axis" x1="72" y1="296" x2="450" y2="296"></line>
+                <line class="axis" x1="72" y1="42" x2="72" y2="296"></line>
+                <text class="tick" x="62" y="318">0</text>
+                <text class="tick" x="180" y="318">4M</text>
+                <text class="tick" x="306" y="318">8M</text>
+                <text class="tick" x="426" y="318">12M</text>
+                <text class="tick" x="24" y="300">0.3</text>
+                <text class="tick" x="24" y="236">0.5</text>
+                <text class="tick" x="24" y="172">0.7</text>
+                <text class="tick" x="24" y="108">0.9</text>
+                <circle cx="432" cy="162" r="8" fill="var(--current)"></circle>
+                <text class="chart-value" x="326" y="147">COMET_FULL</text>
+                <circle cx="247" cy="220" r="8" fill="var(--baseline)"></circle>
+                <text class="chart-value" x="264" y="224">0.3.9</text>
+                <line
+                  x1="247"
+                  y1="220"
+                  x2="432"
+                  y2="162"
+                  stroke="#9b9488"
+                  stroke-width="1.5"
+                  stroke-dasharray="5 5"
+                ></line>
+                <text class="chart-label" x="178" y="348">Total tokens</text>
+                <text class="chart-label" x="0" y="38" transform="rotate(-90 0 38)">
+                  Rubric average
+                </text>
+              </svg>
+              <div class="legend">
+                <span class="legend-item"
+                  ><span class="swatch current"></span>Current workflow</span
+                >
+                <span class="legend-item"><span class="swatch baseline"></span>0.3.9 baseline</span>
+              </div>
+              <p class="caption">
+                The current workflow improves rubric quality but shifts right on compute usage,
+                making the quality-cost trade-off explicit.
+              </p>
+            </div>
+          </article>
+
+          <article class="figure" aria-labelledby="figure-3-title">
+            <div class="figure-head">
+              <h2 id="figure-3-title">Figure 3. Task outcomes by treatment</h2>
+              <span class="kicker">Six-task benchmark set</span>
+            </div>
+            <div class="figure-body">
+              <svg
+                viewBox="0 0 520 360"
+                role="img"
+                aria-label="Outcome matrix by task and treatment"
+              >
+                <text class="chart-label" x="168" y="28">COMET_FULL</text>
+                <text class="chart-label" x="318" y="28">COMET_FULL_039</text>
+                <text class="chart-label" x="20" y="68">api-cache-ttl</text>
+                <text class="chart-label" x="20" y="112">fix-median</text>
+                <text class="chart-label" x="20" y="156">full-workflow</text>
+                <text class="chart-label" x="20" y="200">perf-dedupe</text>
+                <text class="chart-label" x="20" y="244">refactor-counter</text>
+                <text class="chart-label" x="20" y="288">robust-config</text>
+                <rect x="176" y="48" width="72" height="28" rx="3" fill="var(--good)"></rect>
+                <rect x="326" y="48" width="72" height="28" rx="3" fill="var(--bad)"></rect>
+                <rect x="176" y="92" width="72" height="28" rx="3" fill="var(--good)"></rect>
+                <rect x="326" y="92" width="72" height="28" rx="3" fill="var(--bad)"></rect>
+                <rect x="176" y="136" width="72" height="28" rx="3" fill="var(--good)"></rect>
+                <rect x="326" y="136" width="72" height="28" rx="3" fill="var(--good)"></rect>
+                <rect x="176" y="180" width="72" height="28" rx="3" fill="var(--good)"></rect>
+                <rect x="326" y="180" width="72" height="28" rx="3" fill="var(--bad)"></rect>
+                <rect x="176" y="224" width="72" height="28" rx="3" fill="var(--good)"></rect>
+                <rect x="326" y="224" width="72" height="28" rx="3" fill="var(--good)"></rect>
+                <rect x="176" y="268" width="72" height="28" rx="3" fill="var(--bad)"></rect>
+                <rect x="326" y="268" width="72" height="28" rx="3" fill="var(--bad)"></rect>
+                <text
+                  x="203"
+                  y="67"
+                  fill="#fff"
+                  font-family="var(--sans)"
+                  font-size="11"
+                  font-weight="700"
+                >
+                  PASS
+                </text>
+                <text
+                  x="355"
+                  y="67"
+                  fill="#fff"
+                  font-family="var(--sans)"
+                  font-size="11"
+                  font-weight="700"
+                >
+                  FAIL
+                </text>
+                <text
+                  x="203"
+                  y="111"
+                  fill="#fff"
+                  font-family="var(--sans)"
+                  font-size="11"
+                  font-weight="700"
+                >
+                  PASS
+                </text>
+                <text
+                  x="355"
+                  y="111"
+                  fill="#fff"
+                  font-family="var(--sans)"
+                  font-size="11"
+                  font-weight="700"
+                >
+                  FAIL
+                </text>
+                <text
+                  x="203"
+                  y="155"
+                  fill="#fff"
+                  font-family="var(--sans)"
+                  font-size="11"
+                  font-weight="700"
+                >
+                  PASS
+                </text>
+                <text
+                  x="353"
+                  y="155"
+                  fill="#fff"
+                  font-family="var(--sans)"
+                  font-size="11"
+                  font-weight="700"
+                >
+                  PASS
+                </text>
+                <text
+                  x="203"
+                  y="199"
+                  fill="#fff"
+                  font-family="var(--sans)"
+                  font-size="11"
+                  font-weight="700"
+                >
+                  PASS
+                </text>
+                <text
+                  x="355"
+                  y="199"
+                  fill="#fff"
+                  font-family="var(--sans)"
+                  font-size="11"
+                  font-weight="700"
+                >
+                  FAIL
+                </text>
+                <text
+                  x="203"
+                  y="243"
+                  fill="#fff"
+                  font-family="var(--sans)"
+                  font-size="11"
+                  font-weight="700"
+                >
+                  PASS
+                </text>
+                <text
+                  x="353"
+                  y="243"
+                  fill="#fff"
+                  font-family="var(--sans)"
+                  font-size="11"
+                  font-weight="700"
+                >
+                  PASS
+                </text>
+                <text
+                  x="205"
+                  y="287"
+                  fill="#fff"
+                  font-family="var(--sans)"
+                  font-size="11"
+                  font-weight="700"
+                >
+                  FAIL
+                </text>
+                <text
+                  x="355"
+                  y="287"
+                  fill="#fff"
+                  font-family="var(--sans)"
+                  font-size="11"
+                  font-weight="700"
+                >
+                  FAIL
+                </text>
+              </svg>
+              <p class="caption">
+                Outcome matrices work well for appendix-style reports because failed tasks become
+                visible without burying the reader in log text.
+              </p>
+            </div>
+          </article>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <caption>
+              Table 1. Per-task comparison summary. Tokens and costs are total observed usage for
+              each task/treatment run.
+            </caption>
+            <thead>
+              <tr>
+                <th>Task</th>
+                <th>Treatment</th>
+                <th>Status</th>
+                <th class="num">Checks</th>
+                <th class="num">Rubric</th>
+                <th class="num">Turns</th>
+                <th class="num">Tokens</th>
+                <th class="num">Cost</th>
+                <th>Failure attribution</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>comet-api-cache-ttl</td>
+                <td><code>COMET_FULL</code></td>
+                <td><span class="status pass">PASS</span></td>
+                <td class="num">13/13</td>
+                <td class="num">0.79</td>
+                <td class="num">90</td>
+                <td class="num">4,280,454</td>
+                <td class="num">$2.6856</td>
+                <td>OK</td>
+              </tr>
+              <tr>
+                <td>comet-api-cache-ttl</td>
+                <td><code>COMET_FULL_039</code></td>
+                <td><span class="status fail">FAIL</span></td>
+                <td class="num">10/13</td>
+                <td class="num">0.33</td>
+                <td class="num">9</td>
+                <td class="num">202,121</td>
+                <td class="num">$0.1795</td>
+                <td>OpenSpec artifacts and state machine evidence missing</td>
+              </tr>
+              <tr>
+                <td>comet-fix-median</td>
+                <td><code>COMET_FULL</code></td>
+                <td><span class="status pass">PASS</span></td>
+                <td class="num">13/13</td>
+                <td class="num">0.70</td>
+                <td class="num">73</td>
+                <td class="num">2,216,220</td>
+                <td class="num">$1.4787</td>
+                <td>OK</td>
+              </tr>
+              <tr>
+                <td>comet-fix-median</td>
+                <td><code>COMET_FULL_039</code></td>
+                <td><span class="status fail">FAIL</span></td>
+                <td class="num">10/13</td>
+                <td class="num">0.33</td>
+                <td class="num">8</td>
+                <td class="num">148,330</td>
+                <td class="num">$0.1217</td>
+                <td>OpenSpec artifacts and state machine evidence missing</td>
+              </tr>
+              <tr>
+                <td>comet-full-workflow</td>
+                <td><code>COMET_FULL</code></td>
+                <td><span class="status pass">PASS</span></td>
+                <td class="num">13/13</td>
+                <td class="num">0.84</td>
+                <td class="num">3</td>
+                <td class="num">161,476</td>
+                <td class="num">$0.0942</td>
+                <td>OK</td>
+              </tr>
+              <tr>
+                <td>comet-full-workflow</td>
+                <td><code>COMET_FULL_039</code></td>
+                <td><span class="status pass">PASS</span></td>
+                <td class="num">13/13</td>
+                <td class="num">0.88</td>
+                <td class="num">3</td>
+                <td class="num">224,163</td>
+                <td class="num">$0.1309</td>
+                <td>OK</td>
+              </tr>
+              <tr>
+                <td>comet-perf-dedupe</td>
+                <td><code>COMET_FULL</code></td>
+                <td><span class="status pass">PASS</span></td>
+                <td class="num">13/13</td>
+                <td class="num">0.79</td>
+                <td class="num">82</td>
+                <td class="num">3,042,862</td>
+                <td class="num">$2.0644</td>
+                <td>OK</td>
+              </tr>
+              <tr>
+                <td>comet-perf-dedupe</td>
+                <td><code>COMET_FULL_039</code></td>
+                <td><span class="status fail">FAIL</span></td>
+                <td class="num">10/13</td>
+                <td class="num">0.34</td>
+                <td class="num">1</td>
+                <td class="num">49,682</td>
+                <td class="num">$0.0280</td>
+                <td>OpenSpec artifacts and state machine evidence missing</td>
+              </tr>
+              <tr>
+                <td>comet-refactor-counter</td>
+                <td><code>COMET_FULL</code></td>
+                <td><span class="status pass">PASS</span></td>
+                <td class="num">14/14</td>
+                <td class="num">0.84</td>
+                <td class="num">35</td>
+                <td class="num">1,536,724</td>
+                <td class="num">$1.0945</td>
+                <td>OK</td>
+              </tr>
+              <tr>
+                <td>comet-refactor-counter</td>
+                <td><code>COMET_FULL_039</code></td>
+                <td><span class="status pass">PASS</span></td>
+                <td class="num">14/14</td>
+                <td class="num">0.80</td>
+                <td class="num">95</td>
+                <td class="num">4,304,050</td>
+                <td class="num">$3.0287</td>
+                <td>OK</td>
+              </tr>
+              <tr>
+                <td>comet-robust-config</td>
+                <td><code>COMET_FULL</code></td>
+                <td><span class="status fail">FAIL</span></td>
+                <td class="num">10/13</td>
+                <td class="num">0.33</td>
+                <td class="num">10</td>
+                <td class="num">208,867</td>
+                <td class="num">$0.1774</td>
+                <td>OpenSpec artifacts and state machine evidence missing</td>
+              </tr>
+              <tr>
+                <td>comet-robust-config</td>
+                <td><code>COMET_FULL_039</code></td>
+                <td><span class="status fail">FAIL</span></td>
+                <td class="num">12/13</td>
+                <td class="num">0.56</td>
+                <td class="num">30</td>
+                <td class="num">621,935</td>
+                <td class="num">$0.4801</td>
+                <td>Workflow phase evidence incomplete</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <section class="method" aria-labelledby="method-title">
+          <div>
+            <p class="section-label">Methods</p>
+            <h2 id="method-title">Report structure intended for generated eval output</h2>
+            <p>
+              This demo separates the report into manuscript-like sections: abstract, headline
+              effects, figures, tabular appendix, and source notes. The shape maps cleanly onto the
+              current eval JSON fields without requiring a new data model.
+            </p>
+          </div>
+          <ul>
+            <li>
+              Scores are shown as means on a 0.00-1.00 scale, with deltas centered on the baseline.
+            </li>
+            <li>
+              Costs and tokens remain visible, but they are framed as a trade-off rather than mixed
+              into quality scores.
+            </li>
+            <li>
+              Failure attribution is compact evidence text and can later expand into linked raw
+              logs.
+            </li>
+            <li>The static HTML avoids external assets so CI artifacts remain self-contained.</li>
+          </ul>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>
