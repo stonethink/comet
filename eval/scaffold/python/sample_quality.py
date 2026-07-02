@@ -31,6 +31,10 @@ _NETWORK_RE = re.compile(
     r"(dns|tls|connection reset|connection refused|gateway timeout|econnreset|etimedout)",
     re.I,
 )
+_OUTER_FAILURE_MENTION_RE = re.compile(
+    r"(api timeout|timeout|rate[_ -]?limit|quota|network|dns|tls|docker|container|auth)",
+    re.I,
+)
 _CONTAINER_RE = re.compile(
     r"(docker daemon not running|"
     r"docker [^\n]{0,80}(not available|failed|image build failed)|"
@@ -125,7 +129,7 @@ def _hard_noise(
     returncode: int | None,
     has_result: bool,
 ) -> SampleQuality | None:
-    if _RATE_LIMIT_RE.search(text):
+    if _RATE_LIMIT_RE.search(text) and not has_result:
         return SampleQuality(
             "excluded",
             "rate_limited",
@@ -133,7 +137,7 @@ def _hard_noise(
             False,
             evidence=[text[:200]],
         )
-    if _API_TIMEOUT_RE.search(text):
+    if _API_TIMEOUT_RE.search(text) and not has_result:
         return SampleQuality(
             "excluded",
             "api_timeout",
@@ -149,7 +153,7 @@ def _hard_noise(
             False,
             evidence=[text[:200]],
         )
-    if _CONTAINER_RE.search(text):
+    if _CONTAINER_RE.search(text) and not has_result:
         return SampleQuality(
             "excluded",
             "container_failure",
@@ -157,7 +161,7 @@ def _hard_noise(
             False,
             evidence=[text[:200]],
         )
-    if _AUTH_RE.search(text):
+    if _AUTH_RE.search(text) and not has_result:
         return SampleQuality(
             "excluded",
             "auth_failure",
@@ -165,7 +169,7 @@ def _hard_noise(
             False,
             evidence=[text[:200]],
         )
-    if _NETWORK_RE.search(text):
+    if _NETWORK_RE.search(text) and not has_result:
         return SampleQuality(
             "excluded",
             "network_failure",
@@ -182,6 +186,22 @@ def _soft_noise(
     events: dict[str, Any],
     has_result: bool,
 ) -> SampleQuality | None:
+    if has_result and (
+        _RATE_LIMIT_RE.search(text)
+        or _API_TIMEOUT_RE.search(text)
+        or _CONTAINER_RE.search(text)
+        or _AUTH_RE.search(text)
+        or _NETWORK_RE.search(text)
+        or _OUTER_FAILURE_MENTION_RE.search(text)
+    ):
+        return SampleQuality(
+            "flagged",
+            "completed_run_mentions_outer_failure",
+            "Run completed, but logs or checks mention outer runner/API/environment failures",
+            True,
+            "medium",
+            [text[:200]],
+        )
     if any(item.get("bucket") == "harness" for item in failure_attribution):
         return SampleQuality(
             "flagged",
@@ -189,9 +209,15 @@ def _soft_noise(
             "Harness attribution indicates the target Skill may not have been triggered",
             True,
             "medium",
-            [item.get("reason", "") for item in failure_attribution if item.get("bucket") == "harness"],
+            [
+                item.get("reason", "")
+                for item in failure_attribution
+                if item.get("bucket") == "harness"
+            ],
         )
-    if _VALIDATOR_RE.search(text) and any(item.get("bucket") == "task" for item in failure_attribution):
+    if _VALIDATOR_RE.search(text) and any(
+        item.get("bucket") == "task" for item in failure_attribution
+    ):
         return SampleQuality(
             "flagged",
             "validator_assumption",
@@ -200,9 +226,7 @@ def _soft_noise(
             "medium",
             [text[:200]],
         )
-    if has_result and (
-        events.get("total_tokens") is None or events.get("total_cost_usd") is None
-    ):
+    if has_result and (events.get("total_tokens") is None or events.get("total_cost_usd") is None):
         return SampleQuality(
             "flagged",
             "partial_observability",
@@ -235,9 +259,7 @@ def infer_sample_quality(
         return _coerce_quality(existing)
 
     events = events or report.get("events_summary") or {}
-    checks_failed = (
-        checks_failed if checks_failed is not None else report.get("checks_failed", [])
-    )
+    checks_failed = checks_failed if checks_failed is not None else report.get("checks_failed", [])
     failure_attribution = (
         failure_attribution
         if failure_attribution is not None

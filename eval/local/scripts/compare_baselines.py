@@ -140,10 +140,10 @@ def _partition_reports(
 
 def _quality_counts(partitions: ReportPartitions, treatment: str) -> tuple[int, int, int, int]:
     raw = len(partitions.raw.get(treatment, []))
-    included = len(partitions.analysis.get(treatment, []))
+    analysis_set = len(partitions.analysis.get(treatment, []))
     flagged = len(partitions.flagged.get(treatment, []))
     excluded = len(partitions.excluded.get(treatment, []))
-    return raw, included, flagged, excluded
+    return raw, analysis_set, flagged, excluded
 
 
 def _report_ref(report: dict) -> str:
@@ -203,8 +203,10 @@ def _aggregate_judge(reports: list[dict]) -> dict[str, dict[str, float]]:
         result[dim] = {
             "mean": statistics.fmean(vals),
             "stdev": statistics.pstdev(vals) if len(vals) > 1 else 0.0,
-            "min": min(vals), "max": max(vals),
-            "pass_rate": sum(1 for v in vals if v >= 0.5) / n, "n": n,
+            "min": min(vals),
+            "max": max(vals),
+            "pass_rate": sum(1 for v in vals if v >= 0.5) / n,
+            "n": n,
         }
     return result
 
@@ -265,7 +267,7 @@ def _fmt_dim(stats: dict[str, float] | None, with_dist: bool = False) -> str:
     mean = stats["mean"]
     if not with_dist or stats["n"] < 2:
         return f"{mean:.2f}"
-    return f"{mean:.2f}±{stats['stdev']:.2f} ({stats['pass_rate']*100:.0f}%)"
+    return f"{mean:.2f}±{stats['stdev']:.2f} ({stats['pass_rate'] * 100:.0f}%)"
 
 
 def _sum_metric(reports: list[dict], key: str) -> int | float | None:
@@ -297,7 +299,9 @@ def _quality_run_rows(
         quality = sample_quality_dict(report, experiment_dir=experiment_dir)
         task = _task_name(report, treatment)
         evidence = "; ".join(quality.get("evidence", [])[:2]) or "none"
-        include_text = f" | {'yes' if quality.get('include_in_analysis') else 'no'}" if include_column else ""
+        include_text = (
+            f" | {'yes' if quality.get('include_in_analysis') else 'no'}" if include_column else ""
+        )
         rows.append(
             f"| `{report.get('run_id') or 'n/a'}` | {task} | {treatment} | "
             f"{quality.get('reason_code')} | {evidence}{include_text} | {_report_ref(report)} |"
@@ -320,14 +324,17 @@ def _source_summary(report: dict, quality: dict[str, Any]) -> str:
     run_id = report.get("run_id") or "n/a"
     profile = events.get("profile") or "n/a"
     sources = events.get("skill_sources") or []
-    source_text = ", ".join(
-        (
-            f"{item.get('name', 'skill')}@{item.get('hash', item.get('path', 'unknown'))}"
-            if isinstance(item, dict)
-            else str(item)
+    source_text = (
+        ", ".join(
+            (
+                f"{item.get('name', 'skill')}@{item.get('hash', item.get('path', 'unknown'))}"
+                if isinstance(item, dict)
+                else str(item)
+            )
+            for item in sources
         )
-        for item in sources
-    ) or "none"
+        or "none"
+    )
     manifest = events.get("eval_manifest") or "none"
     report_ref = (events.get("artifact_references") or {}).get("report", "none")
     return (
@@ -360,18 +367,36 @@ def _task_outcomes(by_treatment: dict[str, list[dict]]) -> dict[str, dict[str, b
 #   model     - the LLM failed despite correct skill invocation
 _ATTRIBUTION_RULES = [
     # (regex on failed-check text, bucket, reason)
-    (re.compile(r"skill.*(not invoke|not found)|did not invoke", re.I), "workflow",
-     "skill was not invoked — workflow guidance failed to trigger the skill"),
-    (re.compile(r"guard|state|apply|transition", re.I), "workflow",
-     "guard/state machinery not exercised — workflow did not drive phase transitions"),
-    (re.compile(r"--sentences|sentence_feature|wordcount", re.I), "model",
-     "feature implementation incomplete despite workflow running — likely model capability"),
-    (re.compile(r"openspec_artifacts|not found in.*archive|directory not found", re.I), "task",
-     "artifact path/layout mismatch — likely task/validator path assumption"),
-    (re.compile(r"comet_state|\.comet\.yaml", re.I), "workflow",
-     "comet state file missing — workflow did not initialise state machine"),
-    (re.compile(r"tests_exist|no.*tests", re.I), "model",
-     "tests not written despite workflow running — model capability"),
+    (
+        re.compile(r"skill.*(not invoke|not found)|did not invoke", re.I),
+        "workflow",
+        "skill was not invoked — workflow guidance failed to trigger the skill",
+    ),
+    (
+        re.compile(r"guard|state|apply|transition", re.I),
+        "workflow",
+        "guard/state machinery not exercised — workflow did not drive phase transitions",
+    ),
+    (
+        re.compile(r"--sentences|sentence_feature|wordcount", re.I),
+        "model",
+        "feature implementation incomplete despite workflow running — likely model capability",
+    ),
+    (
+        re.compile(r"openspec_artifacts|not found in.*archive|directory not found", re.I),
+        "task",
+        "artifact path/layout mismatch — likely task/validator path assumption",
+    ),
+    (
+        re.compile(r"comet_state|\.comet\.yaml", re.I),
+        "workflow",
+        "comet state file missing — workflow did not initialise state machine",
+    ),
+    (
+        re.compile(r"tests_exist|no.*tests", re.I),
+        "model",
+        "tests not written despite workflow running — model capability",
+    ),
 ]
 
 
@@ -423,13 +448,13 @@ def build_report(experiment_dir: Path) -> str:
 
     lines.append("## Data quality summary")
     lines.append("")
-    lines.append("| Treatment | Raw runs | Included | Flagged | Excluded |")
-    lines.append("|-----------|----------|----------|---------|----------|")
+    lines.append("| Treatment | Raw runs | Analysis set | Flagged | Excluded |")
+    lines.append("|-----------|----------|--------------|---------|----------|")
     for t in TREATMENTS:
-        raw, included, flagged, excluded = _quality_counts(partitions, t)
+        raw, analysis_set, flagged, excluded = _quality_counts(partitions, t)
         if raw == 0:
             continue
-        lines.append(f"| {t} | {raw} | {included} | {flagged} | {excluded} |")
+        lines.append(f"| {t} | {raw} | {analysis_set} | {flagged} | {excluded} |")
     lines.append("")
 
     lines.append("## Run counts")
@@ -455,8 +480,7 @@ def build_report(experiment_dir: Path) -> str:
     lines.append("- **pass@k**: probability ≥1 of k attempts succeeds (capability ceiling)")
     lines.append("- **pass^k**: probability all k attempts succeed (reliability floor)")
     lines.append(
-        "- The gap (pass@k − pass^k) measures instability: "
-        "high ceiling, low floor = unreliable."
+        "- The gap (pass@k − pass^k) measures instability: high ceiling, low floor = unreliable."
     )
     lines.append("")
     header_cells = ["Treatment"]
@@ -562,12 +586,19 @@ def build_report(experiment_dir: Path) -> str:
         lines.append("| " + " | ".join(row) + " |")
     lines.append("")
 
-    lines.append("| **Overall** | " + " | ".join(
-        (f"{_overall(aggregated[t]):.2f}" if t in aggregated else "—") for t in TREATMENTS
-    ) + " | " + (
-        f"{_overall(aggregated[WORKFLOW]) - _overall(aggregated[BASELINE]):+.2f}"
-        if WORKFLOW in aggregated and BASELINE in aggregated else "—"
-    ) + " |")
+    lines.append(
+        "| **Overall** | "
+        + " | ".join(
+            (f"{_overall(aggregated[t]):.2f}" if t in aggregated else "—") for t in TREATMENTS
+        )
+        + " | "
+        + (
+            f"{_overall(aggregated[WORKFLOW]) - _overall(aggregated[BASELINE]):+.2f}"
+            if WORKFLOW in aggregated and BASELINE in aggregated
+            else "—"
+        )
+        + " |"
+    )
     lines.append("")
 
     lines.append("### Dimension weights")
@@ -622,7 +653,11 @@ def build_report(experiment_dir: Path) -> str:
         analysis_value = _overall_by_reports(by_treatment.get(treatment, []))
         if raw_value is None and analysis_value is None:
             continue
-        delta = "—" if raw_value is None or analysis_value is None else f"{analysis_value - raw_value:+.2f}"
+        delta = (
+            "—"
+            if raw_value is None or analysis_value is None
+            else f"{analysis_value - raw_value:+.2f}"
+        )
         lines.append(
             f"| {treatment} overall | {_fmt_optional_score(raw_value)} | "
             f"{_fmt_optional_score(analysis_value)} | {delta} |"
@@ -685,8 +720,7 @@ def build_report(experiment_dir: Path) -> str:
         lines.append(f"Insufficient data: need both `{WORKFLOW}` and `{BASELINE}` runs.")
     elif regressions:
         lines.append(
-            f"❌ **Workflow regresses on {len(regressions)} dimension(s) "
-            "vs 0.3.9 baseline:**"
+            f"❌ **Workflow regresses on {len(regressions)} dimension(s) vs 0.3.9 baseline:**"
         )
         lines.append("")
         for dim, wf, bl in regressions:
@@ -711,7 +745,12 @@ def build_report(experiment_dir: Path) -> str:
                 f"but no single dimension regresses beyond tolerance."
             )
 
-    if not missing_clean and not noisy_majority and WORKFLOW in aggregated and BASELINE in aggregated:
+    if (
+        not missing_clean
+        and not noisy_majority
+        and WORKFLOW in aggregated
+        and BASELINE in aggregated
+    ):
         raw, included, flagged, excluded = _quality_counts(partitions, WORKFLOW)
         lines.append("")
         lines.append(

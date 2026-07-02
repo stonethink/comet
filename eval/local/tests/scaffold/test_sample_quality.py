@@ -41,6 +41,58 @@ def test_container_failure_is_excluded_from_analysis():
     assert quality.include_in_analysis is False
 
 
+def test_completed_run_with_api_timeout_in_failed_check_stays_in_analysis():
+    quality = infer_sample_quality(
+        events={
+            "duration_seconds": 42,
+            "total_tokens": 1000,
+            "total_cost_usd": 0.12,
+        },
+        checks_failed=["validator failed: expected graceful API timeout handling"],
+        stdout=json.dumps({"type": "result", "duration_ms": 42000}) + "\n",
+        returncode=0,
+    )
+
+    assert quality.status == "flagged"
+    assert quality.reason_code == "completed_run_mentions_outer_failure"
+    assert quality.include_in_analysis is True
+
+
+def test_completed_run_with_network_wording_in_failed_check_stays_in_analysis():
+    quality = infer_sample_quality(
+        events={
+            "duration_seconds": 42,
+            "total_tokens": 1000,
+            "total_cost_usd": 0.12,
+        },
+        checks_failed=["validator failed: summary should mention network retry guidance"],
+        stdout=json.dumps({"type": "result", "duration_ms": 42000}) + "\n",
+        returncode=0,
+    )
+
+    assert quality.status == "flagged"
+    assert quality.reason_code == "completed_run_mentions_outer_failure"
+    assert quality.include_in_analysis is True
+
+
+def test_completed_run_with_container_wording_in_logs_stays_in_analysis():
+    quality = infer_sample_quality(
+        events={
+            "duration_seconds": 42,
+            "total_tokens": 1000,
+            "total_cost_usd": 0.12,
+        },
+        checks_failed=["validator failed: expected report artifact"],
+        stdout=json.dumps({"type": "result", "duration_ms": 42000}) + "\n",
+        stderr="Task output discussed why a Docker daemon not running error should be surfaced.",
+        returncode=0,
+    )
+
+    assert quality.status == "flagged"
+    assert quality.reason_code == "completed_run_mentions_outer_failure"
+    assert quality.include_in_analysis is True
+
+
 def test_validator_failure_with_observable_run_is_included():
     quality = infer_sample_quality(
         events={

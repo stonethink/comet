@@ -343,6 +343,8 @@ def test_compare_report_lists_flagged_runs_without_excluding_them(tmp_path: Path
 
     assert "## Flagged runs" in report
     assert "harness_trigger_suspect" in report
+    assert "| Treatment | Raw runs | Analysis set | Flagged | Excluded |" in report
+    assert "| COMET_FULL_040_BETA | 1 | 1 | 1 | 0 |" in report
     assert "| COMET_FULL_040_BETA | 1 | 200 | $0.0200 | 200 | $0.0200 |" in report
 
 
