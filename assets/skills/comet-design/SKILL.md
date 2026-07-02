@@ -10,6 +10,8 @@ description: "Use when a full Comet change has completed open but lacks a Superp
 - Active change exists (proposal.md, design.md, tasks.md)
 - No Design Doc (no corresponding file under `docs/superpowers/specs/`)
 
+> Responsibility boundary: the open-phase `design.md` gives the **high-level solution framework** (architecture decision direction, approach selection, data flow); the design-phase Design Doc is its **deep technical refinement** (detailed implementation design, technical risks, test strategy, edge cases) — a deepening, not a replacement or rewrite.
+
 ## Steps
 
 ### 0. Entry State Verification (Entry Check)

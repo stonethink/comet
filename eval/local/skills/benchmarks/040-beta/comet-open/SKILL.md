@@ -131,7 +131,7 @@ openspec/changes/<name>/
 ├── .openspec.yaml
 ├── .comet.yaml
 ├── proposal.md       # Why + What：问题、目标、范围
-├── design.md         # How（高层）：架构决策、方案选型
+├── design.md         # How（高层框架）：架构决策、方案选型（深度技术设计在 design 阶段 Design Doc 细化）
 └── tasks.md          # 任务清单（勾选框）
 ```
 

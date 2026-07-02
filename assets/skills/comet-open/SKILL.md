@@ -131,7 +131,7 @@ openspec/changes/<name>/
 ├── .openspec.yaml
 ├── .comet.yaml
 ├── proposal.md       # Why + What: problem, goals, scope
-├── design.md         # How (high-level): architecture decisions, approach selection
+├── design.md         # How (high-level framework): architecture decisions, approach selection (deep technical design is refined in the design phase Design Doc)
 └── tasks.md          # Task checklist (checkboxes)
 ```
 

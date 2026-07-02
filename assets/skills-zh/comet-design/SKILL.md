@@ -10,6 +10,8 @@ description: "Use when full Comet change 已完成 open 阶段但缺少 Superpow
 - 活跃 change 已存在（proposal.md、design.md、tasks.md）
 - 无 Design Doc（`docs/superpowers/specs/` 下无对应文件）
 
+> 职责边界：open 阶段的 `design.md` 给出**高层方案框架**（架构决策方向、方案选型、数据流）；design 阶段的 Design Doc 是对它的**深度技术细化**（详细实现设计、技术风险、测试策略、边界条件），是深化而非替代或重写。
+
 ## 步骤
 
 ### 0. 入口状态验证（Entry Check）
