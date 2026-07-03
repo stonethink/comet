@@ -24,6 +24,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from scaffold.python.judge_config import build_judge_invocation
+
 try:
     from dotenv import load_dotenv
 
@@ -32,10 +34,6 @@ except Exception:
     pass
 
 GENERIC_JUDGE_DIMENSIONS = ("task_completion", "output_quality", "instruction_adherence")
-
-DEFAULT_JUDGE_MODEL = (
-    os.environ.get("BENCH_JUDGE_MODEL") or os.environ.get("ANTHROPIC_MODEL") or ""
-)
 
 _JUDGE_RE = re.compile(r"\[RUBRIC-JUDGE\]\s+(\S+):\s*([0-9.]+)\s*-\s*(.+)")
 
@@ -186,15 +184,19 @@ def _run_judge(prompt: str, timeout: int = 120) -> str:
     """
     import shutil
 
-    model_flag = ["--model", DEFAULT_JUDGE_MODEL] if DEFAULT_JUDGE_MODEL else []
+    try:
+        invocation = build_judge_invocation()
+    except ValueError as e:
+        return f"[RUBRIC-JUDGE] status: skipped - {e}"
+
     claude_bin = shutil.which("claude") or "claude"
     try:
         result = subprocess.run(
-            [claude_bin, "-p", "", "--dangerously-skip-permissions", *model_flag],
+            [claude_bin, "-p", "", "--dangerously-skip-permissions", *invocation.model_flag],
             input=prompt,
             capture_output=True,
             timeout=timeout,
-            env=os.environ.copy(),
+            env=invocation.env,
             encoding="utf-8",
             errors="replace",
         )
@@ -246,6 +248,11 @@ def judge_generic_messages(
 ) -> list[str]:
     """Convenience wrapper returning ``[RUBRIC-JUDGE]`` check messages."""
     out: list[str] = []
+    try:
+        build_judge_invocation()
+    except ValueError as e:
+        return [f"[RUBRIC-JUDGE] status: skipped - {e}"]
+
     for dim, (score, reason) in judge_generic_artifacts(
         test_dir, outputs, timeout=timeout
     ).items():

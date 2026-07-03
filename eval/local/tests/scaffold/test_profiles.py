@@ -636,6 +636,84 @@ def test_generic_llm_judge_collects_workspace_files(tmp_path: Path):
     assert ".git" not in artifacts
 
 
+def test_judge_env_requires_explicit_judge_model(monkeypatch):
+    """LLM judge must not silently reuse the subject model."""
+    from scaffold.python.judge_config import build_judge_invocation
+
+    monkeypatch.setenv("ANTHROPIC_MODEL", "subject-model")
+    monkeypatch.delenv("BENCH_JUDGE_MODEL", raising=False)
+
+    try:
+        build_judge_invocation()
+    except ValueError as exc:
+        assert "BENCH_JUDGE_MODEL" in str(exc)
+    else:
+        raise AssertionError("expected missing BENCH_JUDGE_MODEL to fail")
+
+
+def test_judge_env_maps_independent_provider(monkeypatch):
+    """Judge subprocess env should use BENCH_JUDGE_* instead of subject ANTHROPIC_*."""
+    from scaffold.python.judge_config import build_judge_invocation
+
+    monkeypatch.setenv("ANTHROPIC_MODEL", "subject-model")
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://subject.example")
+    monkeypatch.setenv("ANTHROPIC_AUTH_TOKEN", "subject-token")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "subject-key")
+    monkeypatch.setenv("BENCH_JUDGE_MODEL", "judge-model")
+    monkeypatch.setenv("BENCH_JUDGE_BASE_URL", "https://judge.example")
+    monkeypatch.setenv("BENCH_JUDGE_AUTH_TOKEN", "judge-token")
+
+    invocation = build_judge_invocation()
+
+    assert invocation.model_flag == ["--model", "judge-model"]
+    assert invocation.env["ANTHROPIC_MODEL"] == "judge-model"
+    assert invocation.env["ANTHROPIC_BASE_URL"] == "https://judge.example"
+    assert invocation.env["ANTHROPIC_AUTH_TOKEN"] == "judge-token"
+    assert "ANTHROPIC_API_KEY" not in invocation.env
+    assert "subject-model" not in invocation.env.values()
+    assert "subject-token" not in invocation.env.values()
+
+
+def test_comet_llm_judge_reports_skipped_without_success_status(monkeypatch, tmp_path: Path):
+    """Missing judge config should be visible and not reported as successful."""
+    from scaffold.python.llm_judge import judge_messages
+
+    change = tmp_path / "openspec" / "changes" / "demo"
+    change.mkdir(parents=True)
+    (change / "proposal.md").write_text("proposal")
+    monkeypatch.setenv("BENCH_LLM_JUDGE", "1")
+    monkeypatch.setenv("ANTHROPIC_MODEL", "subject-model")
+    monkeypatch.delenv("BENCH_JUDGE_MODEL", raising=False)
+
+    messages = judge_messages(tmp_path)
+
+    assert messages == [
+        "[RUBRIC-JUDGE] status: skipped - BENCH_JUDGE_MODEL is required when BENCH_LLM_JUDGE=1"
+    ]
+    assert not any("enabled_and_successful" in msg for msg in messages)
+
+
+def test_comet_profile_does_not_mark_skipped_judge_successful(monkeypatch, tmp_path: Path):
+    """Profile rubric should not add success status when judge config is missing."""
+    from scaffold.python.profiles import run_profile_rubric
+
+    change = tmp_path / "openspec" / "changes" / "demo"
+    change.mkdir(parents=True)
+    (change / "proposal.md").write_text("proposal")
+    monkeypatch.setenv("BENCH_LLM_JUDGE", "1")
+    monkeypatch.setenv("ANTHROPIC_MODEL", "subject-model")
+    monkeypatch.delenv("BENCH_JUDGE_MODEL", raising=False)
+
+    passed, _ = run_profile_rubric(
+        "comet-workflow",
+        tmp_path,
+        {"completion": {"passed": ["ok"], "failed": []}},
+    )
+
+    assert any("[RUBRIC-JUDGE] status: skipped" in msg for msg in passed)
+    assert not any("[RUBRIC-JUDGE] status: enabled_and_successful" in msg for msg in passed)
+
+
 def test_generic_llm_judge_parses_output(tmp_path: Path):
     """judge_generic_artifacts should parse [RUBRIC-JUDGE] lines correctly."""
     from unittest.mock import patch

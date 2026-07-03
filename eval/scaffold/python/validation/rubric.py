@@ -662,7 +662,11 @@ def comet_rubric_validator(test_dir: Path, outputs: dict) -> tuple[list[str], li
 
             judge_results = judge_messages(test_dir)
             passed.extend(judge_results)
-            passed.append("[RUBRIC-JUDGE] status: enabled_and_successful")
+            if any(
+                result.startswith("[RUBRIC-JUDGE] ") and " status:" not in result
+                for result in judge_results
+            ):
+                passed.append("[RUBRIC-JUDGE] status: enabled_and_successful")
         except Exception as e:
             passed.append(f"[RUBRIC-JUDGE] status: failed - {e}")
 

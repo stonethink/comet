@@ -25,6 +25,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from scaffold.python.judge_config import build_judge_invocation
+
 # Ensure proxy credentials (ANTHROPIC_AUTH_TOKEN etc.) are available when this
 # module is imported outside pytest (e.g. by the rescore tool).
 try:
@@ -35,9 +37,6 @@ except Exception:
 
 # Dimensions the judge evaluates (subset of the rubric where rules are weak).
 JUDGE_DIMENSIONS = ("artifact_quality", "spec_drift", "main_flow")
-
-# Default model for the judge (can override via BENCH_JUDGE_MODEL).
-DEFAULT_JUDGE_MODEL = os.environ.get("BENCH_JUDGE_MODEL") or os.environ.get("ANTHROPIC_MODEL") or ""
 
 _JUDGE_RE = re.compile(r"\[RUBRIC-JUDGE\]\s+(\S+):\s*([0-9.]+)\s*-\s*(.+)")
 
@@ -154,15 +153,19 @@ def _run_judge(prompt: str, timeout: int = 120) -> str:
     """
     import shutil
 
-    model_flag = ["--model", DEFAULT_JUDGE_MODEL] if DEFAULT_JUDGE_MODEL else []
+    try:
+        invocation = build_judge_invocation()
+    except ValueError as e:
+        return f"[RUBRIC-JUDGE] status: skipped - {e}"
+
     claude_bin = shutil.which("claude") or "claude"
     try:
         result = subprocess.run(
-            [claude_bin, "-p", "", "--dangerously-skip-permissions", *model_flag],
+            [claude_bin, "-p", "", "--dangerously-skip-permissions", *invocation.model_flag],
             input=prompt,
             capture_output=True,
             timeout=timeout,
-            env=os.environ.copy(),
+            env=invocation.env,
             # claude.CMD on Windows may emit cp936/GBK bytes; decode permissively
             # so a stray byte never aborts the judge.
             encoding="utf-8",
@@ -205,6 +208,11 @@ def judge_artifacts(test_dir: Path, timeout: int = 120) -> dict[str, tuple[float
 def judge_messages(test_dir: Path, timeout: int = 120) -> list[str]:
     """Convenience wrapper returning ``[RUBRIC-JUDGE]`` check messages."""
     out: list[str] = []
+    try:
+        build_judge_invocation()
+    except ValueError as e:
+        return [f"[RUBRIC-JUDGE] status: skipped - {e}"]
+
     for dim, (score, reason) in judge_artifacts(test_dir, timeout=timeout).items():
         out.append(f"[RUBRIC-JUDGE] {dim}: {score:.2f} - {reason}")
     return out
