@@ -17,6 +17,8 @@ build_mode: subagent-driven-development
 build_pause: null
 subagent_dispatch: confirmed
 tdd_mode: tdd
+review_mode: standard
+auto_transition: true
 isolation: branch
 verify_mode: light
 verify_result: pending
@@ -37,10 +39,11 @@ archived: false
 | `design_doc` | Associated Superpowers Design Doc path; may be empty |
 | `plan` | Associated Superpowers Plan path; may be empty |
 | `base_ref` | Git commit SHA recorded at init for scale assessment. Used as baseline for changed-file counting when no plan exists |
-| `build_mode` | Selected execution mode; may be empty |
+| `build_mode` | Selected execution mode; may be empty. Values: `subagent-driven-development` (isolated background subagents implement and review each task), `executing-plans` (main session executes sequentially by plan), `direct` (main session codes directly; allowed by default only for hotfix/tweak, full workflow requires `direct_override: true`) |
 | `build_pause` | Build phase internal pause point. `null` = no pause, `plan-ready` = plan generated, paused for user model switch |
 | `subagent_dispatch` | `null` or `confirmed`. Only when the platform's real background subagent/Task/multi-agent dispatch capability is confirmed may `build_mode: subagent-driven-development` be written and used to leave the build phase |
 | `tdd_mode` | `tdd` or `direct`. Full workflow must select before leaving build. `tdd` forces write-failing-test-first per task; `direct` skips TDD enforcement. hotfix/tweak default to `direct` |
+| `review_mode` | `off`, `standard`, or `thorough`. Full workflow must select before leaving build; hotfix/tweak default to `off` |
 | `isolation` | `branch` or `worktree`, workspace isolation mode. Full init may be `null` but only until `/comet-build` Step 3; hotfix/tweak default to `branch` |
 | `verify_mode` | `light` or `full`; may be empty |
 | `auto_transition` | `true` or `false`. Only controls whether to automatically invoke the next skill after phase guard advances phase; `false` outputs `manual` from `comet-state next`, pausing next-skill invocation but not blocking phase field updates |
@@ -56,8 +59,8 @@ archived: false
 | Field | Meaning |
 |-------|---------|
 | `direct_override` | `true`/`false`. Full workflow must explicitly set to `true` to use `build_mode: direct` |
-| `build_command` | Project build command. Guard runs this first; prints command output on failure |
-| `verify_command` | Project verify command. Verify guard runs this first; falls back to build command when unset |
+| `build_command` | Project build command. Guard runs this first; supports restricted command words/quotes/paths plus `&&` sequential steps; rejects `;`, pipes, bare `&`, `$`, and backticks |
+| `verify_command` | Project verify command. Verify guard runs this first; same restricted command grammar as `build_command`; falls back to build command when unset |
 
 ## State Machine Hard Constraints
 
@@ -65,6 +68,8 @@ archived: false
 - Before `build → verify`, `build_mode` must be selected
 - `build_mode: subagent-driven-development` requires `subagent_dispatch: confirmed`
 - Full workflow must select `tdd_mode` as `tdd` or `direct` before leaving build
+- Full workflow must select `review_mode` as `off`, `standard`, or `thorough` before leaving build
 - `build_mode: direct` defaults to `hotfix`/`tweak` only; full workflow requires `direct_override: true`
 - `build_pause` is not an execution mode; must not be written to `build_mode`
-- These constraints exist in both `comet-guard.sh build --apply` and `comet-state.sh transition <name> build-complete`
+- These constraints exist in both `comet-guard.mjs build --apply` and `comet-state.mjs transition <name> build-complete`
+- `preset-escalate` event: only allows `hotfix`/`tweak` workflow at `phase: build`; atomically sets `workflow`/`classic_profile` to `full`, rewinds `phase` to `design`, and clears `design_doc` (satisfying the comet-design entry requirement). This is the only legal channel for a preset → full upgrade — direct `set phase design` is hard-blocked by the state machine, and `set classic_profile` is a machine-owned field that cannot be set manually
