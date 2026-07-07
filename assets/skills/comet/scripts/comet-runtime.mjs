@@ -11278,6 +11278,60 @@ function blocksSourceWrites(governing) {
   }
   return governing.phase === "build" && governing.classic?.workflow === "full" && !governing.classic.designDoc;
 }
+function isSuperpowersArtifactPath(relativePath2) {
+  return relativePath2.startsWith("docs/superpowers/");
+}
+function allowsSuperpowersArtifacts(governing) {
+  return governing.phase === "design" || governing.phase === "build" || governing.phase === "verify";
+}
+function governingChangeName(governing) {
+  return governing.changeDir ? path16.basename(governing.changeDir) : null;
+}
+var SUPERPOWERS_ARTIFACT_SUFFIXES = /* @__PURE__ */ new Set([
+  "design",
+  "plan",
+  "verify",
+  "verification",
+  "verification-report",
+  "report"
+]);
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+function matchesRecordedSuperpowersArtifact(relativePath2, governing) {
+  const artifactPaths = [
+    governing.classic?.designDoc,
+    governing.classic?.plan,
+    governing.classic?.verificationReport
+  ];
+  return artifactPaths.some(
+    (artifactPath) => artifactPath && normalized(artifactPath) === relativePath2
+  );
+}
+function matchesSuperpowersArtifactName(relativePath2, changeName) {
+  const fileName = relativePath2.split("/").at(-1) ?? relativePath2;
+  const stem = fileName.replace(/\.[^.]+$/u, "");
+  if (stem === changeName) return true;
+  const suffixes = [...SUPERPOWERS_ARTIFACT_SUFFIXES].map(escapeRegex).join("|");
+  const pattern = new RegExp(`(^|[-_.])${escapeRegex(changeName)}[-_.](${suffixes})$`, "u");
+  return pattern.test(stem);
+}
+async function superpowersArtifactGoverningChange(relativePath2, projectRoot) {
+  const active = await activeChanges(projectRoot);
+  const recorded = active.find(
+    (governing) => matchesRecordedSuperpowersArtifact(relativePath2, governing)
+  );
+  if (recorded) return recorded;
+  const eligible = active.filter(allowsSuperpowersArtifacts);
+  const named = eligible.filter((governing) => {
+    const name = governingChangeName(governing);
+    return name !== null && matchesSuperpowersArtifactName(relativePath2, name);
+  }).sort(
+    (a, b) => (governingChangeName(b)?.length ?? 0) - (governingChangeName(a)?.length ?? 0)
+  )[0];
+  if (named) return named;
+  return null;
+}
 async function repoSourceGoverningChange(projectRoot) {
   const active = await activeChanges(projectRoot);
   return active.find(blocksSourceWrites) ?? active[0] ?? null;
@@ -11297,6 +11351,12 @@ async function governingChange(relativePath2, projectRoot) {
       }
       return { changeDir, phase: "open", classic: null, archived: false };
     }
+  }
+  if (isSuperpowersArtifactPath(relativePath2)) {
+    const superpowers = await superpowersArtifactGoverningChange(relativePath2, projectRoot);
+    if (superpowers) return { ...superpowers, superpowersArtifact: "matched" };
+    const fallback = await repoSourceGoverningChange(projectRoot);
+    return fallback ? { ...fallback, superpowersArtifact: "unmatched" } : null;
   }
   return repoSourceGoverningChange(projectRoot);
 }
@@ -11383,6 +11443,25 @@ function blockedMissingDesignDoc(relativePath2) {
     ].join("\n")
   );
 }
+function blockedUnmatchedSuperpowersArtifact(relativePath2, phase) {
+  return result(
+    2,
+    [
+      "",
+      "╔══════════════════════════════════════════╗",
+      "║     COMET PHASE GUARD — WRITE BLOCKED    ║",
+      "╚══════════════════════════════════════════╝",
+      "",
+      `  Current phase: ${phase}`,
+      `  Target file: ${relativePath2}`,
+      "",
+      "  BLOCKED: unmatched Superpowers artifact",
+      "  This docs/superpowers/ path does not match any active change artifact",
+      "  NEXT: record the artifact path in .comet.yaml or include the change name in the artifact filename",
+      ""
+    ].join("\n")
+  );
+}
 var classicHookGuardCommand = async (args) => {
   const projectRoot = parseProjectRoot(args);
   const target = inputTarget();
@@ -11414,8 +11493,13 @@ var classicHookGuardCommand = async (args) => {
   const phase = governing.phase;
   const openSpec = openSpecAllowed(relativePath2, phase);
   if (openSpec) return allowed(openSpec);
-  if (relativePath2.startsWith("docs/superpowers/") && (phase === "design" || phase === "build" || phase === "verify")) {
-    return allowed(`${relativePath2} (phase: ${phase}, superpowers)`);
+  if (isSuperpowersArtifactPath(relativePath2)) {
+    if (governing.superpowersArtifact === "matched" && allowsSuperpowersArtifacts(governing)) {
+      return allowed(`${relativePath2} (phase: ${phase}, superpowers)`);
+    }
+    if (governing.superpowersArtifact === "unmatched") {
+      return blockedUnmatchedSuperpowersArtifact(relativePath2, phase);
+    }
   }
   if (phase === "build" && governing.classic?.workflow === "full" && !governing.classic.designDoc) {
     return blockedMissingDesignDoc(relativePath2);

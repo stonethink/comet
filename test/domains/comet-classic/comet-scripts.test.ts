@@ -4628,7 +4628,7 @@ describe('comet scripts', () => {
       expect(result.status).toBe(0);
     }, 20_000);
 
-    it('allows writes to docs/superpowers/ in design phase', async () => {
+    it('allows matching docs/superpowers/ writes in design phase', async () => {
       await createChange(
         tmpDir,
         'test-hook',
@@ -4659,7 +4659,7 @@ describe('comet scripts', () => {
 
       const docsDir = path.join(tmpDir, 'docs', 'superpowers', 'specs');
       await fs.mkdir(docsDir, { recursive: true });
-      const targetFile = path.join(docsDir, '2026-06-06-test-design.md');
+      const targetFile = path.join(docsDir, '2026-06-06-test-hook-design.md');
 
       const result = runHookGuard(tmpDir, hookGuardScript, hookStdin(targetFile));
 
@@ -4982,6 +4982,100 @@ describe('comet scripts', () => {
       const result = runHookGuard(tmpDir, hookGuardScript, hookStdin(targetFile));
 
       expect(result.status).toBe(0);
+    }, 20_000);
+
+    it('allows docs/superpowers writes for the matching design change when another active change is open', async () => {
+      await createChange(
+        tmpDir,
+        'cert-signature-auth',
+        ['workflow: full', 'phase: open', 'archived: false', ''].join('\n'),
+      );
+      await createChange(
+        tmpDir,
+        'env-issue-ledger',
+        ['workflow: full', 'phase: design', 'archived: false', ''].join('\n'),
+      );
+
+      const docsDir = path.join(tmpDir, 'docs', 'superpowers', 'specs');
+      await fs.mkdir(docsDir, { recursive: true });
+      const targetFile = path.join(docsDir, 'env-issue-ledger-design.md');
+
+      const result = runHookGuard(tmpDir, hookGuardScript, hookStdin(targetFile));
+
+      expect(result.status).toBe(0);
+      expect(result.stderr).toContain('phase: design, superpowers');
+    }, 20_000);
+
+    it('matches docs/superpowers writes to the longest change name boundary', async () => {
+      await createChange(
+        tmpDir,
+        'auth',
+        ['workflow: full', 'phase: verify', 'archived: false', ''].join('\n'),
+      );
+      await createChange(
+        tmpDir,
+        'auth-v2',
+        ['workflow: full', 'phase: design', 'archived: false', ''].join('\n'),
+      );
+
+      const docsDir = path.join(tmpDir, 'docs', 'superpowers', 'specs');
+      await fs.mkdir(docsDir, { recursive: true });
+      const targetFile = path.join(docsDir, '2026-06-06-auth-v2-design.md');
+
+      const result = runHookGuard(tmpDir, hookGuardScript, hookStdin(targetFile));
+
+      expect(result.status).toBe(0);
+      expect(result.stderr).toContain('phase: design, superpowers');
+    }, 20_000);
+
+    it('does not route unmatched docs/superpowers writes to an unrelated eligible change', async () => {
+      await createChange(
+        tmpDir,
+        'a-open-change',
+        ['workflow: full', 'phase: open', 'archived: false', ''].join('\n'),
+      );
+      await createChange(
+        tmpDir,
+        'z-design-change',
+        ['workflow: full', 'phase: design', 'archived: false', ''].join('\n'),
+      );
+
+      const docsDir = path.join(tmpDir, 'docs', 'superpowers', 'specs');
+      await fs.mkdir(docsDir, { recursive: true });
+      const targetFile = path.join(docsDir, '2026-06-06-a-open-change-design.md');
+
+      const result = runHookGuard(tmpDir, hookGuardScript, hookStdin(targetFile));
+
+      expect(result.status).toBe(2);
+      expect(result.stderr).toContain('Current phase: open');
+    }, 20_000);
+
+    it('blocks unmatched docs/superpowers writes when all active changes are eligible phases', async () => {
+      await createChange(
+        tmpDir,
+        'auth',
+        ['workflow: full', 'phase: design', 'archived: false', ''].join('\n'),
+      );
+      await createChange(
+        tmpDir,
+        'payments',
+        [
+          'workflow: full',
+          'phase: build',
+          'design_doc: docs/superpowers/specs/payments-design.md',
+          'archived: false',
+          '',
+        ].join('\n'),
+      );
+
+      const docsDir = path.join(tmpDir, 'docs', 'superpowers', 'specs');
+      await fs.mkdir(docsDir, { recursive: true });
+      const targetFile = path.join(docsDir, '2026-06-06-legacy-design.md');
+
+      const result = runHookGuard(tmpDir, hookGuardScript, hookStdin(targetFile));
+
+      expect(result.status).toBe(2);
+      expect(result.stderr).toContain('unmatched Superpowers artifact');
     }, 20_000);
 
     it('blocks repo source writes when any active change is still in design', async () => {
