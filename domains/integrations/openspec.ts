@@ -171,7 +171,7 @@ async function ensureOpenSpecCli(
     // regardless of Comet's project/global skill installation scope.
     const npmArgs = ['install', '-g', '@fission-ai/openspec@latest'];
     execFileSync(getNpmExecutable(), npmArgs, {
-      cwd: projectPath,
+      cwd: os.homedir() || projectPath,
       stdio: 'inherit',
       timeout: 120_000,
       shell: process.platform === 'win32',

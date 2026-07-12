@@ -1,11 +1,17 @@
 import { Command, Option } from 'commander';
 import { initCommand } from '../commands/init.js';
 import { statusCommand } from '../commands/status.js';
+import { resumeProbeCommand } from '../commands/resume-probe.js';
 import { dashboardCommand } from '../commands/dashboard.js';
 import { doctorCommand } from '../commands/doctor.js';
 import { evalCommand as evalFacadeCommand } from '../commands/eval.js';
 import { updateCommand } from '../commands/update.js';
 import { uninstallCommand } from '../commands/uninstall.js';
+import {
+  PUBLIC_CLASSIC_COMMANDS,
+  runClassicFacade,
+  type PublicClassicCommand,
+} from '../commands/classic.js';
 import { getCurrentVersion } from '../../platform/version/version.js';
 import {
   skillCheckCommand,
@@ -83,6 +89,21 @@ program
   });
 
 program
+  .command('resume-probe [path]')
+  .description('Probe whether an active Comet workflow should resume')
+  .option('--utterance <text>', 'User request to classify', '')
+  .option('--stdin', 'Read the user request from stdin')
+  .option('--json', 'Output as JSON')
+  .option('--no-workflow-work', 'Treat the request as informational instead of workflow work')
+  .option(
+    '--already-in-comet-flow',
+    'Report out_of_scope when the current turn is already inside Comet',
+  )
+  .action(async (targetPath = '.', options) => {
+    await resumeProbeCommand(targetPath, options);
+  });
+
+program
   .command('dashboard [path]')
   .description('Launch the local Comet dashboard in your browser')
   .option('--port <port>', 'HTTP port to bind (default 4321, auto-bumps if busy)', (value) => {
@@ -118,6 +139,8 @@ program
   .option('--json', 'Output as JSON')
   .addOption(new Option('--language <lang>', 'Language for skills').choices(['en', 'zh']))
   .addOption(new Option('--scope <scope>', 'Install scope').choices(['global', 'project']))
+  .option('--all-projects', 'Update all indexed project-scope Comet installs')
+  .option('--current-project', 'Update only the current project')
   .addOption(new Option('--skip-npm', 'Skip npm package self-update').hideHelp())
   .action(async (targetPath = '.', options) => {
     await updateCommand(targetPath, options);
@@ -128,6 +151,8 @@ program
   .description('Remove Comet skills, rules, and hooks from your project or global scope')
   .option('--json', 'Output as JSON')
   .addOption(new Option('--scope <scope>', 'Uninstall scope').choices(['global', 'project']))
+  .option('--all-projects', 'Uninstall all indexed project-scope Comet installs')
+  .option('--current-project', 'Uninstall only the current project')
   .option('--force', 'Skip confirmation prompts')
   .action(async (targetPath = '.', options) => {
     try {
@@ -145,7 +170,7 @@ program
   .command('eval')
   .description('Evaluate a Skill or eval manifest with one command')
   .argument('[target]', 'Local Skill directory, SKILL.md, or comet/eval.yaml')
-  .option('--project <dir>', 'Repository root that contains eval/', '.')
+  .option('--project <dir>', 'Repository root that contains eval/')
   .option('--manifest <path>', 'Path to comet/eval.yaml')
   .option('--skill-path <path>', 'Local Skill directory or SKILL.md')
   .option('--skill-name <name>', 'Skill name used with --skill-path')
@@ -158,6 +183,24 @@ program
   .action(async (target, options) => {
     await evalFacadeCommand(target, options);
   });
+
+const classicDescriptions: Record<PublicClassicCommand, string> = {
+  state: 'Read and update Classic workflow state',
+  guard: 'Check Classic workflow phase guards',
+  handoff: 'Create and inspect Classic workflow handoffs',
+  archive: 'Archive completed Classic workflow changes',
+};
+
+for (const command of PUBLIC_CLASSIC_COMMANDS) {
+  program
+    .command(`${command} [args...]`)
+    .description(classicDescriptions[command])
+    .allowUnknownOption()
+    .allowExcessArguments()
+    .action(async (args: string[]) => {
+      process.exitCode = await runClassicFacade(command, args);
+    });
+}
 
 const skill = program
   .command('skill')

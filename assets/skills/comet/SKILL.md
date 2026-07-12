@@ -40,6 +40,30 @@ Use the configured Comet artifact language as the output language for every Open
    - `ask_user` → pause through `comet/reference/decision-point.md` and wait for the user's choice
    - `out_of_scope` → explain that the input is not a Comet workflow start/resume request and do not initialize a change
 
+After the runtime route, Ambient Resume, or user choice resolves one explicit change, bind the current execution context before entering its phase Skill:
+
+```bash
+comet state select <change-name>
+```
+
+When multiple active changes exist and the user has not selected one, do not bind early; keep the existing `ask_user` decision point.
+
+### Comet Ambient Resume
+
+When the user did not explicitly invoke `/comet`, but this repository may already have an active Comet change, run the read-only probe before starting work that may need code changes or investigation:
+
+```bash
+node "$COMET_RESUME_PROBE" probe --stdin
+```
+
+The probe only reads repository state. Follow the returned action:
+
+- `auto_resume`: print one line, `[COMET] Detected active change <name>; resuming via <nextCommand>.`, then enter `nextCommand`.
+- `ask_user`: ask one short question and wait.
+- `out_of_scope` or `none`: do not enter the Comet workflow.
+
+Never attach unrelated work to an active Comet change only because `.comet.yaml` exists.
+
 **Minimal CometIntentFrame Skeleton**:
 
 ```json

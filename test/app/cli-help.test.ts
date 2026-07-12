@@ -51,6 +51,27 @@ describe('CLI help text', () => {
     expect(skillHelp.stdout).not.toContain('resume [options]');
   });
 
+  it('exposes only the four stable Classic facade commands at the root', () => {
+    const help = runCli('--help');
+
+    expect(help.status, help.stderr).toBe(0);
+    expect(help.stdout).toContain('Read and update Classic workflow state');
+    expect(help.stdout).toContain('Check Classic workflow phase guards');
+    expect(help.stdout).toContain('Create and inspect Classic workflow handoffs');
+    expect(help.stdout).toContain('Archive completed Classic workflow changes');
+    expect(help.stdout).not.toMatch(/^\s+(validate|intent|hook-guard)\b/mu);
+    const facadeDescriptions = [
+      'Read and update Classic workflow state',
+      'Check Classic workflow phase guards',
+      'Create and inspect Classic workflow handoffs',
+      'Archive completed Classic workflow changes',
+    ];
+    expect(
+      facadeDescriptions.filter((description) => help.stdout.includes(description)),
+    ).toHaveLength(4);
+    expect(help.stdout).toMatch(/^\s+resume-probe \[options\] \[path\]\s+Probe whether/mu);
+  });
+
   it('separates repository evals from Engine Run runtime checks', () => {
     const evalHelp = runCli('eval', '--help');
     const skillCheckHelp = runCli('skill', 'check', '--help');
@@ -101,5 +122,21 @@ describe('CLI help text', () => {
     expect(help.stdout).toContain('eval-record');
     expect(help.stdout).not.toContain('benchmark-plan');
     expect(help.stdout).not.toContain('benchmark-record');
+  });
+
+  it('exposes ambient resume probe help', () => {
+    const help = runCli('--help');
+    const commandHelp = runCli('resume-probe', '--help');
+
+    expect(help.status, help.stderr).toBe(0);
+    expect(commandHelp.status, commandHelp.stderr).toBe(0);
+    expect(help.stdout).toContain('resume-probe');
+    expect(commandHelp.stdout).toContain('Probe whether an active Comet workflow should resume');
+    expect(commandHelp.stdout).toContain('--utterance');
+    expect(commandHelp.stdout).toContain('--stdin');
+    expect(commandHelp.stdout).toContain('--json');
+    expect(commandHelp.stdout).toContain('--no-workflow-work');
+    expect(commandHelp.stdout).not.toContain('--no-non-trivial-work');
+    expect(commandHelp.stdout).toContain('--already-in-comet-flow');
   });
 });

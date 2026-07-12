@@ -116,6 +116,20 @@ describe('skills', () => {
       await expect(createWorkingDirs(tmpDir)).resolves.not.toThrow();
     });
 
+    it('installs ambient resume instructions while preserving user content', async () => {
+      await fs.writeFile(path.join(tmpDir, 'AGENTS.md'), '# User\n\nKeep this.\n', 'utf-8');
+
+      await createWorkingDirs(tmpDir, 'zh-CN');
+
+      const agents = await fs.readFile(path.join(tmpDir, 'AGENTS.md'), 'utf-8');
+      const claude = await fs.readFile(path.join(tmpDir, 'CLAUDE.md'), 'utf-8');
+      expect(agents).toContain('# User\n\nKeep this.');
+      expect(agents).toContain('<comet-ambient-resume>');
+      expect(agents).toContain('开始处理需要改动或调查的任务前');
+      expect(claude).toContain('<comet-ambient-resume>');
+      expect(claude).toContain('开始处理需要改动或调查的任务前');
+    });
+
     it('records the selected project language in Comet config', async () => {
       await createWorkingDirs(tmpDir, 'zh-CN');
 
@@ -748,12 +762,12 @@ describe('skills', () => {
         '只有在用户完成选择且对应操作完成后，才允许写入 `branch_status: handled`',
       );
       expect(zhArchive).toContain('### 1. 归档前最终确认（阻塞点）');
-      expect(zhArchive).toContain('不得在用户确认前运行 `node "$COMET_ARCHIVE" "<change-name>"`');
+      expect(zhArchive).toContain('不得在用户确认前运行 `comet archive "<change-name>"`');
       expect(zhArchive).toContain('`comet/reference/decision-point.md`');
       expect(zhArchive).toContain('「确认归档」');
       expect(zhArchive).toContain('「需要调整或重新验证」');
       expect(zhArchive).toContain('「暂不归档」');
-      expect(zhArchive).toContain('`node "$COMET_STATE" transition <change-name> archive-reopen`');
+      expect(zhArchive).toContain('`comet state transition <change-name> archive-reopen`');
       expect(zhVerify).toContain('不得因为验证已通过就自动归档');
       expect(zhHotfix).toContain(
         '命中质变信号或文件数 tripwire 时，**必须按 `comet/reference/decision-point.md` 的协议暂停并等待用户明确选择**',
@@ -814,6 +828,20 @@ describe('skills', () => {
       expect(zhBuild).toContain(
         'CRITICAL review 发现（安全漏洞、数据丢失风险、构建/测试失败）必须先修复',
       );
+      expect(zhBuild).toContain(
+        'comet state record-check <change-name> build --command "<实际运行的构建命令>" --exit-code 0',
+      );
+      expect(zhVerify).toContain(
+        'comet state record-check <change-name> verify --command "<实际运行的验证命令>" --exit-code 0',
+      );
+      expect(zhBuild).toContain('`--command` 只记录命令文本，Comet **绝不会执行该文本**');
+      expect(zhVerify).toContain('`--command` 只记录命令文本，Comet **绝不会执行该文本**');
+      expect(zhBuild).toContain('build 与 verify 证据彼此独立，不能互相替代');
+      expect(zhVerify).toContain('verify 与 build 证据彼此独立，不能互相替代');
+      expect(zhBuild).toContain(
+        '`COMET_SKIP_BUILD=1` 仅是旧流程的兼容绕过方式，不是可审计的构建证据',
+      );
+      expect(zhVerify).toContain('不能把该绕过标记视为可审计的验证或构建证据');
 
       // MEDIUM: comet-verify Step 1b treats CRITICAL/IMPORTANT as blocking
       expect(zhVerify).toContain('CRITICAL 或 IMPORTANT 失败项必须修复');
@@ -887,13 +915,13 @@ describe('skills', () => {
       expect(zhBuild).toContain(
         '先确认当前平台存在可调用的真实后台 subagent / Task / multi-agent 调度能力',
       );
-      expect(zhBuild).toContain('`node "$COMET_STATE" set <name> subagent_dispatch confirmed`');
+      expect(zhBuild).toContain('`comet state set <name> subagent_dispatch confirmed`');
       expect(zhBuild).toContain(
-        '用户选择改用主窗口执行后，必须先运行 `node "$COMET_STATE" set <name> build_mode executing-plans`',
+        '用户选择改用主窗口执行后，必须先运行 `comet state set <name> build_mode executing-plans`',
       );
       expect(zhBuild).not.toContain('使用 Skill 工具加载对应技能');
       expect(zhBuild).toContain('tdd_mode');
-      expect(zhBuild).toContain('`node "$COMET_STATE" set <name> tdd_mode <tdd|direct>`');
+      expect(zhBuild).toContain('`comet state set <name> tdd_mode <tdd|direct>`');
       expect(zhBuild).toContain('若 `tdd_mode: tdd`');
       expect(zhBuild).toContain(
         'TDD 约束和证据门槛已在 `comet/reference/subagent-dispatch.md` 中定义',
@@ -903,7 +931,7 @@ describe('skills', () => {
       expect(zhHotfix).toContain('立即使用 Skill 工具加载 `comet-design` skill');
       expect(zhTweak).toContain('立即使用 Skill 工具加载 `comet-design` skill');
       expect(zhVerify).toContain(
-        '用户选择 B 后，运行 `node "$COMET_STATE" transition <change-name> verify-fail`，然后调用 `/comet-build`',
+        '用户选择 B 后，运行 `comet state transition <change-name> verify-fail`，然后调用 `/comet-build`',
       );
 
       // CRITICAL: implementation-time crashes must enter systematic debugging and keep tests in the current change.
@@ -937,14 +965,16 @@ describe('skills', () => {
         '读取 `comet/reference/subagent-dispatch.md` 获取 Comet 专属扩展',
       );
       expect(zhCometRule).toContain('禁止在主会话中直接执行 task');
-      for (const [content] of [
-        [zhOpen, '/comet-design'],
-        [zhDesign, '/comet-build'],
-        [zhBuild, '/comet-verify'],
-        [zhVerify, '/comet-archive'],
-      ] as const) {
+      for (const content of [zhOpen, zhDesign]) {
         expect(content).toContain('自动衔接下一阶段');
         expect(content).toContain('node "$COMET_STATE" next <change-name>');
+        expect(content).toContain('`NEXT: auto`');
+        expect(content).toContain('`NEXT: manual`');
+        expect(content).toContain('按 `HINT`');
+      }
+      for (const content of [zhBuild, zhVerify]) {
+        expect(content).toContain('自动衔接下一阶段');
+        expect(content).toContain('comet state next <change-name>');
         expect(content).toContain('`NEXT: auto`');
         expect(content).toContain('`NEXT: manual`');
         expect(content).toContain('按 `HINT`');
@@ -1128,13 +1158,13 @@ describe('skills', () => {
       expect(enBuild).not.toContain('openspec-apply-change');
       expect(enArchive).toContain('### 1. Final Archive Confirmation (Blocking Point)');
       expect(enArchive).toContain(
-        'Must not run `node "$COMET_ARCHIVE" "<change-name>"` before user confirmation',
+        'Must not run `comet archive "<change-name>"` before user confirmation',
       );
       expect(enArchive).toContain('`comet/reference/decision-point.md`');
       expect(enArchive).toContain('Confirm archive');
       expect(enArchive).toContain('Needs adjustment or re-verification');
       expect(enArchive).toContain('Do not archive yet');
-      expect(enArchive).toContain('`node "$COMET_STATE" transition <change-name> archive-reopen`');
+      expect(enArchive).toContain('`comet state transition <change-name> archive-reopen`');
       expect(enVerify).toContain('Must not automatically archive just because verification passed');
       expect(enHotfix).toContain(
         "must pause under the `comet/reference/decision-point.md` protocol and wait for the user's explicit choice",
@@ -1194,6 +1224,28 @@ describe('skills', () => {
       expect(enBuild).toContain(
         'CRITICAL review findings (security vulnerabilities, data loss risk, build/test failures) must be fixed',
       );
+      expect(enBuild).toContain(
+        'comet state record-check <change-name> build --command "<actual build command>" --exit-code 0',
+      );
+      expect(enVerify).toContain(
+        'comet state record-check <change-name> verify --command "<actual verification command>" --exit-code 0',
+      );
+      expect(enBuild).toContain(
+        '`--command` records command text only; Comet **never executes it**',
+      );
+      expect(enVerify).toContain(
+        '`--command` records command text only; Comet **never executes it**',
+      );
+      expect(enBuild).toContain(
+        'Build and verify evidence are separate and cannot substitute for each other',
+      );
+      expect(enVerify).toContain(
+        'Verify and build evidence are separate and cannot substitute for each other',
+      );
+      expect(enBuild).toContain(
+        '`COMET_SKIP_BUILD=1` is only a compatibility bypass for legacy workflows, not auditable build evidence',
+      );
+      expect(enVerify).toContain('cannot be treated as auditable verification or build evidence');
       expect(enVerify).toContain('CRITICAL or IMPORTANT failures must be fixed');
       expect(enVerify).toContain('skipping fix to accept all is not allowed');
       expect(enVerify).toContain('Code review strategy');
@@ -1268,7 +1320,7 @@ describe('skills', () => {
       expect(enHotfix).toContain('immediately use the Skill tool to load the `comet-design` skill');
       expect(enTweak).toContain('immediately use the Skill tool to load the `comet-design` skill');
       expect(enVerify).toContain(
-        'After user selects B, run `node "$COMET_STATE" transition <change-name> verify-fail`, then invoke `/comet-build`',
+        'After user selects B, run `comet state transition <change-name> verify-fail`, then invoke `/comet-build`',
       );
 
       expect(enComet).toContain(
@@ -1315,14 +1367,16 @@ describe('skills', () => {
         're-read `comet/reference/subagent-dispatch.md` for Comet-specific extensions',
       );
       expect(enCometRule).toContain('Do not execute the pending task directly in the main window');
-      for (const [content] of [
-        [enOpen, '/comet-design'],
-        [enDesign, '/comet-build'],
-        [enBuild, '/comet-verify'],
-        [enVerify, '/comet-archive'],
-      ] as const) {
+      for (const content of [enOpen, enDesign]) {
         expect(content).toContain('Automatic Handoff to Next Phase');
         expect(content).toContain('node "$COMET_STATE" next <change-name>');
+        expect(content).toContain('`NEXT: auto`');
+        expect(content).toContain('`NEXT: manual`');
+        expect(content).toContain('run `/<SKILL>` manually');
+      }
+      for (const content of [enBuild, enVerify]) {
+        expect(content).toContain('Automatic Handoff to Next Phase');
+        expect(content).toContain('comet state next <change-name>');
         expect(content).toContain('`NEXT: auto`');
         expect(content).toContain('`NEXT: manual`');
         expect(content).toContain('run `/<SKILL>` manually');
@@ -1382,14 +1436,14 @@ describe('skills', () => {
         'Language: 使用 `"$COMET_BASH" "$COMET_STATE" get <name> language` 读取到的 Comet 配置产物语言输出',
       );
       expect(zhSkills['comet-build']).toContain(
-        '计划文件和执行反馈必须使用 `"$COMET_BASH" "$COMET_STATE" get <name> language` 读取到的 Comet 配置产物语言',
+        '计划文件和执行反馈必须使用 `comet state get <name> language` 读取到的 Comet 配置产物语言',
       );
       expect(zhSkills['comet-build']).toContain('ARGUMENTS 必须包含与 Step 1 相同的 Language 约束');
       expect(zhSkills['comet-verify']).toContain(
-        '验证报告和分支处理说明必须使用 `"$COMET_BASH" "$COMET_STATE" get <name> language` 读取到的 Comet 配置产物语言',
+        '验证报告和分支处理说明必须使用 `comet state get <name> language` 读取到的 Comet 配置产物语言',
       );
       expect(zhSkills['comet-archive']).toContain(
-        '归档摘要和生命周期闭环说明必须使用 `"$COMET_BASH" "$COMET_STATE" get <name> language` 读取到的 Comet 配置产物语言',
+        '归档摘要和生命周期闭环说明必须使用 `comet state get <name> language` 读取到的 Comet 配置产物语言',
       );
       expect(zhSkills['comet-hotfix']).toContain('精简版 OpenSpec 产物必须使用 Comet 配置产物语言');
       expect(zhSkills['comet-tweak']).toContain('精简版 OpenSpec 产物必须使用 Comet 配置产物语言');
@@ -1405,16 +1459,16 @@ describe('skills', () => {
         'Language: Use the configured Comet artifact language from `"$COMET_BASH" "$COMET_STATE" get <name> language`',
       );
       expect(enSkills['comet-build']).toContain(
-        'Plan files and execution feedback must use the configured Comet artifact language from `"$COMET_BASH" "$COMET_STATE" get <name> language`',
+        'Plan files and execution feedback must use the configured Comet artifact language from `comet state get <name> language`',
       );
       expect(enSkills['comet-build']).toContain(
         'ARGUMENTS must include the same Language constraint as Step 1',
       );
       expect(enSkills['comet-verify']).toContain(
-        'Verification reports and branch-handling notes must use the configured Comet artifact language from `"$COMET_BASH" "$COMET_STATE" get <name> language`',
+        'Verification reports and branch-handling notes must use the configured Comet artifact language from `comet state get <name> language`',
       );
       expect(enSkills['comet-archive']).toContain(
-        'Archive summaries and lifecycle closure notes must use the configured Comet artifact language from `"$COMET_BASH" "$COMET_STATE" get <name> language`',
+        'Archive summaries and lifecycle closure notes must use the configured Comet artifact language from `comet state get <name> language`',
       );
       expect(enSkills['comet-hotfix']).toContain(
         'Streamlined OpenSpec artifacts must use the configured Comet artifact language',
@@ -1777,6 +1831,81 @@ describe('skills', () => {
       expect(manifest.skills).toContain('comet/reference/intent-frame.md');
       expect(manifest.skills).toContain('comet/scripts/comet-env.mjs');
       expect(manifest.skills).toContain('comet/scripts/comet-intent.mjs');
+    });
+
+    it('documents Ambient Resume in both Comet entry Skills', async () => {
+      const zh = await fs.readFile(
+        path.resolve('assets', 'skills-zh', 'comet', 'SKILL.md'),
+        'utf-8',
+      );
+      const en = await fs.readFile(path.resolve('assets', 'skills', 'comet', 'SKILL.md'), 'utf-8');
+
+      expect(zh).toContain('Comet Ambient Resume');
+      expect(zh).toContain('node "$COMET_RESUME_PROBE" probe --stdin');
+      expect(zh).toContain('不把无关任务挂到 active Comet change');
+      expect(en).toContain('Comet Ambient Resume');
+      expect(en).toContain('node "$COMET_RESUME_PROBE" probe --stdin');
+      expect(en).toContain('Never attach unrelated work');
+    });
+
+    it('documents the resume probe script in both script references', async () => {
+      const zh = await fs.readFile(
+        path.resolve('assets', 'skills-zh', 'comet', 'reference', 'scripts.md'),
+        'utf-8',
+      );
+      const en = await fs.readFile(
+        path.resolve('assets', 'skills', 'comet', 'reference', 'scripts.md'),
+        'utf-8',
+      );
+
+      expect(zh).toContain('COMET_RESUME_PROBE="$COMET_SCRIPTS_DIR/comet-resume-probe.mjs"');
+      expect(zh).toContain('| `COMET_RESUME_PROBE` |');
+      expect(en).toContain('COMET_RESUME_PROBE="$COMET_SCRIPTS_DIR/comet-resume-probe.mjs"');
+      expect(en).toContain('| `COMET_RESUME_PROBE` |');
+    });
+
+    it('documents every Classic transition event and the archive boundary bilingually', async () => {
+      const zh = await fs.readFile(
+        path.resolve('assets', 'skills-zh', 'comet', 'reference', 'scripts.md'),
+        'utf-8',
+      );
+      const en = await fs.readFile(
+        path.resolve('assets', 'skills', 'comet', 'reference', 'scripts.md'),
+        'utf-8',
+      );
+
+      for (const event of [
+        'open-complete',
+        'design-complete',
+        'build-complete',
+        'verify-pass',
+        'verify-fail',
+        'archive-confirm',
+        'archive-reopen',
+        'archived',
+        'preset-escalate',
+      ]) {
+        expect(zh).toContain(`comet state transition <change-name> ${event}`);
+        expect(en).toContain(`comet state transition <change-name> ${event}`);
+      }
+      expect(zh).toContain('不要在归档流程之外手动执行 `archived` transition');
+      expect(en).toContain('do not manually run the `archived` transition outside that flow');
+    });
+
+    it('documents the Ambient Resume probe command in context recovery references', async () => {
+      const zh = await fs.readFile(
+        path.resolve('assets', 'skills-zh', 'comet', 'reference', 'context-recovery.md'),
+        'utf-8',
+      );
+      const en = await fs.readFile(
+        path.resolve('assets', 'skills', 'comet', 'reference', 'context-recovery.md'),
+        'utf-8',
+      );
+
+      expect(zh).toContain('comet/reference/scripts.md');
+      expect(zh).toContain('node "$COMET_RESUME_PROBE" probe --stdin');
+      expect(en).toContain('comet/reference/scripts.md');
+      expect(en).toContain('node "$COMET_RESUME_PROBE" probe --stdin');
     });
 
     it('keeps review_mode wired through state and schema scripts', async () => {
