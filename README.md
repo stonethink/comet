@@ -721,7 +721,7 @@ Track our development progress and upcoming features on the [Comet Roadmap](http
       <b>DouYin (Recommended)</b>
     </td>
     <td align="center" width="180">
-      <img src="https://github.com/rpamis/comet/blob/master/img/wechat.jpg" width="120" height="120"><br>
+      <img src="https://github.com/rpamis/comet/blob/master/img/wechat.png" width="120" height="120"><br>
       <b>WeChat</b>
     </td>
     <td align="center" width="180">

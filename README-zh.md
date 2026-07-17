@@ -675,7 +675,7 @@ Benchmark 核心结论：
       <b>抖音群（推荐）</b>
     </td>
     <td align="center" width="180">
-      <img src="https://github.com/rpamis/comet/blob/master/img/wechat.jpg" width="120" height="120"><br>
+      <img src="https://github.com/rpamis/comet/blob/master/img/wechat.png" width="120" height="120"><br>
       <b>微信群</b>
     </td>
     <td align="center" width="180">
