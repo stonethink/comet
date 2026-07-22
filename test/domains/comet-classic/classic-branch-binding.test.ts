@@ -152,7 +152,12 @@ describe('resolveBranchBinding', () => {
   });
 
   it('treats an explicit null bound_branch the same as an absent one', async () => {
-    await seedState(['workflow: hotfix', 'phase: build', 'isolation: current', 'bound_branch: null']);
+    await seedState([
+      'workflow: hotfix',
+      'phase: build',
+      'isolation: current',
+      'bound_branch: null',
+    ]);
 
     const outcome = await resolveBranchBinding(changeDir, { heal: false, cwd: root });
 

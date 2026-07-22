@@ -11,10 +11,15 @@ import {
   type Platform,
 } from '../../platform/install/platforms.js';
 import type { InstallScope, InstallMode } from '../../platform/install/types.js';
-import { formatSupportedArtifactLanguages, resolveArtifactLanguage } from './languages.js';
+import { resolveArtifactLanguage } from './languages.js';
 import type { LanguageConfig, SkillLanguageId } from './languages.js';
 import { installCometProjectInstructions } from './project-instructions.js';
 import { readJsonObjectFile } from './json-object.js';
+import type { InitWorkflowSelection } from '../comet-entry/types.js';
+import {
+  projectConfigComment,
+  renderStructuredProjectConfig,
+} from '../workflow-contract/project-config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,15 +34,35 @@ type Manifest = {
   skills: string[];
   internalSkills?: string[];
   rules?: string[];
+  nativeRules?: string[];
   hooks?: Record<string, HookConfig>;
+  nativeHooks?: Record<string, HookConfig>;
   languages?: LanguageConfig[];
 };
+
+const HOOK_ROUTER_SCRIPT = 'comet/scripts/comet-hook-router.mjs';
+const LEGACY_HOOK_SCRIPTS = [
+  'comet/scripts/comet-hook-guard.mjs',
+  'comet-native/scripts/comet-native-hook-guard.mjs',
+] as const;
+const LEGACY_RULE_FILES = ['comet-phase-guard.md', 'comet-native-phase-guard.md'] as const;
+const NATIVE_SHARED_SKILL_PATHS = new Set([
+  'comet/SKILL.md',
+  'comet/scripts/comet-entry-runtime.mjs',
+  'comet/scripts/comet-hook-router.mjs',
+]);
+
+interface HookCommandContext {
+  platformId: string;
+  scope: InstallScope;
+}
 
 type HookInstallStatus = 'installed' | 'skipped' | 'failed';
 
 export interface HookInstallResult {
   status: HookInstallStatus;
   reason?: string;
+  cleanupFailed?: number;
 }
 
 interface PlannedSkillSourceFile {
@@ -68,14 +93,48 @@ function getManagedSkillPaths(manifest: Manifest): string[] {
   return [...new Set([...manifest.skills, ...(manifest.internalSkills ?? [])])];
 }
 
+function isManagedSkillPathForSelection(
+  skillPath: string,
+  workflowSelection: InitWorkflowSelection,
+): boolean {
+  if (workflowSelection === 'both') return true;
+  if (workflowSelection === 'classic') return !skillPath.startsWith('comet-native/');
+  return (
+    NATIVE_SHARED_SKILL_PATHS.has(skillPath) ||
+    skillPath.startsWith('comet-native/') ||
+    skillPath.startsWith('comet-any/')
+  );
+}
+
+function getManagedSkillPathsForSelection(
+  manifest: Manifest,
+  workflowSelection: InitWorkflowSelection,
+): string[] {
+  return getManagedSkillPaths(manifest).filter((skillPath) =>
+    isManagedSkillPathForSelection(skillPath, workflowSelection),
+  );
+}
+
+function getUserFacingSkillPathsForSelection(
+  manifest: Manifest,
+  workflowSelection: InitWorkflowSelection,
+): string[] {
+  return manifest.skills.filter((skillPath) =>
+    isManagedSkillPathForSelection(skillPath, workflowSelection),
+  );
+}
+
 function getUserFacingSkillNames(manifest: Manifest): string[] {
   return getTopLevelSkillNames(manifest.skills);
 }
 
-function getManagedSkillReplacementPaths(manifest: Manifest): Set<string> {
+function getManagedSkillReplacementPaths(
+  manifest: Manifest,
+  workflowSelection: InitWorkflowSelection = 'both',
+): Set<string> {
   const allowed = new Set<string>();
 
-  for (const skillPath of getManagedSkillPaths(manifest)) {
+  for (const skillPath of getManagedSkillPathsForSelection(manifest, workflowSelection)) {
     const parts = skillPath.split('/').filter(Boolean);
     for (let depth = 1; depth <= parts.length; depth++) {
       allowed.add(parts.slice(0, depth).join('/'));
@@ -85,10 +144,13 @@ function getManagedSkillReplacementPaths(manifest: Manifest): Set<string> {
   return allowed;
 }
 
-function getManagedSkillTopLevelEntries(manifest: Manifest): string[] {
+function getManagedSkillTopLevelEntries(
+  manifest: Manifest,
+  workflowSelection: InitWorkflowSelection = 'both',
+): string[] {
   const entries = new Set<string>();
 
-  for (const skillPath of getManagedSkillPaths(manifest)) {
+  for (const skillPath of getManagedSkillPathsForSelection(manifest, workflowSelection)) {
     const [topLevel] = skillPath.split('/').filter(Boolean);
     if (topLevel) entries.add(topLevel);
   }
@@ -217,8 +279,108 @@ async function lstatOrNull(filePath: string): Promise<Awaited<ReturnType<typeof 
   try {
     return await lstat(filePath);
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return null;
     throw err;
+  }
+}
+
+async function prepareManagedSkillCopyTarget(
+  baseDir: string,
+  platform: Platform,
+  scope: InstallScope = 'project',
+  workflowSelection: InitWorkflowSelection = 'both',
+): Promise<void> {
+  const manifest = await readManifest();
+  const managedEntries = new Set(getManagedSkillTopLevelEntries(manifest, workflowSelection));
+  const skillsRoot = path.join(baseDir, getPlatformSkillsDir(platform, scope), 'skills');
+  const rootStat = await lstatOrNull(skillsRoot);
+  if (!rootStat) return;
+
+  if (rootStat.isSymbolicLink()) {
+    let linkedEntries: string[] = [];
+    try {
+      linkedEntries = await readdir(skillsRoot);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+    const unmanagedEntries = linkedEntries.filter((entry) => !managedEntries.has(entry));
+    if (unmanagedEntries.length > 0) {
+      throw new Error(
+        `Refusing to replace ${skillsRoot} with managed copies because the linked directory contains unmanaged entries: ${unmanagedEntries.join(', ')}`,
+      );
+    }
+    await unlink(skillsRoot);
+    await ensureDir(skillsRoot);
+    return;
+  }
+
+  if (!rootStat.isDirectory()) return;
+  for (const entry of managedEntries) {
+    const entryPath = path.join(skillsRoot, entry);
+    const entryStat = await lstatOrNull(entryPath);
+    if (entryStat?.isSymbolicLink()) {
+      await unlink(entryPath);
+    }
+  }
+}
+
+async function prepareNativeSkillInstallTarget(
+  baseDir: string,
+  platform: Platform,
+  scope: InstallScope,
+  languageSkillsDir: string,
+  action: 'overwrite' | 'fill' | 'skip',
+): Promise<void> {
+  if (action !== 'skip') {
+    await prepareManagedSkillCopyTarget(baseDir, platform, scope, 'native');
+  }
+  if (action === 'overwrite') return;
+
+  const skillsRoot = path.join(baseDir, getPlatformSkillsDir(platform, scope), 'skills');
+  const assetsDir = getAssetsDir();
+  const manifest = await readManifest();
+  const requiredFiles = getManagedSkillPaths(manifest)
+    .filter(
+      (relativePath) =>
+        relativePath === 'comet/SKILL.md' ||
+        relativePath === 'comet/scripts/comet-entry-runtime.mjs' ||
+        relativePath === 'comet/scripts/comet-hook-router.mjs' ||
+        relativePath.startsWith('comet-any/') ||
+        relativePath.startsWith('comet-native/'),
+    )
+    .map((relativePath) => {
+      const pathParts = relativePath.split('/');
+      const sourceDir = relativePath.includes('/scripts/') ? 'skills' : languageSkillsDir;
+      return {
+        label: `the required Native asset ${relativePath}`,
+        destination: path.join(skillsRoot, ...pathParts),
+        source: path.join(assetsDir, sourceDir, ...pathParts),
+      };
+    });
+
+  for (const required of requiredFiles) {
+    const destinationStat = await lstatOrNull(required.destination);
+    if (!destinationStat) {
+      if (action === 'fill') continue;
+      throw new Error(
+        `Cannot activate Native while skipping existing Comet files because ${required.label} is missing at ${required.destination}`,
+      );
+    }
+    if (!destinationStat.isFile()) {
+      throw new Error(
+        `Cannot activate Native because ${required.label} is not a regular file at ${required.destination}; rerun with --overwrite after preserving any custom content`,
+      );
+    }
+    const [installed, bundled] = await Promise.all([
+      readFile(required.destination),
+      readFile(required.source),
+    ]);
+    if (!installed.equals(bundled)) {
+      throw new Error(
+        `Cannot activate Native because ${required.label} differs from the bundled routing contract at ${required.destination}; rerun with --overwrite after preserving any custom content`,
+      );
+    }
   }
 }
 
@@ -264,6 +426,7 @@ async function installSkillsAsSymlink(
   overwrite: boolean,
   languageSkillsDir: string = 'skills',
   scope: InstallScope = 'project',
+  workflowSelection: InitWorkflowSelection = 'both',
 ): Promise<{ copied: number; skipped: number; failed: number }> {
   const centralDir = getCentralSkillsDir(baseDir, scope);
   const assetsDir = getAssetsDir();
@@ -277,15 +440,17 @@ async function installSkillsAsSymlink(
   if (!manifest || !Array.isArray(manifest.skills)) {
     throw new Error(`Invalid manifest at ${manifestPath}: "skills" must be an array`);
   }
-  const managedSkillReplacementPaths = getManagedSkillReplacementPaths(manifest);
-  const managedSkillTopLevelEntries = getManagedSkillTopLevelEntries(manifest);
+  const managedSkillPaths = getManagedSkillPathsForSelection(manifest, workflowSelection);
+  const userFacingSkillPaths = getUserFacingSkillPathsForSelection(manifest, workflowSelection);
+  const managedSkillReplacementPaths = getManagedSkillReplacementPaths(manifest, workflowSelection);
+  const managedSkillTopLevelEntries = getManagedSkillTopLevelEntries(manifest, workflowSelection);
 
   // Step 1: Copy skills to central store
   let copied = 0;
   let skippedCount = 0;
   let failedCount = 0;
 
-  for (const skillRelPath of getManagedSkillPaths(manifest)) {
+  for (const skillRelPath of managedSkillPaths) {
     const isScript = skillRelPath.includes('/scripts/');
     const sourceDir = isScript ? 'skills' : languageSkillsDir;
     const src = path.join(assetsDir, sourceDir, skillRelPath);
@@ -329,7 +494,7 @@ async function installSkillsAsSymlink(
     const result = await createOpenCodeCommands(
       baseDir,
       platform,
-      manifest.skills,
+      userFacingSkillPaths,
       overwrite,
       scope,
       languageSkillsDir,
@@ -344,7 +509,7 @@ async function installSkillsAsSymlink(
     const result = await createPiCommandExtension(
       baseDir,
       platform,
-      manifest.skills,
+      userFacingSkillPaths,
       overwrite,
       scope,
     );
@@ -363,9 +528,17 @@ async function copyCometSkillsForPlatform(
   languageSkillsDir: string = 'skills',
   scope: InstallScope = 'project',
   installMode: InstallMode = 'copy',
+  workflowSelection: InitWorkflowSelection = 'both',
 ): Promise<{ copied: number; skipped: number; failed: number }> {
   if (installMode === 'symlink') {
-    return installSkillsAsSymlink(baseDir, platform, overwrite, languageSkillsDir, scope);
+    return installSkillsAsSymlink(
+      baseDir,
+      platform,
+      overwrite,
+      languageSkillsDir,
+      scope,
+      workflowSelection,
+    );
   }
 
   const assetsDir = getAssetsDir();
@@ -382,8 +555,10 @@ async function copyCometSkillsForPlatform(
   let copied = 0;
   let skippedCount = 0;
   let failedCount = 0;
+  const managedSkillPaths = getManagedSkillPathsForSelection(manifest, workflowSelection);
+  const userFacingSkillPaths = getUserFacingSkillPathsForSelection(manifest, workflowSelection);
 
-  for (const skillRelPath of getManagedSkillPaths(manifest)) {
+  for (const skillRelPath of managedSkillPaths) {
     const isScript = skillRelPath.includes('/scripts/');
     const sourceDir = isScript ? 'skills' : languageSkillsDir;
 
@@ -411,7 +586,7 @@ async function copyCometSkillsForPlatform(
     const result = await createOpenCodeCommands(
       baseDir,
       platform,
-      manifest.skills,
+      userFacingSkillPaths,
       overwrite,
       scope,
       languageSkillsDir,
@@ -425,7 +600,7 @@ async function copyCometSkillsForPlatform(
     const result = await createPiCommandExtension(
       baseDir,
       platform,
-      manifest.skills,
+      userFacingSkillPaths,
       overwrite,
       scope,
     );
@@ -596,9 +771,11 @@ async function readManifest(): Promise<Manifest> {
   return readJson<Manifest>(manifestPath);
 }
 
-async function getManifestSkills(): Promise<string[]> {
+async function getManifestSkills(
+  workflowSelection: InitWorkflowSelection = 'both',
+): Promise<string[]> {
   const manifest = await readManifest();
-  return getManagedSkillPaths(manifest);
+  return getManagedSkillPathsForSelection(manifest, workflowSelection);
 }
 
 /**
@@ -642,19 +819,38 @@ function selectRulePathsForLanguage(rulePaths: string[], languageId: SkillLangua
   return [...selected.values()].map((entry) => entry.rulePath);
 }
 
+function managedRulesForSelection(manifest: Manifest, _selection: InitWorkflowSelection): string[] {
+  return manifest.rules ?? [];
+}
+
+function managedHooksForSelection(
+  manifest: Manifest,
+  _selection: InitWorkflowSelection,
+): Record<string, HookConfig> {
+  return manifest.hooks ?? {};
+}
+
+function managedHookScriptPaths(hooksConfig: Record<string, HookConfig>): string[] {
+  return [...new Set([...Object.keys(hooksConfig), ...LEGACY_HOOK_SCRIPTS])];
+}
+
 async function copyCometRulesForPlatform(
   baseDir: string,
   platform: Platform,
   overwrite: boolean,
   languageId: SkillLanguageId,
   scope: InstallScope = 'project',
+  workflowSelection: InitWorkflowSelection = 'classic',
 ): Promise<{ copied: number; skipped: number; failed: number }> {
   if (!platform.rulesDir || !platform.rulesFormat) {
     return { copied: 0, skipped: 0, failed: 0 };
   }
 
   const manifest = await readManifest();
-  const rulePaths = selectRulePathsForLanguage(manifest.rules ?? [], languageId);
+  const rulePaths = selectRulePathsForLanguage(
+    managedRulesForSelection(manifest, workflowSelection),
+    languageId,
+  );
   if (!rulePaths || rulePaths.length === 0) {
     return { copied: 0, skipped: 0, failed: 0 };
   }
@@ -699,6 +895,19 @@ async function copyCometRulesForPlatform(
       copied++;
     } catch (err) {
       console.error(`    Failed to copy rule ${ruleRelPath}: ${(err as Error).message}`);
+      failed++;
+    }
+  }
+
+  const rulesDestDir = path.join(rulesBase, platform.rulesDir);
+  for (const legacyFile of LEGACY_RULE_FILES) {
+    const legacyPath = computeRuleDestPath(rulesDestDir, legacyFile, platform.rulesFormat);
+    try {
+      await rm(legacyPath, { force: true });
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT' || code === 'ENOTDIR') continue;
+      console.error(`    Failed to remove legacy Rule ${legacyPath}: ${(error as Error).message}`);
       failed++;
     }
   }
@@ -761,6 +970,7 @@ async function installCometHooksForPlatform(
   baseDir: string,
   platform: Platform,
   scope: InstallScope = 'project',
+  workflowSelection: InitWorkflowSelection = 'classic',
 ): Promise<HookInstallResult> {
   if (!platform.supportsHooks) {
     return { status: 'skipped', reason: 'platform does not support hooks' };
@@ -774,7 +984,7 @@ async function installCometHooksForPlatform(
 
   try {
     const manifest = await readManifest();
-    const hooksConfig = manifest.hooks;
+    const hooksConfig = managedHooksForSelection(manifest, workflowSelection);
     if (!hooksConfig || Object.keys(hooksConfig).length === 0) {
       return { status: 'skipped', reason: 'no hooks defined in manifest' };
     }
@@ -792,17 +1002,27 @@ async function installCometHooksForPlatform(
           hooksConfig,
           platform.hookConfigFile ?? 'settings.local.json',
           platform.name,
+          { platformId: platform.id, scope },
         );
         if (result.status === 'installed') {
+          const failedLegacyFiles: string[] = [];
           for (const legacyFile of platform.legacyHookConfigFiles ?? []) {
             try {
-              await removeManagedHooksFromJsonFile(
+              const cleanup = await removeManagedHooksFromJsonFile(
                 path.join(platformBase, legacyFile),
-                Object.keys(hooksConfig),
+                managedHookScriptPaths(hooksConfig),
               );
+              if (cleanup.failed > 0) failedLegacyFiles.push(legacyFile);
             } catch {
-              // Historical Hook cleanup is best-effort after canonical install succeeds.
+              failedLegacyFiles.push(legacyFile);
             }
+          }
+          if (failedLegacyFiles.length > 0) {
+            return {
+              status: 'installed',
+              reason: `legacy Hook cleanup failed for ${failedLegacyFiles.join(', ')}`,
+              cleanupFailed: failedLegacyFiles.length,
+            };
           }
         }
         return result;
@@ -816,6 +1036,7 @@ async function installCometHooksForPlatform(
           skillsDir,
           hooksConfig,
           platform.name,
+          { platformId: platform.id, scope },
         );
       case 'gemini':
         return await installGeminiHooks(
@@ -824,6 +1045,7 @@ async function installCometHooksForPlatform(
           skillsDir,
           hooksConfig,
           platform.name,
+          { platformId: platform.id, scope },
         );
       case 'windsurf':
         return await installWindsurfHooks(
@@ -832,11 +1054,18 @@ async function installCometHooksForPlatform(
           skillsDir,
           hooksConfig,
           platform.name,
+          { platformId: platform.id, scope },
         );
       case 'copilot':
-        return await installCopilotHooks(baseDir, platformBase, skillsDir, hooksConfig);
+        return await installCopilotHooks(baseDir, platformBase, skillsDir, hooksConfig, {
+          platformId: platform.id,
+          scope,
+        });
       case 'kiro':
-        return await installKiroHooks(baseDir, platformBase, skillsDir, hooksConfig);
+        return await installKiroHooks(baseDir, platformBase, skillsDir, hooksConfig, {
+          platformId: platform.id,
+          scope,
+        });
       default:
         return { status: 'failed', reason: `unsupported hook format: ${hookFormat}` };
     }
@@ -850,10 +1079,23 @@ function quoteCommandArg(value: string): string {
 }
 
 /** Build a hook command that is stable even when the hook runner executes from a subdirectory. */
-function buildHookCommand(baseDir: string, skillsDir: string, scriptRelPath: string): string {
+function buildHookCommand(
+  baseDir: string,
+  skillsDir: string,
+  scriptRelPath: string,
+  context?: HookCommandContext,
+): string {
   const projectRoot = path.resolve(baseDir);
   const scriptPath = path.join(projectRoot, skillsDir, 'skills', ...scriptRelPath.split('/'));
-  return `node ${quoteCommandArg(scriptPath)} --project-root ${quoteCommandArg(projectRoot)}`;
+  let command = `node ${quoteCommandArg(scriptPath)}`;
+  if (scriptRelPath === HOOK_ROUTER_SCRIPT && context) {
+    command += ` --platform ${quoteCommandArg(context.platformId)}`;
+    if (context.scope === 'project') {
+      command += ` --project-root ${quoteCommandArg(projectRoot)}`;
+    }
+    return command;
+  }
+  return `${command} --project-root ${quoteCommandArg(projectRoot)}`;
 }
 
 function parseCommandTokens(command: string): string[] | undefined {
@@ -1053,6 +1295,7 @@ async function installClaudeCodeHooks(
   hooksConfig: Record<string, HookConfig>,
   configFile: string,
   platformName: string,
+  context: HookCommandContext,
 ): Promise<HookInstallResult> {
   const settingsPath = path.join(platformBase, configFile);
 
@@ -1065,7 +1308,7 @@ async function installClaudeCodeHooks(
   // Group by matcher so hooks sharing the same matcher are merged
   const matcherGroups: Record<string, Array<{ type: string; command: string }>> = {};
   for (const [scriptRelPath, config] of Object.entries(hooksConfig)) {
-    const command = buildHookCommand(baseDir, skillsDir, scriptRelPath);
+    const command = buildHookCommand(baseDir, skillsDir, scriptRelPath, context);
     if (!matcherGroups[config.matcher]) {
       matcherGroups[config.matcher] = [];
     }
@@ -1080,7 +1323,11 @@ async function installClaudeCodeHooks(
 
   const existingHooks = (settings.hooks as Record<string, unknown>) ?? {};
   const existingPreToolUse = asHookGroup(existingHooks.PreToolUse);
-  const merged = mergeHookGroups(existingPreToolUse, newEntries, Object.keys(hooksConfig));
+  const merged = mergeHookGroups(
+    existingPreToolUse,
+    newEntries,
+    managedHookScriptPaths(hooksConfig),
+  );
 
   settings.hooks = { ...existingHooks, PreToolUse: merged };
   await ensureDir(path.dirname(settingsPath));
@@ -1098,6 +1345,7 @@ async function installQwenStyleHooks(
   skillsDir: string,
   hooksConfig: Record<string, HookConfig>,
   platformName: string,
+  context: HookCommandContext,
 ): Promise<HookInstallResult> {
   const settingsPath = path.join(platformBase, 'settings.json');
 
@@ -1112,7 +1360,7 @@ async function installQwenStyleHooks(
     }
     matcherGroups[config.matcher].push({
       type: 'command',
-      command: buildHookCommand(baseDir, skillsDir, scriptRelPath),
+      command: buildHookCommand(baseDir, skillsDir, scriptRelPath, context),
       description: config.description,
     });
   }
@@ -1126,7 +1374,11 @@ async function installQwenStyleHooks(
 
   const existingHooks = (settings.hooks as Record<string, unknown>) ?? {};
   const existingPreToolUse = asHookGroup(existingHooks.PreToolUse);
-  const merged = mergeHookGroups(existingPreToolUse, preToolUseEntries, Object.keys(hooksConfig));
+  const merged = mergeHookGroups(
+    existingPreToolUse,
+    preToolUseEntries,
+    managedHookScriptPaths(hooksConfig),
+  );
 
   settings.hooks = { ...existingHooks, PreToolUse: merged };
   await ensureDir(path.dirname(settingsPath));
@@ -1144,6 +1396,7 @@ async function installGeminiHooks(
   skillsDir: string,
   hooksConfig: Record<string, HookConfig>,
   platformName: string,
+  context: HookCommandContext,
 ): Promise<HookInstallResult> {
   const settingsPath = path.join(platformBase, 'settings.json');
 
@@ -1157,7 +1410,7 @@ async function installGeminiHooks(
       hooks: [
         {
           type: 'command',
-          command: buildHookCommand(baseDir, skillsDir, scriptRelPath),
+          command: buildHookCommand(baseDir, skillsDir, scriptRelPath, context),
           name: config.description,
         },
       ],
@@ -1168,7 +1421,7 @@ async function installGeminiHooks(
 
   const existingHooks = (settings.hooks as Record<string, unknown>) ?? {};
   const existingBeforeTool = asHookGroup(existingHooks.BeforeTool);
-  const merged = mergeHookGroups(existingBeforeTool, entries, Object.keys(hooksConfig));
+  const merged = mergeHookGroups(existingBeforeTool, entries, managedHookScriptPaths(hooksConfig));
 
   settings.hooks = { ...existingHooks, BeforeTool: merged };
   await ensureDir(path.dirname(settingsPath));
@@ -1186,13 +1439,14 @@ async function installWindsurfHooks(
   skillsDir: string,
   hooksConfig: Record<string, HookConfig>,
   platformName: string,
+  context: HookCommandContext,
 ): Promise<HookInstallResult> {
   const hooksPath = path.join(platformBase, 'hooks.json');
 
   const entries: Array<{ command: string; show_output: boolean }> = [];
   for (const [scriptRelPath] of Object.entries(hooksConfig)) {
     entries.push({
-      command: buildHookCommand(baseDir, skillsDir, scriptRelPath),
+      command: buildHookCommand(baseDir, skillsDir, scriptRelPath, context),
       show_output: true,
     });
   }
@@ -1204,7 +1458,7 @@ async function installWindsurfHooks(
   const merged = existingPreWrite.filter((entry) => {
     const command =
       entry && typeof entry === 'object' ? (entry as Record<string, unknown>).command : undefined;
-    return !isManagedHookCommand(command, Object.keys(hooksConfig));
+    return !isManagedHookCommand(command, managedHookScriptPaths(hooksConfig));
   });
   merged.push(...entries);
 
@@ -1223,15 +1477,20 @@ async function installCopilotHooks(
   platformBase: string,
   skillsDir: string,
   hooksConfig: Record<string, HookConfig>,
+  context: HookCommandContext,
 ): Promise<HookInstallResult> {
   const hooksDir = path.join(platformBase, 'hooks');
   const hookFilePath = path.join(hooksDir, 'comet-guard.json');
 
-  const scriptEntries: Array<{ bash: string; powershell: string }> = [];
-  for (const [scriptRelPath] of Object.entries(hooksConfig)) {
-    const cmd = buildHookCommand(baseDir, skillsDir, scriptRelPath);
+  const scriptEntries: Array<{ matcher: string; bash: string; powershell: string }> = [];
+  for (const [scriptRelPath, config] of Object.entries(hooksConfig)) {
+    const cmd = buildHookCommand(baseDir, skillsDir, scriptRelPath, context);
+    const matcher =
+      config.matcher === 'Write|Edit'
+        ? 'create|edit|str_replace_editor|apply_patch'
+        : config.matcher;
     // Hook runs through node on every platform; both fields use the same command
-    scriptEntries.push({ bash: cmd, powershell: cmd });
+    scriptEntries.push({ matcher, bash: cmd, powershell: cmd });
   }
 
   const hookConfig = {
@@ -1255,6 +1514,7 @@ async function installKiroHooks(
   platformBase: string,
   skillsDir: string,
   hooksConfig: Record<string, HookConfig>,
+  context: HookCommandContext,
 ): Promise<HookInstallResult> {
   const hooksDir = path.join(platformBase, 'hooks');
 
@@ -1276,7 +1536,7 @@ async function installKiroHooks(
       },
       then: {
         type: 'runCommand',
-        command: buildHookCommand(baseDir, skillsDir, scriptRelPath),
+        command: buildHookCommand(baseDir, skillsDir, scriptRelPath, context),
       },
     };
 
@@ -1284,28 +1544,74 @@ async function installKiroHooks(
     await writeFile(hookFilePath, JSON.stringify(hookConfig, null, 2) + '\n', 'utf-8');
   }
 
+  for (const legacyScript of LEGACY_HOOK_SCRIPTS) {
+    const legacyFile = path.join(
+      hooksDir,
+      path.basename(legacyScript).replace(/\.mjs$/u, '.kiro.hook'),
+    );
+    await rm(legacyFile, { force: true });
+  }
+
   return { status: 'installed' };
 }
 
-function managedConfigFields(language: string = 'en') {
+type ManagedConfigField = {
+  key: string;
+  def: string;
+  comment: string;
+};
+
+type ManagedConfigFields = {
+  top: readonly ManagedConfigField[];
+  native: readonly ManagedConfigField[];
+  classic: readonly ManagedConfigField[];
+};
+
+function managedConfigFields(language: string = 'en'): ManagedConfigFields {
   const artifactLanguage = resolveArtifactLanguage(language);
-  return [
+  const commentLanguage = artifactLanguage.id === 'zh-CN' ? 'zh-CN' : 'en';
+  const top: ManagedConfigField[] = [
+    {
+      key: 'ambient_resume',
+      def: 'true',
+      comment: projectConfigComment('ambient_resume', commentLanguage),
+    },
+  ];
+  const classic: ManagedConfigField[] = [
     {
       key: 'language',
       def: artifactLanguage.id,
-      comment: `# language: ${formatSupportedArtifactLanguages()}`,
+      comment: projectConfigComment('classic.language', commentLanguage),
     },
-    { key: 'context_compression', def: 'off', comment: '# context_compression: off | beta' },
-    { key: 'review_mode', def: 'standard', comment: '# review_mode: off | standard | thorough' },
-    { key: 'auto_transition', def: 'true', comment: '# auto_transition: true | false' },
-  ] as const;
+    {
+      key: 'context_compression',
+      def: 'off',
+      comment: projectConfigComment('classic.context_compression', commentLanguage),
+    },
+    {
+      key: 'review_mode',
+      def: 'standard',
+      comment: projectConfigComment('classic.review_mode', commentLanguage),
+    },
+    {
+      key: 'auto_transition',
+      def: 'true',
+      comment: projectConfigComment('classic.auto_transition', commentLanguage),
+    },
+  ];
+  const native: ManagedConfigField[] = [
+    {
+      key: 'clarification_mode',
+      def: 'sequential',
+      comment: projectConfigComment('native.clarification_mode', commentLanguage),
+    },
+  ];
+  return { top, native, classic };
 }
 
 const MANAGED_CONFIG_FIELDS = managedConfigFields();
 
-type ManagedConfigField = ReturnType<typeof managedConfigFields>[number];
-
-function getManagedConfigFields(language: string = 'en'): readonly ManagedConfigField[] {
+function getManagedConfigFields(language: string = 'en'): ManagedConfigFields {
   return language === 'en' ? MANAGED_CONFIG_FIELDS : managedConfigFields(language);
 }
 
@@ -1325,29 +1631,43 @@ function parseProjectConfigOverrides(content: string): Record<string, string> {
   return out;
 }
 
+// Coerce the string forms captured by `parseProjectConfigOverrides` back into YAML scalars
+// so booleans render as bare true/false rather than quoted strings.
+function coerceConfigScalar(raw: unknown): unknown {
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+  return raw;
+}
+
 // `language` is null when the caller has no definitive language selection to assert (e.g.
 // multiple platforms in the same scope disagree and no --language flag was given) — in that
 // case the existing config's language is preserved, falling back to 'en' only when absent.
-// A non-null language always overwrites the managed `language` field: init/update pass it
-// specifically to persist the language the user just selected/installed.
+// A non-null language always overwrites the managed `classic.language` field: init/update
+// pass it specifically to persist the language the user just selected/installed.
 function renderProjectConfig(
   existing: Record<string, string>,
   language: string | null = null,
 ): string {
   const resolvedLanguage = language ?? existing.language ?? 'en';
-  const lines: string[] = [];
   const fields = getManagedConfigFields(resolvedLanguage);
-  const managed: Set<string> = new Set(fields.map((f) => f.key));
-  for (const f of fields) {
-    lines.push(f.comment);
-    const value = f.key === 'language' ? resolvedLanguage : (existing[f.key] ?? f.def);
-    lines.push(`${f.key}: ${value}`);
+  const managedKeys = new Set<string>([
+    ...fields.top.map((f) => f.key),
+    ...fields.classic.map((f) => f.key),
+  ]);
+  const root: Record<string, unknown> = {};
+  for (const f of fields.top) {
+    root[f.key] = coerceConfigScalar(existing[f.key] ?? f.def);
   }
   for (const [k, v] of Object.entries(existing)) {
-    if (!managed.has(k)) lines.push(`${k}: ${v}`);
+    if (!managedKeys.has(k)) root[k] = coerceConfigScalar(v);
   }
-  lines.push('');
-  return lines.join('\n');
+  const classicBlock: Record<string, unknown> = {};
+  for (const f of fields.classic) {
+    const value = f.key === 'language' ? resolvedLanguage : (existing[f.key] ?? f.def);
+    classicBlock[f.key] = coerceConfigScalar(value);
+  }
+  root.classic = classicBlock;
+  return renderStructuredProjectConfig(root, resolvedLanguage === 'zh-CN' ? 'zh-CN' : 'en');
 }
 
 async function mergeProjectConfig(
@@ -1356,11 +1676,81 @@ async function mergeProjectConfig(
 ): Promise<void> {
   const configPath = path.join(projectPath, '.comet', 'config.yaml');
   let existing: Record<string, string> = {};
+  let existingSource = '';
   if (await fileExists(configPath)) {
-    existing = parseProjectConfigOverrides(await readFile(configPath, 'utf-8'));
+    existingSource = await readFile(configPath, 'utf-8');
+    existing = parseProjectConfigOverrides(existingSource);
   }
   await ensureDir(path.dirname(configPath));
-  await writeFile(configPath, renderProjectConfig(existing, language), 'utf-8');
+
+  // Preserve the full parsed structure (e.g. the `native:` block) plus any legacy top-level
+  // Classic fields pending migration. Falling back to an empty mapping keeps this idempotent
+  // for a missing or unparseable config.
+  const document = parseDocument(existingSource, { uniqueKeys: false });
+  const parsedRoot = document.errors.length === 0 ? document.toJS() : null;
+  const root: Record<string, unknown> =
+    parsedRoot && typeof parsedRoot === 'object' && !Array.isArray(parsedRoot)
+      ? { ...(parsedRoot as Record<string, unknown>) }
+      : {};
+  const prevClassic =
+    root.classic && typeof root.classic === 'object' && !Array.isArray(root.classic)
+      ? { ...(root.classic as Record<string, unknown>) }
+      : {};
+  const prevNative =
+    root.native && typeof root.native === 'object' && !Array.isArray(root.native)
+      ? { ...(root.native as Record<string, unknown>) }
+      : null;
+  const existingClassicLanguage =
+    typeof prevClassic.language === 'string' ? prevClassic.language : undefined;
+  const resolvedLanguage = language ?? existingClassicLanguage ?? existing.language ?? 'en';
+  const fields = getManagedConfigFields(resolvedLanguage);
+
+  // Top-level managed field (ambient_resume).
+  for (const f of fields.top) {
+    root[f.key] = coerceConfigScalar(existing[f.key] ?? f.def);
+  }
+
+  // Native settings are managed only when the project already has a Native block. This lets
+  // update add new Native defaults without activating Native in Classic-only installations.
+  if (prevNative) {
+    const nativeBlock = { ...prevNative };
+    for (const f of fields.native) {
+      const value = nativeBlock[f.key] ?? f.def;
+      if (f.key === 'clarification_mode' && value !== 'sequential' && value !== 'batch') {
+        throw new Error('native.clarification_mode must be sequential or batch');
+      }
+      nativeBlock[f.key] = coerceConfigScalar(value);
+    }
+    root.native = nativeBlock;
+  }
+
+  // Classic block: preserve explicit new-format values, then migrate legacy top-level values,
+  // then apply defaults. An explicit language argument still represents the caller's requested
+  // install/update language and therefore overrides both stored forms.
+  const classicBlock: Record<string, unknown> = {};
+  for (const f of fields.classic) {
+    let value: unknown;
+    if (f.key === 'language') {
+      value = resolvedLanguage;
+    } else {
+      const legacyTop = root[f.key];
+      if (prevClassic[f.key] !== undefined) value = prevClassic[f.key];
+      else if (legacyTop !== undefined) value = legacyTop;
+      else value = f.def;
+    }
+    classicBlock[f.key] = coerceConfigScalar(value);
+  }
+  // Remove migrated legacy top-level Classic fields so they don't linger at the root.
+  for (const f of fields.classic) {
+    delete root[f.key];
+  }
+  root.classic = classicBlock;
+
+  await writeFile(
+    configPath,
+    renderStructuredProjectConfig(root, resolvedLanguage === 'zh-CN' ? 'zh-CN' : 'en'),
+    'utf-8',
+  );
 }
 
 async function createWorkingDirs(projectPath: string, language: string = 'en'): Promise<void> {
@@ -1384,6 +1774,7 @@ export {
   installCometHooksForPlatform,
   readManifest,
   getManagedSkillPaths,
+  getManagedSkillPathsForSelection,
   getManifestSkills,
   getUserFacingSkillNames,
   createWorkingDirs,
@@ -1399,5 +1790,7 @@ export {
   renderProjectConfig,
   getCentralSkillsDir,
   installSkillsAsSymlink,
+  prepareManagedSkillCopyTarget,
+  prepareNativeSkillInstallTarget,
 };
 export type { Manifest, LanguageConfig, PlannedSkillFile, PlannedSkillSourceFile };

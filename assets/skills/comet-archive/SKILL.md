@@ -116,7 +116,6 @@ Archive is already complete, so do not offer "discard work". Only after the sele
 ```bash
 comet state set <change-name> branch_status handled
 comet guard <change-name> archive
-comet state clear-selection
 ```
 
 The archive guard must verify both archive completeness and `branch_status: handled`; a failure means the workflow is still incomplete.
@@ -136,7 +135,7 @@ The archive script moves `openspec/changes/<name>/` to `openspec/changes/archive
 
 ## Complete
 
-Comet workflow complete. To start new work, invoke `/comet` or `/comet-open`.
+Comet Classic workflow complete. To start new Classic work, invoke `/comet-classic` or `/comet-open`.
 
 ## Context Compression Recovery
 

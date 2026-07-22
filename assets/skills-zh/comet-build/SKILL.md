@@ -84,7 +84,7 @@ comet state set <name> plan docs/superpowers/plans/YYYY-MM-DD-feature.md
 | 选项 | 行为 | 说明 |
 |------|------|------|
 | A | 继续执行并提交配置 | 在同一次回复中选择 Step 3 的隔离、执行、TDD 和审查配置；如选择 branch，同时提交分支名 |
-| B | 暂停切换模型 | 记录 `build_pause: plan-ready`，本次 `/comet-build` 停止，用户稍后可从 `/comet` 或 `/comet-build` 恢复 |
+| B | 暂停切换模型 | 记录 `build_pause: plan-ready`，本次 `/comet-build` 停止，用户稍后可从 `/comet-classic` 或 `/comet-build` 恢复 |
 
 这是用户决策点。**必须按 `comet/reference/decision-point.md` 的协议一次性展示计划摘要、暂停选项和 Step 3 全部可执行配置**。用户选择继续时，必须在同一回复中给出所有配置以及条件性的分支名；不得自动选择，也不得把暂停写入 `build_mode`。
 

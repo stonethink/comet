@@ -9,6 +9,7 @@ import { PLATFORMS } from '../../platform/install/platforms.js';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
+import { parse } from 'yaml';
 
 describe('init command helpers', () => {
   it('can apply a single overwrite choice to all existing components on a platform', () => {
@@ -67,14 +68,26 @@ describe('init command helpers', () => {
       await createWorkingDirs(tmpDir, 'zh-CN');
 
       const config = await fs.readFile(path.join(tmpDir, '.comet', 'config.yaml'), 'utf-8');
-      expect(config).toContain('# language: en | zh-CN');
+      expect(parse(config)).toMatchObject({
+        ambient_resume: true,
+        classic: {
+          language: 'zh-CN',
+          context_compression: 'off',
+          review_mode: 'standard',
+          auto_transition: true,
+        },
+      });
+      expect(config).not.toMatch(/^(language|context_compression|review_mode|auto_transition):/mu);
+      expect(config).toContain('# Classic 工作流文档使用的产物语言');
       expect(config).toContain('language: zh-CN');
-      expect(config).toContain('# context_compression: off | beta');
+      expect(config).toContain('# 新建 Classic change 是否启用 beta 上下文压缩');
       expect(config).toContain('context_compression: off');
-      expect(config).toContain('# review_mode: off | standard | thorough');
+      expect(config).toContain('# 新建 Classic change 默认使用的审查深度');
       expect(config).toContain('review_mode: standard');
-      expect(config).toContain('# auto_transition: true | false');
+      expect(config).toContain('# Classic 阶段通过后是否自动进入下一阶段');
       expect(config).toContain('auto_transition: true');
+      expect(config).toContain('# 是否启用只读的环境感知恢复探针');
+      expect(config).toContain('ambient_resume: true');
     } finally {
       await fs.rm(tmpDir, { recursive: true, force: true });
     }

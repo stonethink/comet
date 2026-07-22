@@ -13,7 +13,7 @@ description: "仅在用户明确调用 /comet-open，或由 Comet 根 Skill/runt
 
 ### 0. 输出语言约束
 
-传递给 OpenSpec 的所有提问和产物要求都必须包含解析后的 Comet 产物语言，并使用 `en`、`zh-CN` 这类规范化 ID。`.comet.yaml` 尚不存在时依次读取项目 `.comet/config.yaml` 和全局 `~/.comet/config.yaml` 的 `language`；change 初始化后使用 `comet state get <name> language` 读取。没有配置语言时才回退到当前用户请求语言。生成的 `proposal.md`、`design.md`、`tasks.md` 必须以该语言为主语言。
+传递给 OpenSpec 的所有提问和产物要求都必须包含解析后的 Comet 产物语言，并使用 `en`、`zh-CN` 这类规范化 ID。`.comet.yaml` 尚不存在时依次读取项目 `.comet/config.yaml` 和全局 `~/.comet/config.yaml` 的 `classic.language`；change 初始化后使用 `comet state get <name> language` 读取。没有配置语言时才回退到当前用户请求语言。生成的 `proposal.md`、`design.md`、`tasks.md` 必须以该语言为主语言。
 
 ### 0a. 当前 change 绑定
 
@@ -85,7 +85,7 @@ openspec --version
 
 批量拆分模式下，进入每个拆分项的 `/comet-open` 时必须明确标注「已确认拆分项」并携带该拆分项的目标、范围、非目标和验收场景。已确认拆分项默认跳过 PRD 拆分预检，除非该拆分项本身仍明显包含多个独立 capability。
 
-批量拆分模式下，单个拆分项完成 open 阶段后不得自动流转到 `/comet-design`。
+批量拆分模式下，单个拆分项完成 open 阶段后不得自动流转到 `/comet-design`。拆分完毕后必须暂停询问用户开始哪一个 change；用户选择后，只推进该 change 进入 `/comet-design`，其他 change 保持 active，稍后通过 `/comet-classic` 恢复。
 
 **批量完成硬性检查（不得跳过）**：全部拆分项完成各自的 open 阶段后，对用户确认清单中的每个 `<name>` 逐个运行：
 
@@ -103,7 +103,7 @@ comet state check <name> design
 
 任一拆分项未通过检查时，不得宣告拆分完成，也不得询问用户开始哪个 change；必须停止并从该 change 的第一个 `ready` 或 `blocked` artifact 恢复 `/comet-open`。OpenSpec 检查通过但 Comet state 检查失败时，必须先修复 `.comet.yaml` 初始化或 phase，再重新执行整批检查。
 
-只有所有拆分项都通过两项 CLI 检查后，才暂停询问用户开始哪一个 change；用户选择后，把批量清单中的该项标记为 `selected`，只推进该 change 进入 `/comet-design`，其他 change 保持 active，稍后通过 `/comet` 恢复。
+只有所有拆分项都通过两项 CLI 检查后，才暂停询问用户开始哪一个 change；用户选择后，把批量清单中的该项标记为 `selected`，只推进该 change 进入 `/comet-design`，其他 change 保持 active，稍后通过 `/comet-classic` 恢复。
 
 断点恢复时先读取 `.comet/batches/<batch-id>.json`，再对清单中已创建的 active changes 运行上述 CLI 检查；已完整通过的拆分项不得重复创建，未通过的拆分项从 OpenSpec 返回的第一个 `ready` artifact 继续。未创建项按持久清单继续创建。清单缺失或损坏时停止并请求用户重建/确认，不能从目录列表猜测原始批次边界。
 
@@ -124,7 +124,7 @@ resolved brief 或 change 名称仍不明确时不得运行 `openspec new change
 
 **立即执行：** 使用 Skill 工具加载 `openspec-new-change` 技能。禁止跳过此步骤。
 
-完整 `/comet` 流程默认不得使用 Skill 工具加载 `openspec-propose` 技能；只有用户明确要求一次性生成提案和 artifacts 时才允许加载。
+完整 `/comet-classic` 流程默认不得使用 Skill 工具加载 `openspec-propose` 技能；只有用户明确要求一次性生成提案和 artifacts 时才允许加载。
 
 技能加载后，按其指引创建 change 骨架；当 Step 1b 已形成范围明确的 resolved brief 时，覆盖其"STOP and wait for user direction"行为，避免重复询问。
 

@@ -1,6 +1,7 @@
 import path from 'path';
 import os from 'os';
-import { fileExists, readDir } from '../../platform/fs/file-system.js';
+import { promises as fs } from 'fs';
+import { copyFile, fileExists, readDir } from '../../platform/fs/file-system.js';
 import {
   getOpenSpecVersion,
   isCommandAvailable,
@@ -12,16 +13,21 @@ import {
   resolveCodegraphCommand,
 } from '../../domains/integrations/codegraph.js';
 import {
+  copyCometRulesForPlatform,
   readManifest,
   getAssetsDir,
   getManagedSkillPaths,
+  getManagedSkillPathsForSelection,
+  installCometHooksForPlatform,
 } from '../../domains/skill/platform-install.js';
 import {
   getPlatformRuleDestinations,
+  getLegacyPlatformRuleDestinations,
   inspectCometHooksForPlatform,
 } from '../../domains/skill/platform-inspect.js';
 import {
   PLATFORMS,
+  getPlatformSkillsDir,
   getPlatformSkillsDirs,
   type Platform,
 } from '../../platform/install/platforms.js';
@@ -29,6 +35,10 @@ import { resolveCanonicalSkillRootOwners } from '../../platform/install/skill-ro
 import type { InstallScope } from '../../platform/install/types.js';
 import { inspectClassicChange } from '../../domains/comet-classic/classic-diagnostics.js';
 import { getCurrentVersion } from '../../platform/version/version.js';
+import { readProjectConfig } from '../../domains/comet-native/native-config.js';
+import { repairCometCurrentSelection } from '../../domains/comet-entry/current-selection-repair.js';
+import { resolveHookWorkflowOwner } from '../../domains/comet-entry/hook-router.js';
+import type { InitWorkflowSelection } from '../../domains/comet-entry/types.js';
 
 interface CheckResult {
   check: string;
@@ -46,6 +56,23 @@ const SUPERPOWERS_SENTINELS = [
   'test-driven-development/SKILL.md',
   'writing-plans/SKILL.md',
 ] as const;
+const HOOK_ROUTER_RUNTIME = 'comet/scripts/comet-hook-router.mjs';
+
+function hookRouterRuntimePaths(
+  baseDir: string,
+  platform: Platform,
+  scope: InstallScope,
+): { source: string; destination: string } {
+  return {
+    source: path.join(getAssetsDir(), 'skills', ...HOOK_ROUTER_RUNTIME.split('/')),
+    destination: path.join(
+      baseDir,
+      getPlatformSkillsDir(platform, scope),
+      'skills',
+      ...HOOK_ROUTER_RUNTIME.split('/'),
+    ),
+  };
+}
 
 function checkCometCli(): CheckResult {
   return {
@@ -184,9 +211,15 @@ async function checkPlatformComponents(
   baseDir: string,
   platform: (typeof PLATFORMS)[number],
   scope: InstallScope,
+  workflowSelection: InitWorkflowSelection,
 ): Promise<CheckResult[]> {
   const results: CheckResult[] = [];
-  const ruleDestinations = await getPlatformRuleDestinations(baseDir, platform, scope);
+  const ruleDestinations = await getPlatformRuleDestinations(
+    baseDir,
+    platform,
+    scope,
+    workflowSelection,
+  );
   if (ruleDestinations.length > 0) {
     let present = 0;
     const inspectionErrors: string[] = [];
@@ -208,16 +241,73 @@ async function checkPlatformComponents(
             ? `complete (${present} files)`
             : `partial (${present}/${ruleDestinations.length} files) — run: comet update --scope ${scope}`,
     });
+    const legacyRuleDestinations = getLegacyPlatformRuleDestinations(baseDir, platform, scope);
+    let legacyRules = 0;
+    const legacyInspectionErrors: string[] = [];
+    for (const destination of legacyRuleDestinations) {
+      try {
+        if (await fileExists(destination)) legacyRules++;
+      } catch (error) {
+        legacyInspectionErrors.push(`${destination}: ${(error as Error).message}`);
+      }
+    }
+    if (legacyInspectionErrors.length > 0) {
+      results.push({
+        check: `legacy rules: ${platform.name} (${scope})`,
+        status: 'warn',
+        message: `unable to inspect legacy managed Rule (${legacyInspectionErrors.join('; ')})`,
+      });
+    }
+    if (legacyRules > 0) {
+      results.push({
+        check: `legacy rules: ${platform.name} (${scope})`,
+        status: 'warn',
+        message: `${legacyRules} legacy managed Rule file(s) remain — run: comet doctor --repair --scope ${scope}`,
+      });
+    }
   }
 
   if (platform.supportsHooks && platform.hookFormat) {
-    const inspection = await inspectCometHooksForPlatform(baseDir, platform, scope);
+    const runtime = hookRouterRuntimePaths(baseDir, platform, scope);
+    try {
+      const [expected, installed] = await Promise.all([
+        fs.readFile(runtime.source),
+        fs.readFile(runtime.destination),
+      ]);
+      results.push({
+        check: `hook runtime: ${platform.name} (${scope})`,
+        status: expected.equals(installed) ? 'pass' : 'warn',
+        message: expected.equals(installed)
+          ? 'current'
+          : `outdated — run: comet doctor --repair --scope ${scope}`,
+      });
+    } catch (error) {
+      results.push({
+        check: `hook runtime: ${platform.name} (${scope})`,
+        status: 'warn',
+        message: `unable to verify current Router runtime (${(error as Error).message}) — run: comet doctor --repair --scope ${scope}`,
+      });
+    }
+    const inspection = await inspectCometHooksForPlatform(
+      baseDir,
+      platform,
+      scope,
+      workflowSelection,
+    );
     results.push({
       check: `hooks: ${platform.name} (${scope})`,
-      status: inspection.present ? 'pass' : 'warn',
-      message: inspection.present
-        ? 'managed Hook present'
-        : `${inspection.error ?? 'managed Hook missing'} — run: comet update --scope ${scope}`,
+      status:
+        inspection.present && !inspection.legacyPresent && !inspection.duplicatePresent
+          ? 'pass'
+          : 'warn',
+      message:
+        inspection.present && !inspection.legacyPresent && !inspection.duplicatePresent
+          ? 'exactly one managed Router Hook present'
+          : inspection.present && inspection.duplicatePresent
+            ? `duplicate managed Router Hooks remain — run: comet doctor --repair --scope ${scope}`
+            : inspection.present && inspection.legacyPresent
+              ? `Router Hook and legacy managed Hook coexist — run: comet doctor --repair --scope ${scope}`
+              : `${inspection.error ?? 'managed Hook missing'} — run: comet update --scope ${scope}`,
     });
   }
 
@@ -243,11 +333,10 @@ async function checkSkillCompleteness(
   projectPath: string,
   scope: DoctorScope,
   context: DoctorContext,
+  workflowSelection: InitWorkflowSelection,
 ): Promise<CheckResult[]> {
   const results: CheckResult[] = [];
   const manifest = await readManifest();
-  const managedSkills = getManagedSkillPaths(manifest);
-  const total = managedSkills.length;
 
   let anyCometInstall = false;
   const scopeState: Record<InstallScope, { hasInstall: boolean; hasComplete: boolean }> = {
@@ -255,6 +344,11 @@ async function checkSkillCompleteness(
     global: { hasInstall: false, hasComplete: false },
   };
   for (const base of getScopeBases(projectPath, scope, context)) {
+    const managedSkills = getManagedSkillPathsForSelection(
+      manifest,
+      base.scope === 'global' ? 'classic' : workflowSelection,
+    );
+    const total = managedSkills.length;
     const platforms = await getPlatformsForSkillInspection(base.baseDir, base.scope, scope);
     for (const { platform, inspectComponents } of platforms) {
       const skillsDirs = getPlatformSkillsDirs(platform, base.scope);
@@ -305,7 +399,14 @@ async function checkSkillCompleteness(
               },
       );
       if (inspectComponents) {
-        results.push(...(await checkPlatformComponents(base.baseDir, platform, base.scope)));
+        results.push(
+          ...(await checkPlatformComponents(
+            base.baseDir,
+            platform,
+            base.scope,
+            base.scope === 'global' ? 'classic' : workflowSelection,
+          )),
+        );
       }
     }
   }
@@ -453,20 +554,159 @@ async function collectResultsWithContext(
   context: DoctorContext,
 ): Promise<CheckResult[]> {
   const results: CheckResult[] = [];
+  const config = scope === 'global' ? null : await readProjectConfig(projectPath);
+  const workflows = config?.workflows ?? (config ? [config.default_workflow] : ['classic']);
+  const workflowSelection: InitWorkflowSelection =
+    workflows.includes('native') && workflows.includes('classic')
+      ? 'both'
+      : workflows.includes('native')
+        ? 'native'
+        : 'classic';
+  const classicEnabled = workflowSelection !== 'native';
   const scopeMode = checkScopeMode(projectPath, scope, context);
   if (scopeMode) results.push(scopeMode);
   results.push(checkEnvironment(projectPath, context));
   results.push(checkCometCli());
-  results.push(await checkOpenSpecCli());
-  results.push(await checkSuperpowers(projectPath, scope, context));
-  if (scope !== 'global') {
-    results.push(await checkWorkingDirs(projectPath));
+  if (classicEnabled) {
+    results.push(await checkOpenSpecCli());
+    results.push(await checkSuperpowers(projectPath, scope, context));
+    if (scope !== 'global') {
+      results.push(await checkWorkingDirs(projectPath));
+    }
   }
-  results.push(...(await checkSkillCompleteness(projectPath, scope, context)));
+  results.push(...(await checkSkillCompleteness(projectPath, scope, context, workflowSelection)));
   results.push(await checkScriptsPresent());
-  results.push(await checkCodegraph(projectPath, scope));
-  results.push(...(await checkCometYamlValidity(projectPath)));
+  if (classicEnabled) {
+    results.push(await checkCodegraph(projectPath, scope));
+    results.push(...(await checkCometYamlValidity(projectPath)));
+  }
+  if (scope !== 'global') results.push(await checkCurrentSelection(projectPath));
   return results;
+}
+
+async function checkCurrentSelection(projectPath: string): Promise<CheckResult> {
+  const resolution = await resolveHookWorkflowOwner(projectPath);
+  if (resolution.status === 'none') {
+    return { check: 'current selection', status: 'pass', message: 'no active Comet change' };
+  }
+  if (resolution.status === 'owned') {
+    return {
+      check: 'current selection',
+      status: 'pass',
+      message: `${resolution.owner.workflow}:${resolution.owner.name} (${resolution.owner.phase})`,
+    };
+  }
+  if (resolution.status === 'inferred') {
+    return {
+      check: 'current selection',
+      status: 'warn',
+      message: `missing; Router can infer ${resolution.owner.workflow}:${resolution.owner.name} read-only — select it explicitly before concurrent work`,
+    };
+  }
+  if (resolution.status === 'ambiguous') {
+    return {
+      check: 'current selection',
+      status: 'fail',
+      message: `missing with multiple active changes: ${resolution.candidates.map((candidate) => `${candidate.workflow}:${candidate.name}`).join(', ')}`,
+    };
+  }
+  if (resolution.status === 'stale') {
+    return { check: 'current selection', status: 'fail', message: resolution.reason };
+  }
+  return { check: 'current selection', status: 'fail', message: 'unknown selection state' };
+}
+
+async function hasManagedInstall(
+  baseDir: string,
+  platform: Platform,
+  scope: InstallScope,
+): Promise<boolean> {
+  const manifest = await readManifest();
+  const sentinel = getManagedSkillPaths(manifest)[0];
+  if (!sentinel) return false;
+  return (
+    await Promise.all(
+      getPlatformSkillsDirs(platform, scope).map((skillsDir) =>
+        fileExists(path.join(baseDir, skillsDir, 'skills', ...sentinel.split('/'))),
+      ),
+    )
+  ).some(Boolean);
+}
+
+async function repairDoctorState(
+  projectPath: string,
+  scope: DoctorScope,
+  context: DoctorContext,
+): Promise<string[]> {
+  const repaired: string[] = [];
+  let projectRouterReady = false;
+  const config = scope === 'global' ? null : await readProjectConfig(projectPath);
+  const language = config?.native.language === 'zh-CN' ? 'zh' : 'en';
+  const workflows = config?.workflows ?? (config ? [config.default_workflow] : ['classic']);
+  const workflowSelection: InitWorkflowSelection =
+    workflows.includes('native') && workflows.includes('classic')
+      ? 'both'
+      : workflows.includes('native')
+        ? 'native'
+        : 'classic';
+  const targets: Array<{ baseDir: string; scope: InstallScope; platform: Platform }> = [];
+
+  for (const base of getScopeBases(projectPath, scope, context)) {
+    const platforms = await getPlatformsForSkillInspection(base.baseDir, base.scope, scope);
+    for (const { platform, inspectComponents } of platforms) {
+      if (!inspectComponents || !(await hasManagedInstall(base.baseDir, platform, base.scope))) {
+        continue;
+      }
+      targets.push({ baseDir: base.baseDir, scope: base.scope, platform });
+    }
+  }
+
+  for (const target of targets) {
+    const { baseDir, scope: targetScope, platform } = target;
+    if (platform.supportsHooks && platform.hookFormat) {
+      const runtime = hookRouterRuntimePaths(baseDir, platform, targetScope);
+      await copyFile(runtime.source, runtime.destination);
+    }
+    const hookResult = await installCometHooksForPlatform(
+      baseDir,
+      platform,
+      targetScope,
+      workflowSelection,
+    );
+    if (hookResult.status === 'failed') {
+      throw new Error(
+        `failed to repair Hook for ${platform.name} (${targetScope}): ${hookResult.reason}`,
+      );
+    }
+    if (targetScope === 'project' && hookResult.status === 'installed') {
+      projectRouterReady = true;
+    }
+  }
+
+  if (scope !== 'global' && projectRouterReady) {
+    const selectionRepair = await repairCometCurrentSelection(projectPath, {
+      migrateLegacyClassic: workflows.includes('classic'),
+    });
+    if (selectionRepair.migratedLegacyClassic) repaired.push('Classic selection v1');
+    if (selectionRepair.clearedStaleSelection) repaired.push('stale current selection');
+  }
+
+  for (const target of targets) {
+    const { baseDir, scope: targetScope, platform } = target;
+    const ruleResult = await copyCometRulesForPlatform(
+      baseDir,
+      platform,
+      true,
+      language,
+      targetScope,
+      workflowSelection,
+    );
+    if (ruleResult.failed > 0) {
+      throw new Error(`failed to repair Rule for ${platform.name} (${targetScope})`);
+    }
+    repaired.push(`${platform.name} (${targetScope})`);
+  }
+  return repaired;
 }
 
 function icon(status: string): string {
@@ -477,6 +717,7 @@ function icon(status: string): string {
 
 interface DoctorOptions {
   json?: boolean;
+  repair?: boolean;
   scope?: DoctorScope;
   homeDir?: string;
 }
@@ -487,19 +728,25 @@ export async function doctorCommand(
 ): Promise<void> {
   const projectPath = path.resolve(targetPath);
   const scope = options.scope ?? 'auto';
+  const context = { homeDir: path.resolve(options.homeDir ?? os.homedir()) };
+  const repaired = options.repair ? await repairDoctorState(projectPath, scope, context) : [];
   const results =
     options.homeDir === undefined
       ? await collectResults(projectPath, scope)
-      : await collectResultsWithContext(projectPath, scope, {
-          homeDir: path.resolve(options.homeDir),
-        });
+      : await collectResultsWithContext(projectPath, scope, context);
+  const healthy = results.every((result) => result.status !== 'fail');
+  const status = healthy ? 'passed' : 'failed';
 
   if (options.json) {
-    console.log(JSON.stringify({ scope, results }, null, 2));
+    console.log(JSON.stringify({ scope, status, healthy, repaired, results }, null, 2));
     return;
   }
 
   console.log(`Comet Doctor (scope: ${scope})\n`);
+
+  if (options.repair) {
+    console.log(`  Repaired: ${repaired.length > 0 ? repaired.join(', ') : 'nothing to change'}\n`);
+  }
 
   for (const r of results) {
     console.log(`  ${icon(r.status)} ${r.check}: ${r.message}`);

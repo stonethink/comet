@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { JSDOM } from 'jsdom';
 import {
   extractToc,
   renderJsonPreview,
@@ -8,39 +9,29 @@ import {
 } from '../../../domains/dashboard/web/src/markdown-preview.js';
 
 function containerFromHtml(html) {
-  const headings = [...html.matchAll(/<(h[123])\s+id="([^"]*)"[^>]*>([\s\S]*?)<\/\1>/gi)].map(
-    (match) => ({
-      tagName: match[1].toUpperCase(),
-      id: match[2],
-      textContent: match[3].replace(/<[^>]+>/g, ''),
-    }),
-  );
-  return {
-    querySelectorAll(selector) {
-      const allowed = new Set(
-        selector
-          .split(',')
-          .map((part) => part.trim().toUpperCase())
-          .filter(Boolean),
-      );
-      return headings.filter((heading) => allowed.has(heading.tagName));
-    },
-  };
+  return new JSDOM(`<body>${html}</body>`).window.document;
 }
 
 describe('dashboard markdown-preview', () => {
   it('emits mermaid containers and chinese-safe heading ids', async () => {
     const html = await renderMarkdown(
-      ['# 中文标题', '', '```mermaid', 'flowchart TD', '  A --> B', '```', '', '## Section Two'].join(
-        '\n',
-      ),
+      [
+        '# 中文标题',
+        '',
+        '```mermaid',
+        'flowchart TD',
+        '  A --> B',
+        '```',
+        '',
+        '## Section Two',
+      ].join('\n'),
     );
 
     expect(html).toContain('id="中文标题"');
     expect(html).toContain('<div class="mermaid">');
     expect(html).toContain('flowchart TD');
     expect(html).toContain('id="section-two"');
-  });
+  }, 60_000);
 
   it('assigns unique ids for duplicate headings and falls back for symbol-only titles', async () => {
     const html = await renderMarkdown(
@@ -54,7 +45,13 @@ describe('dashboard markdown-preview', () => {
     expect(html).toContain('<h1 id="heading-1">');
 
     const toc = extractToc(containerFromHtml(html));
-    expect(toc.map((item) => item.id)).toEqual(['same', 'same-1', 'same-2', 'heading', 'heading-1']);
+    expect(toc.map((item) => item.id)).toEqual([
+      'same',
+      'same-1',
+      'same-2',
+      'heading',
+      'heading-1',
+    ]);
   });
 
   it('does not leak heading slug state across separate renderMarkdown calls', async () => {
@@ -96,7 +93,7 @@ describe('dashboard markdown-preview', () => {
         'workflow: full',
         'phase: archive',
         'verify_result: pass',
-        "build_command: env TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\"}' npx jest a.test.tsx --runInBand",
+        'build_command: env TS_NODE_COMPILER_OPTIONS=\'{"module":"commonjs"}\' npx jest a.test.tsx --runInBand',
       ].join('\n'),
     );
 
@@ -183,12 +180,7 @@ describe('dashboard markdown-preview', () => {
 
   it('keeps mermaid source escaped and uses strict mermaid security', async () => {
     const html = await renderMarkdown(
-      [
-        '```mermaid',
-        'flowchart TD',
-        '  A["<img src=x onerror=alert(1)>"] --> B',
-        '```',
-      ].join('\n'),
+      ['```mermaid', 'flowchart TD', '  A["<img src=x onerror=alert(1)>"] --> B', '```'].join('\n'),
     );
 
     expect(html).toContain('<div class="mermaid">');

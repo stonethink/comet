@@ -1,6 +1,13 @@
-import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
 import path from 'path';
+import {
+  clearCometCurrentSelection,
+  clearCometCurrentSelectionIf,
+  cometCurrentSelectionFile,
+  readCometCurrentSelection,
+  writeCometCurrentSelection,
+  type CometCurrentSelection,
+} from '../comet-entry/current-selection.js';
 import {
   driftStaleReason,
   resolveBranchBinding,
@@ -9,11 +16,7 @@ import {
 import { assertOpenSpecChangeName } from './classic-paths.js';
 import { readClassicState } from './classic-store.js';
 
-export interface CurrentChangeSelection {
-  version: 1;
-  change: string;
-  branch: string | null;
-}
+export type CurrentChangeSelection = CometCurrentSelection;
 
 export type CurrentChangeResolution =
   | { status: 'selected'; selection: CurrentChangeSelection }
@@ -21,7 +24,7 @@ export type CurrentChangeResolution =
   | { status: 'stale'; reason: string };
 
 export function currentChangeFile(projectRoot: string): string {
-  return path.join(projectRoot, '.comet', 'current-change.json');
+  return cometCurrentSelectionFile(projectRoot);
 }
 
 function changeDirectory(projectRoot: string, changeName: string): string {
@@ -54,38 +57,6 @@ async function validateActiveChange(projectRoot: string, changeName: string): Pr
   }
 }
 
-function parseSelection(source: string): CurrentChangeSelection {
-  let value: unknown;
-  try {
-    value = JSON.parse(source);
-  } catch (error) {
-    throw new Error(
-      `current change selection contains invalid JSON: ${error instanceof Error ? error.message : String(error)}`,
-      { cause: error },
-    );
-  }
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('current change selection must be a JSON object');
-  }
-  const record = value as Record<string, unknown>;
-  if (record.version !== 1) {
-    throw new Error('current change selection version must be 1');
-  }
-  if (typeof record.change !== 'string') {
-    throw new Error('current change selection change must be a string');
-  }
-  assertOpenSpecChangeName(record.change);
-  // `branch` may be absent in files written by early 0.4.0-beta.6 builds.
-  if (record.branch !== undefined && record.branch !== null && typeof record.branch !== 'string') {
-    throw new Error('current change selection branch must be a string or null');
-  }
-  return {
-    version: 1,
-    change: record.change,
-    branch: (record.branch as string | null | undefined) ?? null,
-  };
-}
-
 export async function selectCurrentChange(
   projectRoot: string,
   changeName: string,
@@ -102,38 +73,35 @@ export async function selectCurrentChange(
     throw new Error(unboundDetachedMessage(changeName));
   }
   const selection: CurrentChangeSelection = {
-    version: 1,
+    schema: 'comet.selection.v2',
+    workflow: 'classic',
     change: changeName,
     branch: outcome.currentBranch,
   };
-  const file = currentChangeFile(projectRoot);
-  const temporary = `${file}.${randomUUID()}.tmp`;
-  await fs.mkdir(path.dirname(file), { recursive: true });
-  try {
-    await fs.writeFile(temporary, JSON.stringify(selection, null, 2) + '\n', 'utf8');
-    await fs.rename(temporary, file);
-  } catch (error) {
-    await fs.rm(temporary, { force: true });
-    throw error;
-  }
+  await writeCometCurrentSelection(projectRoot, selection);
   return selection;
 }
 
 export async function resolveCurrentChange(projectRoot: string): Promise<CurrentChangeResolution> {
-  let source: string;
+  let current;
   try {
-    source = await fs.readFile(currentChangeFile(projectRoot), 'utf8');
+    current = await readCometCurrentSelection(projectRoot);
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { status: 'missing' };
     return {
       status: 'stale',
-      reason: `cannot read current change selection: ${error instanceof Error ? error.message : String(error)}`,
+      reason: error instanceof Error ? error.message : String(error),
+    };
+  }
+  if (current.status === 'missing') return { status: 'missing' };
+  if (current.selection.workflow !== 'classic') {
+    return {
+      status: 'stale',
+      reason: `current change '${current.selection.change}' belongs to Native, not Classic`,
     };
   }
 
-  let selection: CurrentChangeSelection;
+  const selection = current.selection;
   try {
-    selection = parseSelection(source);
     await validateActiveChange(projectRoot, selection.change);
   } catch (error) {
     return {
@@ -142,8 +110,6 @@ export async function resolveCurrentChange(projectRoot: string): Promise<Current
     };
   }
 
-  // Resolution is a read path (the PreToolUse hook runs it on every tool
-  // call), so it never heals: heal happens on select/check/guard instead.
   const outcome = await resolveBranchBinding(changeDirectory(projectRoot, selection.change), {
     heal: false,
     cwd: projectRoot,
@@ -157,11 +123,7 @@ export async function resolveCurrentChange(projectRoot: string): Promise<Current
   if (outcome.status === 'unbound-detached') {
     return { status: 'stale', reason: unboundDetachedMessage(selection.change) };
   }
-  if (outcome.status === 'ok') {
-    return { status: 'selected', selection };
-  }
-  // No bound branch governs yet (isolation unset or binding not healed):
-  // fall back to comparing against the branch recorded at selection time.
+  if (outcome.status === 'ok') return { status: 'selected', selection };
   if (selection.branch !== null && outcome.currentBranch !== selection.branch) {
     return {
       status: 'stale',
@@ -172,5 +134,17 @@ export async function resolveCurrentChange(projectRoot: string): Promise<Current
 }
 
 export async function clearCurrentChange(projectRoot: string): Promise<void> {
-  await fs.rm(currentChangeFile(projectRoot), { force: true });
+  let current;
+  try {
+    current = await readCometCurrentSelection(projectRoot);
+  } catch {
+    return;
+  }
+  if (current.status === 'selected' && current.selection.workflow === 'classic') {
+    await clearCometCurrentSelection(projectRoot);
+  }
+}
+
+export async function clearCurrentChangeIf(projectRoot: string, change: string): Promise<boolean> {
+  return clearCometCurrentSelectionIf(projectRoot, 'classic', change);
 }

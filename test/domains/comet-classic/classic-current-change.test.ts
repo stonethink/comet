@@ -72,7 +72,12 @@ describe('Classic current change selection', () => {
 
     const selected = await selectCurrentChange(root, 'change-a');
 
-    expect(selected).toEqual({ version: 1, change: 'change-a', branch: 'main' });
+    expect(selected).toEqual({
+      schema: 'comet.selection.v2',
+      workflow: 'classic',
+      change: 'change-a',
+      branch: 'main',
+    });
     expect(JSON.parse(await fs.readFile(currentChangeFile(root), 'utf8'))).toEqual(selected);
     expect((await fs.readdir(path.join(root, '.comet'))).sort()).toEqual(['current-change.json']);
   });
@@ -135,7 +140,12 @@ describe('Classic current change selection', () => {
 
       expect(await resolveCurrentChange(root)).toEqual({
         status: 'selected',
-        selection: { version: 1, change: 'change-a', branch: 'main' },
+        selection: {
+          schema: 'comet.selection.v2',
+          workflow: 'classic',
+          change: 'change-a',
+          branch: 'main',
+        },
       });
       expect(
         await fs.readFile(
@@ -154,8 +164,7 @@ describe('Classic current change selection', () => {
 
     expect(await resolveCurrentChange(root)).toEqual({
       status: 'stale',
-      reason:
-        "current change 'change-a' was selected on branch 'main', current branch is 'other'",
+      reason: "current change 'change-a' was selected on branch 'main', current branch is 'other'",
     });
   });
 
@@ -170,7 +179,12 @@ describe('Classic current change selection', () => {
 
     expect(await resolveCurrentChange(root)).toEqual({
       status: 'selected',
-      selection: { version: 1, change: 'change-a', branch: null },
+      selection: {
+        schema: 'comet.selection.v2',
+        workflow: 'classic',
+        change: 'change-a',
+        branch: null,
+      },
     });
   });
 
@@ -184,7 +198,12 @@ describe('Classic current change selection', () => {
 
     expect(await resolveCurrentChange(root)).toEqual({
       status: 'selected',
-      selection: { version: 1, change: 'change-a', branch: 'main' },
+      selection: {
+        schema: 'comet.selection.v2',
+        workflow: 'classic',
+        change: 'change-a',
+        branch: 'main',
+      },
     });
     expect(
       await fs.readFile(path.join(root, 'openspec', 'changes', 'change-a', '.comet.yaml'), 'utf8'),
@@ -199,6 +218,25 @@ describe('Classic current change selection', () => {
 
     expect(resolution.status).toBe('stale');
     expect(resolution).toMatchObject({ reason: expect.stringContaining('invalid JSON') });
+  });
+
+  it('reads the released v1 selection as Classic compatibility input', async () => {
+    await seedActiveChange(root, 'change-a', false);
+    await fs.mkdir(path.dirname(currentChangeFile(root)), { recursive: true });
+    await fs.writeFile(
+      currentChangeFile(root),
+      `${JSON.stringify({ version: 1, change: 'change-a', branch: 'main' }, null, 2)}\n`,
+    );
+
+    await expect(resolveCurrentChange(root)).resolves.toEqual({
+      status: 'selected',
+      selection: {
+        schema: 'comet.selection.v2',
+        workflow: 'classic',
+        change: 'change-a',
+        branch: 'main',
+      },
+    });
   });
 
   it('reports unreadable selection paths as stale instead of missing', async () => {

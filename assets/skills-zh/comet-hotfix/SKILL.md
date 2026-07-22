@@ -12,7 +12,7 @@ description: "仅在用户明确调用 /comet-hotfix，或由 Comet 根 Skill/ru
 2. 不涉及接口变更或架构调整
 3. 改动范围可预估（文件数仅作提示，不作为硬性升级条件，见下方升级判定）
 
-**不适用**：如修复过程命中质变信号（见「升级判定」章节），由用户决定是否升级为完整 `/comet` 流程。
+**不适用**：如修复过程命中质变信号（见「升级判定」章节），由用户决定是否升级为完整 `/comet-classic` 流程。
 
 ---
 
@@ -20,7 +20,7 @@ description: "仅在用户明确调用 /comet-hotfix，或由 Comet 根 Skill/ru
 
 ### 0. 输出语言约束
 
-精简版 OpenSpec 产物必须使用 Comet 配置产物语言。`.comet.yaml` 尚不存在时依次读取项目 `.comet/config.yaml` 和全局 `~/.comet/config.yaml` 的 `language`，初始化后使用 `comet state get <name> language` 读取。
+精简版 OpenSpec 产物必须使用 Comet 配置产物语言。`.comet.yaml` 尚不存在时依次读取项目 `.comet/config.yaml` 和全局 `~/.comet/config.yaml` 的 `classic.language`，初始化后使用 `comet state get <name> language` 读取。
 
 执行链路：open → build → verify → archive。Hotfix 为每个阶段提供默认决策：精简开启、直接构建、按规模验证、验证通过后进入归档前最终确认。
 
@@ -152,7 +152,7 @@ comet guard <change-name> build --apply
 <IMPORTANT>
 Hotfix 流程默认 **一次性连续执行**。调用 `/comet-hotfix` 后，agent 在 hotfix 自有步骤间自动推进，不主动停顿。**例外**：若 `auto_transition: false`，则在每个 phase 边界（build/verify/archive 之间）结束当前调用并按 `HINT` 交还控制权，由用户稍后手动运行下一阶段命令；这是手动衔接，不是新的确认点。无论 `auto_transition` 取何值，以下真正的用户决策仍需暂停：
 
-1. 遇到升级判定信号（见「升级判定」章节），**必须使用当前平台可用的用户输入/确认机制暂停并等待用户明确选择**：继续 hotfix 流程，还是升级为完整 `/comet` 流程
+1. 遇到升级判定信号（见「升级判定」章节），**必须使用当前平台可用的用户输入/确认机制暂停并等待用户明确选择**：继续 hotfix 流程，还是升级为完整 `/comet-classic` 流程
 2. 验证阶段（comet-verify）接受 WARNING/SUGGESTION 偏差、处理 Spec 漂移或超过自动修复上限后的策略决策；前 3 次明确可修复失败自动闭环
 3. 归档前最终确认，以及归档提交后的分支处理决策
 
@@ -167,7 +167,7 @@ Hotfix 流程默认 **一次性连续执行**。调用 `/comet-hotfix` 后，age
 
 hotfix 的升级判定只决定是否从预设流程转为 full；文件数不自动升级，`comet state scale` 只决定验证轻重。
 
-若由 `/comet` 入口传入 intent frame，hotfix 在 build 前只复核 `risk_signal` 和升级信号：新增 capability、public API、schema 变更、跨模块协调或深层架构问题。命中时进入现有升级决策点；不得重新实现入口意图识别。
+若由 `/comet-classic` 入口传入 intent frame，hotfix 在 build 前只复核 `risk_signal` 和升级信号：新增 capability、public API、schema 变更、跨模块协调或深层架构问题。命中时进入现有升级决策点；不得重新实现入口意图识别。
 
 持续检查以下质变信号：跨模块协调修改、需要新增 capability、数据库 schema 变更、引入新的 public API、触及深层架构问题（hotfix 语境下多在根因消除检查时暴露）。命中任一信号时，agent **不得自行升级或自行判定可继续**。
 

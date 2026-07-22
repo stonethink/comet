@@ -13,7 +13,7 @@ description: "Use only when explicitly invoked as /comet-open or routed by the r
 
 ### 0. Output Language Constraint
 
-Every prompt and artifact request passed to OpenSpec must include the resolved Comet artifact language, using normalized ids such as `en` or `zh-CN`. Before `.comet.yaml` exists, read `language` from project `.comet/config.yaml`, then fall back to global `~/.comet/config.yaml`; after the change is initialized, use `comet state get <name> language`. If no configured language exists, fall back to the current user request language. The generated `proposal.md`, `design.md`, and `tasks.md` must use that language as their main language.
+Every prompt and artifact request passed to OpenSpec must include the resolved Comet artifact language, using normalized ids such as `en` or `zh-CN`. Before `.comet.yaml` exists, read `classic.language` from project `.comet/config.yaml`, then fall back to global `~/.comet/config.yaml`; after the change is initialized, use `comet state get <name> language`. If no configured language exists, fall back to the current user request language. The generated `proposal.md`, `design.md`, and `tasks.md` must use that language as their main language.
 
 ### 0a. Current Change Binding
 
@@ -85,7 +85,7 @@ Immediately after the user confirms multiple changes, persist the accepted split
 
 In batch split mode, entering `/comet-open` for each split item must explicitly mark it as a "confirmed split item" and carry that split item's goals, scope, non-goals, and acceptance scenarios. Confirmed split items skip the PRD split preflight by default, unless the split item itself still clearly contains multiple independent capabilities.
 
-In batch split mode, a single split item must not auto-advance to `/comet-design` after completing the open phase.
+In batch split mode, a single split item must not auto-advance to `/comet-design` after completing the open phase. After splitting is complete, must pause and ask the user which change to start; after the user chooses, advance only that change into `/comet-design`, while other changes remain active and can be resumed later through `/comet-classic`.
 
 **Batch completion hard check (must not be skipped)**: after every split item completes its own open phase, run the following for each `<name>` in the user-confirmed list:
 
@@ -103,7 +103,7 @@ The OpenSpec JSON must satisfy all of these conditions:
 
 If any split item fails these checks, must not report splitting complete or ask which change to start. Stop and resume `/comet-open` from that change's first `ready` or `blocked` artifact. If OpenSpec passes but Comet state fails, repair `.comet.yaml` initialization or phase, then rerun the checks for the entire batch.
 
-Only after every split item passes both CLI checks may you pause and ask which change to start. Mark the chosen item `selected` in the batch manifest, then advance only that change into `/comet-design`; other changes remain active and can be resumed later through `/comet`.
+Only after every split item passes both CLI checks may you pause and ask which change to start. Mark the chosen item `selected` in the batch manifest, then advance only that change into `/comet-design`; other changes remain active and can be resumed later through `/comet-classic`.
 
 On resume, read `.comet/batches/<batch-id>.json` first, then run the CLI checks above for already-created active changes. Do not recreate items that fully pass; resume incomplete items from the first `ready` artifact returned by OpenSpec. Create missing items from the persisted manifest. If the manifest is missing or damaged, stop and ask the user to rebuild/confirm it instead of inferring the original batch boundary from directory names.
 
@@ -124,7 +124,7 @@ Do not run `openspec new change` or create proposal/design/tasks while the resol
 
 **Immediately execute:** Use the Skill tool to load the `openspec-new-change` skill. Skipping this step is prohibited.
 
-Full `/comet` workflow must not use the Skill tool to load the `openspec-propose` skill by default; only load it when the user explicitly requests generating the proposal and artifacts in one pass.
+Full `/comet-classic` workflow must not use the Skill tool to load the `openspec-propose` skill by default; only load it when the user explicitly requests generating the proposal and artifacts in one pass.
 
 After the skill loads, follow its guidance to create the change skeleton. When Step 1b has produced an unambiguous resolved brief, override its "STOP and wait for user direction" behavior to avoid a duplicate question.
 

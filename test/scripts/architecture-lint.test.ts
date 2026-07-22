@@ -7,9 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 const temporary: string[] = [];
 
 afterEach(async () => {
-  await Promise.all(
-    temporary.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })),
-  );
+  await Promise.all(temporary.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })));
 });
 
 async function writeFile(root: string, relativePath: string, content: string): Promise<void> {
@@ -100,8 +98,13 @@ async function makeMinimalRepository(): Promise<string> {
 describe('architecture lint', () => {
   it('ignores nested local cache directories listed in .gitignore', async () => {
     const root = await makeMinimalRepository();
-    await writeFile(root, '.gitignore', 'eval/.cache/\n');
-    await writeFile(root, 'eval/.cache/langsmith-cc-plugin/src/index.ts', 'export {};\n');
+    await writeFile(root, '.gitignore', 'eval/.cache/\neval/**/.cache/\neval/**/.pytest*/\n');
+    await Promise.all([
+      writeFile(root, 'eval/.cache/langsmith-cc-plugin/src/index.ts', 'export {};\n'),
+      writeFile(root, 'eval/eval/.cache/native-oracle/src/index.ts', 'export {};\n'),
+      writeFile(root, 'eval/eval/.pytest-cache-controller/src/index.ts', 'export {};\n'),
+      writeFile(root, 'eval/eval/.pytest_cache/src/index.ts', 'export {};\n'),
+    ]);
 
     const result = spawnSync(
       process.execPath,
