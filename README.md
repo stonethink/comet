@@ -45,17 +45,8 @@ It provides two independent requirements workflows: Native for strong models, po
 It allows you to use a toolchain to handle everything from requirements to archiving, combine any skill to make it like Comet, evolving your skills based on scientific **Rubric**, **Pass@k**, and **Pass^k** scoring.
 
 > [!IMPORTANT]
-> **0.4.0-beta.7** · **Native Eval advantages over 0.4.0 Classic**
->
-> In an aligned study of the same 16 business tasks with 48 runs per workflow, completed-task efficiency uses only the 41 matched repetitions where both workflows strictly passed:
->
-> - **76.8% fewer total tokens** — **891,631 vs 3,840,975**
-> - **57.4% fewer Agent turns** — **39.02 vs 91.66**
-> - **47.4% less cumulative model duration** — **180.8s vs 343.9s**
-> - **pass^3 higher by 12.5 percentage points** — **87.5% vs 75%**, while both reached **100% pass@3**
->
-> Native gives strong models a lighter execution path while preserving requirements, state, verification, and archive evidence. Read the [Native vs. 0.4.0 Classic evaluation](https://docs.comet.rpamis.com/en/eval/comet-native-vs-040-experiment).
->
+> **0.4.0-beta.7** — A new **high-performance, native and recoverable** Native workflow has been added. Native and Classic work independently through unified configuration, status, Guard, Dashboard, and Eval entry points. Eval alignment of experiments (16 tasks × 48 runs, selecting 41 pairs of samples that both passed) shows that **total Token has decreased by 76.8%**, **Agent rounds have dropped by 57.4%**, **time consumption has shrunk by 47.4%**, **pass^3 reaches 87.5% (+12.5pp) and pass@3 is 100%**. For more details, please refer to [Native vs. 0.4.0 Classic Real Evaluation](https://docs.comet.rpamis.com/zh/eval/comet-native-vs-040-experiment).
+> 
 > **0.4.0-beta.1** — Upgrades Comet to a pure Node runtime without Bash/WSL and adds three core capabilities: compose **any** Skill through `/comet-any`, evaluate **any** Skill through `comet eval` with LangSmith integration, and visualize every change through `comet dashboard`.
 >
 > **0.3.9** — Review mode (`off|standard|thorough`) controls Build/Verify code review with project defaults; init/update now use optional dependency prompts, broader CLI i18n, stronger phase guards, and macOS executable bits.

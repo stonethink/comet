@@ -45,16 +45,7 @@
 让你可以用一个工具链处理需求到归档、中断后恢复，将任意Skill组合得像Comet一样，基于科学的**Rubric**、**Pass@k**、**Pass^k**评分演进你的Skill
 
 > [!IMPORTANT]
-> **0.4.0-beta.7** · **Native 相比 0.4.0 Classic 的 Eval 优势**
->
-> 在相同 16 个业务任务、每个工作流 48 次运行的对齐实验中，完成任务的效率比较仅采用双方均严格通过的 41 组配对样本：
->
-> - **总 Token 减少 76.8%** — **891,631 vs 3,840,975**
-> - **Agent 轮次减少 57.4%** — **39.02 vs 91.66**
-> - **累计模型耗时减少 47.4%** — **180.8s vs 343.9s**
-> - **pass^3 提升 12.5 个百分点** — **87.5% vs 75%**，同时两者的 **pass@3 均为 100%**
->
-> Native 面向能够自主规划和验证的强模型，以更轻的执行路径保留需求、状态、验证与归档证据；详见 [Native 与 0.4.0 Classic 真实评估](https://docs.comet.rpamis.com/zh/eval/comet-native-vs-040-experiment)。
+> **0.4.0-beta.7** — 新增**面向强模型、原生且可恢复**的 Native 工作流，Native 与 Classic 通过统一配置、状态、Guard、Dashboard 及 Eval 入口实现独立协作。Eval 对齐实验（16 任务 × 48 次运行，取双方均通过的 41 组配对样本）显示，**总 Token 锐减 76.8%**、**Agent 轮次降 57.4%**、**耗时缩 47.4%**，**pass^3 达 87.5%（+12.5pp）且 pass@3 均为 100%**。详见 [Native 与 0.4.0 Classic 真实评估](https://docs.comet.rpamis.com/zh/eval/comet-native-vs-040-experiment)。
 >
 > **0.4.0-beta.1** — Comet 升级为纯 Node runtime（不再依赖 Bash/WSL），并带来三大核心能力：用 `/comet-any` 把**任意** Skill 组合成自定义工作流、用 `comet eval` 评估**任意** Skill 并接入 LangSmith、用 `comet dashboard` 在浏览器里可视化每一个 change。
 >
