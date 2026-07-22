@@ -57,7 +57,7 @@ It allows you to use a toolchain to handle everything from requirements to archi
 
 ## Why Comet
 
-- **Native workflow for strong models** — `/comet-native` uses a detailed brief, complete target specifications, phase checks, and recoverable archive to constrain outcomes while leaving planning, implementation, testing, and review methods to the model. It uses a configurable `comet/` artifact root and remains fully separate from Classic. See the [Native workflow guide](website/en/concepts/native-workflow.mdx).
+- **Native workflow for strong models** — `/comet-native` uses a detailed brief, complete target specifications, phase checks, and recoverable archive to constrain outcomes while leaving planning, implementation, testing, and review methods to the model. It uses a configurable `comet/` artifact root and remains fully separate from Classic. See the [Native workflow guide](https://docs.comet.rpamis.com/en/native/quickstart).
 - **The stable core for long-running tasks** — Comet's Classic Spec mode combines OpenSpec and Superpowers into a five-phase flow with a state machine, phase checks, and scripts. It suits work that needs an explicit method and strong constraints; its permanent entry point is `/comet-classic`.
 - **A configuration-driven shared entry point** — `/comet` reads only the project's `.comet/config.yaml` and deterministically forwards to `/comet-native` or `/comet-classic`. It does not guess from task size or mix changes, state, or directories across workflows. `comet resume-probe` uses the same configuration to resume through the correct permanent entry point.
 - **Skill platform** — Comet can author reusable Skill packages and use `/comet-any` to organize them into distributable

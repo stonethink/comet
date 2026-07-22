@@ -57,7 +57,7 @@
 
 ## 为什么需要 Comet
 
-- **面向强模型的 Native 工作流** — `/comet-native` 用详细 brief、完整目标规格、状态检查和可恢复归档约束结果，同时把计划、实现、测试与审查方法交给模型自主判断；它使用可配置的 `comet/` 产物根目录，并与 Classic 完全分离。详见 [Native 工作流](website/zh/concepts/native-workflow.mdx)。
+- **面向强模型的 Native 工作流** — `/comet-native` 用详细 brief、完整目标规格、状态检查和可恢复归档约束结果，同时把计划、实现、测试与审查方法交给模型自主判断；它使用可配置的 `comet/` 产物根目录，并与 Classic 完全分离。详见 [Native 工作流](https://docs.comet.rpamis.com/zh/native/quickstart)。
 - **长程任务稳定的核心**— Comet 的 Classic Spec 模式结合 OpenSpec 和 Superpowers，用状态机、阶段检查与脚本串联五阶段流程，适合需要明确方法和强约束的任务；永久入口是 `/comet-classic`。
 - **配置驱动的统一入口** — `/comet` 只读取项目的 `.comet/config.yaml`，确定性转发到 `/comet-native` 或 `/comet-classic`。它不按任务大小猜工作流，也不混用两边的 change、状态和目录。`comet resume-probe` 使用同一配置恢复正确的永久入口。
 - **Skill 平台** — Comet能够编写可复用 Skill 包，并通过 `/comet-any` 把它们整理成可分发 Bundle，你制作的Skill可以像如comet init一样一键分发到所有Coding平台。
