@@ -28,12 +28,6 @@ const EXACT_METADATA: Record<string, FindingMetadata> = {
     retry: 'next',
     repair: 'none',
   },
-  'shape-confirmation-required': {
-    severity: 'error',
-    requiredAction: 'confirm-shared-understanding',
-    retry: 'next',
-    repair: 'none',
-  },
   'transition-incomplete': {
     severity: 'error',
     requiredAction: 'recover-transition',
@@ -219,9 +213,7 @@ function retryCommand(
 ): string | null {
   if (retry === 'next') {
     return `comet native next ${state.name} --summary "<summary>"${
-      code === 'contract-changed-after-approval' || code === 'shape-confirmation-required'
-        ? ' --confirmed'
-        : ''
+      code === 'contract-changed-after-approval' ? ' --confirmed' : ''
     }`;
   }
   if (retry === 'status') return `comet native status ${state.name} --details`;
@@ -253,7 +245,6 @@ export function structureNativeFindings(options: {
         // missing data must never be presented as a user decision.
         requiresUserDecision:
           finding.code === 'brief-blocking-question' ||
-          finding.code === 'shape-confirmation-required' ||
           finding.code === 'contract-changed-after-approval' ||
           finding.code === 'verification-scope-partial' ||
           finding.code === 'repair-iteration-limit' ||

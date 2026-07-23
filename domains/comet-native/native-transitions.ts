@@ -49,7 +49,6 @@ import type {
   NativeAdvanceEvidence,
   NativeAdvanceResult,
   NativeChangeState,
-  NativeClarificationMode,
   NativePhase,
   NativeProjectPaths,
   NativeRepairDecisionProjection,
@@ -60,7 +59,6 @@ interface AdvanceNativeChangeOptions {
   paths: NativeProjectPaths;
   name: string;
   evidence: NativeAdvanceEvidence;
-  clarificationMode: NativeClarificationMode;
   now?: Date;
   runId?: () => string;
   transitionId?: () => string;
@@ -230,7 +228,6 @@ async function retreatStaleNativeEvidence(options: {
       continuation: nativeContinuation({
         state: options.state,
         archiveReady: previousPhase === 'archive',
-        clarificationMode: options.transition.clarificationMode,
       }),
     };
   }
@@ -285,10 +282,7 @@ async function retreatStaleNativeEvidence(options: {
     next: 'auto',
     nextCommand: null,
     findings: [],
-    continuation: nativeContinuation({
-      state: persisted,
-      clarificationMode: options.transition.clarificationMode,
-    }),
+    continuation: nativeContinuation({ state: persisted }),
   };
 }
 
@@ -350,7 +344,6 @@ async function advanceNativeChangeLocked(
           state,
           findings: repairFindings,
           archiveReady: state.phase === 'archive' && state.verification_result === 'pass',
-          clarificationMode: options.clarificationMode,
         }),
         ...(repair ? { repair } : {}),
       };
@@ -393,7 +386,6 @@ async function advanceNativeChangeLocked(
     paths: options.paths,
     state: candidate,
     evidence: options.evidence,
-    clarificationMode: options.clarificationMode,
   });
   if (!guard.valid) {
     const findings = structureNativeFindings({
@@ -407,11 +399,7 @@ async function advanceNativeChangeLocked(
       next: 'manual',
       nextCommand: null,
       findings,
-      continuation: nativeContinuation({
-        state,
-        findings,
-        clarificationMode: options.clarificationMode,
-      }),
+      continuation: nativeContinuation({ state, findings }),
     };
   }
 
@@ -468,11 +456,7 @@ async function advanceNativeChangeLocked(
       next: 'manual',
       nextCommand: null,
       findings,
-      continuation: nativeContinuation({
-        state,
-        findings,
-        clarificationMode: options.clarificationMode,
-      }),
+      continuation: nativeContinuation({ state, findings }),
     };
   }
   const preparedScope = buildEvidence
@@ -506,11 +490,7 @@ async function advanceNativeChangeLocked(
       next: 'manual',
       nextCommand: null,
       findings,
-      continuation: nativeContinuation({
-        state,
-        findings,
-        clarificationMode: options.clarificationMode,
-      }),
+      continuation: nativeContinuation({ state, findings }),
       preparedScope,
     };
   }
@@ -563,11 +543,7 @@ async function advanceNativeChangeLocked(
         next: 'manual',
         nextCommand: null,
         findings,
-        continuation: nativeContinuation({
-          state,
-          findings,
-          clarificationMode: options.clarificationMode,
-        }),
+        continuation: nativeContinuation({ state, findings }),
         preparedScope: preparedScope
           ? { ...preparedScope, partialAllowanceRef: null }
           : preparedScope,
@@ -602,11 +578,7 @@ async function advanceNativeChangeLocked(
       next: 'manual',
       nextCommand: null,
       findings,
-      continuation: nativeContinuation({
-        state,
-        findings,
-        clarificationMode: options.clarificationMode,
-      }),
+      continuation: nativeContinuation({ state, findings }),
     };
   }
 
@@ -784,7 +756,6 @@ async function advanceNativeChangeLocked(
       state: persisted,
       findings: repairFindings,
       archiveReady: persisted.phase === 'archive' && persisted.verification_result === 'pass',
-      clarificationMode: options.clarificationMode,
     }),
     ...(preparedScope ? { preparedScope } : {}),
     ...(repairDecision ? { repair: repairDecision } : {}),

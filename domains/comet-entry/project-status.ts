@@ -205,11 +205,7 @@ export async function inspectCometProjectStatus(startPath: string): Promise<Come
     try {
       await assertNoPendingNativeRootMove(projectRoot);
       const paths = await nativeProjectPaths(projectRoot, config.native.artifact_root);
-      native = {
-        changes: await listNativeStatus(paths, {
-          clarificationMode: config.native.clarification_mode,
-        }),
-      };
+      native = { changes: await listNativeStatus(paths) };
     } catch (error) {
       native = { changes: [], error: error instanceof Error ? error.message : String(error) };
     }

@@ -100,7 +100,6 @@ async function prepareChange(options: {
         options.name,
         '--summary',
         'Requirements and complete target spec are ready',
-        '--confirmed',
         ...rootArgs,
       ])
     ).exitCode,

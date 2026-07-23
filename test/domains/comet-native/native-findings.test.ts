@@ -54,16 +54,12 @@ describe('Native structured findings', () => {
     expect(findings[1].path).toBe('comet/specs');
   });
 
-  it('reserves user-decision pauses for explicit clarification decisions', () => {
+  it('reserves user-decision pauses for brief blocking questions only', () => {
     const findings = structureNativeFindings({
       paths,
       state,
       findings: [
         { code: 'brief-blocking-question', message: 'decision needed', path: 'brief.md' },
-        {
-          code: 'shape-confirmation-required',
-          message: 'shared understanding must be confirmed',
-        },
         { code: 'build-evidence-missing', message: 'model work needed' },
       ],
     });
@@ -71,20 +67,13 @@ describe('Native structured findings', () => {
       requiredAction: 'answer-blocking-question',
       requiresUserDecision: true,
     });
-    expect(
-      findings.find((finding) => finding.code === 'shape-confirmation-required'),
-    ).toMatchObject({
-      requiredAction: 'confirm-shared-understanding',
-      retryCommand: 'comet native next finding-shape --summary "<summary>" --confirmed',
-      requiresUserDecision: true,
-    });
     expect(findings.find((finding) => finding.code === 'build-evidence-missing')).toMatchObject({
       requiredAction: 'record-build-evidence',
       requiresUserDecision: false,
     });
     expect(summarizeNativeFindings(findings)).toMatchObject({
-      total: 3,
-      errors: 3,
+      total: 2,
+      errors: 2,
       requiresUserDecision: true,
       truncated: false,
     });
